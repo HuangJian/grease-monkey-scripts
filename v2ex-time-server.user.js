@@ -13,7 +13,7 @@
     'use strict';
 
     /**
-     * 高亮排序：根据「感谢数」倒序重排评论区
+     * 高亮排序：根据「感谢数」倒序重排评论区。
      */
      function reorderCommentsByHearts() {
         const heartedCells = Array.from(document.querySelectorAll('[alt="❤️"]'))
@@ -23,6 +23,25 @@
             const countsElement = document.querySelector('#Main > .box:nth-child(n+3) > .cell');
             heartedCells.forEach(it => countsElement.insertAdjacentElement('afterend', it));
         }
+    }
+
+    /**
+     * 高亮显示楼主。
+     * 借鉴自 https://greasyfork.org/zh-CN/scripts/397787-v2ex-pro/code
+     */
+    function highlightAuthor() {
+        const authorName = document.querySelector('.header .avatar').getAttribute('alt');
+        document.querySelectorAll(`a[href="/member/${authorName}"].dark`).forEach(el => {
+            el.innerHTML += " <font color=green>[楼主]</font>";
+        });
+    }
+
+    /**
+     * 优化讨论帖页面的布局和交互。
+     */
+    function enhanceThreadPage() {
+        reorderCommentsByHearts();
+        highlightAuthor();
     }
 
     let domParser;
@@ -89,8 +108,8 @@
     comments = pages.map(it => []);
     pages.forEach(it => loadCommentsByPage(it));
 
-    // 高亮排序：如果评论不超过一页，则直接对本页评论进行高亮排序
+    // 如果评论不超过一页，直接调整本页布局交互
     if (!pages.length) {
-        reorderCommentsByHearts();
+        enhanceThreadPage();
     }
 })();
