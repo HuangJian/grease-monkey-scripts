@@ -46,7 +46,7 @@
 
         const countsElement = document.querySelector('#Main > .box:nth-child(n+3) > .cell');
         const heartedComments = comments
-            .filter(it => it.getAttribute(heartsFlagKey))
+            .filter(it => it.getAttribute(heartsFlagKey) !== '0')
             .sort((a, b) => parseInt(a.getAttribute(heartsFlagKey)) - parseInt(b.getAttribute(heartsFlagKey)))
             .forEach(it => countsElement.insertAdjacentElement('afterend', it));
     }
