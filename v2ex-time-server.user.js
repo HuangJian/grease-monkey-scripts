@@ -32,15 +32,23 @@
 
     /**
      * 高亮排序：根据「感谢数」倒序重排评论区。
+     * 如果有楼中楼，合计该讨论中所有楼层的「感谢数」后再排序
      */
-     function reorderCommentsByHearts() {
-        const heartedCells = Array.from(document.querySelectorAll('[alt="❤️"]'))
-            .sort((a, b) => parseInt(a.nextSibling.textContent) - parseInt(b.nextSibling.textContent))
-            .map(it => it.closest('.cell'));
-        if (heartedCells.length) {
-            const countsElement = document.querySelector('#Main > .box:nth-child(n+3) > .cell');
-            heartedCells.forEach(it => countsElement.insertAdjacentElement('afterend', it));
-        }
+    function reorderCommentsByHearts() {
+        const heartsFlagKey = 'data-hearts';
+        const comments = Array.from(document.querySelectorAll('#Main > .box:nth-child(n+3) > .cell[id]'));
+        comments.forEach(comment => {
+            const hearts = Array.from(comment.querySelectorAll('[alt="❤️"]'))
+                .map(it => parseInt(it.nextSibling.textContent))
+                .reduce((prev, curr) => prev + curr, 0);
+            comment.setAttribute(heartsFlagKey, hearts);
+        });
+
+        const countsElement = document.querySelector('#Main > .box:nth-child(n+3) > .cell');
+        const heartedComments = comments
+            .filter(it => it.getAttribute(heartsFlagKey))
+            .sort((a, b) => parseInt(a.getAttribute(heartsFlagKey)) - parseInt(b.getAttribute(heartsFlagKey)))
+            .forEach(it => countsElement.insertAdjacentElement('afterend', it));
     }
 
     /**
@@ -61,8 +69,7 @@
         highlightAuthor();
         embedDiscussions();
         addCollapseExpandButtons();
-        // TODO:楼中楼感谢数合并到主楼进行计数排序
-        // reorderCommentsByHearts();
+        reorderCommentsByHearts();
     }
 
     /**
@@ -156,7 +163,7 @@
                     mentiondedComment = getLastCommentByAuthorBeforeNumber(mentionedPeopleName, currentCommentNumber);
                 }
 
-                const embeddedFlagKey = 'aria-is-embedded';
+                const embeddedFlagKey = 'data-is-embedded';
                 let commentToEmbed = currentComment;
                 // 如果同时mention多个楼层，复制后分别嵌入
                 if (currentComment.getAttribute(embeddedFlagKey) === 'true') {
