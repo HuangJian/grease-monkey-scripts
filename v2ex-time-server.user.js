@@ -218,7 +218,7 @@
      * @param {int} page 页码，从 1 开始
      */
     function loadCommentsByPage(page) {
-        const url = document.URL + '?p=' + page;
+        const url = `${location.origin}${location.pathname}?p=${page}`;
         GM_xmlhttpRequest({
             url: url,
             method: "GET",
