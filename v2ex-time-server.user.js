@@ -152,11 +152,18 @@
                     mentiondedComment = getCommentByNumber(mentionedCommentNumber);
                 }
                 // 评论里的「#12345」可能不正确，或者没有标明楼层，找到所@的人最近的评论
-                if (!!mentiondedComment) {
+                if (!mentiondedComment) {
                     mentiondedComment = getLastCommentByAuthorBeforeNumber(mentionedPeopleName, currentCommentNumber);
                 }
-                // TODO:如果同时mention多个主楼，需clone
-                mentiondedComment.querySelector('table').insertAdjacentElement('afterend', currentComment);
+
+                const embeddedFlagKey = 'aria-is-embedded';
+                let commentToEmbed = currentComment;
+                // 如果同时mention多个楼层，复制后分别嵌入
+                if (currentComment.getAttribute(embeddedFlagKey) === 'true') {
+                    commentToEmbed = currentComment.cloneNode(true);
+                }
+                mentiondedComment.querySelector('table').insertAdjacentElement('afterend', commentToEmbed);
+                currentComment.setAttribute(embeddedFlagKey, 'true');
             });
         });
     }
