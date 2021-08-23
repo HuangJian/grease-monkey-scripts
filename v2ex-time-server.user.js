@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         v2ex time saver
 // @namespace    https://github.com/HuangJian/v2ex-time-saver
-// @version      0.2
+// @version      0.3
 // @description  Save my time when browsing v2ex.com!
 // @author       ustc.hj@gmail.com
 // @match        https://www.v2ex.com/t/*
