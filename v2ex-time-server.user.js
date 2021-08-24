@@ -211,7 +211,7 @@
         commentBox.prepend(fragment);
         commentBox.prepend(countsElement);
 
-        reorderCommentsByHearts();
+        enhanceThreadPage();
     }
 
     /**
