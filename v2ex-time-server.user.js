@@ -163,6 +163,10 @@
                 if (!mentiondedComment) {
                     mentiondedComment = getLastCommentByAuthorBeforeNumber(mentionedPeopleName, currentCommentNumber);
                 }
+                // 找不到所@的人，如 @Livid
+                if (!mentiondedComment) {
+                    return;
+                }
 
                 const embeddedFlagKey = 'data-is-embedded';
                 let commentToEmbed = currentComment;
