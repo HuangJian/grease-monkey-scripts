@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         v2ex time saver
 // @namespace    https://github.com/HuangJian/grease-monkey-scripts
-// @version      0.6
+// @version      0.7
 // @description  Save my time when browsing v2ex.com!
 // @author       ustc.hj@gmail.com
-// @match        https://www.v2ex.com/t/*
+// @match        https://www.v2ex.com/*
 // @icon         https://www.v2ex.com/static/favicon.ico
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
@@ -49,13 +49,13 @@
         const url = `${location.href.split('#')[0]}#${commentNumber}`
         shamedMap.set(id, url)
         GM.setValue(shame_keyword, JSON.stringify(Array.from(shamedMap)))
-        grayShamedComments()
+        grayShamedCommentsAndTopics()
     }
 
     function addShameButtons() {
         const btn = htmlToElement('<a style="margin-left: 12px; color: lightpink" class="thank" href="#;">不说人话</a>')
         btn.onclick = () => addToShamedMap($('.header .avatar').getAttribute('alt'), 0)
-        $('.header > .gray').appendChild(btn)
+        $('.header > .gray')?.appendChild(btn)
 
         $$('.thank_area').forEach(it => {
             const id = it.closest('.cell').querySelector('a.dark[href]').getAttribute('href').split('/')[2]
@@ -66,8 +66,9 @@
         })
     }
 
-    function grayShamedComments() {
-        $$('.cell strong > a.dark[href]').forEach(it => {
+    // 淡化低质量讨论者的评论（讨论页）和主题（列表页）
+    function grayShamedCommentsAndTopics() {
+        $$('.cell strong > a[href]').forEach(it => {
             const id = it.getAttribute('href').split('/')[2]
             if (shamedMap.has(id) && !it.innerText.includes('若婴')) {
                 it.innerHTML += " <font color=red>[若婴]</font>";
@@ -103,7 +104,7 @@
      * 借鉴自 https://greasyfork.org/zh-CN/scripts/397787-v2ex-pro/code
      */
     function highlightAuthor() {
-        const authorName = $('.header .avatar').getAttribute('alt');
+        const authorName = $('.header .avatar')?.getAttribute('alt');
         $$(`a[href="/member/${authorName}"].dark`).forEach(el => {
             el.innerHTML += " <font color=green>[楼主]</font>";
         });
@@ -119,7 +120,7 @@
         addCollapseExpandButtons()
         reorderCommentsByHearts()
         addShameButtons()
-        grayShamedComments()
+        grayShamedCommentsAndTopics()
     }
 
     /**
@@ -285,8 +286,10 @@
     }
 
     // 多页自动加载：如果评论超过一页，则自动下载其它页的内容，并在当前页显示
+    const isReadingTopic = location.href.indexOf('www.v2ex.com/t/') > 0
     const pages = $$('.page_normal')
         .map(it => parseInt(it.innerText))
+        .filter(it => isReadingTopic) // 列表页面不要预加载
         .filter(it => it <= 10) // 最多加载前十页，避免产生性能问题
         .filter((x, i, a) => a.indexOf(x) == i); // unique
     commentsOfPages = pages.map(it => []);
