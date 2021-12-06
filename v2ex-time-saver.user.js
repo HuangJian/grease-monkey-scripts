@@ -8,10 +8,16 @@
 // @icon         https://www.v2ex.com/static/favicon.ico
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
+// @grant        GM.setValue
+// @grant        GM.getValue
 // ==/UserScript==
 
-(function() {
+(async function() {
     'use strict';
+
+    const shame_keyword = 'shame_on_them'
+    const savedList = await GM.getValue(shame_keyword, null)
+    const shamedMap = new Map(JSON.parse(savedList))
 
     const collapseIconSvg = `
         <button class="gm collapse" title="折叠讨论">
@@ -30,13 +36,53 @@
         </button>
     `;
 
+
+    function $(selector) {
+        return document.querySelector(selector)
+    }
+
+    function $$(selector) {
+        return Array.from(document.querySelectorAll(selector))
+    }
+
+    function addToShamedMap(id, commentNumber) {
+        const url = `${location.href.split('#')[0]}#${commentNumber}`
+        shamedMap.set(id, url)
+        GM.setValue(shame_keyword, JSON.stringify(Array.from(shamedMap)))
+        grayShamedComments()
+    }
+
+    function addShameButtons() {
+        const btn = htmlToElement('<a style="margin-left: 12px; color: lightpink" class="thank" href="#;">不说人话</a>')
+        btn.onclick = () => addToShamedMap($('.header .avatar').getAttribute('alt'), 0)
+        $('.header > .gray').appendChild(btn)
+
+        $$('.thank_area').forEach(it => {
+            const id = it.closest('.cell').querySelector('a.dark[href]').getAttribute('href').split('/')[2]
+            const commentNumber = it.parentElement.querySelector('span.no').innerText
+            const cloned = btn.cloneNode(true)
+            cloned.onclick = () => addToShamedMap(id, commentNumber)
+            it.appendChild(cloned)
+        })
+    }
+
+    function grayShamedComments() {
+        $$('.cell strong > a.dark[href]').forEach(it => {
+            const id = it.getAttribute('href').split('/')[2]
+            if (shamedMap.has(id) && !it.innerText.includes('若婴')) {
+                it.innerHTML += " <font color=red>[若婴]</font>";
+                it.closest('td').classList.add('shame')
+            }
+        })
+    }
+
     /**
      * 高亮排序：根据「感谢数」倒序重排评论区。
      * 如果有楼中楼，合计该讨论中所有楼层的「感谢数」后再排序
      */
     function reorderCommentsByHearts() {
         const heartsFlagKey = 'data-hearts';
-        const comments = Array.from(document.querySelectorAll('#Main > .box:nth-child(n+3) > .cell[id]'));
+        const comments = Array.from($$('#Main > .box:nth-child(n+3) > .cell[id]'));
         comments.forEach(comment => {
             const hearts = Array.from(comment.querySelectorAll('[alt="❤️"]'))
                 .map(it => parseInt(it.nextSibling.textContent))
@@ -44,7 +90,7 @@
             comment.setAttribute(heartsFlagKey, hearts);
         });
 
-        const countsElement = document.querySelector('#Main > .box:nth-child(n+3) > .cell');
+        const countsElement = $('#Main > .box:nth-child(n+3) > .cell');
         const heartedComments = comments
             .filter(it => it.getAttribute(heartsFlagKey) !== '0')
             .reverse() // 同样感谢数，保持评论次序
@@ -57,20 +103,23 @@
      * 借鉴自 https://greasyfork.org/zh-CN/scripts/397787-v2ex-pro/code
      */
     function highlightAuthor() {
-        const authorName = document.querySelector('.header .avatar').getAttribute('alt');
-        document.querySelectorAll(`a[href="/member/${authorName}"].dark`).forEach(el => {
+        const authorName = $('.header .avatar').getAttribute('alt');
+        $$(`a[href="/member/${authorName}"].dark`).forEach(el => {
             el.innerHTML += " <font color=green>[楼主]</font>";
         });
     }
+
 
     /**
      * 优化讨论帖页面的布局和交互。
      */
     function enhanceThreadPage() {
-        highlightAuthor();
-        embedDiscussions();
-        addCollapseExpandButtons();
-        reorderCommentsByHearts();
+        highlightAuthor()
+        embedDiscussions()
+        addCollapseExpandButtons()
+        reorderCommentsByHearts()
+        addShameButtons()
+        grayShamedComments()
     }
 
     /**
@@ -79,7 +128,7 @@
      * @returns 评论的 DOM 节点
      */
     function getCommentByNumber(num) {
-        return Array.from(document.querySelectorAll('.no'))
+        return $$('.no')
             .filter(it => it.innerText.includes(num))[0]
             .closest('.cell[id]');
     }
@@ -91,7 +140,7 @@
      * @returns 评论的 DOM 节点
      */
     function getLastCommentByAuthorBeforeNumber(authorName, num) {
-        return Array.from(document.querySelectorAll(`a[href="/member/${authorName}"].dark`))
+        return $$(`a[href="/member/${authorName}"].dark`)
             .map(it => it.closest('.cell[id]'))
             .filter(it => {
                 const commentNumber = parseInt(it.querySelector('.no').innerText);
@@ -124,7 +173,7 @@
      * 给楼中楼添加「折叠/展开」按键。
      */
     function addCollapseExpandButtons() {
-        Array.from(document.querySelectorAll('.cell[id] > table + .cell[id]'))
+        $$('.cell[id] > table + .cell[id]')
             .forEach(embedded => {
                 const discussionCount = embedded.parentElement.querySelectorAll('.cell[id]').length;
                 [collapseIconSvg, expandIconSvg].forEach(iconStr => {
@@ -144,7 +193,7 @@
      */
     function embedDiscussions() {
         const numberParttern = /\#(\d+)/;
-        const mentions = Array.from(document.querySelectorAll('.reply_content a')).reverse();
+        const mentions = $$('.reply_content a').reverse();
         mentions.forEach(mention => {
             const mentionedPeopleName = mention.innerText;
 
@@ -210,7 +259,7 @@
             pageComments.forEach(it => fragment.appendChild(it));
         });
 
-        const commentBox = document.querySelector('#Main > .box:nth-child(n+3)');
+        const commentBox = $('#Main > .box:nth-child(n+3)');
         const countsElement = commentBox.querySelector('.cell');
         commentBox.prepend(fragment);
         commentBox.prepend(countsElement);
@@ -236,7 +285,7 @@
     }
 
     // 多页自动加载：如果评论超过一页，则自动下载其它页的内容，并在当前页显示
-    const pages = Array.from(document.querySelectorAll('.page_normal'))
+    const pages = $$('.page_normal')
         .map(it => parseInt(it.innerText))
         .filter(it => it <= 10) // 最多加载前十页，避免产生性能问题
         .filter((x, i, a) => a.indexOf(x) == i); // unique
@@ -282,6 +331,10 @@
         }
         .cell.discussions-collapsed > .cell {
             display: none;
+        }
+
+        .shame {
+            opacity: .5;
         }
     ` );
 })();
