@@ -45,7 +45,7 @@
     function work() {
         clickButtons(['gatherButton', 'trapsButton'].map(it => `#${it}:not(.disabled)`))
 
-        ;['build_hut', 'build_trap']
+        ;['build_cart', 'build_trap', 'build_hut']
             .map(it => $(`#${it}:not(.disabled)`))
             .filter(it => !!it)
             .forEach(btn => {
@@ -84,8 +84,6 @@
     }
 
     function handleHomeTownEvent(desc) {
-        if (isOutside()) return
-
         const actions = [
             'track', // 咆哮的野兽倒下了.
             'investigate', // 战斗短暂而血腥，但兽群溃退了 | 嘈杂声透墙传来
@@ -100,10 +98,13 @@
             ['agree', ['他面带和煦的微笑，请求留宿一晚']], // 宗师授艺
             ['nothing', ['他面带和煦的微笑，请求留宿一晚']], // todo: 学完了怎么办？
             ['heal', ['可怕的瘟疫迅速地村子里传播开来']],
+            ['backinside', ['黑夜重归静谧', '模糊的身影掠过，消失在视野外']],
             ['bye', ['男子感激涕零', '男子表达了他的谢意']],
             ['end', ['村外不远处躺着一只巨兽，它的皮毛上染满了鲜血', '一群咆哮的野兽冲出丛林', '数分钟后足印消失了', '瘟疫得到了控制',
                      '装备精良的人冲出树林，向人群射击']],
             ['leave', ['流浪者带着满载木头的货车离开了', '流浪者带着满载毛皮的货车离开了', '有些木头不见了', '乞丐感激涕零']],
+            ['deny', ['一名流浪者推着货车']],
+            ['ignore', ['a strange thrumming']],
         ].forEach(arr => {
             if (arr[1].some(it => desc.includes(it))) {
                 notify(desc)
