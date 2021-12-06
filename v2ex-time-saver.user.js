@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         v2ex time saver
-// @namespace    https://github.com/HuangJian/v2ex-time-saver
+// @namespace    https://github.com/HuangJian/grease-monkey-scripts
 // @version      0.6
 // @description  Save my time when browsing v2ex.com!
 // @author       ustc.hj@gmail.com
