@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         v2ex time saver
 // @namespace    https://github.com/HuangJian/grease-monkey-scripts
-// @version      0.8
+// @version      0.9
 // @description  Save my time when browsing v2ex.com!
 // @author       ustc.hj@gmail.com
 // @match        https://www.v2ex.com/*
@@ -16,8 +16,11 @@
     'use strict';
 
     const shame_keyword = 'shame_on_them'
-    const savedList = await GM.getValue(shame_keyword, null)
-    const shamedMap = new Map(JSON.parse(savedList))
+    const thank_keyword = 'thanks_to_them'
+
+    const [shamedMap, thankedMap] = 
+        (await Promise.all([shame_keyword, thank_keyword].map(async it => await GM.getValue(it, null))))
+        .map(it => new Map(JSON.parse(it)))
 
     const collapseIconSvg = `
         <button class="gm collapse" title="折叠讨论">
@@ -45,37 +48,57 @@
         return Array.from(document.querySelectorAll(selector))
     }
 
-    function addToShamedMap(id, commentNumber) {
-        const url = `${location.href.split('#')[0]}#${commentNumber}`
-        shamedMap.set(id, url)
-        GM.setValue(shame_keyword, JSON.stringify(Array.from(shamedMap)))
-        grayShamedCommentsAndTopics()
+    function likeDislikeAuthor(id, commentNumber, isLike) {
+        const url = `${location.origin}${location.pathname}#${commentNumber}`
+        const map = isLike ? thankedMap : shamedMap
+        const keyword = isLike ? thank_keyword : shame_keyword
+        map.set(id, url)
+        GM.setValue(keyword, JSON.stringify(Array.from(map)))
+        highlightCommentsAndTopics()
     }
 
     function addShameButtons() {
         const btn = htmlToElement('<a style="margin-left: 12px; color: lightpink" class="thank" href="#;">不说人话</a>')
-        btn.onclick = () => addToShamedMap($('.header .avatar').getAttribute('alt'), 0)
-        $('.header > .gray')?.appendChild(btn)
+        btn.onclick = () => likeDislikeAuthor($('.header .avatar').getAttribute('alt'), 0, false)
+        $('.topic_buttons')?.appendChild(btn)
 
         $$('.thank_area').forEach(it => {
             const id = it.closest('.cell').querySelector('a.dark[href]').getAttribute('href').split('/')[2]
             const commentNumber = it.parentElement.querySelector('span.no').innerText
             const cloned = btn.cloneNode(true)
-            cloned.onclick = () => addToShamedMap(id, commentNumber)
+            cloned.onclick = () => likeDislikeAuthor(id, commentNumber, false)
             it.appendChild(cloned)
         })
     }
 
-    // 淡化低质量讨论者的评论（讨论页）和主题（列表页）
-    function grayShamedCommentsAndTopics() {
+    function addMoreThankActions() {
+        $('#topic_thank').onmousedown = () => likeDislikeAuthor( $('.header .avatar').getAttribute('alt'), 0, true)
+
+        $$('.thank_area > a.thank')
+            .filter(it => it.innerHTML.includes('感谢回复者'))
+            .forEach(it => {
+                const id = it.closest('.cell').querySelector('a.dark[href]').getAttribute('href').split('/')[2]
+                const commentNumber = it.closest('td').querySelector('span.no').innerText
+                it.onmousedown = () => likeDislikeAuthor(id, commentNumber, true)
+            })
+    }
+
+    // 高亮被感谢者的评论（讨论页）和主题（列表页），淡化低质量讨论者的评论（讨论页）和主题（列表页）。
+    function highlightCommentsAndTopics() {
         $$('.cell strong > a[href]').forEach(it => {
             const id = it.getAttribute('href').split('/')[2]
             if (shamedMap.has(id) && !it.innerText.includes('若婴')) {
                 it.innerHTML += " <font color=red>[若婴]</font>";
                 it.closest('td').classList.add('shame')
             }
+            if (thankedMap.has(id) && !it.innerText.includes('智者')) {
+                it.innerHTML += " <font color=darkgreen>[智者]</font>";
+                it.closest('tr').classList.add('nice-author')
+            }
         })
     }
+
+
 
     /**
      * 高亮排序：根据「感谢数」倒序重排评论区。
@@ -114,7 +137,8 @@
         addCollapseExpandButtons()
         reorderCommentsByHearts()
         addShameButtons()
-        grayShamedCommentsAndTopics()
+        addMoreThankActions()
+        highlightCommentsAndTopics()
         addTargetToTopicLinks()
     }
 
@@ -333,6 +357,9 @@
 
         .shame {
             opacity: .5;
+        }
+        .nice-author {
+            background: lightcyan;
         }
     ` );
 })();
