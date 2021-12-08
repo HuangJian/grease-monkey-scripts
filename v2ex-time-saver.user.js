@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         v2ex time saver
 // @namespace    https://github.com/HuangJian/grease-monkey-scripts
-// @version      0.7
+// @version      0.8
 // @description  Save my time when browsing v2ex.com!
 // @author       ustc.hj@gmail.com
 // @match        https://www.v2ex.com/*
@@ -110,6 +110,12 @@
         });
     }
 
+    /**
+     * 修改主题列表的链接，使其被点击时在新tab打开，以避免反复刷节点主题列表过多导致本日访问受限。
+     */
+    function addTargetToTopicLinks() {
+        $$('.topic-link, .item_hot_topic_title > a').forEach(it => it.setAttribute('target', '_blank'))
+    }
 
     /**
      * 优化讨论帖页面的布局和交互。
@@ -121,6 +127,7 @@
         reorderCommentsByHearts()
         addShameButtons()
         grayShamedCommentsAndTopics()
+        addTargetToTopicLinks()
     }
 
     /**
