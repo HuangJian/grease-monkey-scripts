@@ -100,17 +100,6 @@
     }
 
     /**
-     * 高亮显示楼主。
-     * 借鉴自 https://greasyfork.org/zh-CN/scripts/397787-v2ex-pro/code
-     */
-    function highlightAuthor() {
-        const authorName = $('.header .avatar')?.getAttribute('alt');
-        $$(`a[href="/member/${authorName}"].dark`).forEach(el => {
-            el.innerHTML += " <font color=green>[楼主]</font>";
-        });
-    }
-
-    /**
      * 修改主题列表的链接，使其被点击时在新tab打开，以避免反复刷节点主题列表过多导致本日访问受限。
      */
     function addTargetToTopicLinks() {
@@ -121,7 +110,6 @@
      * 优化讨论帖页面的布局和交互。
      */
     function enhanceThreadPage() {
-        highlightAuthor()
         embedDiscussions()
         addCollapseExpandButtons()
         reorderCommentsByHearts()
