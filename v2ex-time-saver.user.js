@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         v2ex time saver
 // @namespace    https://github.com/HuangJian/grease-monkey-scripts
-// @version      0.9
+// @version      0.10
 // @description  Save my time when browsing v2ex.com!
 // @author       ustc.hj@gmail.com
 // @match        https://www.v2ex.com/*
@@ -72,7 +72,10 @@
     }
 
     function addMoreThankActions() {
-        $('#topic_thank').onmousedown = () => likeDislikeAuthor( $('.header .avatar').getAttribute('alt'), 0, true)
+        const topic = $('#topic_thank')
+        if (topic) {
+            topic.onmousedown = () => likeDislikeAuthor( $('.header .avatar').getAttribute('alt'), 0, true)
+        }
 
         $$('.thank_area > a.thank')
             .filter(it => it.innerHTML.includes('感谢回复者'))
