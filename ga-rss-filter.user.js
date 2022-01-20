@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ga-RSS filter
 // @namespace    https://github.com/HuangJian/grease-monkey-scripts
-// @version      0.1
+// @version      0.2
 // @description  Filter the valueless links on https://zhaoolee.com/garss/#/.
 // @author       ustc.hj@gmail.com
 // @match        https://zhaoolee.com/garss/*
@@ -33,6 +33,10 @@
                 a.classList.add('gm-valueless')
             } else if (niceSites.some(it => href.includes(it))) {
                 a.classList.add('gm-nice')
+            }
+
+            if (href.includes('m.cnbeta.com/view')) {
+                a.setAttribute('href', href.replace('m.cnbeta.com/view/', 'www.cnbeta.com/articles/tech/'))
             }
         })
     }
