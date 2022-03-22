@@ -6,6 +6,7 @@
 // @author       ustc.hj@gmail.com
 // @match        https://www.lizhi.fm/user/*
 // @icon         https://www.lizhi.fm/assets/images/7e999851b414e3618f538e52561987a9-favicon.ico
+// @require      https://cdn.tailwindcss.com/3.0.12
 // @grant        GM_addStyle
 // @grant        GM.setValue
 // @grant        GM.getValue
@@ -115,6 +116,11 @@
   </svg>
   `
 
+  const pagerItemClassList = `h-10 px-5 
+    text-indigo-600 bg-white
+    transition-colors duration-150
+    border border-r-0 border-indigo-600 focus:shadow-outline`
+
   function $(selector) {
     return document.querySelector(selector)
   }
@@ -137,8 +143,9 @@
   // TODO:
   // 1. [done] embed the player into the resource page
   // 2. [done] crawl the resource of an author to a local database (indexdb?)
-  // 3. add a ui to search audios from the local database
-  // 4. select audios from the search results and add them to the playlist.
+  // 3. [done] add a ui to search audios from the local database
+  // 4. [done] select audios from the search results 
+  // 5. add them to the playlist.
 
   function embedPlayer() {
     const iframe = `
@@ -204,7 +211,6 @@
   async function toggleCrawling() {
     const isCrawling = await GM.getValue(SCRAWLING_KEYWORD)
     GM.setValue(SCRAWLING_KEYWORD, !isCrawling)
-    console.log('toggle crawling = ', !isCrawling)
     $('#btnToggleCrawling svg > g').classList.toggle('stop-animation')
 
     openNextPageIfCrawling()
@@ -216,19 +222,164 @@
 
     const nextPageLink = $('a.next')?.getAttribute('href')
     if (!nextPageLink) {
-      console.log("next page link not found, is the crawling is done?")
+      console.log("next page link not found, is the crawling done?")
       toggleCrawling()
       return
     }
-    
+
     const timeout = 3000 + Math.floor(Math.random() * 7000)
     console.log(`crawling next page in ${timeout} ms`)
     setTimeout( () => window.location.href = $('a.next').getAttribute('href'), timeout)
   }
 
+  function doSearch() {
+    const keyword = $('#search-keyword')?.value
+    if (!keyword) return
+
+    const request = window.indexedDB.open('database', 1)
+
+    let results = []
+    request.onsuccess = () => {
+      const db = request.result
+      const transaction = db.transaction(['audios'], 'readonly')
+      const audioStore = transaction.objectStore('audios')
+      
+      const index = audioStore.index('title')
+      index.openKeyCursor().onsuccess = event => {
+        const cursor = event.target.result
+        if (cursor) {
+          if (cursor.key.includes(keyword)) {
+            results.push(cursor.primaryKey)
+          }
+          cursor.continue()
+        } else if (results.length > 0) {
+          showMatchedResults(audioStore, results)
+        }
+      }
+    }
+  }
+
+  async function showMatchedResults(audioStore, matchedKeys) {
+    Promise.all(matchedKeys.map(key => new Promise((resolve, reject) => {
+      const req = audioStore.get(key)
+      req.onsuccess = ({ target: { result } }) => resolve(result)
+      req.onerror = ({ target: { error } }) => reject(error)
+    }))).then(audioList => showSearchResults(audioList))
+  }
+
+  function showSearchResults(results) {
+    const html = results.map(it => {
+      return `
+        <li class="matched-item">
+          <div class="p-4 border-t border-l border-r rounded-t-lg">
+            <label class="text-gray-700">
+              <input type="checkbox" value=""/>
+              <span class="ml-1">${it.title}</span>
+              <span class="ml-1">${it.duration}s</span>
+              <span class="ml-1">${it.radioName}</span>
+            </label>
+          </div>
+        </li>
+      `
+    }).join('')
+    $('#results').innerHTML = html
+
+    $('#actions').classList.remove('hidden')
+
+    let pagers = Array.from({length: Math.ceil(results.length / 10)})
+      .map((_, idx) =>
+        `<li><button class="${pagerItemClassList} pager">${idx + 1}</button></li>`)
+      .join('')
+    pagers = `
+      <li><button class="${pagerItemClassList} rounded-l-lg" id="btnPrev">Prev</button></li>
+      ${pagers}
+      <li><button class="${pagerItemClassList} rounded-r-lg" id="btnNext">Next</button></li>
+    `
+    $('#navigation').innerHTML = pagers
+
+    $$('.pager').forEach((it, idx) => it.onclick = () => switchToPage(idx))
+    $('#btnPrev').onclick = () => movePage(-1)
+    $('#btnNext').onclick = () => movePage(1)
+    switchToPage(0)
+  }
+
+  function movePage(distance) {
+    const currentPage = parseInt($('.pager.text-white').innerHTML) - 1
+    const page = Math.max(0, Math.min(currentPage + distance, $$('.pager').length - 1))
+    switchToPage(page)
+  }
+
+  function switchToPage(page) {
+    const from = page * 10
+    const to = from + 10
+
+    const items = $$('.matched-item')
+    items.forEach(it => it.classList.add('hidden'))
+    items
+      .filter((_, idx) => idx >= from && idx < to)
+      .forEach(it => it.classList.remove('hidden'))
+
+    const pagers = $$('.pager')
+    pagers.forEach(it => {
+      it.classList.add('text-indigo-600', 'bg-white')
+      it.classList.remove('text-white', 'bg-indigo-600')
+    })
+
+    const currentPager = $(`#navigation > li:nth-child(${page + 2}) .pager`)
+    currentPager.classList.add('text-white', 'bg-indigo-600')
+    currentPager.classList.remove('text-indigo-600', 'bg-white')
+  }
+
+  function addSearchBox() {
+    const searchSection = htmlToElement(`
+      <section class="fixed w-96 top-1 left-1 z-50 bg-slate-100">
+        <div class="w-full px-2 relative">
+          <input class="w-full h-10 pl-3 pr-8 text-base placeholder-gray-600 
+                        border rounded-lg focus:shadow-outline" 
+                type="text" 
+                id="search-keyword"
+                value="爸爸"
+                placeholder="search keyword"/>
+          <button class="absolute inset-y-0 right-0 flex items-center px-4 font-bold 
+                         text-white bg-indigo-600 rounded-r-lg hover:bg-indigo-500 
+                         focus:bg-indigo-700"
+                  id="btnSearch">Search</button>
+        </div>
+        <div class="w-full hidden" id="actions">
+          <button class="h-10 px-5 m-2 text-blue-100 transition-colors 
+                        duration-150 bg-blue-600 rounded-lg 
+                        focus:shadow-outline hover:bg-blue-700"
+                  id="btnCheckAll">Check/Uncheck this page</button>
+          <button class="h-10 px-5 m-2 text-green-100 transition-colors 
+                        duration-150 bg-green-700 rounded-lg 
+                        focus:shadow-outline hover:bg-green-800"
+                  id="btnAddToPlayList">Add to playlist</button>
+        
+        </div>
+        <nav aria-label="Page navigation">
+          <ul class="inline-flex" id="navigation"></ul>
+        </nav>
+        <ul class="w-full" id="results"></ul>
+      </section>
+    `)
+    document.body.prepend(searchSection)
+
+    $('#btnSearch').onclick = doSearch
+
+    $('#btnCheckAll').onclick = 
+      () =>  $$('.matched-item:not(.hidden) input').forEach(it => it.checked = !it.checked)
+    
+    $('#btnAddToPlayList').onclick = () => {
+      $$('.matched-item:not(.hidden) input')
+        .filter(it => it.checked)  
+        .forEach(it => console.log(it.parentElement.innerText))
+    }
+  }
+
   // embedPlayer()
   indexCurrentPageData()
   addCrawlerButton()
+  addSearchBox()
 
   openNextPageIfCrawling()
 })();
