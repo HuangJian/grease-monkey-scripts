@@ -5,6 +5,7 @@
 // @description  Nice lizhi.fm web ui, with player, indexing and searching.
 // @author       ustc.hj@gmail.com
 // @match        https://www.lizhi.fm/user/*
+// @match        https://www.lizhi.fm/box
 // @icon         https://www.lizhi.fm/assets/images/7e999851b414e3618f538e52561987a9-favicon.ico
 // @require      https://cdn.tailwindcss.com/3.0.12
 // @grant        GM_addStyle
@@ -15,8 +16,9 @@
 (async function() {
   'use strict';
   const crawlerSvg = `
-    <svg xml:space="preserve" viewBox="0 0 100 100" y="0" x="0" xmlns="http://www.w3.org/2000/svg" id="Layer_1"
-    version="1.1" style="height: 100%; width: 100%; background: rgb(255, 255, 255);" width="200px" height="200px">
+    <svg xml:space="preserve" viewBox="0 0 100 100" y="0" x="0" 
+         xmlns="http://www.w3.org/2000/svg" id="Layer_1"
+         version="1.1" style="height: 100%; width: 100%; background: rgb(255, 255, 255);" width="200px" height="200px">
     <g class="ldl-scale stop-animation" style="transform-origin: 50% 50%; transform: rotate(0deg) scale(0.8, 0.8);">
         <g class="ldl-ani">
             <g class="ldl-layer">
@@ -147,15 +149,6 @@
   // 4. [done] select audios from the search results 
   // 5. add them to the playlist.
 
-  function embedPlayer() {
-    const iframe = `
-      <iframe src="https://www.lizhi.fm/box"
-        style="position: fixed; width: 600px; height: 400px; top: 8px; right: 8px; z-index: 999;"
-        scrolling="no"></iframe>
-    `
-    document.body.prepend(htmlToElement(iframe))
-  }
-
   function indexCurrentPageData() {
     const audios = $$('.js-audio-list li a.js-play-data').map(it => {
       return {
@@ -194,8 +187,7 @@
 
   async function addCrawlerButton() {
     const buttton = htmlToElement(`
-      <button id="btnToggleCrawling"
-              style="position: fixed; top: 60px; left: 50%; z-index: 999; width: 80px">
+      <button id="btnToggleCrawling" class="fixed left-[6rem] top-[890px] w-[80px] z-50">
         ${crawlerSvg}
       </button>
     `)
@@ -267,16 +259,19 @@
     }))).then(audioList => showSearchResults(audioList))
   }
 
+  let matchedAudios = []
   function showSearchResults(results) {
+    matchedAudios = results
+
     const html = results.map(it => {
       return `
         <li class="matched-item">
           <div class="p-4 border-t border-l border-r rounded-t-lg">
-            <label class="text-gray-700">
+            <label class="text-gray-700 flex">
               <input type="checkbox" value=""/>
-              <span class="ml-1">${it.title}</span>
+              <span class="ml-1 grow">${it.title}</span>
               <span class="ml-1">${it.duration}s</span>
-              <span class="ml-1">${it.radioName}</span>
+              <span class="ml-1 w-48 text-right">${it.radioName}</span>
             </label>
           </div>
         </li>
@@ -332,34 +327,38 @@
 
   function addSearchBox() {
     const searchSection = htmlToElement(`
-      <section class="fixed w-96 top-1 left-1 z-50 bg-slate-100">
-        <div class="w-full px-2 relative">
-          <input class="w-full h-10 pl-3 pr-8 text-base placeholder-gray-600 
-                        border rounded-lg focus:shadow-outline" 
-                type="text" 
-                id="search-keyword"
-                value="爸爸"
-                placeholder="search keyword"/>
-          <button class="absolute inset-y-0 right-0 flex items-center px-4 font-bold 
-                         text-white bg-indigo-600 rounded-r-lg hover:bg-indigo-500 
-                         focus:bg-indigo-700"
-                  id="btnSearch">Search</button>
+      <section class="w-full h-[720px] z-50 bg-slate-100 flex">
+        <iframe src="https://www.lizhi.fm/box" class="w-[700px]" scrolling="no">
+        </iframe>
+        <div class="grow p-4">
+          <div class="relative">
+            <input class="w-full h-10 pl-3 pr-8 text-base placeholder-gray-600 
+                          border rounded-lg focus:shadow-outline" 
+                  type="text" 
+                  id="search-keyword"
+                  value="爸爸"
+                  placeholder="search keyword"/>
+            <button class="absolute inset-y-0 right-0 flex items-center px-4 font-bold 
+                          text-white bg-indigo-600 rounded-r-lg hover:bg-indigo-500 
+                          focus:bg-indigo-700"
+                    id="btnSearch">Search</button>
+          </div>
+          <div class="w-full hidden" id="actions">
+            <button class="h-10 px-5 m-2 text-blue-100 transition-colors 
+                          duration-150 bg-blue-600 rounded-lg 
+                          focus:shadow-outline hover:bg-blue-700"
+                    id="btnCheckAll">Check/Uncheck this page</button>
+            <button class="h-10 px-5 m-2 text-green-100 transition-colors 
+                          duration-150 bg-green-700 rounded-lg 
+                          focus:shadow-outline hover:bg-green-800"
+                    id="btnAddToPlayList">Add to playlist</button>
+          
+          </div>
+          <nav aria-label="Page navigation">
+            <ul class="inline-flex" id="navigation"></ul>
+          </nav>
+          <ul class="w-full" id="results"></ul>
         </div>
-        <div class="w-full hidden" id="actions">
-          <button class="h-10 px-5 m-2 text-blue-100 transition-colors 
-                        duration-150 bg-blue-600 rounded-lg 
-                        focus:shadow-outline hover:bg-blue-700"
-                  id="btnCheckAll">Check/Uncheck this page</button>
-          <button class="h-10 px-5 m-2 text-green-100 transition-colors 
-                        duration-150 bg-green-700 rounded-lg 
-                        focus:shadow-outline hover:bg-green-800"
-                  id="btnAddToPlayList">Add to playlist</button>
-        
-        </div>
-        <nav aria-label="Page navigation">
-          <ul class="inline-flex" id="navigation"></ul>
-        </nav>
-        <ul class="w-full" id="results"></ul>
       </section>
     `)
     document.body.prepend(searchSection)
@@ -367,7 +366,7 @@
     $('#btnSearch').onclick = doSearch
 
     $('#btnCheckAll').onclick = 
-      () =>  $$('.matched-item:not(.hidden) input').forEach(it => it.checked = !it.checked)
+      () => $$('.matched-item:not(.hidden) input').forEach(it => it.checked = !it.checked)
     
     $('#btnAddToPlayList').onclick = () => {
       $$('.matched-item:not(.hidden) input')
@@ -376,10 +375,38 @@
     }
   }
 
-  // embedPlayer()
-  indexCurrentPageData()
-  addCrawlerButton()
-  addSearchBox()
-
-  openNextPageIfCrawling()
+  if (location.href.includes('/user/')) {
+    indexCurrentPageData()
+    addCrawlerButton()
+    addSearchBox()
+    openNextPageIfCrawling()
+  } else if (location.href.includes('/box')) {
+    GM_addStyle ( `
+      .box-side-box-wrap, .header, #imBtn,
+      .box-audio-detail-wrap {
+        display: none;
+      }
+      .box-main, .controller-box {
+        left: 0!important;
+        bottom: 0!important;
+      }
+      .playlist-item .playlist-item-header-btn {
+        line-height: 30px;
+      }
+      .controller-box .controller-box-ctrl {
+        padding-left: 8px;
+      }
+      .controller-box .controller-box-volume {
+        float: none;
+        margin-top: 20px;
+        display: inline-block;
+        top: 40px;
+        margin-left: 40px;
+      }
+      .controller-box .controller-box-position {
+        margin-left: 300px!important;
+        padding-top: 20px!important;
+      }
+    `)
+  }
 })();
