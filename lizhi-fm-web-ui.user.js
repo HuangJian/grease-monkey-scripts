@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         lizhi-fm-web-ui
 // @namespace    https://github.com/HuangJian/grease-monkey-scripts
-// @version      0.01
+// @version      0.1
 // @description  Nice lizhi.fm web ui, with player, indexing and searching.
 // @author       ustc.hj@gmail.com
 // @match        https://www.lizhi.fm/user/*
@@ -118,6 +118,14 @@
   </svg>
   `
 
+  const addSvg = `
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" 
+         viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" 
+            d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  `
+
   const pagerItemClassList = `h-10 px-5 
     text-indigo-600 bg-white
     transition-colors duration-150
@@ -141,13 +149,6 @@
     template.innerHTML =  html.trim() // Never return a text node of whitespace as the result
     return template.content.firstChild
   }
-
-  // TODO:
-  // 1. [done] embed the player into the resource page
-  // 2. [done] crawl the resource of an author to a local database (indexdb?)
-  // 3. [done] add a ui to search audios from the local database
-  // 4. [done] select audios from the search results 
-  // 5. add them to the playlist.
 
   function indexCurrentPageData() {
     const audios = $$('.js-audio-list li a.js-play-data').map(it => {
@@ -245,41 +246,40 @@
           }
           cursor.continue()
         } else if (results.length > 0) {
-          showMatchedResults(audioStore, results)
+          fetchMatchedResults(audioStore, results)
         }
       }
     }
   }
 
-  async function showMatchedResults(audioStore, matchedKeys) {
+  async function fetchMatchedResults(audioStore, matchedKeys) {
     Promise.all(matchedKeys.map(key => new Promise((resolve, reject) => {
       const req = audioStore.get(key)
       req.onsuccess = ({ target: { result } }) => resolve(result)
       req.onerror = ({ target: { error } }) => reject(error)
-    }))).then(audioList => showSearchResults(audioList))
+    }))).then(audioList => displaySearchResults(audioList))
   }
 
   let matchedAudios = []
-  function showSearchResults(results) {
+  function displaySearchResults(results) {
     matchedAudios = results
 
-    const html = results.map(it => {
+    const html = results.map((it, idx) => {
       return `
         <li class="matched-item">
-          <div class="p-4 border-t border-l border-r rounded-t-lg">
-            <label class="text-gray-700 flex">
-              <input type="checkbox" value=""/>
+          <div class="p-4 border-t border-l border-r rounded-t-lg text-gray-700 flex">
+              <button type="button" data-index="${idx}">${addSvg}</button>
               <span class="ml-1 grow">${it.title}</span>
-              <span class="ml-1">${it.duration}s</span>
+              <span class="ml-1">${Math.floor(it.duration / 60)}'${it.duration % 60}"</span>
               <span class="ml-1 w-48 text-right">${it.radioName}</span>
-            </label>
           </div>
         </li>
       `
     }).join('')
     $('#results').innerHTML = html
 
-    $('#actions').classList.remove('hidden')
+    $$('.matched-item button').forEach(btn => 
+      btn.onclick = () => addAudioToList(parseInt(btn.getAttribute('data-index'))))
 
     let pagers = Array.from({length: Math.ceil(results.length / 10)})
       .map((_, idx) =>
@@ -325,9 +325,9 @@
     currentPager.classList.remove('text-indigo-600', 'bg-white')
   }
 
-  function addSearchBox() {
-    const searchSection = htmlToElement(`
-      <section class="w-full h-[720px] z-50 bg-slate-100 flex">
+  function addPlayerAndSearchBox() {
+    const sectionToAdd = htmlToElement(`
+      <section class="w-full h-[660px] z-50 bg-slate-100 flex">
         <iframe src="https://www.lizhi.fm/box" class="w-[700px]" scrolling="no">
         </iframe>
         <div class="grow p-4">
@@ -336,23 +336,11 @@
                           border rounded-lg focus:shadow-outline" 
                   type="text" 
                   id="search-keyword"
-                  value="爸爸"
                   placeholder="search keyword"/>
             <button class="absolute inset-y-0 right-0 flex items-center px-4 font-bold 
                           text-white bg-indigo-600 rounded-r-lg hover:bg-indigo-500 
                           focus:bg-indigo-700"
                     id="btnSearch">Search</button>
-          </div>
-          <div class="w-full hidden" id="actions">
-            <button class="h-10 px-5 m-2 text-blue-100 transition-colors 
-                          duration-150 bg-blue-600 rounded-lg 
-                          focus:shadow-outline hover:bg-blue-700"
-                    id="btnCheckAll">Check/Uncheck this page</button>
-            <button class="h-10 px-5 m-2 text-green-100 transition-colors 
-                          duration-150 bg-green-700 rounded-lg 
-                          focus:shadow-outline hover:bg-green-800"
-                    id="btnAddToPlayList">Add to playlist</button>
-          
           </div>
           <nav aria-label="Page navigation">
             <ul class="inline-flex" id="navigation"></ul>
@@ -361,24 +349,26 @@
         </div>
       </section>
     `)
-    document.body.prepend(searchSection)
-
+    document.body.prepend(sectionToAdd)
     $('#btnSearch').onclick = doSearch
-
-    $('#btnCheckAll').onclick = 
-      () => $$('.matched-item:not(.hidden) input').forEach(it => it.checked = !it.checked)
-    
-    $('#btnAddToPlayList').onclick = () => {
-      $$('.matched-item:not(.hidden) input')
-        .filter(it => it.checked)  
-        .forEach(it => console.log(it.parentElement.innerText))
+    $('#search-keyword').onkeyup = (evt) => {
+      if (evt.key === 'Enter') {
+        doSearch()
+      }
     }
+  }
+
+  function addAudioToList(audioIndex) {
+    // trigger the player to load it
+    setCookie('page-type', 'later')
+    setCookie('page', JSON.stringify(matchedAudios[audioIndex]))
+    setCookie('page-ts', (new Date()).getTime())
   }
 
   if (location.href.includes('/user/')) {
     indexCurrentPageData()
     addCrawlerButton()
-    addSearchBox()
+    addPlayerAndSearchBox()
     openNextPageIfCrawling()
   } else if (location.href.includes('/box')) {
     GM_addStyle ( `
