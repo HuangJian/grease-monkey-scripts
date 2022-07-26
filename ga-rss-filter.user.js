@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ga-RSS filter
 // @namespace    https://github.com/HuangJian/grease-monkey-scripts
-// @version      0.2
+// @version      0.3
 // @description  Filter the valueless links on https://zhaoolee.com/garss/#/.
 // @author       ustc.hj@gmail.com
 // @match        https://zhaoolee.com/garss/*
@@ -9,36 +9,48 @@
 // ==/UserScript==
 
 (async function() {
-    'use strict';
+    'use strict'
 
-    const valuelessSites = [
-        '36kr.com', // no details
-        'solidot.org', // no details
-        'huxiu.com', // video only
-        'chanpin100.com', // 挖坟
-    ];
+    const valuelessSites = Object.entries({
+        '36kr.com': '36kr', // no details
+        'solidot.org': 'solidot', // no details
+        'huxiu.com': 'huxiu', // video only
+        'chanpin100.com': 'chanpin100', // 挖坟
+    })
 
-    const niceSites = [
-        'geekpark.net', 
-        'ifanr.com',
-        '199it.com', 
-        'dgtle.com',
-        'sspai.com',
-    ];
+    const niceSites = Object.entries({
+        'geekpark.net': 'geekpark',
+        'ifanr.com': 'ifanr',
+        '199it.com': '199it',
+        'dgtle.com': 'dgtle',
+        'sspai.com': 'sspai',
+        'mittrchina.com': 'MIT 科技评论',
+    })
 
     function filterLinks() {
         document.querySelectorAll('div > a').forEach(a => {
             const href = a.getAttribute('href') || ''
-            if (valuelessSites.some(it => href.includes(it))) {
-                a.classList.add('gm-valueless')
-            } else if (niceSites.some(it => href.includes(it))) {
-                a.classList.add('gm-nice')
-            }
+
+            handleLink(valuelessSites, 'gm-valueless', a, href) ||
+                handleLink(niceSites, 'gm-nice', a, href)
 
             if (href.includes('m.cnbeta.com/view')) {
-                a.setAttribute('href', href.replace('m.cnbeta.com/view/', 'www.cnbeta.com/articles/tech/'))
+                a.setAttribute('href',
+                    href.replace('m.cnbeta.com/view/', 'www.cnbeta.com/articles/tech/'))
             }
         })
+    }
+
+    function handleLink(conditions, classToAdd, alink, href) {
+        for (const [key, value] of conditions) {
+            if (href.includes(key)) {
+                alink.classList.add(classToAdd)
+                // 🌈 ‣ 储能，下一条可以躺赢的万亿级赛道 | 第46篇
+                alink.innerHTML = alink.innerHTML.replace('‣', `【${value}】`)
+                return true
+            }
+        }
+        return false
     }
 
     setTimeout(() => {
@@ -52,10 +64,10 @@
 
     GM_addStyle ( `
         .gm-valueless {
-            text-decoration: line-through!important;
+            opacity: 0.3
         }
         .gm-nice {
-            color: orangered!important;
+            color: orangered!important
         }
     `)
-})();
+})()
