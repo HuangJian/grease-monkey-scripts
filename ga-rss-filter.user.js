@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ga-RSS filter
 // @namespace    https://github.com/HuangJian/grease-monkey-scripts
-// @version      0.3
+// @version      0.4
 // @description  Filter the valueless links on https://zhaoolee.com/garss/#/.
 // @author       ustc.hj@gmail.com
 // @match        https://zhaoolee.com/garss/*
@@ -25,6 +25,7 @@
         'dgtle.com': 'dgtle',
         'sspai.com': 'sspai',
         'mittrchina.com': 'MIT 科技评论',
+        'bookfere.com': '书伴',
     })
 
     function filterLinks() {
@@ -64,7 +65,7 @@
 
     GM_addStyle ( `
         .gm-valueless {
-            opacity: 0.3
+            opacity: 0.6
         }
         .gm-nice {
             color: orangered!important
