@@ -368,8 +368,12 @@
   if (location.href.includes('/user/')) {
     indexCurrentPageData()
     addCrawlerButton()
-    addPlayerAndSearchBox()
-    openNextPageIfCrawling()
+    const isCrawling = await GM.getValue(SCRAWLING_KEYWORD)
+    if (isCrawling) {
+      openNextPageIfCrawling()
+    } else {
+      addPlayerAndSearchBox()
+    }
   } else if (location.href.includes('/box')) {
     GM_addStyle ( `
       .box-side-box-wrap, .header, #imBtn,
