@@ -94,23 +94,23 @@ export async function createV2exApp(runtime: Runtime) {
   function addMoreThankActions() {
     const topic = $("#topic_thank") as HTMLElement | null;
     if (topic) {
-      topic.onmousedown = () => {
+      topic.addEventListener("mousedown", () => {
         const authorId = $(".header .avatar")?.getAttribute("alt");
         if (authorId) {
           likeDislikeAuthor(authorId, 0, true);
         }
-      };
+      });
     }
 
     $$(".thank_area > a.thank")
       .filter(it => it.innerHTML.includes("感谢回复者"))
       .forEach(it => {
         const id = it.closest(".cell")?.querySelector("a.dark[href]")?.getAttribute("href")?.split("/")[2];
-        const commentNumber = it.closest("td")?.querySelector("span.no")?.textContent;
+        const commentNumber = it.closest(".cell")?.querySelector("span.no")?.textContent;
         if (!id || !commentNumber) {
           return;
         }
-        (it as HTMLElement).onmousedown = () => likeDislikeAuthor(id, commentNumber, true);
+        it.addEventListener("mousedown", () => likeDislikeAuthor(id, commentNumber, true));
       });
   }
 

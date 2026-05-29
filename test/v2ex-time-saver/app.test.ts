@@ -139,6 +139,32 @@ describe("v2ex app unit flows", () => {
     ]);
   });
 
+  test("preserves original thank handlers when adding label prompts", async () => {
+    let topicThankCount = 0;
+    let replyThankCount = 0;
+    const topicThank = dom.window.document.querySelector<HTMLElement>("#topic_thank");
+    const replyThank = dom.window.document.querySelector<HTMLElement>("#r_1 .thank_area > a.thank");
+    topicThank!.onmousedown = () => {
+      topicThankCount += 1;
+    };
+    replyThank!.onmousedown = () => {
+      replyThankCount += 1;
+    };
+    const runtime = createRuntime(dom);
+    const app = await createV2exApp(runtime);
+
+    app.start();
+    topicThank!.dispatchEvent(new dom.window.MouseEvent("mousedown", { bubbles: true }));
+    replyThank!.dispatchEvent(new dom.window.MouseEvent("mousedown", { bubbles: true }));
+
+    expect(topicThankCount).toBe(1);
+    expect(replyThankCount).toBe(1);
+    expect(JSON.parse(runtime.writes[thankKeyword])).toEqual([
+      ["topic-author", { url: "https://www.v2ex.com/t/123#0", label: "洞察者" }],
+      ["alice", { url: "https://www.v2ex.com/t/123#1", label: "洞察者" }],
+    ]);
+  });
+
   test("extracts comments from html strings", async () => {
     const runtime = createRuntime(dom);
     const app = await createV2exApp(runtime);
