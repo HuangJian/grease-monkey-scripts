@@ -115,23 +115,25 @@ export async function createV2exApp(runtime: Runtime) {
   }
 
   function highlightCommentsAndTopics() {
-    $$(".cell strong > a[href]").forEach(it => {
-      const id = it.getAttribute("href")?.split("/")[2];
-      if (!id) {
-        return;
-      }
-      const shameLabel = getAuthorLabel(shamedMap, id, defaultLabels.shame);
-      const thankLabel = getAuthorLabel(thankedMap, id, defaultLabels.thank);
-      if (shamedMap.has(id) && !it.textContent?.includes(shameLabel)) {
-        it.insertAdjacentHTML("beforeend", getTagMarkup(shameLabel, "red"));
-        it.closest("td")?.classList.add("shame");
-      }
-      if (thankedMap.has(id) && !it.textContent?.includes(thankLabel)) {
-        it.insertAdjacentHTML("beforeend", getTagMarkup(thankLabel, "darkgreen"));
-        it.closest("tr")?.classList.add("nice-author");
-      }
-    });
-  }
+  $$(".cell").forEach(cell => {
+    const it = cell.querySelector("strong > a[href]");
+    if (!it) return;
+    const id = it.getAttribute("href")?.split("/")[2];
+    if (!id) {
+      return;
+    }
+    const shameLabel = getAuthorLabel(shamedMap, id, defaultLabels.shame);
+    const thankLabel = getAuthorLabel(thankedMap, id, defaultLabels.thank);
+    if (shamedMap.has(id) && !it.textContent?.includes(shameLabel)) {
+      it.insertAdjacentHTML("beforeend", getTagMarkup(shameLabel, "red"));
+      it.closest("td")?.classList.add("shame");
+    }
+    if (thankedMap.has(id) && !it.textContent?.includes(thankLabel)) {
+      it.insertAdjacentHTML("beforeend", getTagMarkup(thankLabel, "darkgreen"));
+      it.closest("tr")?.classList.add("nice-author");
+    }
+  });
+}
 
   function reorderCommentsByHearts() {
     const heartsFlagKey = "data-hearts";
