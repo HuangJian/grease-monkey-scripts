@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         v2ex time saver
 // @namespace    https://github.com/HuangJian/grease-monkey-scripts
-// @version      0.10
+// @version      1.0
 // @description  Save my time when browsing v2ex.com!
 // @author       ustc.hj@gmail.com
 // @match        https://www.v2ex.com/*
@@ -17,8 +17,12 @@
 
     const shame_keyword = 'shame_on_them'
     const thank_keyword = 'thanks_to_them'
+    const defaultLabels = {
+        shame: '若婴',
+        thank: '智者',
+    }
 
-    const [shamedMap, thankedMap] = 
+    const [shamedMap, thankedMap] =
         (await Promise.all([shame_keyword, thank_keyword].map(async it => await GM.getValue(it, null))))
         .map(it => new Map(JSON.parse(it)))
 
@@ -48,13 +52,42 @@
         return Array.from(document.querySelectorAll(selector))
     }
 
+    function getAuthorRecord(map, id) {
+        const value = map.get(id)
+        if (!value) {
+            return null
+        }
+        if (typeof value === 'string') {
+            return { url: value }
+        }
+        return value
+    }
+
+    function getAuthorLabel(map, id, fallbackLabel) {
+        return getAuthorRecord(map, id)?.label || fallbackLabel
+    }
+
     function likeDislikeAuthor(id, commentNumber, isLike) {
         const url = `${location.origin}${location.pathname}#${commentNumber}`
         const map = isLike ? thankedMap : shamedMap
         const keyword = isLike ? thank_keyword : shame_keyword
-        map.set(id, url)
+        const fallbackLabel = isLike ? defaultLabels.thank : defaultLabels.shame
+        const currentLabel = getAuthorLabel(map, id, fallbackLabel)
+        const actionName = isLike ? '感谢' : '标记'
+        const label = prompt(`请输入给作者 ${id} 的${actionName}标签：`, currentLabel)
+        if (label === null) {
+            return
+        }
+        map.set(id, {
+            url,
+            label: label.trim() || fallbackLabel,
+        })
         GM.setValue(keyword, JSON.stringify(Array.from(map)))
         highlightCommentsAndTopics()
+    }
+
+    function getTagMarkup(text, color) {
+        return ` <font color="${color}">[${text}]</font>`;
     }
 
     function addShameButtons() {
@@ -90,12 +123,14 @@
     function highlightCommentsAndTopics() {
         $$('.cell strong > a[href]').forEach(it => {
             const id = it.getAttribute('href').split('/')[2]
-            if (shamedMap.has(id) && !it.innerText.includes('若婴')) {
-                it.innerHTML += " <font color=red>[若婴]</font>";
+            const shameLabel = getAuthorLabel(shamedMap, id, defaultLabels.shame)
+            const thankLabel = getAuthorLabel(thankedMap, id, defaultLabels.thank)
+            if (shamedMap.has(id) && !it.innerText.includes(shameLabel)) {
+                it.innerHTML += getTagMarkup(shameLabel, 'red');
                 it.closest('td').classList.add('shame')
             }
-            if (thankedMap.has(id) && !it.innerText.includes('智者')) {
-                it.innerHTML += " <font color=darkgreen>[智者]</font>";
+            if (thankedMap.has(id) && !it.innerText.includes(thankLabel)) {
+                it.innerHTML += getTagMarkup(thankLabel, 'darkgreen');
                 it.closest('tr').classList.add('nice-author')
             }
         })
@@ -167,11 +202,11 @@
             .map(it => it.closest('.cell[id]'))
             .filter(it => {
                 const commentNumber = parseInt(it.querySelector('.no').innerText);
-                return commentNumber < num; 
+                return commentNumber < num;
             }).reverse().reduce((prev, curr) => prev || curr, null);
     }
 
-    /** 
+    /**
      * 将 html 字符串转为 DOM 节点：https://stackoverflow.com/a/35385518/474231 。
      * @param {String} HTML representing a single element
      * @return {Element}
@@ -337,7 +372,7 @@
             background: transparent;
         }
         .gm.expand {
-            display: none;    
+            display: none;
             color: mediumpurple;
         }
         .gm.collapse {
