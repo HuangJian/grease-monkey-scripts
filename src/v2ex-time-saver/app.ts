@@ -187,6 +187,10 @@ export async function createV2exApp(runtime: Runtime) {
       .reduce<Element | null>((prev, curr) => prev || curr, null);
   }
 
+  function getCommentNumber(comment: Element) {
+    return comment.querySelector(".no")?.textContent?.trim() || "";
+  }
+
   function toggleDiscussionVisibility(evt: Event) {
     const clickedButton = (evt.target as Element | null)?.closest("button");
     const comment = clickedButton?.closest(".cell[id]");
@@ -194,7 +198,7 @@ export async function createV2exApp(runtime: Runtime) {
   }
 
   function addCollapseExpandButtons() {
-    $$(".cell[id] > table + .cell[id]").forEach(embedded => {
+    $$(".cell[id] > .cell[id]").forEach(embedded => {
       const discussionCount = embedded.parentElement?.querySelectorAll(".cell[id]").length || 0;
       [collapseIconSvg, expandIconSvg].forEach(iconStr => {
         const btn = htmlToElement<HTMLButtonElement>(runtime.document, iconStr);
@@ -209,38 +213,205 @@ export async function createV2exApp(runtime: Runtime) {
   }
 
   function embedDiscussions() {
-    const numberPattern = /\#(\d+)/;
-    const mentions = $$(".reply_content a").reverse();
-    mentions.forEach(mention => {
-      const mentionedPeopleName = (mention.textContent || "").replace(/^@/, "");
-      const currentComment = mention.closest(".cell[id]");
-      const currentCommentNumber = parseInt(currentComment?.querySelector(".no")?.textContent || "", 10);
-      const mentionLines = (mention.parentElement?.textContent || "")
-        .split("\n")
-        .filter(line => line.includes(`@${mentionedPeopleName}`));
+    const comments = $$("#Main > .box:nth-child(n+3) > .cell[id]");
+    const commentByNumber = new Map(
+      comments.map(comment => [getCommentNumber(comment), comment] as const).filter(([number]) => number),
+    );
 
-      mentionLines.forEach(line => {
-        let mentionedComment: Element | null | undefined;
-        const numberMatch = numberPattern.exec(line);
-        if (numberMatch) {
-          mentionedComment = getCommentByNumber(parseInt(numberMatch[1], 10));
-        }
-        if (!mentionedComment) {
-          mentionedComment = getLastCommentByAuthorBeforeNumber(mentionedPeopleName, currentCommentNumber);
-        }
-        if (!mentionedComment || !currentComment) {
-          return;
-        }
-
-        const embeddedFlagKey = "data-is-embedded";
-        let commentToEmbed = currentComment;
-        if (currentComment.getAttribute(embeddedFlagKey) === "true") {
-          commentToEmbed = currentComment.cloneNode(true) as Element;
-        }
-        mentionedComment.querySelector("table")?.insertAdjacentElement("afterend", commentToEmbed);
-        currentComment.setAttribute(embeddedFlagKey, "true");
-      });
+    const commentsByAuthor = new Map<string, Element[]>();
+    comments.forEach(comment => {
+      const authorName = getCommentAuthorName(comment);
+      if (!authorName) {
+        return;
+      }
+      commentsByAuthor.set(authorName, [...(commentsByAuthor.get(authorName) || []), comment]);
     });
+
+    const plans = comments
+      .slice()
+      .reverse()
+      .map(currentComment => ({
+        currentComment,
+        mentionedComments: getMentionedComments(currentComment, commentByNumber, commentsByAuthor),
+      }))
+      .filter(({ mentionedComments }) => mentionedComments.length > 0);
+
+    plans.forEach(({ currentComment, mentionedComments }) => {
+      const [primaryComment] = mentionedComments;
+      if (!primaryComment) {
+        return;
+      }
+
+      primaryComment.querySelector(":scope > table")?.insertAdjacentElement("afterend", currentComment);
+      currentComment.setAttribute("data-is-embedded", "true");
+    });
+
+    plans.forEach(({ currentComment, mentionedComments }) => {
+      const [, ...referenceComments] = mentionedComments;
+      referenceComments.forEach(referencedComment => addReferenceHint(referencedComment, currentComment));
+    });
+  }
+
+  function getCommentAuthorName(comment: Element) {
+    return comment.querySelector(":scope > table strong a.dark[href^='/member/']")?.getAttribute("href")?.split("/")[2] || "";
+  }
+
+  function getOwnReplyContent(comment: Element) {
+    return comment.querySelector(":scope > table .reply_content");
+  }
+
+  function getMentionedComments(
+    currentComment: Element,
+    commentByNumber: Map<string, Element>,
+    commentsByAuthor: Map<string, Element[]>,
+  ) {
+    const currentCommentNumber = parseInt(getCommentNumber(currentComment), 10);
+    const replyContent = getOwnReplyContent(currentComment);
+    if (!replyContent) {
+      return [];
+    }
+
+    const seenComments = new Set<Element>();
+    const mentionedComments: Element[] = [];
+    const mentions = Array.from(replyContent.querySelectorAll("a[href^='/member/']"));
+
+    mentions.forEach(mention => {
+      const mentionedPeopleName =
+        mention.getAttribute("href")?.split("/")[2] || (mention.textContent || "").replace(/^@/, "");
+      let mentionedComment = getExplicitMentionedComment(mention, commentByNumber);
+      if (!mentionedComment) {
+        mentionedComment = getLastCommentByAuthorBeforeNumberFromSnapshot(
+          commentsByAuthor.get(mentionedPeopleName) || [],
+          currentCommentNumber,
+        );
+      }
+      if (!mentionedComment || mentionedComment === currentComment || seenComments.has(mentionedComment)) {
+        return;
+      }
+      seenComments.add(mentionedComment);
+      mentionedComments.push(mentionedComment);
+    });
+
+    return mentionedComments;
+  }
+
+  function getLastCommentByAuthorBeforeNumberFromSnapshot(authorComments: Element[], num: number) {
+    return authorComments
+      .filter(comment => {
+        const commentNumber = parseInt(getCommentNumber(comment), 10);
+        return commentNumber < num;
+      })
+      .at(-1) || null;
+  }
+
+  function getExplicitMentionedComment(mention: Element, commentByNumber: Map<string, Element>) {
+    const numberMatch = /\#(\d+)/.exec(getTextUntilNextMemberMention(mention));
+    if (!numberMatch) {
+      return null;
+    }
+
+    return commentByNumber.get(numberMatch[1]) || null;
+  }
+
+  function getTextUntilNextMemberMention(mention: Element) {
+    let text = "";
+    let node = mention.nextSibling;
+
+    while (node) {
+      if (node.nodeType === 1) {
+        const element = node as Element;
+        if (element.matches("a[href^='/member/']")) {
+          break;
+        }
+        text += element.textContent || "";
+      } else {
+        text += node.textContent || "";
+      }
+      node = node.nextSibling;
+    }
+
+    return text;
+  }
+
+  function addReferenceHint(referencedComment: Element, comment: Element) {
+    const commentNumber = getCommentNumber(comment);
+    const referencedCommentNumber = getCommentNumber(referencedComment);
+    const host = getReferenceHintHost(referencedComment);
+    const container = getReferenceHintContainer(host);
+    const button = runtime.document.createElement("button");
+    button.type = "button";
+    button.className = "gm-reference-hint";
+    button.textContent = `↪ #${commentNumber} 也回复了 #${referencedCommentNumber}`;
+    button.addEventListener("click", () => showReferenceDialog(comment));
+    container.appendChild(button);
+  }
+
+  function getReferenceHintHost(referencedComment: Element) {
+    return referencedComment;
+  }
+
+  function getReferenceHintContainer(host: Element) {
+    const existing = host.querySelector(":scope > .gm-reference-hints");
+    if (existing) {
+      return existing;
+    }
+
+    const container = runtime.document.createElement("div");
+    container.className = "gm-reference-hints";
+    host.querySelector(":scope > table")?.insertAdjacentElement("afterend", container);
+    return container;
+  }
+
+  function showReferenceDialog(comment: Element) {
+    $(".gm-reference-dialog")?.remove();
+
+    const dialog = runtime.document.createElement("div");
+    dialog.className = "gm-reference-dialog";
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+
+    const panel = runtime.document.createElement("div");
+    panel.className = "gm-reference-dialog-panel";
+
+    const header = runtime.document.createElement("div");
+    header.className = "gm-reference-dialog-header";
+    header.textContent = `引用回复 #${getCommentNumber(comment)}`;
+
+    const closeButton = runtime.document.createElement("button");
+    closeButton.type = "button";
+    closeButton.className = "gm-reference-dialog-close";
+    closeButton.textContent = "关闭";
+
+    const content = runtime.document.createElement("div");
+    content.className = "gm-reference-dialog-content";
+    const clonedComment = comment.cloneNode(true) as Element;
+    clonedComment.removeAttribute("id");
+    clonedComment.querySelectorAll("[id]").forEach(it => it.removeAttribute("id"));
+    clonedComment.querySelectorAll(".gm, .gm-reference-hint").forEach(it => it.remove());
+    content.appendChild(clonedComment);
+
+    const close = () => {
+      runtime.document.removeEventListener("keydown", onKeydown);
+      dialog.remove();
+    };
+    const onKeydown = (evt: KeyboardEvent) => {
+      if (evt.key === "Escape") {
+        close();
+      }
+    };
+
+    closeButton.addEventListener("click", close);
+    dialog.addEventListener("click", evt => {
+      if (evt.target === dialog) {
+        close();
+      }
+    });
+    runtime.document.addEventListener("keydown", onKeydown);
+
+    header.appendChild(closeButton);
+    panel.append(header, content);
+    dialog.appendChild(panel);
+    runtime.document.body.appendChild(dialog);
   }
 
   let domParser: DOMParser | null = null;
@@ -343,6 +514,64 @@ export async function createV2exApp(runtime: Runtime) {
       }
       .nice-author {
         background: lightcyan;
+      }
+      .gm-reference-hints {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 6px 0 8px 8px;
+      }
+      .gm-reference-hint {
+        cursor: pointer;
+        border: 1px solid lightblue;
+        border-radius: 4px;
+        padding: 2px 8px;
+        background: aliceblue;
+        color: steelblue;
+      }
+      .gm-reference-dialog {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: rgba(0, 0, 0, .36);
+      }
+      .gm-reference-dialog-panel {
+        box-sizing: border-box;
+        width: min(780px, 100%);
+        max-height: min(720px, 90vh);
+        overflow: auto;
+        border-radius: 8px;
+        background: white;
+        box-shadow: 0 12px 48px rgba(0, 0, 0, .24);
+      }
+      .gm-reference-dialog-header {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        border-bottom: 1px solid #e5e5e5;
+        background: white;
+        font-weight: bold;
+      }
+      .gm-reference-dialog-close {
+        cursor: pointer;
+        border: 1px solid #d0d0d0;
+        border-radius: 4px;
+        padding: 2px 8px;
+        background: #f8f8f8;
+      }
+      .gm-reference-dialog-content {
+        padding: 0 12px 12px;
+      }
+      .gm-reference-dialog-content > .cell {
+        border-bottom: 0;
       }
     `);
   }
