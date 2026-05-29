@@ -199,7 +199,7 @@ export async function createV2exApp(runtime: Runtime) {
 
   function addCollapseExpandButtons() {
     $$(".cell[id] > .cell[id]").forEach(embedded => {
-      const discussionCount = embedded.parentElement?.querySelectorAll(".cell[id]").length || 0;
+      const discussionCount = 1 + embedded.querySelectorAll(".cell[id]").length;
       [collapseIconSvg, expandIconSvg].forEach(iconStr => {
         const btn = htmlToElement<HTMLButtonElement>(runtime.document, iconStr);
         btn.onclick = toggleDiscussionVisibility;
@@ -207,10 +207,11 @@ export async function createV2exApp(runtime: Runtime) {
         if (span) {
           span.innerHTML += `（${discussionCount}）`;
         }
-        embedded.insertAdjacentElement("beforebegin", btn);
+        embedded.insertAdjacentElement("afterbegin", btn);
       });
     });
   }
+
 
   function embedDiscussions() {
     const comments = $$("#Main > .box:nth-child(n+3) > .cell[id]");
@@ -482,11 +483,11 @@ export async function createV2exApp(runtime: Runtime) {
       }
       button.gm {
         cursor: pointer;
-        margin-bottom: -24px;
-        margin-left: -8px;
         padding: 0;
         border: 0;
         background: transparent;
+        position: relative;
+        z-index: 2;
       }
       .gm.expand {
         display: none;
@@ -495,6 +496,11 @@ export async function createV2exApp(runtime: Runtime) {
       .gm.collapse {
         display: block;
         color: lightblue;
+      }
+      button.gm.collapse > svg {
+        position: absolute;
+        top: -13px;
+        right: -2px;
       }
       .cell.discussions-collapsed > .gm.expand {
         display: block;
@@ -506,7 +512,7 @@ export async function createV2exApp(runtime: Runtime) {
       .cell.discussions-collapsed > .gm.collapse {
         display: none;
       }
-      .cell.discussions-collapsed > .cell {
+      .cell.discussions-collapsed > :not(.gm) {
         display: none;
       }
       .shame {

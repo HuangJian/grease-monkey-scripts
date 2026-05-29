@@ -478,7 +478,76 @@ describe("v2ex app unit flows", () => {
     expect(hint?.textContent).toContain("#37");
     expect(hint?.textContent).toContain("#19");
   });
+
+  test("collapses sibling replies individually without affecting other sibling replies", async () => {
+    const html = `
+      <html>
+        <body>
+          <div id="Main">
+            <div class="box"></div>
+            <div class="box"></div>
+            <div class="box">
+              <div class="cell">3 replies</div>
+              <div class="cell" id="r_1">
+                <table><tbody><tr>
+                  <td><span class="no">1</span></td>
+                  <td><strong><a class="dark" href="/member/alice">alice</a></strong><div class="reply_content">hello</div></td>
+                </tr></tbody></table>
+              </div>
+              <div class="cell" id="r_2">
+                <table><tbody><tr>
+                  <td><span class="no">2</span></td>
+                  <td><strong><a class="dark" href="/member/bob">bob</a></strong><div class="reply_content"><a href="/member/alice">@alice</a> #1 comment 2</div></td>
+                </tr></tbody></table>
+              </div>
+              <div class="cell" id="r_3">
+                <table><tbody><tr>
+                  <td><span class="no">3</span></td>
+                  <td><strong><a class="dark" href="/member/carol">carol</a></strong><div class="reply_content"><a href="/member/alice">@alice</a> #1 comment 3</div></td>
+                </tr></tbody></table>
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+    dom = createDom(html);
+    const runtime = createRuntime(dom);
+    const app = await createV2exApp(runtime);
+
+    app.start();
+
+    const r1 = dom.window.document.getElementById("r_1")!;
+    const r2 = dom.window.document.getElementById("r_2")!;
+    const r3 = dom.window.document.getElementById("r_3")!;
+
+    expect(r1.contains(r2)).toBe(true);
+    expect(r1.contains(r3)).toBe(true);
+
+    const r2CollapseBtn = r2.querySelector("button.gm.collapse") as HTMLButtonElement | null;
+    const r2ExpandBtn = r2.querySelector("button.gm.expand") as HTMLButtonElement | null;
+    const r3CollapseBtn = r3.querySelector("button.gm.collapse") as HTMLButtonElement | null;
+    const r3ExpandBtn = r3.querySelector("button.gm.expand") as HTMLButtonElement | null;
+
+    expect(r2CollapseBtn).not.toBeNull();
+    expect(r2ExpandBtn).not.toBeNull();
+    expect(r3CollapseBtn).not.toBeNull();
+    expect(r3ExpandBtn).not.toBeNull();
+
+    expect(r2ExpandBtn?.textContent).toContain("（1）");
+    expect(r3ExpandBtn?.textContent).toContain("（1）");
+
+    expect(r2.classList.contains("discussions-collapsed")).toBe(false);
+    expect(r3.classList.contains("discussions-collapsed")).toBe(false);
+
+    r2CollapseBtn!.click();
+
+    expect(r2.classList.contains("discussions-collapsed")).toBe(true);
+    expect(r3.classList.contains("discussions-collapsed")).toBe(false);
+    expect(r1.classList.contains("discussions-collapsed")).toBe(false);
+  });
 });
+
 
 describe("v2ex app integration", () => {
   test("runs the no-pagination startup flow in jsdom", async () => {
