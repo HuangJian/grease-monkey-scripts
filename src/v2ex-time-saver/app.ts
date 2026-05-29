@@ -343,7 +343,7 @@ export async function createV2exApp(runtime: Runtime) {
     button.type = "button";
     button.className = "gm-reference-hint";
     button.textContent = `↪ #${commentNumber} 也回复了 #${referencedCommentNumber}`;
-    button.addEventListener("click", () => showReferenceDialog(comment));
+    button.addEventListener("click", () => showReferenceDialog(comment, referencedComment));
     container.appendChild(button);
   }
 
@@ -363,7 +363,7 @@ export async function createV2exApp(runtime: Runtime) {
     return container;
   }
 
-  function showReferenceDialog(comment: Element) {
+  function showReferenceDialog(comment: Element, referencedComment?: Element) {
     $(".gm-reference-dialog")?.remove();
 
     const dialog = runtime.document.createElement("div");
@@ -385,11 +385,42 @@ export async function createV2exApp(runtime: Runtime) {
 
     const content = runtime.document.createElement("div");
     content.className = "gm-reference-dialog-content";
-    const clonedComment = comment.cloneNode(true) as Element;
-    clonedComment.removeAttribute("id");
-    clonedComment.querySelectorAll("[id]").forEach(it => it.removeAttribute("id"));
-    clonedComment.querySelectorAll(".gm, .gm-reference-hint").forEach(it => it.remove());
-    content.appendChild(clonedComment);
+
+    const cleanComment = (node: Element) => {
+      const cloned = node.cloneNode(true) as Element;
+      cloned.removeAttribute("id");
+      cloned.querySelectorAll("[id]").forEach(it => it.removeAttribute("id"));
+      cloned.querySelectorAll(".gm, .gm-reference-hint").forEach(it => it.remove());
+      return cloned;
+    };
+
+    if (referencedComment) {
+      const contextCard = runtime.document.createElement("div");
+      contextCard.className = "gm-dialog-card gm-dialog-context-card";
+      const contextBadge = runtime.document.createElement("span");
+      contextBadge.className = "gm-dialog-badge gm-dialog-context-badge";
+      contextBadge.textContent = "原回复";
+      contextCard.append(contextBadge, cleanComment(referencedComment));
+
+      const connector = runtime.document.createElement("div");
+      connector.className = "gm-dialog-connector";
+      connector.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 13l-7 7-7-7m14-6l-7 7-7-7" />
+        </svg>
+      `;
+
+      const replyCard = runtime.document.createElement("div");
+      replyCard.className = "gm-dialog-card gm-dialog-reply-card";
+      const replyBadge = runtime.document.createElement("span");
+      replyBadge.className = "gm-dialog-badge gm-dialog-reply-badge";
+      replyBadge.textContent = "引用回复";
+      replyCard.append(replyBadge, cleanComment(comment));
+
+      content.append(contextCard, connector, replyCard);
+    } else {
+      content.appendChild(cleanComment(comment));
+    }
 
     const close = () => {
       runtime.document.removeEventListener("keydown", onKeydown);
@@ -578,6 +609,52 @@ export async function createV2exApp(runtime: Runtime) {
       }
       .gm-reference-dialog-content > .cell {
         border-bottom: 0;
+      }
+      .gm-dialog-card {
+        position: relative;
+        border: 1px solid #e1e4e8;
+        border-radius: 6px;
+        padding: 12px;
+        margin: 8px 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+      }
+      .gm-dialog-context-card {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+      }
+      .gm-dialog-reply-card {
+        background: #ffffff;
+        border-color: #e1e4e8;
+      }
+      .gm-dialog-badge {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        font-size: 11px;
+        font-weight: bold;
+        padding: 2px 6px;
+        border-radius: 4px;
+        line-height: 1;
+        user-select: none;
+      }
+      .gm-dialog-context-badge {
+        background: #e2e8f0;
+        color: #475569;
+      }
+      .gm-dialog-reply-badge {
+        background: #dbeafe;
+        color: #1e40af;
+      }
+      .gm-dialog-connector {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: #94a3b8;
+        margin: 6px 0;
+      }
+      .gm-dialog-card > .cell {
+        border-bottom: 0;
+        padding: 0;
       }
     `);
   }

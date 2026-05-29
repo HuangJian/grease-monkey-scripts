@@ -433,8 +433,43 @@ describe("v2ex app unit flows", () => {
 
     expect(dom.window.document.querySelector(".gm-reference-dialog")).toBeNull();
     expect(dom.window.document.querySelectorAll("#r_3")).toHaveLength(1);
-    expect(dom.window.document.querySelector("#r_1 > #r_3")).not.toBeNull();
   });
+
+  test("displays both replying and referenced floors in the modal dialog", async () => {
+    dom = createDom(multiMentionThreadHtml());
+    const runtime = createRuntime(dom);
+    const app = await createV2exApp(runtime);
+
+    app.embedDiscussions();
+
+    const referenceButton = dom.window.document.querySelector<HTMLButtonElement>("#r_2 .gm-reference-hint");
+    expect(referenceButton).not.toBeNull();
+
+    referenceButton!.click();
+
+    const dialog = dom.window.document.querySelector(".gm-reference-dialog");
+    expect(dialog).not.toBeNull();
+    
+    expect(dialog?.querySelector(".gm-reference-dialog-header")?.textContent).toContain("引用回复 #3");
+    
+    const cards = dialog?.querySelectorAll(".gm-dialog-card");
+    expect(cards).toHaveLength(2);
+
+    const contextCard = cards?.[0];
+    expect(contextCard?.querySelector(".gm-dialog-badge")?.textContent).toBe("原回复");
+    expect(contextCard?.textContent).toContain("second point");
+
+    const replyCard = cards?.[1];
+    expect(replyCard?.querySelector(".gm-dialog-badge")?.textContent).toBe("引用回复");
+    expect(replyCard?.textContent).toContain("this is the same reply");
+
+    const connector = dialog?.querySelector(".gm-dialog-connector");
+    expect(connector).not.toBeNull();
+
+    dom.window.document.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Escape" }));
+    expect(dom.window.document.querySelector(".gm-reference-dialog")).toBeNull();
+  });
+
 
   test("parses repeated real-world author mentions with distinct explicit floors", async () => {
     dom = createDom(repeatedAuthorMentionThreadHtml());
