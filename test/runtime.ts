@@ -1,5 +1,5 @@
 import { JSDOM } from 'jsdom'
-import type { Runtime } from '../../src/v2ex-time-saver/types'
+import type { Runtime } from '../src/runtime'
 
 export function createDom(html: string, url = 'https://www.v2ex.com/t/123'): JSDOM {
   return new JSDOM(html, { url })

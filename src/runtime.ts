@@ -1,4 +1,22 @@
-import type { Runtime } from './types'
+export type RequestDetails = {
+  url: string
+  method: string
+  timeout?: number
+  onload(response: { responseText: string }): void
+  onerror?: () => void
+  ontimeout?: () => void
+}
+
+export type Runtime = {
+  document: Document
+  location: Location
+  DOMParser: typeof DOMParser
+  prompt(message?: string, defaultValue?: string): string | null
+  getValue<T>(key: string, defaultValue: T): Promise<T>
+  setValue(key: string, value: string): Promise<void> | void
+  request(details: RequestDetails): void
+  addStyle(css: string): void
+}
 
 declare const GM: {
   getValue<T>(key: string, defaultValue: T): Promise<T>
@@ -10,6 +28,8 @@ declare function GM_xmlhttpRequest(details: {
   method: string
   timeout?: number
   onload(response: { responseText: string }): void
+  onerror?: () => void
+  ontimeout?: () => void
 }): void
 
 declare function GM_addStyle(css: string): void

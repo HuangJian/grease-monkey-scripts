@@ -17,6 +17,6 @@
 // ==/build.meta==
 
 import { startV2exTimeSaver } from './app'
-import { createBrowserRuntime } from './runtime'
+import { createBrowserRuntime } from '../runtime'
 
 void startV2exTimeSaver(createBrowserRuntime())

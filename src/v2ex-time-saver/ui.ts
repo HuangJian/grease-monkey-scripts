@@ -1,11 +1,6 @@
-import type { Runtime } from './types'
+import type { Runtime } from '../runtime'
+import { htmlToElement } from '../utils'
 import { getCommentNumber } from './comment-helpers'
-
-export function htmlToElement<T extends Element = Element>(document: Document, html: string): T {
-  const template = document.createElement('template')
-  template.innerHTML = html.trim()
-  return template.content.firstChild as T
-}
 
 export const collapseIconSvg = `
   <button class="gm collapse" title="折叠讨论">

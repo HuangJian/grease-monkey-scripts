@@ -68,6 +68,7 @@ If capped output is insufficient, narrow the command before increasing the cap.
 - Do not run full test suites or full builds unless risk justifies it or the user asks.
 
 When validation is needed, prefer scoped commands:
+
 - `bun run typecheck` for type errors
 - `bun test` for behavior changes
 - `bun run lint` for style issues
@@ -121,17 +122,20 @@ bun run check
 
 ### Recommended Layout
 
-For each migrated userscript, prefer this shape:
-
 ```text
+src/
+  runtime.ts        Shared Runtime type and browser/Tampermonkey adapter.
+  utils.ts          Shared pure helpers (htmlToElement, URL utils, etc.).
+
+test/
+  runtime.ts        Shared test mock runtime (createDom, createRuntime).
+
 src/<script-name>/
-  index.user.ts   Userscript metadata and startup entry.
-  runtime.ts      Browser/Tampermonkey adapter.
-  types.ts        Shared types.
-  app.ts          Testable behavior and DOM logic.
+  index.user.ts     Userscript metadata and startup entry.
+  app.ts            Testable behavior, DOM logic, and script-specific types.
 
 test/<script-name>/
-  *.test.ts       Bun tests, usually with jsdom for DOM behavior.
+  *.test.ts         Bun tests, usually with jsdom for DOM behavior.
 
 dist/
   <script-name>.user.js
@@ -139,8 +143,10 @@ dist/
 
 Keep `index.user.ts` thin. It should contain the userscript metadata block and
 call into testable modules. Keep direct access to `window`, `document`, `GM.*`,
-`GM_xmlhttpRequest`, `prompt`, and `location` inside a runtime adapter whenever
-possible.
+`GM_xmlhttpRequest`, `prompt`, and `location` inside the runtime adapter.
+
+Types that are used by a single script live in that script's `app.ts`.
+Shared types (`Runtime`, `RequestDetails`) live in `src/runtime.ts`.
 
 ### Build Rules
 

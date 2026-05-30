@@ -6,8 +6,8 @@ import {
   createReferenceHint,
   getOrCreateReferenceHintContainer,
 } from '../../src/v2ex-time-saver/ui'
-import type { Runtime } from '../../src/v2ex-time-saver/types'
-import { createDom, createRuntime } from './helpers'
+import type { Runtime } from '../../src/runtime'
+import { createDom, createRuntime } from '../runtime'
 
 describe('ui components', () => {
   let dom: JSDOM

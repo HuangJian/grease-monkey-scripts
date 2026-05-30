@@ -1,4 +1,11 @@
-import type { AuthorMap, AuthorRecord } from './types'
+export type AuthorRecord = {
+  url: string
+  label?: string
+}
+
+export type AuthorValue = string | AuthorRecord
+
+export type AuthorMap = Map<string, AuthorValue>
 
 export const defaultLabels = {
   shame: '若婴',

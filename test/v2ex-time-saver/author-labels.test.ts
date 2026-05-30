@@ -4,7 +4,7 @@ import {
   getAuthorLabel,
   getAuthorRecord,
 } from '../../src/v2ex-time-saver/author-labels'
-import type { AuthorMap } from '../../src/v2ex-time-saver/types'
+import type { AuthorMap } from '../../src/v2ex-time-saver/author-labels'
 
 function parseAuthorMap(value: string | null): AuthorMap {
   if (!value) {

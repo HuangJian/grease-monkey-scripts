@@ -2,33 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { JSDOM } from 'jsdom'
 import { createV2exApp, shameKeyword, thankKeyword } from '../../src/v2ex-time-saver/app'
 import { extractRedeemUrl } from '../../src/v2ex-time-saver/sign-in'
-import type { Runtime } from '../../src/v2ex-time-saver/types'
-import { createDom } from './helpers'
-
-function createRuntime(
-  dom: JSDOM,
-  values: Record<string, string> = {},
-): Runtime & { writes: Record<string, string> } {
-  const writes: Record<string, string> = {}
-
-  return {
-    document: dom.window.document,
-    location: dom.window.location,
-    DOMParser: dom.window.DOMParser,
-    prompt: () => '洞察者',
-    getValue: async <T>(_key: string, defaultValue: T) => (values[_key] as T) ?? defaultValue,
-    setValue: (key, value) => {
-      writes[key] = value
-    },
-    request: () => {},
-    addStyle: (css) => {
-      const style = dom.window.document.createElement('style')
-      style.textContent = css
-      dom.window.document.head.appendChild(style)
-    },
-    writes,
-  }
-}
+import { createDom, createRuntime } from '../runtime'
 
 function threadHtml() {
   return `
@@ -92,14 +66,18 @@ describe('v2ex app unit flows', () => {
   })
 
   test('highlights stored author labels', async () => {
-    const runtime = createRuntime(dom, {
+    const values: Record<string, string> = {
       [shameKeyword]: JSON.stringify([
         ['alice', { url: 'https://www.v2ex.com/t/123#1', label: '低质' }],
       ]),
       [thankKeyword]: JSON.stringify([
         ['bob', { url: 'https://www.v2ex.com/t/123#2', label: '清醒' }],
       ]),
-    })
+    }
+    const runtime = {
+      ...createRuntime(dom),
+      getValue: async <T>(_key: string, defaultValue: T) => (values[_key] as T) ?? defaultValue,
+    }
     const app = await createV2exApp(runtime)
 
     app.highlightCommentsAndTopics()
@@ -125,12 +103,18 @@ describe('v2ex app unit flows', () => {
   })
 
   test('stores a prompted label for a disliked author', async () => {
-    const runtime = createRuntime(dom)
+    const writes: Record<string, string> = {}
+    const runtime = {
+      ...createRuntime(dom),
+      setValue: (key: string, value: string) => {
+        writes[key] = value
+      },
+    }
     const app = await createV2exApp(runtime)
 
     app.likeDislikeAuthor('alice', 1, false)
 
-    expect(JSON.parse(runtime.writes[shameKeyword])).toEqual([
+    expect(JSON.parse(writes[shameKeyword])).toEqual([
       ['alice', { url: 'https://www.v2ex.com/t/123#1', label: '洞察者' }],
     ])
   })
@@ -146,7 +130,13 @@ describe('v2ex app unit flows', () => {
     replyThank!.onmouseup = () => {
       replyThankCount += 1
     }
-    const runtime = createRuntime(dom)
+    const writes: Record<string, string> = {}
+    const runtime = {
+      ...createRuntime(dom),
+      setValue: (key: string, value: string) => {
+        writes[key] = value
+      },
+    }
     const app = await createV2exApp(runtime)
 
     app.start()
@@ -156,7 +146,7 @@ describe('v2ex app unit flows', () => {
 
     expect(topicThankCount).toBe(1)
     expect(replyThankCount).toBe(1)
-    expect(JSON.parse(runtime.writes[thankKeyword])).toEqual([
+    expect(JSON.parse(writes[thankKeyword])).toEqual([
       ['topic-author', { url: 'https://www.v2ex.com/t/123#0', label: '洞察者' }],
       ['alice', { url: 'https://www.v2ex.com/t/123#1', label: '洞察者' }],
     ])
@@ -244,14 +234,18 @@ describe('v2ex app unit flows', () => {
 describe('v2ex app integration', () => {
   test('runs the no-pagination startup flow in jsdom', async () => {
     const dom = createDom(threadHtml())
-    const runtime = createRuntime(dom, {
+    const values: Record<string, string> = {
       [shameKeyword]: JSON.stringify([
         ['alice', { url: 'https://www.v2ex.com/t/123#1', label: '低质' }],
       ]),
       [thankKeyword]: JSON.stringify([
         ['bob', { url: 'https://www.v2ex.com/t/123#2', label: '清醒' }],
       ]),
-    })
+    }
+    const runtime = {
+      ...createRuntime(dom),
+      getValue: async <T>(_key: string, defaultValue: T) => (values[_key] as T) ?? defaultValue,
+    }
     const app = await createV2exApp(runtime)
 
     app.start()

@@ -1,6 +1,7 @@
-import type { AuthorMap, Runtime } from './types'
+import type { Runtime } from '../runtime'
+import type { AuthorMap } from './author-labels'
 import { defaultLabels, getAuthorLabel } from './author-labels'
-import { htmlToElement } from './ui'
+import { htmlToElement } from '../utils'
 import { COMMENT_BOX_FIRST_CELL_SELECTOR, COMMENT_CELLS_SELECTOR } from './constants'
 
 function getTagMarkup(text: string, color: string): string {

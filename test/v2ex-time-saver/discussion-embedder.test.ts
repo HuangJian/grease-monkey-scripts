@@ -8,8 +8,8 @@ import {
   getLastCommentByAuthorBeforeNumber,
   getTextUntilNextMemberMention,
 } from '../../src/v2ex-time-saver/discussion-embedder'
-import type { Runtime } from '../../src/v2ex-time-saver/types'
-import { createDom, createRuntime } from './helpers'
+import type { Runtime } from '../../src/runtime'
+import { createDom, createRuntime } from '../runtime'
 
 function multiMentionThreadHtml() {
   return `

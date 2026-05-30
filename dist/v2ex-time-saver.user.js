@@ -42,12 +42,14 @@
     return dom.querySelectorAll("#Main > .box > .cell[id]");
   }
 
-  // src/v2ex-time-saver/ui.ts
+  // src/utils.ts
   function htmlToElement(document2, html) {
     const template = document2.createElement("template");
     template.innerHTML = html.trim();
     return template.content.firstChild;
   }
+
+  // src/v2ex-time-saver/ui.ts
   var collapseIconSvg = `
   <button class="gm collapse" title="折叠讨论">
     <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -588,7 +590,7 @@ button.gm.collapse > svg {
 }
 .gm-dialog-badge {
   position: absolute;
-  top: 8px;
+  top: -8px;
   right: 8px;
   font-size: 11px;
   font-weight: bold;
@@ -628,7 +630,7 @@ button.gm.collapse > svg {
     };
   }
 
-  // src/v2ex-time-saver/runtime.ts
+  // src/runtime.ts
   function createBrowserRuntime() {
     return {
       document,

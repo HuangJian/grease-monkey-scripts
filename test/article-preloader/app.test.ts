@@ -1,0 +1,437 @@
+import { describe, expect, test } from 'bun:test'
+import { JSDOM } from 'jsdom'
+import { getLinkText, isAbsoluteUrl, toAbsoluteUrl, matchesText } from '../../src/utils'
+import {
+  findChapterLink,
+  selectorsFactory,
+  startArticlePreloader,
+} from '../../src/article-preloader/app'
+import { createRuntime } from '../runtime'
+
+describe('pure helpers', () => {
+  test('getLinkText strips all whitespace', () => {
+    const dom = new JSDOM('<html><body><a href="#">  hello  world  </a></body></html>')
+    const link = dom.window.document.querySelector('a')!
+    expect(getLinkText(link)).toBe('helloworld')
+  })
+
+  test('getLinkText returns empty for null', () => {
+    expect(getLinkText(null)).toBe('')
+  })
+
+  test('isAbsoluteUrl detects absolute urls', () => {
+    expect(isAbsoluteUrl('https://example.com')).toBe(true)
+    expect(isAbsoluteUrl('http://example.com')).toBe(true)
+    expect(isAbsoluteUrl('/chapter/2')).toBe(false)
+    expect(isAbsoluteUrl('chapter/2')).toBe(false)
+  })
+
+  test('toAbsoluteUrl resolves relative urls', () => {
+    expect(toAbsoluteUrl('https://example.com', 'https://base.com')).toBe('https://example.com')
+    expect(toAbsoluteUrl('/chapter/2', 'https://www.sudugu.org/chapter/1')).toBe(
+      'https://www.sudugu.org/chapter/2',
+    )
+    expect(toAbsoluteUrl('', 'https://base.com')).toBe('')
+    expect(toAbsoluteUrl(null, 'https://base.com')).toBe('')
+  })
+
+  test('matchesText works with regex and function matchers', () => {
+    expect(matchesText(/下一章/, '下一章')).toBe(true)
+    expect(matchesText(/下一章/, '上一章')).toBe(false)
+    expect(matchesText((t) => t.includes('下'), '下一页')).toBe(true)
+    expect(matchesText((t) => t.includes('下'), '上一页')).toBe(false)
+  })
+
+  test('findChapterLink finds link by text pattern', () => {
+    const dom = new JSDOM(`
+      <html><body>
+        <div class="nav">
+          <a href="/prev">上一章</a>
+          <a href="/index">目录</a>
+          <a href="/next">下一章</a>
+        </div>
+      </body></html>
+    `)
+    const doc = dom.window.document
+    const link = findChapterLink('.nav a', [/下一章/], doc)
+    expect(link?.getAttribute('href')).toBe('/next')
+  })
+
+  test('findChapterLink returns null when no match', () => {
+    const dom = new JSDOM(`
+      <html><body><div class="nav"><a href="/prev">上一章</a></div></body></html>
+    `)
+    const doc = dom.window.document
+    expect(findChapterLink('.nav a', [/下一章/], doc)).toBeNull()
+  })
+})
+
+describe('selectorsFactory', () => {
+  test('creates text-pattern selectors for sudugu.org', () => {
+    const dom = new JSDOM(
+      `
+      <html><body>
+        <div class="prenext">
+          <a href="/prev">上一章</a>
+          <a href="/index">目录</a>
+          <a href="/next">下一章</a>
+        </div>
+        <div class="con">content</div>
+      </body></html>
+    `,
+      { url: 'https://www.sudugu.org/chapter/1' },
+    )
+    const factory = selectorsFactory('www.sudugu.org', dom.window.document)
+
+    expect(factory.contentSelector).toBe('.con')
+    expect(factory.previousChapterLinkSelector()?.getAttribute('href')).toBe('/prev')
+    expect(factory.indexLinkSelector()?.getAttribute('href')).toBe('/index')
+    expect(factory.nextChapterLinkSelector()?.getAttribute('href')).toBe('/next')
+    expect(factory.paginationSelector).toBe('.prenext a')
+    expect(factory.matchContinuationText('下一页')).toBe(true)
+    expect(factory.matchNextChapterText('下一章')).toBe(true)
+  })
+
+  test('creates direct selectors for xbiquge.so', () => {
+    const dom = new JSDOM(
+      `
+      <html><body>
+        <a id="link-preview" href="/prev">上一章</a>
+        <a id="link-index" href="/index">目录</a>
+        <a id="link-next" href="/next">下一章</a>
+        <div id="content">content</div>
+      </body></html>
+    `,
+      { url: 'https://www.xbiquge.so/book/1/1.html' },
+    )
+    const factory = selectorsFactory('www.xbiquge.so', dom.window.document)
+
+    expect(factory.contentSelector).toBe('#content')
+    expect(factory.previousChapterLinkSelector()?.getAttribute('href')).toBe('/prev')
+    expect(factory.indexLinkSelector()?.getAttribute('href')).toBe('/index')
+    expect(factory.nextChapterLinkSelector()?.getAttribute('href')).toBe('/next')
+  })
+
+  test('throws for unsupported host', () => {
+    const dom = new JSDOM('<html><body></body></html>')
+    expect(() => selectorsFactory('example.com', dom.window.document)).toThrow(
+      'Unsupported website',
+    )
+  })
+})
+
+describe('loadChapter', () => {
+  test('loads a single-page chapter without continuation', () => {
+    const chapterHtml = `
+      <html><head></head><body>
+        <div class="con">Chapter content here</div>
+        <div class="prenext">
+          <a href="/prev">上一章</a>
+          <a href="/index">目录</a>
+          <a href="/next">下一章</a>
+        </div>
+      </body></html>
+    `
+    const dom = new JSDOM('<html><body></body></html>', { url: 'https://www.sudugu.org/chapter/1' })
+    const requests: string[] = []
+    const runtime = {
+      ...createRuntime(dom),
+      request: ({
+        url,
+        onload,
+      }: {
+        url: string
+        onload: (r: { responseText: string }) => void
+      }) => {
+        requests.push(url)
+        onload({ responseText: chapterHtml })
+      },
+    }
+
+    let result: { html: string; url: string; nextChapterUrl: string } | null = null
+    const app = startArticlePreloader(runtime)
+
+    app.loadChapter(
+      '/chapter/1',
+      (r) => {
+        result = r
+      },
+      () => {},
+    )
+
+    expect(result).not.toBeNull()
+    expect(result!.url).toBe('https://www.sudugu.org/chapter/1')
+    expect(result!.nextChapterUrl).toBe('https://www.sudugu.org/next')
+    expect(result!.html).toContain('Chapter content here')
+    expect(result!.html).toMatch(/^<!DOCTYPE html>/)
+  })
+
+  test('merges continuation pages into a single chapter', () => {
+    const page1Html = `
+      <html><head></head><body>
+        <div class="con">Page 1 content</div>
+        <div class="prenext">
+          <a href="/chapter/1?p=2">下一页</a>
+          <a href="/chapter/2">下一章</a>
+        </div>
+      </body></html>
+    `
+    const page2Html = `
+      <html><head></head><body>
+        <div class="con">Page 2 content</div>
+        <div class="prenext">
+          <a href="/chapter/2">下一章</a>
+        </div>
+      </body></html>
+    `
+    const dom = new JSDOM('<html><body></body></html>', { url: 'https://www.sudugu.org/chapter/1' })
+    const runtime = {
+      ...createRuntime(dom),
+      request: ({
+        url,
+        onload,
+      }: {
+        url: string
+        onload: (r: { responseText: string }) => void
+      }) => {
+        if (url.includes('p=2')) {
+          onload({ responseText: page2Html })
+        } else {
+          onload({ responseText: page1Html })
+        }
+      },
+    }
+
+    let result: { html: string; url: string; nextChapterUrl: string } | null = null
+    const app = startArticlePreloader(runtime)
+
+    app.loadChapter(
+      '/chapter/1',
+      (r) => {
+        result = r
+      },
+      () => {},
+    )
+
+    expect(result).not.toBeNull()
+    expect(result!.html).toContain('Page 1 content')
+    expect(result!.html).toContain('Page 2 content')
+    expect(result!.nextChapterUrl).toBe('https://www.sudugu.org/chapter/2')
+  })
+
+  test('calls onFailure on request error', () => {
+    const dom = new JSDOM('<html><body></body></html>', { url: 'https://www.sudugu.org/chapter/1' })
+    const runtime = {
+      ...createRuntime(dom),
+      request: ({ onerror }: { onerror?: () => void }) => {
+        onerror?.()
+      },
+    }
+
+    let failed = false
+    const app = startArticlePreloader(runtime)
+
+    app.loadChapter(
+      '/chapter/1',
+      () => {},
+      () => {
+        failed = true
+      },
+    )
+
+    expect(failed).toBe(true)
+  })
+
+  test('throws when content element is missing', () => {
+    const badHtml = `<html><head></head><body><div class="nav"><a href="/next">下一章</a></div></body></html>`
+    const dom = new JSDOM('<html><body></body></html>', { url: 'https://www.sudugu.org/chapter/1' })
+    const runtime = {
+      ...createRuntime(dom),
+      request: ({ onload }: { onload: (r: { responseText: string }) => void }) => {
+        onload({ responseText: badHtml })
+      },
+    }
+
+    const app = startArticlePreloader(runtime)
+
+    expect(() => {
+      app.loadChapter(
+        '/chapter/1',
+        () => {},
+        () => {},
+      )
+    }).toThrow('未找到正文容器')
+  })
+
+  test('prevents infinite loop on circular continuation links', () => {
+    const circularHtml = `
+      <html><head></head><body>
+        <div class="con">content</div>
+        <div class="prenext">
+          <a href="/chapter/1">下一页</a>
+          <a href="/chapter/2">下一章</a>
+        </div>
+      </body></html>
+    `
+    const dom = new JSDOM('<html><body></body></html>', { url: 'https://www.sudugu.org/chapter/1' })
+    const runtime = {
+      ...createRuntime(dom),
+      request: ({ onload }: { onload: (r: { responseText: string }) => void }) => {
+        onload({ responseText: circularHtml })
+      },
+    }
+
+    let result: { html: string; url: string; nextChapterUrl: string } | null = null
+    const app = startArticlePreloader(runtime)
+
+    app.loadChapter(
+      '/chapter/1',
+      (r) => {
+        result = r
+      },
+      () => {},
+    )
+
+    expect(result).not.toBeNull()
+    expect(result!.html).toContain('content')
+  })
+})
+
+describe('mergeCurrentChapterIfNeeded', () => {
+  test('skips merge when no continuation link exists', () => {
+    const html = `
+      <html><head></head><body>
+        <div class="con">content</div>
+        <div class="prenext">
+          <a href="/next">下一章</a>
+        </div>
+      </body></html>
+    `
+    const dom = new JSDOM(html, { url: 'https://www.sudugu.org/chapter/1' })
+    let doneCalled = false
+    const app = startArticlePreloader(createRuntime(dom))
+
+    app.mergeCurrentChapterIfNeeded(() => {
+      doneCalled = true
+    })
+
+    expect(doneCalled).toBe(true)
+  })
+
+  test('merges continuation pages when continuation link exists', () => {
+    const currentHtml = `
+      <html><head></head><body>
+        <div class="con">Page 1</div>
+        <div class="prenext">
+          <a href="/chapter/1?p=2">下一页</a>
+          <a href="/chapter/2">下一章</a>
+        </div>
+      </body></html>
+    `
+    const page2Html = `
+      <html><head></head><body>
+        <div class="con">Page 2</div>
+        <div class="prenext">
+          <a href="/chapter/2">下一章</a>
+        </div>
+      </body></html>
+    `
+    const dom = new JSDOM(currentHtml, { url: 'https://www.sudugu.org/chapter/1' })
+    const runtime = {
+      ...createRuntime(dom),
+      request: ({
+        url,
+        onload,
+      }: {
+        url: string
+        onload: (r: { responseText: string }) => void
+      }) => {
+        if (url.includes('p=2')) {
+          onload({ responseText: page2Html })
+        } else {
+          onload({ responseText: currentHtml })
+        }
+      },
+    }
+
+    let doneCalled = false
+    const app = startArticlePreloader(runtime)
+
+    app.mergeCurrentChapterIfNeeded(() => {
+      doneCalled = true
+    })
+
+    expect(doneCalled).toBe(true)
+    const content = dom.window.document.querySelector('.con')?.textContent
+    expect(content).toContain('Page 1')
+    expect(content).toContain('Page 2')
+  })
+})
+
+describe('integration: startArticlePreloader', () => {
+  test('preloads next chapter and replaces the link', () => {
+    const currentHtml = `
+      <html><head></head><body>
+        <div class="con">Current chapter</div>
+        <div class="prenext">
+          <a href="/chapter/2">下一章</a>
+        </div>
+      </body></html>
+    `
+    const nextHtml = `
+      <html><head></head><body>
+        <div class="con">Next chapter</div>
+        <div class="prenext">
+          <a href="/chapter/3">下一章</a>
+        </div>
+      </body></html>
+    `
+    const dom = new JSDOM(currentHtml, { url: 'https://www.sudugu.org/chapter/1' })
+    const requestUrls: string[] = []
+    const runtime = {
+      ...createRuntime(dom),
+      request: ({
+        url,
+        onload,
+      }: {
+        url: string
+        onload: (r: { responseText: string }) => void
+      }) => {
+        requestUrls.push(url)
+        if (url.includes('chapter/2')) {
+          onload({ responseText: nextHtml })
+        }
+      },
+    }
+
+    startArticlePreloader(runtime)
+
+    expect(requestUrls.some((u) => u.includes('chapter/2'))).toBe(true)
+    const nextLink = dom.window.document.querySelector('.prenext a')!
+    expect(nextLink.textContent).toBe('下一章')
+  })
+
+  test('skips preload when on a page without next chapter link', () => {
+    const html = `
+      <html><head></head><body>
+        <div class="con">Last chapter</div>
+        <div class="prenext">
+          <a href="/chapter/1">上一章</a>
+          <a href="/index">目录</a>
+        </div>
+      </body></html>
+    `
+    const dom = new JSDOM(html, { url: 'https://www.sudugu.org/chapter/5' })
+    const requestUrls: string[] = []
+    const runtime = {
+      ...createRuntime(dom),
+      request: ({ url }: { url: string }) => {
+        requestUrls.push(url)
+      },
+    }
+
+    startArticlePreloader(runtime)
+
+    expect(requestUrls).toHaveLength(0)
+  })
+})

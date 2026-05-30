@@ -1,4 +1,5 @@
-import type { AuthorMap, Runtime } from './types'
+import type { Runtime } from '../runtime'
+import type { AuthorMap } from './author-labels'
 import { defaultLabels, getAuthorLabel } from './author-labels'
 import { addCollapseExpandButtons, embedDiscussions } from './discussion-embedder'
 import { getCommentElementsFromHtmlString } from './comment-helpers'
