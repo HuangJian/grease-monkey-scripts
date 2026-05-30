@@ -157,6 +157,9 @@
       return commentNumber < currentCommentNumber;
     }).at(-1) || null;
   }
+  function getCommentHearts(comment) {
+    return Array.from(comment.querySelectorAll('[alt="❤️"]')).map((it) => parseInt(it.nextSibling?.textContent || "0", 10)).reduce((prev, curr) => prev + curr, 0);
+  }
   function getTextUntilNextMemberMention(mention) {
     let text = "";
     let node = mention.nextSibling;
@@ -220,10 +223,11 @@
       mentionedComments: getMentionedComments(currentComment, commentByNumber, commentsByAuthor)
     })).filter(({ mentionedComments }) => mentionedComments.length > 0);
     plans.forEach(({ currentComment, mentionedComments }) => {
-      const [primaryComment, ...secondaryComments] = mentionedComments;
-      if (!primaryComment) {
+      if (mentionedComments.length === 0) {
         return;
       }
+      const sortedByHearts = mentionedComments.slice().sort((a, b) => getCommentHearts(b) - getCommentHearts(a));
+      const [primaryComment, ...secondaryComments] = sortedByHearts;
       primaryComment.querySelector(":scope > table")?.insertAdjacentElement("afterend", currentComment);
       currentComment.setAttribute("data-is-embedded", "true");
       secondaryComments.forEach((referencedComment) => addReferenceHint(runtime, referencedComment, currentComment));
@@ -401,8 +405,8 @@
       highlightCommentsAndTopics(runtime, shamedMap, thankedMap);
     }
     function enhanceThreadPage() {
-      reorderCommentsByHearts(runtime);
       embedDiscussions(runtime);
+      reorderCommentsByHearts(runtime);
       addCollapseExpandButtons(runtime);
       addShameButtons(runtime, likeDislikeAuthorWrapper);
       addMoreThankActions(runtime, likeDislikeAuthorWrapper);

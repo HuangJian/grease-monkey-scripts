@@ -37,6 +37,12 @@ export function getLastCommentByAuthorBeforeNumber(
   )
 }
 
+export function getCommentHearts(comment: Element): number {
+  return Array.from(comment.querySelectorAll('[alt="❤️"]'))
+    .map((it) => parseInt(it.nextSibling?.textContent || '0', 10))
+    .reduce((prev, curr) => prev + curr, 0)
+}
+
 export function getTextUntilNextMemberMention(mention: Element): string {
   let text = ''
   let node = mention.nextSibling
@@ -135,10 +141,15 @@ export function embedDiscussions(runtime: Runtime): void {
     .filter(({ mentionedComments }) => mentionedComments.length > 0)
 
   plans.forEach(({ currentComment, mentionedComments }) => {
-    const [primaryComment, ...secondaryComments] = mentionedComments
-    if (!primaryComment) {
+    if (mentionedComments.length === 0) {
       return
     }
+
+    const sortedByHearts = mentionedComments
+      .slice()
+      .sort((a, b) => getCommentHearts(b) - getCommentHearts(a))
+
+    const [primaryComment, ...secondaryComments] = sortedByHearts
 
     primaryComment
       .querySelector(':scope > table')

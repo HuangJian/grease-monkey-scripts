@@ -3,6 +3,7 @@ import { JSDOM } from 'jsdom'
 import {
   embedDiscussions,
   getCommentAuthorName,
+  getCommentHearts,
   getCommentNumber,
   getLastCommentByAuthorBeforeNumber,
   getTextUntilNextMemberMention,
@@ -243,6 +244,76 @@ function deepNestedReferenceThreadHtml() {
   `
 }
 
+function heartsPriorityThreadHtml() {
+  return `
+    <html>
+      <head></head>
+      <body>
+        <div id="Main">
+          <div class="box"></div>
+          <div class="box"></div>
+          <div class="box">
+            <div class="cell">4 replies</div>
+            <div class="cell" id="r_1">
+              <table><tbody><tr>
+                <td><span class="no">1</span></td>
+                <td>
+                  <strong><a class="dark" href="/member/alice">alice</a></strong>
+                  <div class="reply_content">alice point</div>
+                  <div class="thank_area"><a class="thank">感谢回复者</a></div>
+                </td>
+              </tr></tbody></table>
+            </div>
+            <div class="cell" id="r_2">
+              <table><tbody><tr>
+                <td><span class="no">2</span></td>
+                <td>
+                  <strong><a class="dark" href="/member/bob">bob</a></strong>
+                  <div class="reply_content">bob point</div>
+                  <div class="thank_area">
+                    <img alt="❤️"><span>10</span>
+                    <a class="thank">感谢回复者</a>
+                  </div>
+                </td>
+              </tr></tbody></table>
+            </div>
+            <div class="cell" id="r_3">
+              <table><tbody><tr>
+                <td><span class="no">3</span></td>
+                <td>
+                  <strong><a class="dark" href="/member/carol">carol</a></strong>
+                  <div class="reply_content">carol point</div>
+                  <div class="thank_area">
+                    <img alt="❤️"><span>5</span>
+                    <a class="thank">感谢回复者</a>
+                  </div>
+                </td>
+              </tr></tbody></table>
+            </div>
+            <div class="cell" id="r_4">
+              <table><tbody><tr>
+                <td><span class="no">4</span></td>
+                <td>
+                  <strong><a class="dark" href="/member/dave">dave</a></strong>
+                  <div class="reply_content">
+                    @<a href="/member/alice">alice</a> #1 and
+                    @<a href="/member/bob">bob</a> #2 and
+                    @<a href="/member/carol">carol</a> #3
+                  </div>
+                  <div class="thank_area"><a class="thank">感谢回复者</a></div>
+                </td>
+              </tr></tbody></table>
+            </div>
+          </div>
+        </div>
+        <div class="header"><img class="avatar" alt="topic-author"></div>
+        <div class="topic_buttons"></div>
+        <a id="topic_thank">感谢主题作者</a>
+      </body>
+    </html>
+  `
+}
+
 describe('discussion embedder', () => {
   let dom: JSDOM
   let runtime: Runtime
@@ -362,6 +433,26 @@ describe('discussion embedder', () => {
     expect(hint?.textContent).toContain('#37')
     expect(hint?.textContent).toContain('#19')
   })
+
+  test('embeds under the most-hearted comment when multiple floors are mentioned', async () => {
+    dom = createDom(heartsPriorityThreadHtml())
+    runtime = createRuntime(dom)
+
+    embedDiscussions(runtime)
+
+    expect(dom.window.document.querySelectorAll('#r_4')).toHaveLength(1)
+    expect(dom.window.document.querySelector('#r_2 > #r_4')).not.toBeNull()
+    expect(dom.window.document.querySelector('#r_1 > #r_4')).toBeNull()
+    expect(dom.window.document.querySelector('#r_3 > #r_4')).toBeNull()
+
+    const hintOnAlice = dom.window.document.querySelector('#r_1 .gm-reference-hint')
+    expect(hintOnAlice?.textContent).toContain('#4')
+    expect(hintOnAlice?.textContent).toContain('#1')
+
+    const hintOnCarol = dom.window.document.querySelector('#r_3 .gm-reference-hint')
+    expect(hintOnCarol?.textContent).toContain('#4')
+    expect(hintOnCarol?.textContent).toContain('#3')
+  })
 })
 
 describe('discussion embedder helpers', () => {
@@ -400,5 +491,22 @@ describe('discussion embedder helpers', () => {
     const mention = dom.window.document.querySelector('.mention')!
 
     expect(getTextUntilNextMemberMention(mention)).toBe('some text')
+  })
+
+  test('getCommentHearts sums heart counts from emoji spans', () => {
+    const dom = createDom(`
+      <div class="cell" id="r_1">
+        <img alt="❤️"><span>3</span>
+        <img alt="❤️"><span>7</span>
+      </div>
+    `)
+    const comment = dom.window.document.querySelector('.cell')!
+    expect(getCommentHearts(comment)).toBe(10)
+  })
+
+  test('getCommentHearts returns 0 when no hearts present', () => {
+    const dom = createDom(`<div class="cell" id="r_1">no hearts</div>`)
+    const comment = dom.window.document.querySelector('.cell')!
+    expect(getCommentHearts(comment)).toBe(0)
   })
 })
