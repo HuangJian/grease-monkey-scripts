@@ -15,7 +15,7 @@ interactions, and validate generated installable output.
 
 ## Tooling
 
-Use Bun for package management, tests, and builds.
+Use Bun for package management, tests, and builds. The project uses oxlint for linting and oxfmt for formatting.
 
 Common commands:
 
@@ -23,12 +23,13 @@ Common commands:
 bun install
 bun test
 bun run typecheck
+bun run lint
+bun run format
 bun run build
 bun run check
 ```
 
-`bun run check` is the preferred final validation. It should include type
-checking, tests, and userscript generation.
+`bun run check` is the preferred final validation. It should include type checking, linting, formatting, tests, and userscript generation.
 
 ## Recommended Layout
 

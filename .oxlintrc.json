@@ -1,0 +1,14 @@
+{
+  "plugins": ["typescript", "node", "import", "oxc"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error"
+  },
+  "env": {
+    "node": true
+  },
+  "ignorePatterns": ["dist/**", "node_modules/**", "src/generated/**"],
+  "rules": {
+    "oxc/no-async-endpoint-handlers": "off"
+  }
+}

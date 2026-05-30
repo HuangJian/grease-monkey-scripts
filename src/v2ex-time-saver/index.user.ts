@@ -16,7 +16,7 @@
 // placeholder: /*{{V2EX_TIME_SAVER_CSS}}*/
 // ==/build.meta==
 
-import { startV2exTimeSaver } from "./app";
-import { createBrowserRuntime } from "./runtime";
+import { startV2exTimeSaver } from './app'
+import { createBrowserRuntime } from './runtime'
 
-void startV2exTimeSaver(createBrowserRuntime());
+void startV2exTimeSaver(createBrowserRuntime())
