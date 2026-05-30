@@ -38,10 +38,31 @@ function buildResult(
     [selectors.matchNextChapterText],
     currentDoc,
   )
+  const nextChapterUrl = toAbsoluteUrl(nextChapterLink?.getAttribute('href') ?? null, chapterUrl)
+
+  if (nextChapterUrl) {
+    const firstPageNextLink = findChapterLink(
+      selectors.paginationSelector,
+      [selectors.matchNextChapterText],
+      chapterDoc,
+    )
+    if (!firstPageNextLink) {
+      const continuationLink = findChapterLink(
+        selectors.paginationSelector,
+        [selectors.matchContinuationText],
+        chapterDoc,
+      )
+      if (continuationLink) {
+        continuationLink.textContent = '下一章'
+        continuationLink.setAttribute('href', nextChapterUrl)
+      }
+    }
+  }
+
   return {
     html: '<!DOCTYPE html>\n' + chapterDoc.documentElement.outerHTML,
     url: chapterUrl,
-    nextChapterUrl: toAbsoluteUrl(nextChapterLink?.getAttribute('href') ?? null, chapterUrl),
+    nextChapterUrl,
   }
 }
 

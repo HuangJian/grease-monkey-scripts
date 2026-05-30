@@ -263,6 +263,84 @@ describe('loadChapter', () => {
     }).toThrow('未找到正文容器')
   })
 
+  test('replaces first-page 下一页 with 下一章 when the chapter has pagination', () => {
+    const page1Html = `
+      <html><head></head><body>
+        <div class="con">Page 1 content</div>
+        <div class="prenext">
+          <a href="/chapter/1?p=2">下一页</a>
+        </div>
+      </body></html>
+    `
+    const page2Html = `
+      <html><head></head><body>
+        <div class="con">Page 2 content</div>
+        <div class="prenext">
+          <a href="/chapter/1?p=3">下一页</a>
+        </div>
+      </body></html>
+    `
+    const page3Html = `
+      <html><head></head><body>
+        <div class="con">Page 3 content</div>
+        <div class="prenext">
+          <a href="/chapter/4">下一章</a>
+        </div>
+      </body></html>
+    `
+    const dom = new JSDOM('<html><body></body></html>', { url: 'https://www.sudugu.org/chapter/1' })
+    const requests: Array<{ url: string; onload: (r: { responseText: string }) => void }> = []
+    const runtime = {
+      ...createRuntime(dom),
+      request: ({
+        url,
+        onload,
+      }: {
+        url: string
+        onload: (r: { responseText: string }) => void
+      }) => {
+        requests.push({ url, onload })
+      },
+    }
+
+    let result: { html: string; url: string; nextChapterUrl: string } | null = null
+    const app = startArticlePreloader(runtime)
+
+    app.loadChapter(
+      '/chapter/1',
+      (r) => {
+        result = r
+      },
+      () => {},
+    )
+
+    // Trigger the chain of continuation fetches
+    for (const req of requests) {
+      if (req.url.includes('p=2')) {
+        req.onload({ responseText: page2Html })
+      } else if (req.url.includes('p=3')) {
+        req.onload({ responseText: page3Html })
+      } else {
+        req.onload({ responseText: page1Html })
+      }
+    }
+
+    expect(result).not.toBeNull()
+    expect(result!.html).toContain('Page 1 content')
+    expect(result!.html).toContain('Page 2 content')
+    expect(result!.html).toContain('Page 3 content')
+    expect(result!.nextChapterUrl).toBe('https://www.sudugu.org/chapter/4')
+
+    // The output HTML should have a "下一章" link (replacing the original "下一页")
+    const resultDom = new JSDOM(result!.html, { url: 'https://www.sudugu.org/chapter/1' })
+    const navLinks = Array.from(resultDom.window.document.querySelectorAll('.prenext a'))
+    const nextLinks = navLinks.filter((a) => a.textContent?.trim() === '下一章')
+    expect(nextLinks).toHaveLength(1)
+    expect(nextLinks[0].getAttribute('href')).toBe('https://www.sudugu.org/chapter/4')
+    const continuationLinks = navLinks.filter((a) => a.textContent?.trim() === '下一页')
+    expect(continuationLinks).toHaveLength(0)
+  })
+
   test('prevents infinite loop on circular continuation links', () => {
     const circularHtml = `
       <html><head></head><body>

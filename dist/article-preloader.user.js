@@ -124,11 +124,22 @@
   }
   function buildResult(chapterDoc, chapterUrl, currentDoc, selectors) {
     const nextChapterLink = findChapterLink(selectors.paginationSelector, [selectors.matchNextChapterText], currentDoc);
+    const nextChapterUrl = toAbsoluteUrl(nextChapterLink?.getAttribute("href") ?? null, chapterUrl);
+    if (nextChapterUrl) {
+      const firstPageNextLink = findChapterLink(selectors.paginationSelector, [selectors.matchNextChapterText], chapterDoc);
+      if (!firstPageNextLink) {
+        const continuationLink = findChapterLink(selectors.paginationSelector, [selectors.matchContinuationText], chapterDoc);
+        if (continuationLink) {
+          continuationLink.textContent = "下一章";
+          continuationLink.setAttribute("href", nextChapterUrl);
+        }
+      }
+    }
     return {
       html: `<!DOCTYPE html>
 ` + chapterDoc.documentElement.outerHTML,
       url: chapterUrl,
-      nextChapterUrl: toAbsoluteUrl(nextChapterLink?.getAttribute("href") ?? null, chapterUrl)
+      nextChapterUrl
     };
   }
   function appendNextPage(runtime, selectors, chapterDoc, chapterUrl, chapterContent, visited, currentDoc, onSuccess, onFailure) {
