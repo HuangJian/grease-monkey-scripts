@@ -604,4 +604,72 @@ describe("v2ex app integration", () => {
     expect(dom.window.document.querySelector(".topic-link")?.getAttribute("target")).toBe("_blank");
     expect(dom.window.document.querySelector("style")?.textContent).toContain(".nice-author");
   });
+  test("loads page 1 comments from DOM and fetches subsequent pages when on page 1", async () => {
+    const page1Html = `
+      <html><head></head><body>
+        <div id="Main">
+          <div class="box"></div>
+          <div class="box"></div>
+          <div class="box">
+            <div class="cell">2 replies</div>
+            <div class="cell" id="r_1">
+              <table><tbody><tr>
+                <td><span class="no">1</span></td>
+                <td><strong><a class="dark" href="/member/alice">alice</a></strong>
+                  <div class="reply_content">page one comment</div>
+                </td>
+              </tr></tbody></table>
+            </div>
+          </div>
+        </div>
+        <div class="cell ps_container">
+          <a href="?p=1" class="page_current">1</a>
+          <a href="?p=2" class="page_normal">2</a>
+        </div>
+        <div class="header"><img class="avatar" alt="topic-author"></div>
+        <div class="topic_buttons"></div>
+        <a id="topic_thank">感谢主题作者</a>
+      </body></html>
+    `;
+    const page2Html = `
+      <html><head></head><body>
+        <div id="Main">
+          <div class="box"></div>
+          <div class="box"></div>
+          <div class="box">
+            <div class="cell">2 replies</div>
+            <div class="cell" id="r_2">
+              <table><tbody><tr>
+                <td><span class="no">2</span></td>
+                <td><strong><a class="dark" href="/member/bob">bob</a></strong>
+                  <div class="reply_content">page two comment</div>
+                </td>
+              </tr></tbody></table>
+            </div>
+          </div>
+        </div>
+      </body></html>
+    `;
+
+    const dom = createDom(page1Html);
+    let page2Callback: ((response: { responseText: string }) => void) | null = null;
+
+    const runtime = {
+      ...createRuntime(dom),
+      request: ({ onload }: { url: string; method: string; timeout: number; onload: (r: { responseText: string }) => void }) => {
+        page2Callback = onload;
+      },
+    };
+
+    const app = await createV2exApp(runtime);
+    app.start();
+
+    // Before page 2 loads, page 1 comments should not yet be rendered (waiting for all pages).
+    // Now simulate page 2 finishing.
+    page2Callback!({ responseText: page2Html });
+
+    const ids = Array.from(dom.window.document.querySelectorAll("#Main > .box:nth-child(n+3) > .cell[id]")).map(el => el.id);
+    expect(ids).toContain("r_1");
+    expect(ids).toContain("r_2");
+  });
 });

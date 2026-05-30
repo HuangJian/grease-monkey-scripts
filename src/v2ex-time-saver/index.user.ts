@@ -4,7 +4,7 @@
 // @version      1.0
 // @description  Save my time when browsing v2ex.com!
 // @author       ustc.hj@gmail.com
-// @match        https://www.v2ex.com/*
+// @match        *.v2ex.com/*
 // @icon         https://www.v2ex.com/static/favicon.ico
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle

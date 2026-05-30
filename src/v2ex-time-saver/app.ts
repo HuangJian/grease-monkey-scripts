@@ -478,36 +478,64 @@ export async function createV2exApp(runtime: Runtime) {
 
     commentBox.prepend(fragment);
     commentBox.prepend(countsElement);
+    // Remove the duplicated pagers
+    $$('.ps_container').filter((it, idx) => idx > 0).forEach(it => it.remove());
     enhanceThreadPage();
   }
 
-  function loadCommentsByPage(page: number) {
+  function loadCommentsByPage(page: number, idx: number) {
     const url = `${runtime.location.origin}${runtime.location.pathname}?p=${page}`;
     runtime.request({
       url,
       method: "GET",
       timeout: 30000,
       onload(response) {
-        commentsOfPages[page - 1] = getCommentElementsFromHtmlString(response.responseText);
+        commentsOfPages[idx] = getCommentElementsFromHtmlString(response.responseText);
         tryDisplayAllComments();
       },
     });
   }
 
   function start() {
-    const isReadingTopic = runtime.location.href.indexOf("www.v2ex.com/t/") > 0;
-    const pages = $$(".page_normal")
+    const isReadingTopic = runtime.location.href.indexOf("v2ex.com/t/") > 0;
+
+    addStyles();
+
+    // Collect all page numbers visible in the pager (both current and normal links).
+    const allPageNumbers = $$(".page_current, .page_normal")
       .map(it => parseInt(it.textContent || "", 10))
       .filter(() => isReadingTopic)
-      .filter(it => it <= 10)
-      .filter((x, i, a) => a.indexOf(x) === i);
-    commentsOfPages = pages.map(() => runtime.document.querySelectorAll("__empty__"));
-    pages.forEach(it => loadCommentsByPage(it));
+      .filter(it => !isNaN(it) && it >= 1 && it <= 10)
+      .filter((x, i, a) => a.indexOf(x) === i)
+      .sort((a, b) => a - b);
 
-    if (!pages.length) {
+    if (!allPageNumbers.length) {
       enhanceThreadPage();
+      return;
     }
 
+    // Determine which page is currently loaded in the DOM.
+    const currentPageEl = $(".page_current");
+    const currentPageNum = currentPageEl
+      ? parseInt(currentPageEl.textContent || "", 10)
+      : parseInt(new URL(runtime.location.href).searchParams.get("p") || "1", 10) || 1;
+
+    // Pre-allocate slots for every page. Use a parallel array indexed by page number (1-based).
+    commentsOfPages = allPageNumbers.map(() => runtime.document.querySelectorAll("__empty__"));
+
+    allPageNumbers.forEach((pageNum, idx) => {
+      if (pageNum === currentPageNum) {
+        // Page already loaded in DOM — extract its comments without a network request.
+        commentsOfPages[idx] = runtime.document.querySelectorAll("#Main > .box > .cell[id]");
+      } else {
+        loadCommentsByPage(pageNum, idx);
+      }
+    });
+
+    tryDisplayAllComments();
+  }
+
+  function addStyles() {
     runtime.addStyle(`
       .cell[id] > .cell[id] {
         border-left: 2px solid lightblue;
@@ -660,6 +688,7 @@ export async function createV2exApp(runtime: Runtime) {
       }
     `);
   }
+
 
   return {
     addTargetToTopicLinks,
