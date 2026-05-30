@@ -443,8 +443,7 @@
       tryDisplayAllComments();
     }
     function addStyles() {
-      runtime.addStyle(`
-      .cell[id] > .cell[id] {
+      runtime.addStyle(`.cell[id] > .cell[id] {
         border-left: 2px solid lightblue;
         padding-bottom: 0;
         padding-right: 0;
@@ -592,8 +591,7 @@
       .gm-dialog-card > .cell {
         border-bottom: 0;
         padding: 0;
-      }
-    `);
+      }`);
     }
     return {
       addTargetToTopicLinks,
@@ -651,6 +649,6 @@
     };
   }
 
-  // src/v2ex-time-saver/index.user.ts
+  // src/v2ex-time-saver/.index.user.ts
   startV2exTimeSaver(createBrowserRuntime());
 })();

@@ -1,0 +1,149 @@
+      .cell[id] > .cell[id] {
+        border-left: 2px solid lightblue;
+        padding-bottom: 0;
+        padding-right: 0;
+      }
+      button.gm {
+        cursor: pointer;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        position: relative;
+        z-index: 2;
+      }
+      .gm.expand {
+        display: none;
+        color: mediumpurple;
+      }
+      .gm.collapse {
+        display: block;
+        color: lightblue;
+      }
+      button.gm.collapse > svg {
+        position: absolute;
+        top: -13px;
+        right: -2px;
+      }
+      .cell.discussions-collapsed > .gm.expand {
+        display: block;
+        margin-bottom: -12px;
+      }
+      .cell.discussions-collapsed > .gm.expand > span {
+        vertical-align: super;
+      }
+      .cell.discussions-collapsed > .gm.collapse {
+        display: none;
+      }
+      .cell.discussions-collapsed > :not(.gm) {
+        display: none;
+      }
+      .shame {
+        opacity: .5;
+      }
+      .nice-author {
+        background: lightcyan;
+      }
+      .gm-reference-hints {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 6px 0 8px 8px;
+      }
+      .gm-reference-hint {
+        cursor: pointer;
+        border: 1px solid lightblue;
+        border-radius: 4px;
+        padding: 2px 8px;
+        background: aliceblue;
+        color: steelblue;
+      }
+      .gm-reference-dialog {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: rgba(0, 0, 0, .36);
+      }
+      .gm-reference-dialog-panel {
+        box-sizing: border-box;
+        width: min(780px, 100%);
+        max-height: min(720px, 90vh);
+        overflow: auto;
+        border-radius: 8px;
+        background: white;
+        box-shadow: 0 12px 48px rgba(0, 0, 0, .24);
+      }
+      .gm-reference-dialog-header {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        border-bottom: 1px solid #e5e5e5;
+        background: white;
+        font-weight: bold;
+      }
+      .gm-reference-dialog-close {
+        cursor: pointer;
+        border: 1px solid #d0d0d0;
+        border-radius: 4px;
+        padding: 2px 8px;
+        background: #f8f8f8;
+      }
+      .gm-reference-dialog-content {
+        padding: 0 12px 12px;
+      }
+      .gm-reference-dialog-content > .cell {
+        border-bottom: 0;
+      }
+      .gm-dialog-card {
+        position: relative;
+        border: 1px solid #e1e4e8;
+        border-radius: 6px;
+        padding: 12px;
+        margin: 8px 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+      }
+      .gm-dialog-context-card {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+      }
+      .gm-dialog-reply-card {
+        background: #ffffff;
+        border-color: #e1e4e8;
+      }
+      .gm-dialog-badge {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        font-size: 11px;
+        font-weight: bold;
+        padding: 2px 6px;
+        border-radius: 4px;
+        line-height: 1;
+        user-select: none;
+      }
+      .gm-dialog-context-badge {
+        background: #e2e8f0;
+        color: #475569;
+      }
+      .gm-dialog-reply-badge {
+        background: #dbeafe;
+        color: #1e40af;
+      }
+      .gm-dialog-connector {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: #94a3b8;
+        margin: 6px 0;
+      }
+      .gm-dialog-card > .cell {
+        border-bottom: 0;
+        padding: 0;
+      }
