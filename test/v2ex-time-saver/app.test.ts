@@ -3,6 +3,7 @@ import { JSDOM } from "jsdom";
 import {
   createV2exApp,
   defaultLabels,
+  extractRedeemUrl,
   getAuthorLabel,
   getAuthorRecord,
   parseAuthorMap,
@@ -671,5 +672,81 @@ describe("v2ex app integration", () => {
     const ids = Array.from(dom.window.document.querySelectorAll("#Main > .box:nth-child(n+3) > .cell[id]")).map(el => el.id);
     expect(ids).toContain("r_1");
     expect(ids).toContain("r_2");
+  });
+});
+
+describe("auto sign-in", () => {
+  test("extractRedeemUrl parses the redeem path from mission page HTML", () => {
+    const html = `
+      <html><body>
+        <input type="button" class="super normal button" value="领取 88 铜币"
+          onclick="location.href = '/mission/daily/redeem?once=75573';">
+      </body></html>
+    `;
+    expect(extractRedeemUrl(html)).toBe("/mission/daily/redeem?once=75573");
+  });
+
+  test("extractRedeemUrl returns null when the redeem button is absent", () => {
+    expect(extractRedeemUrl("<html><body><p>Already signed in.</p></body></html>")).toBeNull();
+  });
+
+  test("checkAndDoSignIn fetches mission page then fires redeem request", async () => {
+    const homepageHtml = `
+      <html><head></head><body>
+        <a href="/mission/daily">每日登录</a>
+      </body></html>
+    `;
+    const missionPageHtml = `
+      <html><body>
+        <input type="button" value="领取 60 铜币"
+          onclick="location.href = '/mission/daily/redeem?once=99999';">
+      </body></html>
+    `;
+
+    const dom = createDom(homepageHtml, "https://www.v2ex.com/");
+    const requests: string[] = [];
+    let missionOnload: ((r: { responseText: string }) => void) | null = null;
+    let redeemOnload: ((r: { responseText: string }) => void) | null = null;
+
+    const runtime = {
+      ...createRuntime(dom),
+      request: ({ url, onload }: { url: string; method: string; timeout: number; onload: (r: { responseText: string }) => void }) => {
+        requests.push(url);
+        if (url.includes("/mission/daily") && !url.includes("redeem")) {
+          missionOnload = onload;
+        } else if (url.includes("redeem")) {
+          redeemOnload = onload;
+        }
+      },
+    };
+
+    const app = await createV2exApp(runtime);
+    app.start();
+
+    // Should have fetched the mission page.
+    expect(requests).toContain("https://www.v2ex.com/mission/daily");
+
+    // Simulate the mission page response.
+    missionOnload!({ responseText: missionPageHtml });
+
+    // Should now have fired the redeem request.
+    expect(requests).toContain("https://www.v2ex.com/mission/daily/redeem?once=99999");
+    expect(redeemOnload).not.toBeNull();
+  });
+
+  test("checkAndDoSignIn does nothing when mission link is absent", async () => {
+    const dom = createDom("<html><head></head><body><p>no sign-in prompt</p></body></html>", "https://www.v2ex.com/");
+    const requests: string[] = [];
+    const runtime = {
+      ...createRuntime(dom),
+      request: ({ url }: { url: string; method: string; timeout: number; onload: (r: { responseText: string }) => void }) => {
+        requests.push(url);
+      },
+    };
+
+    const app = await createV2exApp(runtime);
+    app.start();
+
+    expect(requests.some(u => u.includes("mission"))).toBe(false);
   });
 });

@@ -496,10 +496,39 @@ export async function createV2exApp(runtime: Runtime) {
     });
   }
 
+  function checkAndDoSignIn() {
+    const linkEl = $("a[href='/mission/daily']");
+    if (!linkEl) return;
+
+    const missionUrl = `${runtime.location.origin}/mission/daily`;
+    runtime.request({
+      url: missionUrl,
+      method: "GET",
+      timeout: 30000,
+      onload(response) {
+        const redeemPath = extractRedeemUrl(response.responseText);
+        if (!redeemPath) {
+          linkEl.textContent = "自动签到失败，请手动签到";
+          return;
+        }
+
+        runtime.request({
+          url: `${runtime.location.origin}${redeemPath}`,
+          method: "GET",
+          timeout: 30000,
+          onload() {
+            linkEl.textContent = "自动签到成功";
+          },
+        });
+      },
+    });
+  }
+
   function start() {
     const isReadingTopic = runtime.location.href.indexOf("v2ex.com/t/") > 0;
 
     addStyles();
+    checkAndDoSignIn();
 
     // Collect all page numbers visible in the pager (both current and normal links).
     const allPageNumbers = $$(".page_current, .page_normal")
@@ -731,4 +760,14 @@ export function htmlToElement<T extends Element = Element>(document: Document, h
   const template = document.createElement("template");
   template.innerHTML = html.trim();
   return template.content.firstChild as T;
+}
+
+/**
+ * Extracts the redeem path from the HTML of the V2EX daily mission page.
+ * Looks for: onclick="location.href = '/mission/daily/redeem?once=XXXXX';"
+ * Returns the path string (e.g. "/mission/daily/redeem?once=75573") or null.
+ */
+export function extractRedeemUrl(html: string): string | null {
+  const match = /location\.href\s*=\s*'(\/mission\/daily\/redeem[^']+)'/.exec(html);
+  return match ? match[1] : null;
 }
