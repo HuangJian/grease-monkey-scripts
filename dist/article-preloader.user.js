@@ -117,7 +117,7 @@
       url: toAbsoluteUrl(url, runtime.location.href),
       method: "GET",
       timeout: 120000,
-      onload: (response) => onSuccess(response.responseText),
+      onload: (response) => onSuccess({ html: response.responseText, status: response.status ?? 200 }),
       onerror: onFailure,
       ontimeout: onFailure
     });
@@ -150,11 +150,16 @@
     }
     const nextPageUrl = toAbsoluteUrl(nextPageLink.getAttribute("href"), chapterUrl);
     visited.add(nextPageUrl);
-    fetchPage(runtime, nextPageUrl, (nextHtml) => {
-      const nextDoc = htmlToDocument(nextHtml, new runtime.DOMParser);
+    fetchPage(runtime, nextPageUrl, ({ html, status }) => {
+      const nextDoc = htmlToDocument(html, new runtime.DOMParser);
       const nextContent = nextDoc.querySelector(selectors.contentSelector || "");
       if (!nextContent) {
-        throw new Error("未找到正文容器，无法拼接分页内容。");
+        if (status === 200) {
+          onSuccess(buildResult(chapterDoc, chapterUrl, currentDoc, selectors));
+          return;
+        }
+        onFailure();
+        return;
       }
       chapterContent.append(...Array.from(nextContent.childNodes).map((node) => chapterDoc.importNode(node, true)));
       appendNextPage(runtime, selectors, chapterDoc, chapterUrl, chapterContent, visited, nextDoc, onSuccess, onFailure);
@@ -166,12 +171,15 @@
     let nextChapterUrl = "";
     const selectors = selectorsFactory(runtime.location.host, runtime.document);
     function loadChapter(url, onSuccess, onFailure) {
-      fetchPage(runtime, url, (html) => {
+      fetchPage(runtime, url, ({ html, status }) => {
         const chapterUrl = toAbsoluteUrl(url, runtime.location.href);
         const chapterDoc = htmlToDocument(html, new runtime.DOMParser);
         const chapterContent = chapterDoc.querySelector(selectors.contentSelector || "");
         if (!chapterContent) {
-          throw new Error("未找到正文容器，无法拼接分页内容。");
+          if (status === 200)
+            return;
+          onFailure();
+          return;
         }
         const visited = new Set([chapterUrl]);
         appendNextPage(runtime, selectors, chapterDoc, chapterUrl, chapterContent, visited, chapterDoc, onSuccess, onFailure);
@@ -185,19 +193,43 @@
         return;
       }
       const currentUrl = runtime.location.href;
-      loadChapter(currentUrl, ({ html, nextChapterUrl: nextUrl }) => {
-        runtime.document.documentElement.innerHTML = htmlToDocument(html, new runtime.DOMParser).documentElement.innerHTML;
-        if (nextUrl) {
-          const nextLink = selectors.nextChapterLinkSelector();
-          if (nextLink) {
-            nextLink.setAttribute("href", nextUrl);
-            nextLink.textContent = "下一章";
-          }
-        }
-        runtime.document.defaultView?.history.replaceState(null, "", currentUrl);
-        runtime.document.defaultView?.scrollTo(0, 0);
+      const contentSelector = selectors.contentSelector || "";
+      const currentContent = runtime.document.querySelector(contentSelector);
+      if (!currentContent) {
         done();
-      }, () => done());
+        return;
+      }
+      const visited = new Set([currentUrl]);
+      function fetchNextPages(doc) {
+        const nextLink = findChapterLink(selectors.paginationSelector, [selectors.matchContinuationText], doc);
+        if (!nextLink || visited.has(toAbsoluteUrl(nextLink.getAttribute("href"), currentUrl))) {
+          const nextChapterLink = findChapterLink(selectors.paginationSelector, [selectors.matchNextChapterText], doc);
+          const nextUrl = nextChapterLink ? toAbsoluteUrl(nextChapterLink.getAttribute("href"), currentUrl) : "";
+          if (nextUrl) {
+            const link = selectors.nextChapterLinkSelector();
+            if (link) {
+              link.setAttribute("href", nextUrl);
+              link.textContent = "下一章";
+            }
+          }
+          runtime.document.defaultView?.history.replaceState(null, "", currentUrl);
+          done();
+          return;
+        }
+        const nextPageUrl = toAbsoluteUrl(nextLink.getAttribute("href"), currentUrl);
+        visited.add(nextPageUrl);
+        fetchPage(runtime, nextPageUrl, ({ html }) => {
+          const nextDoc = htmlToDocument(html, new runtime.DOMParser);
+          const nextContent = nextDoc.querySelector(contentSelector);
+          if (!nextContent) {
+            done();
+            return;
+          }
+          currentContent.append(...Array.from(nextContent.childNodes).map((node) => runtime.document.importNode(node, true)));
+          fetchNextPages(nextDoc);
+        }, () => done());
+      }
+      fetchNextPages(runtime.document);
     }
     function displayNextChapter() {
       retry = 0;
@@ -210,6 +242,7 @@
       ++retry;
       if (retry > 10) {
         console.error("预加载下一章内容失败：重试 10 次仍未成功，结束重试！");
+        return;
       }
       const nextChapterLink = selectors.nextChapterLinkSelector();
       if (!nextChapterLink)

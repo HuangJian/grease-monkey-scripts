@@ -2,7 +2,7 @@ export type RequestDetails = {
   url: string
   method: string
   timeout?: number
-  onload(response: { responseText: string }): void
+  onload(response: { responseText: string; status?: number }): void
   onerror?: () => void
   ontimeout?: () => void
 }
@@ -27,7 +27,7 @@ declare function GM_xmlhttpRequest(details: {
   url: string
   method: string
   timeout?: number
-  onload(response: { responseText: string }): void
+  onload(response: { responseText: string; status?: number }): void
   onerror?: () => void
   ontimeout?: () => void
 }): void

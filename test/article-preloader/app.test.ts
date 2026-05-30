@@ -242,9 +242,11 @@ describe('loadChapter', () => {
     expect(failed).toBe(true)
   })
 
-  test('throws when content element is missing', () => {
+  test('skips preload silently when content element is missing on 200', () => {
     const badHtml = `<html><head></head><body><div class="nav"><a href="/next">下一章</a></div></body></html>`
     const dom = new JSDOM('<html><body></body></html>', { url: 'https://www.sudugu.org/chapter/1' })
+    let succeeded = false
+    let failed = false
     const runtime = {
       ...createRuntime(dom),
       request: ({ onload }: { onload: (r: { responseText: string }) => void }) => {
@@ -254,13 +256,42 @@ describe('loadChapter', () => {
 
     const app = startArticlePreloader(runtime)
 
-    expect(() => {
-      app.loadChapter(
-        '/chapter/1',
-        () => {},
-        () => {},
-      )
-    }).toThrow('未找到正文容器')
+    app.loadChapter(
+      '/chapter/1',
+      () => {
+        succeeded = true
+      },
+      () => {
+        failed = true
+      },
+    )
+
+    expect(succeeded).toBe(false)
+    expect(failed).toBe(false)
+  })
+
+  test('calls onFailure when content element is missing on non-200', () => {
+    const badHtml = `<html><head></head><body><div class="nav"><a href="/next">下一章</a></div></body></html>`
+    const dom = new JSDOM('<html><body></body></html>', { url: 'https://www.sudugu.org/chapter/1' })
+    let failed = false
+    const runtime = {
+      ...createRuntime(dom),
+      request: ({ onload }: { onload: (r: { responseText: string; status?: number }) => void }) => {
+        onload({ responseText: badHtml, status: 404 })
+      },
+    }
+
+    const app = startArticlePreloader(runtime)
+
+    app.loadChapter(
+      '/chapter/1',
+      () => {},
+      () => {
+        failed = true
+      },
+    )
+
+    expect(failed).toBe(true)
   })
 
   test('replaces first-page 下一页 with 下一章 when the chapter has pagination', () => {
