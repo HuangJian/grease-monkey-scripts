@@ -13,13 +13,41 @@
 // ==/UserScript==
 
 (() => {
-  // src/v2ex-time-saver/app.ts
-  var shameKeyword = "shame_on_them";
-  var thankKeyword = "thanks_to_them";
+  // src/v2ex-time-saver/author-labels.ts
   var defaultLabels = {
     shame: "若婴",
     thank: "智者"
   };
+  function getAuthorRecord(map, id) {
+    const value = map.get(id);
+    if (!value) {
+      return null;
+    }
+    if (typeof value === "string") {
+      return { url: value };
+    }
+    return value;
+  }
+  function getAuthorLabel(map, id, fallbackLabel) {
+    return getAuthorRecord(map, id)?.label || fallbackLabel;
+  }
+
+  // src/v2ex-time-saver/comment-helpers.ts
+  function getCommentNumber(comment) {
+    return comment.querySelector(".no")?.textContent?.trim() || "";
+  }
+  function getCommentElementsFromHtmlString(runtime, htmlString) {
+    const domParser = new runtime.DOMParser;
+    const dom = domParser.parseFromString(htmlString, "text/html");
+    return dom.querySelectorAll("#Main > .box > .cell[id]");
+  }
+
+  // src/v2ex-time-saver/ui.ts
+  function htmlToElement(document2, html) {
+    const template = document2.createElement("template");
+    template.innerHTML = html.trim();
+    return template.content.firstChild;
+  }
   var collapseIconSvg = `
   <button class="gm collapse" title="折叠讨论">
     <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -35,15 +63,326 @@
     <span>展开讨论</span>
   </button>
 `;
+  function createCollapseExpandButtons(runtime, discussionCount, onclick) {
+    const [collapseBtn, expandBtn] = [collapseIconSvg, expandIconSvg].map((iconStr) => htmlToElement(runtime.document, iconStr));
+    collapseBtn.onclick = onclick;
+    expandBtn.onclick = onclick;
+    const span = expandBtn.querySelector("span");
+    if (span) {
+      span.innerHTML += `（${discussionCount}）`;
+    }
+    return [collapseBtn, expandBtn];
+  }
+  function createReferenceHint(runtime, commentNumber, referencedCommentNumber, onclick) {
+    const button = htmlToElement(runtime.document, `<button type="button" class="gm-reference-hint">↪ #${commentNumber} 也回复了 #${referencedCommentNumber}</button>`);
+    button.addEventListener("click", onclick);
+    return button;
+  }
+  function getOrCreateReferenceHintContainer(runtime, host) {
+    const existing = host.querySelector(":scope > .gm-reference-hints");
+    if (existing) {
+      return existing;
+    }
+    const container = runtime.document.createElement("div");
+    container.className = "gm-reference-hints";
+    host.querySelector(":scope > table")?.insertAdjacentElement("afterend", container);
+    return container;
+  }
+  function createReferenceDialog(runtime, comment, referencedComment) {
+    const existingDialog = runtime.document.querySelector(".gm-reference-dialog");
+    if (existingDialog) {
+      existingDialog.remove();
+    }
+    const dialog = htmlToElement(runtime.document, `<div class="gm-reference-dialog" role="dialog" aria-modal="true">
+      <div class="gm-reference-dialog-panel">
+        <div class="gm-reference-dialog-header">引用回复 #${getCommentNumber(comment)}<button type="button" class="gm-reference-dialog-close">关闭</button></div>
+        <div class="gm-reference-dialog-content">
+          <div class="gm-dialog-card gm-dialog-context-card"><span class="gm-dialog-badge gm-dialog-context-badge">原回复</span></div>
+          <div class="gm-dialog-connector">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 13l-7 7-7-7m14-6l-7 7-7-7" />
+            </svg>
+          </div>
+          <div class="gm-dialog-card gm-dialog-reply-card"><span class="gm-dialog-badge gm-dialog-reply-badge">引用回复</span></div>
+        </div>
+      </div>
+    </div>`);
+    const content = dialog.querySelector(".gm-reference-dialog-content");
+    const cleanComment = (node) => {
+      const cloned = node.cloneNode(true);
+      cloned.removeAttribute("id");
+      cloned.querySelectorAll("[id]").forEach((it) => it.removeAttribute("id"));
+      cloned.querySelectorAll(".gm, .gm-reference-hint").forEach((it) => it.remove());
+      return cloned;
+    };
+    const contextCard = content.querySelector(".gm-dialog-context-card");
+    contextCard.appendChild(cleanComment(referencedComment));
+    const replyCard = content.querySelector(".gm-dialog-reply-card");
+    replyCard.appendChild(cleanComment(comment));
+    const closeButton = dialog.querySelector(".gm-reference-dialog-close");
+    const close = () => {
+      runtime.document.removeEventListener("keydown", onKeydown);
+      dialog.remove();
+    };
+    const onKeydown = (evt) => {
+      if (evt.key === "Escape") {
+        close();
+      }
+    };
+    closeButton.addEventListener("click", close);
+    dialog.addEventListener("click", (evt) => {
+      if (evt.target === dialog) {
+        close();
+      }
+    });
+    runtime.document.addEventListener("keydown", onKeydown);
+    runtime.document.body.appendChild(dialog);
+  }
+
+  // src/v2ex-time-saver/constants.ts
+  var COMMENT_BOX_SELECTOR = "#Main > .box:nth-child(n+3)";
+  var COMMENT_CELLS_SELECTOR = `${COMMENT_BOX_SELECTOR} > .cell[id]`;
+  var COMMENT_BOX_FIRST_CELL_SELECTOR = `${COMMENT_BOX_SELECTOR} > .cell`;
+
+  // src/v2ex-time-saver/discussion-embedder.ts
+  function getCommentAuthorName(comment) {
+    return comment.querySelector(":scope > table strong a.dark[href^='/member/']")?.getAttribute("href")?.split("/")[2] || "";
+  }
+  function getOwnReplyContent(comment) {
+    return comment.querySelector(":scope > table .reply_content");
+  }
+  function getLastCommentByAuthorBeforeNumber(authorComments, currentCommentNumber) {
+    return authorComments.filter((comment) => {
+      const commentNumber = parseInt(getCommentNumber(comment), 10);
+      return commentNumber < currentCommentNumber;
+    }).at(-1) || null;
+  }
+  function getTextUntilNextMemberMention(mention) {
+    let text = "";
+    let node = mention.nextSibling;
+    while (node) {
+      if (node.nodeType === 1) {
+        const element = node;
+        if (element.matches("a[href^='/member/']")) {
+          break;
+        }
+        text += element.textContent || "";
+      } else {
+        text += node.textContent || "";
+      }
+      node = node.nextSibling;
+    }
+    return text;
+  }
+  function getExplicitMentionedComment(mention, commentByNumber) {
+    const numberMatch = /#(\d+)/.exec(getTextUntilNextMemberMention(mention));
+    if (!numberMatch) {
+      return null;
+    }
+    return commentByNumber.get(numberMatch[1]) || null;
+  }
+  function getMentionedComments(currentComment, commentByNumber, commentsByAuthor) {
+    const currentCommentNumber = parseInt(getCommentNumber(currentComment), 10);
+    const replyContent = getOwnReplyContent(currentComment);
+    if (!replyContent) {
+      return [];
+    }
+    const seenComments = new Set;
+    const mentionedComments = [];
+    const mentions = replyContent.querySelectorAll("a[href^='/member/']");
+    mentions.forEach((mention) => {
+      const mentionedPeopleName = mention.getAttribute("href")?.split("/")[2] || (mention.textContent || "").replace(/^@/, "");
+      let mentionedComment = getExplicitMentionedComment(mention, commentByNumber);
+      if (!mentionedComment) {
+        mentionedComment = getLastCommentByAuthorBeforeNumber(commentsByAuthor.get(mentionedPeopleName) || [], currentCommentNumber);
+      }
+      if (!mentionedComment || mentionedComment === currentComment || seenComments.has(mentionedComment)) {
+        return;
+      }
+      seenComments.add(mentionedComment);
+      mentionedComments.push(mentionedComment);
+    });
+    return mentionedComments;
+  }
+  function embedDiscussions(runtime) {
+    const comments = Array.from(runtime.document.querySelectorAll(COMMENT_CELLS_SELECTOR));
+    const commentByNumber = new Map(comments.map((comment) => [getCommentNumber(comment), comment]).filter(([number]) => number));
+    const commentsByAuthor = new Map;
+    comments.forEach((comment) => {
+      const authorName = getCommentAuthorName(comment);
+      if (!authorName) {
+        return;
+      }
+      commentsByAuthor.set(authorName, [...commentsByAuthor.get(authorName) || [], comment]);
+    });
+    const plans = comments.slice().reverse().map((currentComment) => ({
+      currentComment,
+      mentionedComments: getMentionedComments(currentComment, commentByNumber, commentsByAuthor)
+    })).filter(({ mentionedComments }) => mentionedComments.length > 0);
+    plans.forEach(({ currentComment, mentionedComments }) => {
+      const [primaryComment, ...secondaryComments] = mentionedComments;
+      if (!primaryComment) {
+        return;
+      }
+      primaryComment.querySelector(":scope > table")?.insertAdjacentElement("afterend", currentComment);
+      currentComment.setAttribute("data-is-embedded", "true");
+      secondaryComments.forEach((referencedComment) => addReferenceHint(runtime, referencedComment, currentComment));
+    });
+  }
+  function addReferenceHint(runtime, referencedComment, comment) {
+    const commentNumber = getCommentNumber(comment);
+    const referencedCommentNumber = getCommentNumber(referencedComment);
+    const container = getOrCreateReferenceHintContainer(runtime, referencedComment);
+    const button = createReferenceHint(runtime, commentNumber, referencedCommentNumber, () => createReferenceDialog(runtime, comment, referencedComment));
+    container.appendChild(button);
+  }
+  function addCollapseExpandButtons(runtime) {
+    runtime.document.querySelectorAll(".cell[id] > .cell[id]").forEach((embedded) => {
+      const discussionCount = 1 + embedded.querySelectorAll(".cell[id]").length;
+      const [collapseBtn, expandBtn] = createCollapseExpandButtons(runtime, discussionCount, toggleDiscussionVisibility);
+      embedded.insertAdjacentElement("afterbegin", collapseBtn);
+      embedded.insertAdjacentElement("afterbegin", expandBtn);
+    });
+  }
+  function toggleDiscussionVisibility(evt) {
+    const clickedButton = evt.target?.closest("button");
+    const comment = clickedButton?.closest(".cell[id]");
+    comment?.classList.toggle("discussions-collapsed");
+  }
+
+  // src/v2ex-time-saver/thread-enhancements.ts
+  function getTagMarkup(text, color) {
+    return ` <span style="color:${color}">[${text}]</span>`;
+  }
+  function getAuthorIdAndCommentNumber(thankArea) {
+    const cell = thankArea.closest(".cell");
+    const id = cell?.querySelector("a.dark[href]")?.getAttribute("href")?.split("/")[2];
+    const commentNumber = cell?.querySelector("span.no")?.textContent;
+    if (!id || !commentNumber) {
+      return null;
+    }
+    return { id, commentNumber };
+  }
+  function highlightCommentsAndTopics(runtime, shamedMap, thankedMap) {
+    runtime.document.querySelectorAll(".cell").forEach((cell) => {
+      const it = cell.querySelector("strong > a[href]");
+      if (!it)
+        return;
+      const id = it.getAttribute("href")?.split("/")[2];
+      if (!id) {
+        return;
+      }
+      const shameLabel = getAuthorLabel(shamedMap, id, defaultLabels.shame);
+      const thankLabel = getAuthorLabel(thankedMap, id, defaultLabels.thank);
+      if (shamedMap.has(id) && !it.textContent?.includes(shameLabel)) {
+        it.insertAdjacentHTML("beforeend", getTagMarkup(shameLabel, "red"));
+        it.closest("td")?.classList.add("shame");
+      }
+      if (thankedMap.has(id) && !it.textContent?.includes(thankLabel)) {
+        it.insertAdjacentHTML("beforeend", getTagMarkup(thankLabel, "darkgreen"));
+        it.closest("tr")?.classList.add("nice-author");
+      }
+    });
+  }
+  function reorderCommentsByHearts(runtime) {
+    const heartsFlagKey = "data-hearts";
+    const comments = Array.from(runtime.document.querySelectorAll(COMMENT_CELLS_SELECTOR));
+    comments.forEach((comment) => {
+      const hearts = Array.from(comment.querySelectorAll('[alt="❤️"]')).map((it) => parseInt(it.nextSibling?.textContent || "0", 10)).reduce((prev, curr) => prev + curr, 0);
+      comment.setAttribute(heartsFlagKey, String(hearts));
+    });
+    const countsElement = runtime.document.querySelector(COMMENT_BOX_FIRST_CELL_SELECTOR);
+    comments.filter((it) => it.getAttribute(heartsFlagKey) !== "0").reverse().sort((a, b) => parseInt(a.getAttribute(heartsFlagKey) || "0", 10) - parseInt(b.getAttribute(heartsFlagKey) || "0", 10)).forEach((it) => countsElement?.insertAdjacentElement("afterend", it));
+  }
+  function addTargetToTopicLinks(runtime) {
+    runtime.document.querySelectorAll(".topic-link, .item_hot_topic_title > a").forEach((it) => it.setAttribute("target", "_blank"));
+  }
+  function addShameButtons(runtime, likeDislikeAuthor) {
+    const btn = htmlToElement(runtime.document, '<a style="margin-left: 12px; color: lightpink" class="thank" href="#;">不说人话</a>');
+    btn.addEventListener("click", () => {
+      const authorId = runtime.document.querySelector(".header .avatar")?.getAttribute("alt");
+      if (authorId) {
+        likeDislikeAuthor(authorId, 0, false);
+      }
+    });
+    runtime.document.querySelector(".topic_buttons")?.appendChild(btn);
+    runtime.document.querySelectorAll(".thank_area").forEach((it) => {
+      const info = getAuthorIdAndCommentNumber(it);
+      if (!info)
+        return;
+      const cloned = btn.cloneNode(true);
+      cloned.addEventListener("click", () => likeDislikeAuthor(info.id, info.commentNumber, false));
+      it.appendChild(cloned);
+    });
+  }
+  function addMoreThankActions(runtime, likeDislikeAuthor) {
+    const topic = runtime.document.querySelector("#topic_thank");
+    if (topic) {
+      topic.addEventListener("mouseup", () => {
+        setTimeout(() => {
+          const authorId = runtime.document.querySelector(".header .avatar")?.getAttribute("alt");
+          if (authorId) {
+            likeDislikeAuthor(authorId, 0, true);
+          }
+        });
+      });
+    }
+    Array.from(runtime.document.querySelectorAll(".thank_area > a.thank")).filter((it) => it.textContent?.includes("感谢回复者")).forEach((it) => {
+      const info = getAuthorIdAndCommentNumber(it);
+      if (!info)
+        return;
+      it.addEventListener("mouseup", () => setTimeout(() => likeDislikeAuthor(info.id, info.commentNumber, true)));
+    });
+  }
+
+  // src/v2ex-time-saver/sign-in.ts
+  function checkAndDoSignIn(runtime) {
+    const linkEl = runtime.document.querySelector("a[href='/mission/daily']");
+    if (!linkEl)
+      return;
+    const missionUrl = `${runtime.location.origin}/mission/daily`;
+    runtime.request({
+      url: missionUrl,
+      method: "GET",
+      timeout: 30000,
+      onload(response) {
+        const redeemPath = extractRedeemUrl(response.responseText);
+        if (!redeemPath) {
+          linkEl.textContent = "自动签到失败，请手动签到";
+          return;
+        }
+        runtime.request({
+          url: `${runtime.location.origin}${redeemPath}`,
+          method: "GET",
+          timeout: 30000,
+          onload() {
+            linkEl.textContent = "自动签到成功";
+          }
+        });
+      }
+    });
+  }
+  function extractRedeemUrl(html) {
+    const match = /location\.href\s*=\s*'(\/mission\/daily\/redeem[^']+)'/.exec(html);
+    return match ? match[1] : null;
+  }
+
+  // src/v2ex-time-saver/app.ts
+  function parseAuthorMap(value) {
+    if (!value) {
+      return new Map;
+    }
+    return new Map(JSON.parse(value));
+  }
+  var shameKeyword = "shame_on_them";
+  var thankKeyword = "thanks_to_them";
   async function startV2exTimeSaver(runtime) {
     const app = await createV2exApp(runtime);
     app.start();
   }
   async function createV2exApp(runtime) {
     const [shamedMap, thankedMap] = (await Promise.all([shameKeyword, thankKeyword].map(async (key) => runtime.getValue(key, "[]")))).map((value) => parseAuthorMap(value));
-    const $ = (selector) => runtime.document.querySelector(selector);
-    const $$ = (selector) => Array.from(runtime.document.querySelectorAll(selector));
-    function likeDislikeAuthor(id, commentNumber, isLike) {
+    function likeDislikeAuthorWrapper(id, commentNumber, isLike) {
       const url = `${runtime.location.origin}${runtime.location.pathname}#${commentNumber}`;
       const map = isLike ? thankedMap : shamedMap;
       const keyword = isLike ? thankKeyword : shameKeyword;
@@ -59,319 +398,35 @@
         label: label.trim() || fallbackLabel
       });
       runtime.setValue(keyword, JSON.stringify(Array.from(map)));
-      highlightCommentsAndTopics();
-    }
-    function addShameButtons() {
-      const btn = htmlToElement(runtime.document, '<a style="margin-left: 12px; color: lightpink" class="thank" href="#;">不说人话</a>');
-      btn.onclick = () => {
-        const authorId = $(".header .avatar")?.getAttribute("alt");
-        if (authorId) {
-          likeDislikeAuthor(authorId, 0, false);
-        }
-      };
-      $(".topic_buttons")?.appendChild(btn);
-      $$(".thank_area").forEach((it) => {
-        const id = it.closest(".cell")?.querySelector("a.dark[href]")?.getAttribute("href")?.split("/")[2];
-        const commentNumber = it.parentElement?.querySelector("span.no")?.textContent;
-        if (!id || !commentNumber) {
-          return;
-        }
-        const cloned = btn.cloneNode(true);
-        cloned.onclick = () => likeDislikeAuthor(id, commentNumber, false);
-        it.appendChild(cloned);
-      });
-    }
-    function addMoreThankActions() {
-      const topic = $("#topic_thank");
-      if (topic) {
-        topic.addEventListener("mousedown", () => {
-          const authorId = $(".header .avatar")?.getAttribute("alt");
-          if (authorId) {
-            likeDislikeAuthor(authorId, 0, true);
-          }
-        });
-      }
-      $$(".thank_area > a.thank").filter((it) => it.innerHTML.includes("感谢回复者")).forEach((it) => {
-        const id = it.closest(".cell")?.querySelector("a.dark[href]")?.getAttribute("href")?.split("/")[2];
-        const commentNumber = it.closest(".cell")?.querySelector("span.no")?.textContent;
-        if (!id || !commentNumber) {
-          return;
-        }
-        it.addEventListener("mousedown", () => likeDislikeAuthor(id, commentNumber, true));
-      });
-    }
-    function highlightCommentsAndTopics() {
-      $$(".cell").forEach((cell) => {
-        const it = cell.querySelector("strong > a[href]");
-        if (!it)
-          return;
-        const id = it.getAttribute("href")?.split("/")[2];
-        if (!id) {
-          return;
-        }
-        const shameLabel = getAuthorLabel(shamedMap, id, defaultLabels.shame);
-        const thankLabel = getAuthorLabel(thankedMap, id, defaultLabels.thank);
-        if (shamedMap.has(id) && !it.textContent?.includes(shameLabel)) {
-          it.insertAdjacentHTML("beforeend", getTagMarkup(shameLabel, "red"));
-          it.closest("td")?.classList.add("shame");
-        }
-        if (thankedMap.has(id) && !it.textContent?.includes(thankLabel)) {
-          it.insertAdjacentHTML("beforeend", getTagMarkup(thankLabel, "darkgreen"));
-          it.closest("tr")?.classList.add("nice-author");
-        }
-      });
-    }
-    function reorderCommentsByHearts() {
-      const heartsFlagKey = "data-hearts";
-      const comments = $$("#Main > .box:nth-child(n+3) > .cell[id]");
-      comments.forEach((comment) => {
-        const hearts = Array.from(comment.querySelectorAll('[alt="❤️"]')).map((it) => parseInt(it.nextSibling?.textContent || "0", 10)).reduce((prev, curr) => prev + curr, 0);
-        comment.setAttribute(heartsFlagKey, String(hearts));
-      });
-      const countsElement = $("#Main > .box:nth-child(n+3) > .cell");
-      comments.filter((it) => it.getAttribute(heartsFlagKey) !== "0").reverse().sort((a, b) => parseInt(a.getAttribute(heartsFlagKey) || "0", 10) - parseInt(b.getAttribute(heartsFlagKey) || "0", 10)).forEach((it) => countsElement?.insertAdjacentElement("afterend", it));
-    }
-    function addTargetToTopicLinks() {
-      $$(".topic-link, .item_hot_topic_title > a").forEach((it) => it.setAttribute("target", "_blank"));
+      highlightCommentsAndTopics(runtime, shamedMap, thankedMap);
     }
     function enhanceThreadPage() {
-      embedDiscussions();
-      addCollapseExpandButtons();
-      reorderCommentsByHearts();
-      addShameButtons();
-      addMoreThankActions();
-      highlightCommentsAndTopics();
-      addTargetToTopicLinks();
+      reorderCommentsByHearts(runtime);
+      embedDiscussions(runtime);
+      addCollapseExpandButtons(runtime);
+      addShameButtons(runtime, likeDislikeAuthorWrapper);
+      addMoreThankActions(runtime, likeDislikeAuthorWrapper);
+      highlightCommentsAndTopics(runtime, shamedMap, thankedMap);
+      addTargetToTopicLinks(runtime);
     }
-    function getCommentNumber(comment) {
-      return comment.querySelector(".no")?.textContent?.trim() || "";
-    }
-    function toggleDiscussionVisibility(evt) {
-      const clickedButton = evt.target?.closest("button");
-      const comment = clickedButton?.closest(".cell[id]");
-      comment?.classList.toggle("discussions-collapsed");
-    }
-    function addCollapseExpandButtons() {
-      $$(".cell[id] > .cell[id]").forEach((embedded) => {
-        const discussionCount = 1 + embedded.querySelectorAll(".cell[id]").length;
-        [collapseIconSvg, expandIconSvg].forEach((iconStr) => {
-          const btn = htmlToElement(runtime.document, iconStr);
-          btn.onclick = toggleDiscussionVisibility;
-          const span = btn.querySelector("span");
-          if (span) {
-            span.innerHTML += `（${discussionCount}）`;
-          }
-          embedded.insertAdjacentElement("afterbegin", btn);
-        });
-      });
-    }
-    function embedDiscussions() {
-      const comments = $$("#Main > .box:nth-child(n+3) > .cell[id]");
-      const commentByNumber = new Map(comments.map((comment) => [getCommentNumber(comment), comment]).filter(([number]) => number));
-      const commentsByAuthor = new Map;
-      comments.forEach((comment) => {
-        const authorName = getCommentAuthorName(comment);
-        if (!authorName) {
-          return;
-        }
-        commentsByAuthor.set(authorName, [...commentsByAuthor.get(authorName) || [], comment]);
-      });
-      const plans = comments.slice().reverse().map((currentComment) => ({
-        currentComment,
-        mentionedComments: getMentionedComments(currentComment, commentByNumber, commentsByAuthor)
-      })).filter(({ mentionedComments }) => mentionedComments.length > 0);
-      plans.forEach(({ currentComment, mentionedComments }) => {
-        const [primaryComment] = mentionedComments;
-        if (!primaryComment) {
-          return;
-        }
-        primaryComment.querySelector(":scope > table")?.insertAdjacentElement("afterend", currentComment);
-        currentComment.setAttribute("data-is-embedded", "true");
-      });
-      plans.forEach(({ currentComment, mentionedComments }) => {
-        const [, ...referenceComments] = mentionedComments;
-        referenceComments.forEach((referencedComment) => addReferenceHint(referencedComment, currentComment));
-      });
-    }
-    function getCommentAuthorName(comment) {
-      return comment.querySelector(":scope > table strong a.dark[href^='/member/']")?.getAttribute("href")?.split("/")[2] || "";
-    }
-    function getOwnReplyContent(comment) {
-      return comment.querySelector(":scope > table .reply_content");
-    }
-    function getMentionedComments(currentComment, commentByNumber, commentsByAuthor) {
-      const currentCommentNumber = parseInt(getCommentNumber(currentComment), 10);
-      const replyContent = getOwnReplyContent(currentComment);
-      if (!replyContent) {
-        return [];
-      }
-      const seenComments = new Set;
-      const mentionedComments = [];
-      const mentions = Array.from(replyContent.querySelectorAll("a[href^='/member/']"));
-      mentions.forEach((mention) => {
-        const mentionedPeopleName = mention.getAttribute("href")?.split("/")[2] || (mention.textContent || "").replace(/^@/, "");
-        let mentionedComment = getExplicitMentionedComment(mention, commentByNumber);
-        if (!mentionedComment) {
-          mentionedComment = getLastCommentByAuthorBeforeNumberFromSnapshot(commentsByAuthor.get(mentionedPeopleName) || [], currentCommentNumber);
-        }
-        if (!mentionedComment || mentionedComment === currentComment || seenComments.has(mentionedComment)) {
-          return;
-        }
-        seenComments.add(mentionedComment);
-        mentionedComments.push(mentionedComment);
-      });
-      return mentionedComments;
-    }
-    function getLastCommentByAuthorBeforeNumberFromSnapshot(authorComments, num) {
-      return authorComments.filter((comment) => {
-        const commentNumber = parseInt(getCommentNumber(comment), 10);
-        return commentNumber < num;
-      }).at(-1) || null;
-    }
-    function getExplicitMentionedComment(mention, commentByNumber) {
-      const numberMatch = /#(\d+)/.exec(getTextUntilNextMemberMention(mention));
-      if (!numberMatch) {
-        return null;
-      }
-      return commentByNumber.get(numberMatch[1]) || null;
-    }
-    function getTextUntilNextMemberMention(mention) {
-      let text = "";
-      let node = mention.nextSibling;
-      while (node) {
-        if (node.nodeType === 1) {
-          const element = node;
-          if (element.matches("a[href^='/member/']")) {
-            break;
-          }
-          text += element.textContent || "";
-        } else {
-          text += node.textContent || "";
-        }
-        node = node.nextSibling;
-      }
-      return text;
-    }
-    function addReferenceHint(referencedComment, comment) {
-      const commentNumber = getCommentNumber(comment);
-      const referencedCommentNumber = getCommentNumber(referencedComment);
-      const host = getReferenceHintHost(referencedComment);
-      const container = getReferenceHintContainer(host);
-      const button = runtime.document.createElement("button");
-      button.type = "button";
-      button.className = "gm-reference-hint";
-      button.textContent = `↪ #${commentNumber} 也回复了 #${referencedCommentNumber}`;
-      button.addEventListener("click", () => showReferenceDialog(comment, referencedComment));
-      container.appendChild(button);
-    }
-    function getReferenceHintHost(referencedComment) {
-      return referencedComment;
-    }
-    function getReferenceHintContainer(host) {
-      const existing = host.querySelector(":scope > .gm-reference-hints");
-      if (existing) {
-        return existing;
-      }
-      const container = runtime.document.createElement("div");
-      container.className = "gm-reference-hints";
-      host.querySelector(":scope > table")?.insertAdjacentElement("afterend", container);
-      return container;
-    }
-    function showReferenceDialog(comment, referencedComment) {
-      $(".gm-reference-dialog")?.remove();
-      const dialog = runtime.document.createElement("div");
-      dialog.className = "gm-reference-dialog";
-      dialog.setAttribute("role", "dialog");
-      dialog.setAttribute("aria-modal", "true");
-      const panel = runtime.document.createElement("div");
-      panel.className = "gm-reference-dialog-panel";
-      const header = runtime.document.createElement("div");
-      header.className = "gm-reference-dialog-header";
-      header.textContent = `引用回复 #${getCommentNumber(comment)}`;
-      const closeButton = runtime.document.createElement("button");
-      closeButton.type = "button";
-      closeButton.className = "gm-reference-dialog-close";
-      closeButton.textContent = "关闭";
-      const content = runtime.document.createElement("div");
-      content.className = "gm-reference-dialog-content";
-      const cleanComment = (node) => {
-        const cloned = node.cloneNode(true);
-        cloned.removeAttribute("id");
-        cloned.querySelectorAll("[id]").forEach((it) => it.removeAttribute("id"));
-        cloned.querySelectorAll(".gm, .gm-reference-hint").forEach((it) => it.remove());
-        return cloned;
-      };
-      if (referencedComment) {
-        const contextCard = runtime.document.createElement("div");
-        contextCard.className = "gm-dialog-card gm-dialog-context-card";
-        const contextBadge = runtime.document.createElement("span");
-        contextBadge.className = "gm-dialog-badge gm-dialog-context-badge";
-        contextBadge.textContent = "原回复";
-        contextCard.append(contextBadge, cleanComment(referencedComment));
-        const connector = runtime.document.createElement("div");
-        connector.className = "gm-dialog-connector";
-        connector.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 13l-7 7-7-7m14-6l-7 7-7-7" />
-        </svg>
-      `;
-        const replyCard = runtime.document.createElement("div");
-        replyCard.className = "gm-dialog-card gm-dialog-reply-card";
-        const replyBadge = runtime.document.createElement("span");
-        replyBadge.className = "gm-dialog-badge gm-dialog-reply-badge";
-        replyBadge.textContent = "引用回复";
-        replyCard.append(replyBadge, cleanComment(comment));
-        content.append(contextCard, connector, replyCard);
-      } else {
-        content.appendChild(cleanComment(comment));
-      }
-      const close = () => {
-        runtime.document.removeEventListener("keydown", onKeydown);
-        dialog.remove();
-      };
-      const onKeydown = (evt) => {
-        if (evt.key === "Escape") {
-          close();
-        }
-      };
-      closeButton.addEventListener("click", close);
-      dialog.addEventListener("click", (evt) => {
-        if (evt.target === dialog) {
-          close();
-        }
-      });
-      runtime.document.addEventListener("keydown", onKeydown);
-      header.appendChild(closeButton);
-      panel.append(header, content);
-      dialog.appendChild(panel);
-      runtime.document.body.appendChild(dialog);
-    }
-    let domParser = null;
     let commentsOfPages = [];
-    function getCommentElementsFromHtmlString(htmlString) {
-      if (!domParser) {
-        domParser = new runtime.DOMParser;
-      }
-      const dom = domParser.parseFromString(htmlString, "text/html");
-      return dom.querySelectorAll("#Main > .box > .cell[id]");
-    }
     function tryDisplayAllComments() {
-      const isAllPagesLoaded = commentsOfPages.reduce((prev, curr) => prev && curr.length > 0, true);
+      const isAllPagesLoaded = commentsOfPages.every((page) => page !== null && page.length > 0);
       if (!isAllPagesLoaded) {
         return;
       }
       const fragment = runtime.document.createDocumentFragment();
       commentsOfPages.forEach((pageComments) => {
-        pageComments.forEach((it) => fragment.appendChild(it));
+        pageComments?.forEach((it) => fragment.appendChild(it));
       });
-      const commentBox = $("#Main > .box:nth-child(n+3)");
+      const commentBox = runtime.document.querySelector(COMMENT_BOX_SELECTOR);
       const countsElement = commentBox?.querySelector(".cell");
       if (!commentBox || !countsElement) {
         return;
       }
       commentBox.prepend(fragment);
       commentBox.prepend(countsElement);
-      $$(".ps_container").filter((it, idx) => idx > 0).forEach((it) => it.remove());
+      Array.from(runtime.document.querySelectorAll(".ps_container")).filter((it, idx) => idx > 0).forEach((it) => it.remove());
       enhanceThreadPage();
     }
     function loadCommentsByPage(page, idx) {
@@ -381,52 +436,26 @@
         method: "GET",
         timeout: 30000,
         onload(response) {
-          commentsOfPages[idx] = getCommentElementsFromHtmlString(response.responseText);
+          commentsOfPages[idx] = getCommentElementsFromHtmlString(runtime, response.responseText);
           tryDisplayAllComments();
-        }
-      });
-    }
-    function checkAndDoSignIn() {
-      const linkEl = $("a[href='/mission/daily']");
-      if (!linkEl)
-        return;
-      const missionUrl = `${runtime.location.origin}/mission/daily`;
-      runtime.request({
-        url: missionUrl,
-        method: "GET",
-        timeout: 30000,
-        onload(response) {
-          const redeemPath = extractRedeemUrl(response.responseText);
-          if (!redeemPath) {
-            linkEl.textContent = "自动签到失败，请手动签到";
-            return;
-          }
-          runtime.request({
-            url: `${runtime.location.origin}${redeemPath}`,
-            method: "GET",
-            timeout: 30000,
-            onload() {
-              linkEl.textContent = "自动签到成功";
-            }
-          });
         }
       });
     }
     function start() {
       const isReadingTopic = runtime.location.href.indexOf("v2ex.com/t/") > 0;
       addStyles();
-      checkAndDoSignIn();
-      const allPageNumbers = $$(".page_current, .page_normal").map((it) => parseInt(it.textContent || "", 10)).filter(() => isReadingTopic).filter((it) => !isNaN(it) && it >= 1 && it <= 10).filter((x, i, a) => a.indexOf(x) === i).sort((a, b) => a - b);
+      checkAndDoSignIn(runtime);
+      const allPageNumbers = Array.from(runtime.document.querySelectorAll(".page_current, .page_normal")).map((it) => parseInt(it.textContent || "", 10)).filter((it) => isReadingTopic && !isNaN(it) && it >= 1 && it <= 10).filter((x, i, a) => a.indexOf(x) === i).sort((a, b) => a - b);
       if (!allPageNumbers.length) {
         enhanceThreadPage();
         return;
       }
-      const currentPageEl = $(".page_current");
+      const currentPageEl = runtime.document.querySelector(".page_current");
       const currentPageNum = currentPageEl ? parseInt(currentPageEl.textContent || "", 10) : parseInt(new URL(runtime.location.href).searchParams.get("p") || "1", 10) || 1;
-      commentsOfPages = allPageNumbers.map(() => runtime.document.querySelectorAll("__empty__"));
+      commentsOfPages = allPageNumbers.map(() => null);
       allPageNumbers.forEach((pageNum, idx) => {
         if (pageNum === currentPageNum) {
-          commentsOfPages[idx] = runtime.document.querySelectorAll("#Main > .box > .cell[id]");
+          commentsOfPages[idx] = runtime.document.querySelectorAll(COMMENT_CELLS_SELECTOR);
         } else {
           loadCommentsByPage(pageNum, idx);
         }
@@ -587,43 +616,12 @@ button.gm.collapse > svg {
     return {
       addTargetToTopicLinks,
       embedDiscussions,
-      getCommentElementsFromHtmlString,
-      highlightCommentsAndTopics,
-      likeDislikeAuthor,
+      getCommentElementsFromHtmlString: (html) => getCommentElementsFromHtmlString(runtime, html),
+      highlightCommentsAndTopics: () => highlightCommentsAndTopics(runtime, shamedMap, thankedMap),
+      likeDislikeAuthor: likeDislikeAuthorWrapper,
       reorderCommentsByHearts,
       start
     };
-  }
-  function parseAuthorMap(value) {
-    if (!value) {
-      return new Map;
-    }
-    return new Map(JSON.parse(value));
-  }
-  function getAuthorRecord(map, id) {
-    const value = map.get(id);
-    if (!value) {
-      return null;
-    }
-    if (typeof value === "string") {
-      return { url: value };
-    }
-    return value;
-  }
-  function getAuthorLabel(map, id, fallbackLabel) {
-    return getAuthorRecord(map, id)?.label || fallbackLabel;
-  }
-  function getTagMarkup(text, color) {
-    return ` <font color="${color}">[${text}]</font>`;
-  }
-  function htmlToElement(document2, html) {
-    const template = document2.createElement("template");
-    template.innerHTML = html.trim();
-    return template.content.firstChild;
-  }
-  function extractRedeemUrl(html) {
-    const match = /location\.href\s*=\s*'(\/mission\/daily\/redeem[^']+)'/.exec(html);
-    return match ? match[1] : null;
   }
 
   // src/v2ex-time-saver/runtime.ts

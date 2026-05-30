@@ -1,29 +1,26 @@
-import type { AuthorMap, AuthorRecord, Runtime } from './types'
+import type { AuthorMap, Runtime } from './types'
+import { defaultLabels, getAuthorLabel } from './author-labels'
+import { addCollapseExpandButtons, embedDiscussions } from './discussion-embedder'
+import { getCommentElementsFromHtmlString } from './comment-helpers'
+import {
+  addMoreThankActions,
+  addShameButtons,
+  addTargetToTopicLinks,
+  highlightCommentsAndTopics,
+  reorderCommentsByHearts,
+} from './thread-enhancements'
+import { checkAndDoSignIn } from './sign-in'
+import { COMMENT_BOX_SELECTOR, COMMENT_CELLS_SELECTOR } from './constants'
+
+function parseAuthorMap(value: string | null): AuthorMap {
+  if (!value) {
+    return new Map()
+  }
+  return new Map(JSON.parse(value))
+}
 
 export const shameKeyword = 'shame_on_them'
 export const thankKeyword = 'thanks_to_them'
-
-export const defaultLabels = {
-  shame: '若婴',
-  thank: '智者',
-} as const
-
-const collapseIconSvg = `
-  <button class="gm collapse" title="折叠讨论">
-    <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
-    </svg>
-  </button>
-`
-
-const expandIconSvg = `
-  <button class="gm expand" title="展开讨论">
-    <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
-    </svg>
-    <span>展开讨论</span>
-  </button>
-`
 
 export type V2exApp = Awaited<ReturnType<typeof createV2exApp>>
 
@@ -37,12 +34,7 @@ export async function createV2exApp(runtime: Runtime) {
     await Promise.all([shameKeyword, thankKeyword].map(async (key) => runtime.getValue(key, '[]')))
   ).map((value) => parseAuthorMap(value))
 
-  const $ = <T extends Element = Element>(selector: string): T | null =>
-    runtime.document.querySelector<T>(selector)
-  const $$ = <T extends Element = Element>(selector: string): T[] =>
-    Array.from(runtime.document.querySelectorAll<T>(selector))
-
-  function likeDislikeAuthor(id: string, commentNumber: number | string, isLike: boolean) {
+  function likeDislikeAuthorWrapper(id: string, commentNumber: number | string, isLike: boolean) {
     const url = `${runtime.location.origin}${runtime.location.pathname}#${commentNumber}`
     const map = isLike ? thankedMap : shamedMap
     const keyword = isLike ? thankKeyword : shameKeyword
@@ -60,423 +52,33 @@ export async function createV2exApp(runtime: Runtime) {
       label: label.trim() || fallbackLabel,
     })
     void runtime.setValue(keyword, JSON.stringify(Array.from(map)))
-    highlightCommentsAndTopics()
-  }
-
-  function addShameButtons() {
-    const btn = htmlToElement<HTMLAnchorElement>(
-      runtime.document,
-      '<a style="margin-left: 12px; color: lightpink" class="thank" href="#;">不说人话</a>',
-    )
-
-    btn.onclick = () => {
-      const authorId = $('.header .avatar')?.getAttribute('alt')
-      if (authorId) {
-        likeDislikeAuthor(authorId, 0, false)
-      }
-    }
-    $('.topic_buttons')?.appendChild(btn)
-
-    $$('.thank_area').forEach((it) => {
-      const id = it
-        .closest('.cell')
-        ?.querySelector('a.dark[href]')
-        ?.getAttribute('href')
-        ?.split('/')[2]
-      const commentNumber = it.parentElement?.querySelector('span.no')?.textContent
-      if (!id || !commentNumber) {
-        return
-      }
-      const cloned = btn.cloneNode(true) as HTMLAnchorElement
-      cloned.onclick = () => likeDislikeAuthor(id, commentNumber, false)
-      it.appendChild(cloned)
-    })
-  }
-
-  function addMoreThankActions() {
-    const topic = $('#topic_thank') as HTMLElement | null
-    if (topic) {
-      topic.addEventListener('mousedown', () => {
-        const authorId = $('.header .avatar')?.getAttribute('alt')
-        if (authorId) {
-          likeDislikeAuthor(authorId, 0, true)
-        }
-      })
-    }
-
-    $$('.thank_area > a.thank')
-      .filter((it) => it.innerHTML.includes('感谢回复者'))
-      .forEach((it) => {
-        const id = it
-          .closest('.cell')
-          ?.querySelector('a.dark[href]')
-          ?.getAttribute('href')
-          ?.split('/')[2]
-        const commentNumber = it.closest('.cell')?.querySelector('span.no')?.textContent
-        if (!id || !commentNumber) {
-          return
-        }
-        it.addEventListener('mousedown', () => likeDislikeAuthor(id, commentNumber, true))
-      })
-  }
-
-  function highlightCommentsAndTopics() {
-    $$('.cell').forEach((cell) => {
-      const it = cell.querySelector('strong > a[href]')
-      if (!it) return
-      const id = it.getAttribute('href')?.split('/')[2]
-      if (!id) {
-        return
-      }
-      const shameLabel = getAuthorLabel(shamedMap, id, defaultLabels.shame)
-      const thankLabel = getAuthorLabel(thankedMap, id, defaultLabels.thank)
-      if (shamedMap.has(id) && !it.textContent?.includes(shameLabel)) {
-        it.insertAdjacentHTML('beforeend', getTagMarkup(shameLabel, 'red'))
-        it.closest('td')?.classList.add('shame')
-      }
-      if (thankedMap.has(id) && !it.textContent?.includes(thankLabel)) {
-        it.insertAdjacentHTML('beforeend', getTagMarkup(thankLabel, 'darkgreen'))
-        it.closest('tr')?.classList.add('nice-author')
-      }
-    })
-  }
-
-  function reorderCommentsByHearts() {
-    const heartsFlagKey = 'data-hearts'
-    const comments = $$('#Main > .box:nth-child(n+3) > .cell[id]')
-    comments.forEach((comment) => {
-      const hearts = Array.from(comment.querySelectorAll('[alt="❤️"]'))
-        .map((it) => parseInt(it.nextSibling?.textContent || '0', 10))
-        .reduce((prev, curr) => prev + curr, 0)
-      comment.setAttribute(heartsFlagKey, String(hearts))
-    })
-
-    const countsElement = $('#Main > .box:nth-child(n+3) > .cell')
-    comments
-      .filter((it) => it.getAttribute(heartsFlagKey) !== '0')
-      .reverse()
-      .sort(
-        (a, b) =>
-          parseInt(a.getAttribute(heartsFlagKey) || '0', 10) -
-          parseInt(b.getAttribute(heartsFlagKey) || '0', 10),
-      )
-      .forEach((it) => countsElement?.insertAdjacentElement('afterend', it))
-  }
-
-  function addTargetToTopicLinks() {
-    $$('.topic-link, .item_hot_topic_title > a').forEach((it) =>
-      it.setAttribute('target', '_blank'),
-    )
+    highlightCommentsAndTopics(runtime, shamedMap, thankedMap)
   }
 
   function enhanceThreadPage() {
-    embedDiscussions()
-    addCollapseExpandButtons()
-    reorderCommentsByHearts()
-    addShameButtons()
-    addMoreThankActions()
-    highlightCommentsAndTopics()
-    addTargetToTopicLinks()
+    embedDiscussions(runtime)
+    reorderCommentsByHearts(runtime)
+    addCollapseExpandButtons(runtime)
+    addShameButtons(runtime, likeDislikeAuthorWrapper)
+    addMoreThankActions(runtime, likeDislikeAuthorWrapper)
+    highlightCommentsAndTopics(runtime, shamedMap, thankedMap)
+    addTargetToTopicLinks(runtime)
   }
 
-  function getCommentNumber(comment: Element) {
-    return comment.querySelector('.no')?.textContent?.trim() || ''
-  }
-
-  function toggleDiscussionVisibility(evt: Event) {
-    const clickedButton = (evt.target as Element | null)?.closest('button')
-    const comment = clickedButton?.closest('.cell[id]')
-    comment?.classList.toggle('discussions-collapsed')
-  }
-
-  function addCollapseExpandButtons() {
-    $$('.cell[id] > .cell[id]').forEach((embedded) => {
-      const discussionCount = 1 + embedded.querySelectorAll('.cell[id]').length
-      ;[collapseIconSvg, expandIconSvg].forEach((iconStr) => {
-        const btn = htmlToElement<HTMLButtonElement>(runtime.document, iconStr)
-        btn.onclick = toggleDiscussionVisibility
-        const span = btn.querySelector('span')
-        if (span) {
-          span.innerHTML += `（${discussionCount}）`
-        }
-        embedded.insertAdjacentElement('afterbegin', btn)
-      })
-    })
-  }
-
-  function embedDiscussions() {
-    const comments = $$('#Main > .box:nth-child(n+3) > .cell[id]')
-    const commentByNumber = new Map(
-      comments
-        .map((comment) => [getCommentNumber(comment), comment] as const)
-        .filter(([number]) => number),
-    )
-
-    const commentsByAuthor = new Map<string, Element[]>()
-    comments.forEach((comment) => {
-      const authorName = getCommentAuthorName(comment)
-      if (!authorName) {
-        return
-      }
-      commentsByAuthor.set(authorName, [...(commentsByAuthor.get(authorName) || []), comment])
-    })
-
-    const plans = comments
-      .slice()
-      .reverse()
-      .map((currentComment) => ({
-        currentComment,
-        mentionedComments: getMentionedComments(currentComment, commentByNumber, commentsByAuthor),
-      }))
-      .filter(({ mentionedComments }) => mentionedComments.length > 0)
-
-    plans.forEach(({ currentComment, mentionedComments }) => {
-      const [primaryComment] = mentionedComments
-      if (!primaryComment) {
-        return
-      }
-
-      primaryComment
-        .querySelector(':scope > table')
-        ?.insertAdjacentElement('afterend', currentComment)
-      currentComment.setAttribute('data-is-embedded', 'true')
-    })
-
-    plans.forEach(({ currentComment, mentionedComments }) => {
-      const [, ...referenceComments] = mentionedComments
-      referenceComments.forEach((referencedComment) =>
-        addReferenceHint(referencedComment, currentComment),
-      )
-    })
-  }
-
-  function getCommentAuthorName(comment: Element) {
-    return (
-      comment
-        .querySelector(":scope > table strong a.dark[href^='/member/']")
-        ?.getAttribute('href')
-        ?.split('/')[2] || ''
-    )
-  }
-
-  function getOwnReplyContent(comment: Element) {
-    return comment.querySelector(':scope > table .reply_content')
-  }
-
-  function getMentionedComments(
-    currentComment: Element,
-    commentByNumber: Map<string, Element>,
-    commentsByAuthor: Map<string, Element[]>,
-  ) {
-    const currentCommentNumber = parseInt(getCommentNumber(currentComment), 10)
-    const replyContent = getOwnReplyContent(currentComment)
-    if (!replyContent) {
-      return []
-    }
-
-    const seenComments = new Set<Element>()
-    const mentionedComments: Element[] = []
-    const mentions = Array.from(replyContent.querySelectorAll("a[href^='/member/']"))
-
-    mentions.forEach((mention) => {
-      const mentionedPeopleName =
-        mention.getAttribute('href')?.split('/')[2] || (mention.textContent || '').replace(/^@/, '')
-      let mentionedComment = getExplicitMentionedComment(mention, commentByNumber)
-      if (!mentionedComment) {
-        mentionedComment = getLastCommentByAuthorBeforeNumberFromSnapshot(
-          commentsByAuthor.get(mentionedPeopleName) || [],
-          currentCommentNumber,
-        )
-      }
-      if (
-        !mentionedComment ||
-        mentionedComment === currentComment ||
-        seenComments.has(mentionedComment)
-      ) {
-        return
-      }
-      seenComments.add(mentionedComment)
-      mentionedComments.push(mentionedComment)
-    })
-
-    return mentionedComments
-  }
-
-  function getLastCommentByAuthorBeforeNumberFromSnapshot(authorComments: Element[], num: number) {
-    return (
-      authorComments
-        .filter((comment) => {
-          const commentNumber = parseInt(getCommentNumber(comment), 10)
-          return commentNumber < num
-        })
-        .at(-1) || null
-    )
-  }
-
-  function getExplicitMentionedComment(mention: Element, commentByNumber: Map<string, Element>) {
-    const numberMatch = /#(\d+)/.exec(getTextUntilNextMemberMention(mention))
-    if (!numberMatch) {
-      return null
-    }
-
-    return commentByNumber.get(numberMatch[1]) || null
-  }
-
-  function getTextUntilNextMemberMention(mention: Element) {
-    let text = ''
-    let node = mention.nextSibling
-
-    while (node) {
-      if (node.nodeType === 1) {
-        const element = node as Element
-        if (element.matches("a[href^='/member/']")) {
-          break
-        }
-        text += element.textContent || ''
-      } else {
-        text += node.textContent || ''
-      }
-      node = node.nextSibling
-    }
-
-    return text
-  }
-
-  function addReferenceHint(referencedComment: Element, comment: Element) {
-    const commentNumber = getCommentNumber(comment)
-    const referencedCommentNumber = getCommentNumber(referencedComment)
-    const host = getReferenceHintHost(referencedComment)
-    const container = getReferenceHintContainer(host)
-    const button = runtime.document.createElement('button')
-    button.type = 'button'
-    button.className = 'gm-reference-hint'
-    button.textContent = `↪ #${commentNumber} 也回复了 #${referencedCommentNumber}`
-    button.addEventListener('click', () => showReferenceDialog(comment, referencedComment))
-    container.appendChild(button)
-  }
-
-  function getReferenceHintHost(referencedComment: Element) {
-    return referencedComment
-  }
-
-  function getReferenceHintContainer(host: Element) {
-    const existing = host.querySelector(':scope > .gm-reference-hints')
-    if (existing) {
-      return existing
-    }
-
-    const container = runtime.document.createElement('div')
-    container.className = 'gm-reference-hints'
-    host.querySelector(':scope > table')?.insertAdjacentElement('afterend', container)
-    return container
-  }
-
-  function showReferenceDialog(comment: Element, referencedComment?: Element) {
-    $('.gm-reference-dialog')?.remove()
-
-    const dialog = runtime.document.createElement('div')
-    dialog.className = 'gm-reference-dialog'
-    dialog.setAttribute('role', 'dialog')
-    dialog.setAttribute('aria-modal', 'true')
-
-    const panel = runtime.document.createElement('div')
-    panel.className = 'gm-reference-dialog-panel'
-
-    const header = runtime.document.createElement('div')
-    header.className = 'gm-reference-dialog-header'
-    header.textContent = `引用回复 #${getCommentNumber(comment)}`
-
-    const closeButton = runtime.document.createElement('button')
-    closeButton.type = 'button'
-    closeButton.className = 'gm-reference-dialog-close'
-    closeButton.textContent = '关闭'
-
-    const content = runtime.document.createElement('div')
-    content.className = 'gm-reference-dialog-content'
-
-    const cleanComment = (node: Element) => {
-      const cloned = node.cloneNode(true) as Element
-      cloned.removeAttribute('id')
-      cloned.querySelectorAll('[id]').forEach((it) => it.removeAttribute('id'))
-      cloned.querySelectorAll('.gm, .gm-reference-hint').forEach((it) => it.remove())
-      return cloned
-    }
-
-    if (referencedComment) {
-      const contextCard = runtime.document.createElement('div')
-      contextCard.className = 'gm-dialog-card gm-dialog-context-card'
-      const contextBadge = runtime.document.createElement('span')
-      contextBadge.className = 'gm-dialog-badge gm-dialog-context-badge'
-      contextBadge.textContent = '原回复'
-      contextCard.append(contextBadge, cleanComment(referencedComment))
-
-      const connector = runtime.document.createElement('div')
-      connector.className = 'gm-dialog-connector'
-      connector.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 13l-7 7-7-7m14-6l-7 7-7-7" />
-        </svg>
-      `
-
-      const replyCard = runtime.document.createElement('div')
-      replyCard.className = 'gm-dialog-card gm-dialog-reply-card'
-      const replyBadge = runtime.document.createElement('span')
-      replyBadge.className = 'gm-dialog-badge gm-dialog-reply-badge'
-      replyBadge.textContent = '引用回复'
-      replyCard.append(replyBadge, cleanComment(comment))
-
-      content.append(contextCard, connector, replyCard)
-    } else {
-      content.appendChild(cleanComment(comment))
-    }
-
-    const close = () => {
-      runtime.document.removeEventListener('keydown', onKeydown)
-      dialog.remove()
-    }
-    const onKeydown = (evt: KeyboardEvent) => {
-      if (evt.key === 'Escape') {
-        close()
-      }
-    }
-
-    closeButton.addEventListener('click', close)
-    dialog.addEventListener('click', (evt) => {
-      if (evt.target === dialog) {
-        close()
-      }
-    })
-    runtime.document.addEventListener('keydown', onKeydown)
-
-    header.appendChild(closeButton)
-    panel.append(header, content)
-    dialog.appendChild(panel)
-    runtime.document.body.appendChild(dialog)
-  }
-
-  let domParser: DOMParser | null = null
-  let commentsOfPages: NodeListOf<Element>[] = []
-
-  function getCommentElementsFromHtmlString(htmlString: string) {
-    if (!domParser) {
-      domParser = new runtime.DOMParser()
-    }
-    const dom = domParser.parseFromString(htmlString, 'text/html')
-    return dom.querySelectorAll('#Main > .box > .cell[id]')
-  }
+  let commentsOfPages: (NodeListOf<Element> | null)[] = []
 
   function tryDisplayAllComments() {
-    const isAllPagesLoaded = commentsOfPages.reduce((prev, curr) => prev && curr.length > 0, true)
+    const isAllPagesLoaded = commentsOfPages.every((page) => page !== null && page.length > 0)
     if (!isAllPagesLoaded) {
       return
     }
 
     const fragment = runtime.document.createDocumentFragment()
     commentsOfPages.forEach((pageComments) => {
-      pageComments.forEach((it) => fragment.appendChild(it))
+      pageComments?.forEach((it) => fragment.appendChild(it))
     })
 
-    const commentBox = $('#Main > .box:nth-child(n+3)')
+    const commentBox = runtime.document.querySelector(COMMENT_BOX_SELECTOR)
     const countsElement = commentBox?.querySelector('.cell')
     if (!commentBox || !countsElement) {
       return
@@ -484,8 +86,7 @@ export async function createV2exApp(runtime: Runtime) {
 
     commentBox.prepend(fragment)
     commentBox.prepend(countsElement)
-    // Remove the duplicated pagers
-    $$('.ps_container')
+    Array.from(runtime.document.querySelectorAll('.ps_container'))
       .filter((it, idx) => idx > 0)
       .forEach((it) => it.remove())
     enhanceThreadPage()
@@ -498,36 +99,8 @@ export async function createV2exApp(runtime: Runtime) {
       method: 'GET',
       timeout: 30000,
       onload(response) {
-        commentsOfPages[idx] = getCommentElementsFromHtmlString(response.responseText)
+        commentsOfPages[idx] = getCommentElementsFromHtmlString(runtime, response.responseText)
         tryDisplayAllComments()
-      },
-    })
-  }
-
-  function checkAndDoSignIn() {
-    const linkEl = $("a[href='/mission/daily']")
-    if (!linkEl) return
-
-    const missionUrl = `${runtime.location.origin}/mission/daily`
-    runtime.request({
-      url: missionUrl,
-      method: 'GET',
-      timeout: 30000,
-      onload(response) {
-        const redeemPath = extractRedeemUrl(response.responseText)
-        if (!redeemPath) {
-          linkEl.textContent = '自动签到失败，请手动签到'
-          return
-        }
-
-        runtime.request({
-          url: `${runtime.location.origin}${redeemPath}`,
-          method: 'GET',
-          timeout: 30000,
-          onload() {
-            linkEl.textContent = '自动签到成功'
-          },
-        })
       },
     })
   }
@@ -536,13 +109,13 @@ export async function createV2exApp(runtime: Runtime) {
     const isReadingTopic = runtime.location.href.indexOf('v2ex.com/t/') > 0
 
     addStyles()
-    checkAndDoSignIn()
+    checkAndDoSignIn(runtime)
 
-    // Collect all page numbers visible in the pager (both current and normal links).
-    const allPageNumbers = $$('.page_current, .page_normal')
+    const allPageNumbers = Array.from(
+      runtime.document.querySelectorAll('.page_current, .page_normal'),
+    )
       .map((it) => parseInt(it.textContent || '', 10))
-      .filter(() => isReadingTopic)
-      .filter((it) => !isNaN(it) && it >= 1 && it <= 10)
+      .filter((it) => isReadingTopic && !isNaN(it) && it >= 1 && it <= 10)
       .filter((x, i, a) => a.indexOf(x) === i)
       .sort((a, b) => a - b)
 
@@ -551,19 +124,16 @@ export async function createV2exApp(runtime: Runtime) {
       return
     }
 
-    // Determine which page is currently loaded in the DOM.
-    const currentPageEl = $('.page_current')
+    const currentPageEl = runtime.document.querySelector('.page_current')
     const currentPageNum = currentPageEl
       ? parseInt(currentPageEl.textContent || '', 10)
       : parseInt(new URL(runtime.location.href).searchParams.get('p') || '1', 10) || 1
 
-    // Pre-allocate slots for every page. Use a parallel array indexed by page number (1-based).
-    commentsOfPages = allPageNumbers.map(() => runtime.document.querySelectorAll('__empty__'))
+    commentsOfPages = allPageNumbers.map(() => null)
 
     allPageNumbers.forEach((pageNum, idx) => {
       if (pageNum === currentPageNum) {
-        // Page already loaded in DOM — extract its comments without a network request.
-        commentsOfPages[idx] = runtime.document.querySelectorAll('#Main > .box > .cell[id]')
+        commentsOfPages[idx] = runtime.document.querySelectorAll(COMMENT_CELLS_SELECTOR)
       } else {
         loadCommentsByPage(pageNum, idx)
       }
@@ -579,52 +149,11 @@ export async function createV2exApp(runtime: Runtime) {
   return {
     addTargetToTopicLinks,
     embedDiscussions,
-    getCommentElementsFromHtmlString,
-    highlightCommentsAndTopics,
-    likeDislikeAuthor,
+    getCommentElementsFromHtmlString: (html: string) =>
+      getCommentElementsFromHtmlString(runtime, html),
+    highlightCommentsAndTopics: () => highlightCommentsAndTopics(runtime, shamedMap, thankedMap),
+    likeDislikeAuthor: likeDislikeAuthorWrapper,
     reorderCommentsByHearts,
     start,
   }
-}
-
-export function parseAuthorMap(value: string | null): AuthorMap {
-  if (!value) {
-    return new Map()
-  }
-  return new Map(JSON.parse(value))
-}
-
-export function getAuthorRecord(map: AuthorMap, id: string): AuthorRecord | null {
-  const value = map.get(id)
-  if (!value) {
-    return null
-  }
-  if (typeof value === 'string') {
-    return { url: value }
-  }
-  return value
-}
-
-export function getAuthorLabel(map: AuthorMap, id: string, fallbackLabel: string): string {
-  return getAuthorRecord(map, id)?.label || fallbackLabel
-}
-
-export function getTagMarkup(text: string, color: string): string {
-  return ` <font color="${color}">[${text}]</font>`
-}
-
-export function htmlToElement<T extends Element = Element>(document: Document, html: string): T {
-  const template = document.createElement('template')
-  template.innerHTML = html.trim()
-  return template.content.firstChild as T
-}
-
-/**
- * Extracts the redeem path from the HTML of the V2EX daily mission page.
- * Looks for: onclick="location.href = '/mission/daily/redeem?once=XXXXX';"
- * Returns the path string (e.g. "/mission/daily/redeem?once=75573") or null.
- */
-export function extractRedeemUrl(html: string): string | null {
-  const match = /location\.href\s*=\s*'(\/mission\/daily\/redeem[^']+)'/.exec(html)
-  return match ? match[1] : null
 }

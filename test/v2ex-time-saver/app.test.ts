@@ -1,20 +1,9 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { JSDOM } from 'jsdom'
-import {
-  createV2exApp,
-  defaultLabels,
-  extractRedeemUrl,
-  getAuthorLabel,
-  getAuthorRecord,
-  parseAuthorMap,
-  shameKeyword,
-  thankKeyword,
-} from '../../src/v2ex-time-saver/app'
+import { createV2exApp, shameKeyword, thankKeyword } from '../../src/v2ex-time-saver/app'
+import { extractRedeemUrl } from '../../src/v2ex-time-saver/sign-in'
 import type { Runtime } from '../../src/v2ex-time-saver/types'
-
-function createDom(html: string, url = 'https://www.v2ex.com/t/123'): JSDOM {
-  return new JSDOM(html, { url })
-}
+import { createDom } from './helpers'
 
 function createRuntime(
   dom: JSDOM,
@@ -27,8 +16,7 @@ function createRuntime(
     location: dom.window.location,
     DOMParser: dom.window.DOMParser,
     prompt: () => '洞察者',
-    getValue: async <T>(key: string, defaultValue: T) =>
-      key in values ? (values[key] as T) : defaultValue,
+    getValue: async <T>(_key: string, defaultValue: T) => (values[_key] as T) ?? defaultValue,
     setValue: (key, value) => {
       writes[key] = value
     },
@@ -96,254 +84,6 @@ function threadHtml() {
   `
 }
 
-function multiMentionThreadHtml() {
-  return `
-    <html>
-      <head></head>
-      <body>
-        <div id="Main">
-          <div class="box"></div>
-          <div class="box"></div>
-          <div class="box">
-            <div class="cell">4 replies</div>
-            <div class="cell" id="r_1">
-              <table><tbody><tr>
-                <td><span class="no">1</span></td>
-                <td>
-                  <strong><a class="dark" href="/member/alice">alice</a></strong>
-                  <div class="reply_content">first point</div>
-                  <div class="thank_area"><a class="thank">感谢回复者</a></div>
-                </td>
-              </tr></tbody></table>
-            </div>
-            <div class="cell" id="r_2">
-              <table><tbody><tr>
-                <td><span class="no">2</span></td>
-                <td>
-                  <strong><a class="dark" href="/member/carol">carol</a></strong>
-                  <div class="reply_content">second point</div>
-                  <div class="thank_area"><a class="thank">感谢回复者</a></div>
-                </td>
-              </tr></tbody></table>
-            </div>
-            <div class="cell" id="r_3">
-              <table><tbody><tr>
-                <td><span class="no">3</span></td>
-                <td>
-                  <strong><a class="dark" href="/member/dave">dave</a></strong>
-                  <div class="reply_content">
-                    <a href="/member/alice">@alice</a> #1 and
-                    <a href="/member/carol">@carol</a> #2 this is the same reply
-                  </div>
-                  <div class="thank_area"><a class="thank">感谢回复者</a></div>
-                </td>
-              </tr></tbody></table>
-            </div>
-            <div class="cell" id="r_4">
-              <table><tbody><tr>
-                <td><span class="no">4</span></td>
-                <td>
-                  <strong><a class="dark" href="/member/erin">erin</a></strong>
-                  <div class="reply_content">plain</div>
-                  <div class="thank_area"><a class="thank">感谢回复者</a></div>
-                </td>
-              </tr></tbody></table>
-            </div>
-          </div>
-        </div>
-        <div class="header"><img class="avatar" alt="topic-author"></div>
-        <div class="topic_buttons"></div>
-        <a id="topic_thank">感谢主题作者</a>
-      </body>
-    </html>
-  `
-}
-
-function repeatedAuthorMentionThreadHtml() {
-  return `
-    <html>
-      <head></head>
-      <body>
-        <div id="Main">
-          <div class="box"></div>
-          <div class="box"></div>
-          <div class="box">
-            <div class="cell">3 replies</div>
-            <div class="cell" id="r_9">
-              <table><tbody><tr>
-                <td><span class="no">9</span></td>
-                <td>
-                  <strong><a class="dark" href="/member/cctvbnm111X1">cctvbnm111X1</a></strong>
-                  <div class="reply_content">first claim</div>
-                  <div class="thank_area"><a class="thank">感谢回复者</a></div>
-                </td>
-              </tr></tbody></table>
-            </div>
-            <div class="cell" id="r_10">
-              <table><tbody><tr>
-                <td><span class="no">10</span></td>
-                <td>
-                  <strong><a class="dark" href="/member/cctvbnm111X1">cctvbnm111X1</a></strong>
-                  <div class="reply_content">second claim</div>
-                  <div class="thank_area"><a class="thank">感谢回复者</a></div>
-                </td>
-              </tr></tbody></table>
-            </div>
-            <div class="cell" id="r_37">
-              <table><tbody><tr>
-                <td><span class="no">37</span></td>
-                <td>
-                  <strong><a class="dark" href="/member/Yjhenan">Yjhenan</a></strong>
-                  <div class="reply_content">
-                    @<a href="/member/cctvbnm111X1">cctvbnm111X1</a> #9 <br>
-                    @<a href="/member/cctvbnm111X1">cctvbnm111X1</a> #10 <br>
-                    你在胡说八道什么呢？
-                  </div>
-                  <div class="thank_area"><a class="thank">感谢回复者</a></div>
-                </td>
-              </tr></tbody></table>
-            </div>
-          </div>
-        </div>
-        <div class="header"><img class="avatar" alt="topic-author"></div>
-        <div class="topic_buttons"></div>
-        <a id="topic_thank">感谢主题作者</a>
-      </body>
-    </html>
-  `
-}
-
-function nestedReferenceThreadHtml() {
-  return `
-    <html>
-      <head></head>
-      <body>
-        <div id="Main">
-          <div class="box"></div>
-          <div class="box"></div>
-          <div class="box">
-            <div class="cell">3 replies</div>
-            <div class="cell" id="r_1">
-              <table><tbody><tr>
-                <td><span class="no">1</span></td>
-                <td>
-                  <strong><a class="dark" href="/member/alice">alice</a></strong>
-                  <div class="reply_content">root point</div>
-                  <div class="thank_area"><a class="thank">感谢回复者</a></div>
-                </td>
-              </tr></tbody></table>
-            </div>
-            <div class="cell" id="r_2">
-              <table><tbody><tr>
-                <td><span class="no">2</span></td>
-                <td>
-                  <strong><a class="dark" href="/member/bob">bob</a></strong>
-                  <div class="reply_content">@<a href="/member/alice">alice</a> #1 child reply</div>
-                  <div class="thank_area"><a class="thank">感谢回复者</a></div>
-                </td>
-              </tr></tbody></table>
-            </div>
-            <div class="cell" id="r_3">
-              <table><tbody><tr>
-                <td><span class="no">3</span></td>
-                <td>
-                  <strong><a class="dark" href="/member/carol">carol</a></strong>
-                  <div class="reply_content">
-                    @<a href="/member/alice">alice</a> #1 primary
-                    @<a href="/member/bob">bob</a> #2 secondary
-                  </div>
-                  <div class="thank_area"><a class="thank">感谢回复者</a></div>
-                </td>
-              </tr></tbody></table>
-            </div>
-          </div>
-        </div>
-        <div class="header"><img class="avatar" alt="topic-author"></div>
-        <div class="topic_buttons"></div>
-        <a id="topic_thank">感谢主题作者</a>
-      </body>
-    </html>
-  `
-}
-
-function deepNestedReferenceThreadHtml() {
-  return `
-    <html>
-      <head></head>
-      <body>
-        <div id="Main">
-          <div class="box"></div>
-          <div class="box"></div>
-          <div class="box">
-            <div class="cell">4 replies</div>
-            <div class="cell" id="r_2">
-              <table><tbody><tr>
-                <td><span class="no">2</span></td>
-                <td>
-                  <strong><a class="dark" href="/member/alice">alice</a></strong>
-                  <div class="reply_content">root point</div>
-                  <div class="thank_area"><a class="thank">感谢回复者</a></div>
-                </td>
-              </tr></tbody></table>
-            </div>
-            <div class="cell" id="r_18">
-              <table><tbody><tr>
-                <td><span class="no">18</span></td>
-                <td>
-                  <strong><a class="dark" href="/member/bob">bob</a></strong>
-                  <div class="reply_content">another point</div>
-                  <div class="thank_area"><a class="thank">感谢回复者</a></div>
-                </td>
-              </tr></tbody></table>
-            </div>
-            <div class="cell" id="r_19">
-              <table><tbody><tr>
-                <td><span class="no">19</span></td>
-                <td>
-                  <strong><a class="dark" href="/member/carl">carl</a></strong>
-                  <div class="reply_content">@<a href="/member/alice">alice</a> #2 child reply</div>
-                  <div class="thank_area"><a class="thank">感谢回复者</a></div>
-                </td>
-              </tr></tbody></table>
-            </div>
-            <div class="cell" id="r_37">
-              <table><tbody><tr>
-                <td><span class="no">37</span></td>
-                <td>
-                  <strong><a class="dark" href="/member/dave">dave</a></strong>
-                  <div class="reply_content">
-                    @<a href="/member/bob">bob</a> #18 primary
-                    @<a href="/member/carl">carl</a> #19 secondary
-                  </div>
-                  <div class="thank_area"><a class="thank">感谢回复者</a></div>
-                </td>
-              </tr></tbody></table>
-            </div>
-          </div>
-        </div>
-        <div class="header"><img class="avatar" alt="topic-author"></div>
-        <div class="topic_buttons"></div>
-        <a id="topic_thank">感谢主题作者</a>
-      </body>
-    </html>
-  `
-}
-
-describe('author labels', () => {
-  test('supports legacy string records and per-author labels', () => {
-    const map = parseAuthorMap(
-      JSON.stringify([
-        ['legacy', 'https://www.v2ex.com/t/1#2'],
-        ['labeled', { url: 'https://www.v2ex.com/t/2#3', label: '智者' }],
-      ]),
-    )
-
-    expect(getAuthorRecord(map, 'legacy')).toEqual({ url: 'https://www.v2ex.com/t/1#2' })
-    expect(getAuthorLabel(map, 'legacy', defaultLabels.shame)).toBe(defaultLabels.shame)
-    expect(getAuthorLabel(map, 'labeled', defaultLabels.thank)).toBe('智者')
-  })
-})
-
 describe('v2ex app unit flows', () => {
   let dom: JSDOM
 
@@ -400,18 +140,19 @@ describe('v2ex app unit flows', () => {
     let replyThankCount = 0
     const topicThank = dom.window.document.querySelector<HTMLElement>('#topic_thank')
     const replyThank = dom.window.document.querySelector<HTMLElement>('#r_1 .thank_area > a.thank')
-    topicThank!.onmousedown = () => {
+    topicThank!.onmouseup = () => {
       topicThankCount += 1
     }
-    replyThank!.onmousedown = () => {
+    replyThank!.onmouseup = () => {
       replyThankCount += 1
     }
     const runtime = createRuntime(dom)
     const app = await createV2exApp(runtime)
 
     app.start()
-    topicThank!.dispatchEvent(new dom.window.MouseEvent('mousedown', { bubbles: true }))
-    replyThank!.dispatchEvent(new dom.window.MouseEvent('mousedown', { bubbles: true }))
+    topicThank!.dispatchEvent(new dom.window.MouseEvent('mouseup', { bubbles: true }))
+    replyThank!.dispatchEvent(new dom.window.MouseEvent('mouseup', { bubbles: true }))
+    await new Promise((r) => setTimeout(r, 0))
 
     expect(topicThankCount).toBe(1)
     expect(replyThankCount).toBe(1)
@@ -429,125 +170,6 @@ describe('v2ex app unit flows', () => {
 
     expect(comments).toHaveLength(3)
     expect(comments[0].id).toBe('r_1')
-  })
-
-  test('uses one primary embedded comment and modal references for extra mentions', async () => {
-    dom = createDom(multiMentionThreadHtml())
-    const runtime = createRuntime(dom)
-    const app = await createV2exApp(runtime)
-
-    app.embedDiscussions()
-
-    expect(dom.window.document.querySelectorAll('#r_3')).toHaveLength(1)
-    expect(dom.window.document.querySelector('#r_1 > #r_3')).not.toBeNull()
-    expect(dom.window.document.querySelector('#r_2 > #r_3')).toBeNull()
-
-    const referenceButton =
-      dom.window.document.querySelector<HTMLButtonElement>('#r_2 .gm-reference-hint')
-    expect(referenceButton?.textContent).toContain('#3')
-
-    referenceButton!.click()
-
-    const dialog = dom.window.document.querySelector('.gm-reference-dialog')
-    expect(dialog?.textContent).toContain('引用回复 #3')
-    expect(dialog?.textContent).toContain('this is the same reply')
-    expect(dialog?.querySelectorAll('#r_3')).toHaveLength(0)
-
-    dom.window.document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' }))
-
-    expect(dom.window.document.querySelector('.gm-reference-dialog')).toBeNull()
-    expect(dom.window.document.querySelectorAll('#r_3')).toHaveLength(1)
-  })
-
-  test('displays both replying and referenced floors in the modal dialog', async () => {
-    dom = createDom(multiMentionThreadHtml())
-    const runtime = createRuntime(dom)
-    const app = await createV2exApp(runtime)
-
-    app.embedDiscussions()
-
-    const referenceButton =
-      dom.window.document.querySelector<HTMLButtonElement>('#r_2 .gm-reference-hint')
-    expect(referenceButton).not.toBeNull()
-
-    referenceButton!.click()
-
-    const dialog = dom.window.document.querySelector('.gm-reference-dialog')
-    expect(dialog).not.toBeNull()
-
-    expect(dialog?.querySelector('.gm-reference-dialog-header')?.textContent).toContain(
-      '引用回复 #3',
-    )
-
-    const cards = dialog?.querySelectorAll('.gm-dialog-card')
-    expect(cards).toHaveLength(2)
-
-    const contextCard = cards?.[0]
-    expect(contextCard?.querySelector('.gm-dialog-badge')?.textContent).toBe('原回复')
-    expect(contextCard?.textContent).toContain('second point')
-
-    const replyCard = cards?.[1]
-    expect(replyCard?.querySelector('.gm-dialog-badge')?.textContent).toBe('引用回复')
-    expect(replyCard?.textContent).toContain('this is the same reply')
-
-    const connector = dialog?.querySelector('.gm-dialog-connector')
-    expect(connector).not.toBeNull()
-
-    dom.window.document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' }))
-    expect(dom.window.document.querySelector('.gm-reference-dialog')).toBeNull()
-  })
-
-  test('parses repeated real-world author mentions with distinct explicit floors', async () => {
-    dom = createDom(repeatedAuthorMentionThreadHtml())
-    const runtime = createRuntime(dom)
-    const app = await createV2exApp(runtime)
-
-    app.embedDiscussions()
-
-    expect(dom.window.document.querySelectorAll('#r_37')).toHaveLength(1)
-    expect(dom.window.document.querySelector('#r_9 > #r_37')).not.toBeNull()
-    expect(dom.window.document.querySelector('#r_10 > #r_37')).toBeNull()
-    expect(dom.window.document.querySelector('#r_10 .gm-reference-hint')?.textContent).toContain(
-      '#37',
-    )
-  })
-
-  test('places reference hints on the referenced comment before its children', async () => {
-    dom = createDom(nestedReferenceThreadHtml())
-    const runtime = createRuntime(dom)
-    const app = await createV2exApp(runtime)
-
-    app.embedDiscussions()
-
-    const hint = dom.window.document.querySelector<HTMLButtonElement>(
-      '#r_2 > .gm-reference-hints .gm-reference-hint',
-    )
-    expect(dom.window.document.querySelector('#r_1 > #r_2')).not.toBeNull()
-    expect(dom.window.document.querySelector('#r_1 > #r_3')).not.toBeNull()
-    expect(
-      dom.window.document.querySelector('#r_1 > .gm-reference-hints .gm-reference-hint'),
-    ).toBeNull()
-    expect(hint?.textContent).toContain('#3')
-    expect(hint?.textContent).toContain('#2')
-  })
-
-  test('keeps reference hints on the referenced nested comment', async () => {
-    dom = createDom(deepNestedReferenceThreadHtml())
-    const runtime = createRuntime(dom)
-    const app = await createV2exApp(runtime)
-
-    app.embedDiscussions()
-
-    expect(dom.window.document.querySelector('#r_2 > #r_19')).not.toBeNull()
-    expect(dom.window.document.querySelector('#r_18 > #r_37')).not.toBeNull()
-    expect(
-      dom.window.document.querySelector('#r_2 > .gm-reference-hints .gm-reference-hint'),
-    ).toBeNull()
-    const hint = dom.window.document.querySelector<HTMLButtonElement>(
-      '#r_19 > .gm-reference-hints .gm-reference-hint',
-    )
-    expect(hint?.textContent).toContain('#37')
-    expect(hint?.textContent).toContain('#19')
   })
 
   test('collapses sibling replies individually without affecting other sibling replies', async () => {

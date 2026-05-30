@@ -1,4 +1,4 @@
-# Agent Guide
+# Agents Guide
 
 This repository contains Tampermonkey userscripts. Agents should treat each
 script as browser software: keep behavior testable, preserve site-native
@@ -10,8 +10,6 @@ interactions, and validate generated installable output.
 - Add tests around business logic and DOM transformations before changing them.
 - Generate installable `.user.js` files from source instead of hand-editing
   bundled output.
-- Migrate one script at a time unless the user explicitly asks for a wider
-  change.
 
 ## Tooling
 
@@ -105,19 +103,34 @@ env all_proxy=http://127.0.0.1:7890 curl -L --max-time 30 <url>
 Use fetched HTML only as evidence for implementation and tests. Do not make the
 test suite depend on live network availability.
 
-## Migration Strategy
+## Code Quality Guidelines
 
-When migrating an existing `.user.js` script:
+### Module Organization
 
-1. Keep the original script unchanged unless the user asks to replace it.
-2. Create a TypeScript source entry under `src/<script-name>/`.
-3. Move environment access behind a runtime adapter.
-4. Extract pure helpers and DOM behavior into testable modules.
-5. Add unit tests for helpers and jsdom tests for DOM behavior.
-6. Add or update the build script to generate `dist/<script-name>.user.js`.
-7. Run `bun run check`.
-8. Summarize generated output and any behavior that still needs live browser
-   verification.
+- **One concern per module.** If a file exceeds ~150 lines or mixes unrelated
+  exports (data logic, network calls, UI factories, DOM mutations), split it.
+- **No circular dependencies.**
+
+### Code Style
+
+- **`addEventListener` over `onclick`/`onmousedown`** to preserve native site
+  handlers.
+- **`textContent` over `innerHTML`** when matching visible text.
+- **`NodeList.forEach()` directly.** Only wrap with `Array.from` when chaining
+  `.filter()`, `.map()`, `.sort()`, etc.
+- **Use modern array methods.** `.every()` over `.reduce()` for boolean checks.
+  Combine chained `.filter()` into one.
+- **Replace deprecated HTML** (e.g., `<font>` → `<span style="...">`).
+- **`document.createElement()` over template parsing** for trivial elements
+  without dynamic content.
+
+### Dependency Direction
+
+- **Orchestrator imports from feature modules, not the reverse.** Feature
+  modules do not import from the app entry point.
+- **Feature modules depend on helpers, not each other.** Avoid cross-feature
+  imports.
+- **Types and constants have no internal imports.** They are leaf nodes.
 
 ## Git & Commit Rules
 
