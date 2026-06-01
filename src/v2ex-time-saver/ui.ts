@@ -59,8 +59,10 @@ export function getOrCreateReferenceHintContainer(runtime: Runtime, host: Elemen
     return existing as HTMLElement
   }
 
-  const container = runtime.document.createElement('div')
-  container.className = 'gm-reference-hints'
+  const container = htmlToElement<HTMLElement>(
+    runtime.document,
+    '<div class="gm-reference-hints"></div>',
+  )
   host.querySelector(':scope > table')?.insertAdjacentElement('afterend', container)
   return container
 }

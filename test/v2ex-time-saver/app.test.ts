@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { JSDOM } from 'jsdom'
-import { authorTagsKeyword, createV2exApp } from '../../src/v2ex-time-saver/app'
-import { defaultLabels } from '../../src/v2ex-time-saver/author-labels'
+import { authorTagsKeyword, createV2exApp, defaultLabels } from '../../src/v2ex-time-saver/app'
 import { extractRedeemUrl } from '../../src/v2ex-time-saver/sign-in'
 import { createDom, createRuntime } from '../runtime'
 

@@ -1,15 +1,15 @@
 import { describe, expect, test } from 'bun:test'
 import {
   addTag,
-  authorTagsKeyword,
   getAuthorTags,
   getTotalScore,
   incrementTagScore,
   parseAuthorTagMap,
   removeTag,
   toRelativeUrl,
-} from '../../src/v2ex-time-saver/author-labels'
-import type { AuthorTagMap } from '../../src/v2ex-time-saver/author-labels'
+} from '../../src/shared/author-labels'
+import type { AuthorTagMap } from '../../src/shared/author-labels'
+import { authorTagsKeyword } from '../../src/v2ex-time-saver/app'
 
 describe('toRelativeUrl', () => {
   test('strips origin and leading slash, keeps path + hash', () => {

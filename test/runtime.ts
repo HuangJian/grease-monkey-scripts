@@ -10,6 +10,7 @@ export function createRuntime(dom: JSDOM): Runtime {
     document: dom.window.document,
     location: dom.window.location,
     DOMParser: dom.window.DOMParser,
+    MutationObserver: dom.window.MutationObserver,
     prompt: () => '洞察者',
     getValue: async <T>(_key: string, defaultValue: T) => defaultValue,
     setValue: () => {},

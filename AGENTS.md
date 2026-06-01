@@ -217,8 +217,9 @@ test suite depend on live network availability.
 - **Use modern array methods.** `.every()` over `.reduce()` for boolean checks.
   Combine chained `.filter()` into one.
 - **Replace deprecated HTML** (e.g., `<font>` → `<span style="...">`).
-- **`document.createElement()` over template parsing** for trivial elements
-  without dynamic content.
+- **`htmlToElement` over `createElement`.** Prefer the template literal helper
+  for all DOM construction. `createElement` is only used in `htmlToElement`'s
+  own implementation.
 
 #### Dependency Direction
 

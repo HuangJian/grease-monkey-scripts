@@ -8,6 +8,12 @@ import {
   removeTag,
   tagColor,
 } from '../shared/author-labels'
+import {
+  buildTagPanel,
+  tagPanelCss,
+  type TagPanelCallbacks,
+  type QuickLabels,
+} from '../shared/tag-panel'
 import { htmlToElement } from '../utils'
 
 const STORAGE_KEY = 'reddit_author_tags'
@@ -47,8 +53,6 @@ export function buildAnchorUrl(runtime: Runtime, commentId: string): string {
 export async function createRedditApp(runtime: Runtime) {
   const authorTagMap = await loadAuthorTagMap(runtime)
 
-  let closePanel: (() => void) | null = null
-
   function persist(): void {
     void runtime.setValue(STORAGE_KEY, authorTagMap)
   }
@@ -71,133 +75,6 @@ export async function createRedditApp(runtime: Runtime) {
     removeTag(authorTagMap, username, tag)
     persist()
     applyHighlights()
-  }
-
-  function dismissPanel(): void {
-    closePanel?.()
-    closePanel = null
-    const panel = runtime.document.querySelector('.gm-tag-panel')
-    if (panel) panel.remove()
-  }
-
-  function buildTagPanel(username: string, commentId: string, triggerBtn: Element): void {
-    dismissPanel()
-
-    const panel = htmlToElement<HTMLElement>(
-      runtime.document,
-      `<div class="gm-tag-panel">
-        <div class="gm-tag-panel-header">
-          <span class="gm-tag-panel-title"></span>
-          <button class="gm-tag-panel-close">✕</button>
-        </div>
-        <div class="gm-tag-list"></div>
-        <div class="gm-tag-add">
-          <input class="gm-tag-input-name" type="text" placeholder="标签名">
-          <input class="gm-tag-input-score" type="number" value="0" step="1">
-          <button class="gm-tag-add-btn">添加</button>
-        </div>
-        <div class="gm-tag-quick">
-          <button class="gm-tag-quick-shame">若婴 (-1)</button>
-          <button class="gm-tag-quick-thank">智者 (+1)</button>
-        </div>
-      </div>`,
-    )
-
-    panel.querySelector('.gm-tag-panel-title')!.textContent = username
-
-    const list = panel.querySelector('.gm-tag-list')!
-
-    panel.querySelector('.gm-tag-panel-close')!.addEventListener('click', dismissPanel)
-
-    function renderTags(): void {
-      const tags = authorTagMap[username] || {}
-      const entries = Object.entries(tags)
-      list.innerHTML = ''
-
-      if (entries.length === 0) {
-        list.appendChild(
-          htmlToElement(runtime.document, '<div class="gm-tag-empty">暂无标签</div>'),
-        )
-        return
-      }
-
-      for (const [tagName, record] of entries) {
-        const scoreText = record.score > 0 ? `+${record.score}` : String(record.score)
-        const row = htmlToElement<HTMLElement>(
-          runtime.document,
-          `<div class="gm-tag-row">
-            <span class="gm-tag-name"></span>
-            <span class="gm-tag-score">${scoreText}</span>
-            <button class="gm-tag-inc">+1</button>
-            <button class="gm-tag-dec">-1</button>
-            <button class="gm-tag-del">删除</button>
-          </div>`,
-        )
-
-        row.querySelector('.gm-tag-name')!.textContent = tagName
-
-        const [incBtn, decBtn, delBtn] = row.querySelectorAll('button')
-        incBtn.addEventListener('click', () => {
-          tagAuthor(username, commentId, tagName, 1)
-          renderTags()
-        })
-        decBtn.addEventListener('click', () => {
-          tagAuthor(username, commentId, tagName, -1)
-          renderTags()
-        })
-        delBtn.addEventListener('click', () => {
-          unsetTag(username, tagName)
-          renderTags()
-        })
-
-        list.appendChild(row)
-      }
-    }
-
-    const addNameInput = panel.querySelector('.gm-tag-input-name')! as HTMLInputElement
-    const addScoreInput = panel.querySelector('.gm-tag-input-score')! as HTMLInputElement
-    panel.querySelector('.gm-tag-add-btn')!.addEventListener('click', () => {
-      const name = addNameInput.value.trim()
-      if (!name) return
-      const score = parseInt(addScoreInput.value, 10)
-      if (score === 0 || isNaN(score)) return
-      setTag(username, name, score, commentId)
-      addNameInput.value = ''
-      addScoreInput.value = '0'
-      renderTags()
-    })
-
-    panel.querySelector('.gm-tag-quick-shame')!.addEventListener('click', () => {
-      tagAuthor(username, commentId, '若婴', -1)
-      renderTags()
-    })
-    panel.querySelector('.gm-tag-quick-thank')!.addEventListener('click', () => {
-      tagAuthor(username, commentId, '智者', 1)
-      renderTags()
-    })
-
-    renderTags()
-
-    const rect = triggerBtn.getBoundingClientRect()
-    panel.style.position = 'fixed'
-    panel.style.top = `${rect.bottom + 4}px`
-    panel.style.left = `${Math.min(rect.left, (runtime.document.defaultView?.innerWidth ?? 320) - 320)}px`
-
-    runtime.document.body.appendChild(panel)
-
-    const outsideHandler = (e: MouseEvent) => {
-      if ((e.target as Element).closest(`.${BTN_CLASS}`)) return
-      if (!panel.contains(e.target as Node)) {
-        dismissPanel()
-      }
-    }
-    closePanel = () => {
-      runtime.document.removeEventListener('mousedown', outsideHandler)
-    }
-    setTimeout(() => {
-      if (!closePanel) return
-      runtime.document.addEventListener('mousedown', outsideHandler)
-    }, 0)
   }
 
   function attachTagButton(authorLink: Element): void {
@@ -228,7 +105,17 @@ export async function createRedditApp(runtime: Runtime) {
     )
     btn.addEventListener('click', (e) => {
       e.preventDefault()
-      buildTagPanel(username, commentId, btn)
+      const callbacks: TagPanelCallbacks = {
+        onTagAuthor: (id, commentNum, tag, delta) =>
+          tagAuthor(id, commentNum as string, tag, delta),
+        onSetTag: (id, tag, score, commentNum) => setTag(id, tag, score, commentNum as string),
+        onUnsetTag: (id, tag) => unsetTag(id, tag),
+      }
+      const quickLabels: QuickLabels = {
+        shame: { tag: '若婴', display: '若婴' },
+        thank: { tag: '智者', display: '智者' },
+      }
+      buildTagPanel(runtime, authorTagMap, username, commentId, btn, callbacks, quickLabels)
     })
     if (authorNameSlot) {
       authorNameSlot.insertAdjacentElement('afterend', btn)
@@ -345,6 +232,7 @@ export async function createRedditApp(runtime: Runtime) {
   }
 
   function start(): void {
+    runtime.addStyle(tagPanelCss)
     runtime.addStyle(`/*{{REDDIT_TIME_SAVER_CSS}}*/`)
     processElement(runtime.document.body)
     applyHighlights()

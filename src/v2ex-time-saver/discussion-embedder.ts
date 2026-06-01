@@ -6,7 +6,8 @@ import {
   createReferenceHint,
   getOrCreateReferenceHintContainer,
 } from './ui'
-import { COMMENT_CELLS_SELECTOR } from './constants'
+
+const COMMENT_CELLS_SELECTOR = '#Main > .box:nth-child(n+3) > .cell[id]'
 
 export { getCommentNumber, getCommentElementsFromHtmlString } from './comment-helpers'
 

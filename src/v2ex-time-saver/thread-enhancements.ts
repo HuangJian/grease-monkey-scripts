@@ -2,7 +2,10 @@ import type { Runtime } from '../runtime'
 import type { AuthorTagMap } from '../shared/author-labels'
 import { getTotalScore, tagColor } from '../shared/author-labels'
 import { htmlToElement } from '../utils'
-import { COMMENT_BOX_FIRST_CELL_SELECTOR, COMMENT_CELLS_SELECTOR } from './constants'
+
+const COMMENT_BOX_SELECTOR = '#Main > .box:nth-child(n+3)'
+const COMMENT_CELLS_SELECTOR = `${COMMENT_BOX_SELECTOR} > .cell[id]`
+const COMMENT_BOX_FIRST_CELL_SELECTOR = `${COMMENT_BOX_SELECTOR} > .cell`
 
 const SCORE_CLASS_MIN = -3
 const SCORE_CLASS_MAX = 3

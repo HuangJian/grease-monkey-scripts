@@ -13,12 +13,7 @@
 // ==/UserScript==
 
 (() => {
-  // src/v2ex-time-saver/author-labels.ts
-  var authorTagsKeyword = "author_tags";
-  var defaultLabels = {
-    shame: "若婴",
-    thank: "智者"
-  };
+  // src/shared/author-labels.ts
   function toRelativeUrl(url) {
     try {
       const u = new URL(url);
@@ -66,6 +61,13 @@
       return false;
     return Object.values(v).every((tag) => isValidTagRecord(tag));
   }
+  function tagColor(score) {
+    if (score > 0)
+      return "darkgreen";
+    if (score < 0)
+      return "red";
+    return "gray";
+  }
   function parseAuthorTagMap(value) {
     if (value == null || typeof value !== "object" || Array.isArray(value)) {
       return {};
@@ -79,6 +81,270 @@
     return result;
   }
 
+  // src/utils.ts
+  function htmlToElement(document2, html) {
+    const template = document2.createElement("template");
+    template.innerHTML = html.trim();
+    return template.content.firstChild;
+  }
+
+  // src/shared/tag-panel.ts
+  var tagPanelCss = `.gm-tag-btn {
+  cursor: pointer;
+  margin-left: 4px;
+  font-size: 12px;
+  text-decoration: none;
+  user-select: none;
+}
+.gm-tag-btn:hover {
+  text-decoration: none;
+}
+.gm-tag-panel {
+  position: fixed;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  padding: 12px;
+  min-width: 240px;
+  max-width: 300px;
+  font-size: 13px;
+  line-height: 1.5;
+  z-index: 9999;
+}
+.gm-tag-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-weight: bold;
+  font-size: 14px;
+}
+.gm-tag-panel-close {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-size: 16px;
+  padding: 0 4px;
+  color: #999;
+}
+.gm-tag-panel-close:hover {
+  color: #333;
+}
+.gm-tag-list {
+  margin-bottom: 4px;
+}
+.gm-tag-empty {
+  color: #999;
+  font-size: 12px;
+  padding: 4px 0;
+}
+.gm-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.gm-tag-row:last-child {
+  border-bottom: none;
+}
+.gm-tag-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.gm-tag-score {
+  min-width: 24px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 12px;
+}
+.gm-tag-row button {
+  cursor: pointer;
+  border: 1px solid #d0d0d0;
+  border-radius: 3px;
+  background: #f8f8f8;
+  padding: 1px 6px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.gm-tag-row button:hover {
+  background: #e8e8e8;
+}
+.gm-tag-del {
+  color: #c00;
+}
+.gm-tag-add {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e0e0e0;
+}
+.gm-tag-input-name {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 6px;
+  border: 1px solid #d0d0d0;
+  border-radius: 3px;
+  font-size: 12px;
+}
+.gm-tag-input-score {
+  width: 48px;
+  padding: 3px 6px;
+  border: 1px solid #d0d0d0;
+  border-radius: 3px;
+  font-size: 12px;
+  text-align: center;
+}
+.gm-tag-add-btn {
+  cursor: pointer;
+  border: 1px solid #4a90d9;
+  border-radius: 3px;
+  background: #4a90d9;
+  color: white;
+  padding: 3px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.gm-tag-add-btn:hover {
+  background: #357abd;
+}
+.gm-tag-quick {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e0e0e0;
+}
+.gm-tag-quick button {
+  cursor: pointer;
+  border: 1px solid #d0d0d0;
+  border-radius: 3px;
+  padding: 3px 10px;
+  font-size: 12px;
+  background: #f8f8f8;
+  flex: 1;
+}
+.gm-tag-quick button:hover {
+  background: #e8e8e8;
+}
+.gm-tag-quick-shame {
+  color: #c00;
+}
+.gm-tag-quick-thank {
+  color: #080;
+}`;
+  var closePanelHandler = null;
+  function closeTagPanel(runtime) {
+    closePanelHandler?.();
+    closePanelHandler = null;
+    runtime.document.querySelector(".gm-tag-panel")?.remove();
+  }
+  function buildTagPanel(runtime, authorTagMap, authorId, commentNumber, triggerBtn, callbacks, quickLabels) {
+    closeTagPanel(runtime);
+    const btnClass = "gm-tag-btn";
+    const panel = htmlToElement(runtime.document, `<div class="gm-tag-panel">
+      <div class="gm-tag-panel-header">
+        <span class="gm-tag-panel-title"></span>
+        <button class="gm-tag-panel-close">✕</button>
+      </div>
+      <div class="gm-tag-list"></div>
+      <div class="gm-tag-add">
+        <input class="gm-tag-input-name" type="text" placeholder="标签名">
+        <input class="gm-tag-input-score" type="number" value="0" step="1">
+        <button class="gm-tag-add-btn">添加</button>
+      </div>
+      <div class="gm-tag-quick">
+        <button class="gm-tag-quick-shame">${quickLabels.shame.display} (-1)</button>
+        <button class="gm-tag-quick-thank">${quickLabels.thank.display} (+1)</button>
+      </div>
+    </div>`);
+    panel.querySelector(".gm-tag-panel-title").textContent = authorId;
+    const list = panel.querySelector(".gm-tag-list");
+    function renderTags() {
+      const currentTags = authorTagMap[authorId] || {};
+      const entries = Object.entries(currentTags);
+      list.innerHTML = "";
+      if (entries.length === 0) {
+        list.appendChild(htmlToElement(runtime.document, '<div class="gm-tag-empty">暂无标签</div>'));
+        return;
+      }
+      for (const [tagName, record] of entries) {
+        const scoreText = record.score > 0 ? `+${record.score}` : String(record.score);
+        const row = htmlToElement(runtime.document, `<div class="gm-tag-row">
+          <span class="gm-tag-name"></span>
+          <span class="gm-tag-score">${scoreText}</span>
+          <button class="gm-tag-inc">+1</button>
+          <button class="gm-tag-dec">-1</button>
+          <button class="gm-tag-del">删除</button>
+        </div>`);
+        row.querySelector(".gm-tag-name").textContent = tagName;
+        const [incBtn, decBtn, delBtn] = row.querySelectorAll("button");
+        incBtn.addEventListener("click", () => {
+          callbacks.onTagAuthor(authorId, commentNumber, tagName, 1);
+          renderTags();
+        });
+        decBtn.addEventListener("click", () => {
+          callbacks.onTagAuthor(authorId, commentNumber, tagName, -1);
+          renderTags();
+        });
+        delBtn.addEventListener("click", () => {
+          callbacks.onUnsetTag(authorId, tagName);
+          renderTags();
+        });
+        list.appendChild(row);
+      }
+    }
+    const addNameInput = panel.querySelector(".gm-tag-input-name");
+    const addScoreInput = panel.querySelector(".gm-tag-input-score");
+    panel.querySelector(".gm-tag-add-btn").addEventListener("click", () => {
+      const name = addNameInput.value.trim();
+      if (!name)
+        return;
+      const score = parseInt(addScoreInput.value, 10);
+      if (score === 0 || isNaN(score))
+        return;
+      callbacks.onSetTag(authorId, name, score, commentNumber);
+      addNameInput.value = "";
+      addScoreInput.value = "0";
+      renderTags();
+    });
+    panel.querySelector(".gm-tag-quick-shame").addEventListener("click", () => {
+      callbacks.onTagAuthor(authorId, commentNumber, quickLabels.shame.tag, -1);
+      renderTags();
+    });
+    panel.querySelector(".gm-tag-quick-thank").addEventListener("click", () => {
+      callbacks.onTagAuthor(authorId, commentNumber, quickLabels.thank.tag, 1);
+      renderTags();
+    });
+    panel.querySelector(".gm-tag-panel-close").addEventListener("click", () => closeTagPanel(runtime));
+    renderTags();
+    const rect = triggerBtn.getBoundingClientRect();
+    panel.style.position = "fixed";
+    panel.style.top = `${rect.bottom + 4}px`;
+    panel.style.left = `${Math.min(rect.left, (runtime.document.defaultView?.innerWidth ?? 320) - 320)}px`;
+    runtime.document.body.appendChild(panel);
+    const handler = (e) => {
+      if (e.target.closest(`.${btnClass}`))
+        return;
+      if (!panel.contains(e.target)) {
+        closeTagPanel(runtime);
+      }
+    };
+    closePanelHandler = () => {
+      runtime.document.removeEventListener("mousedown", handler);
+    };
+    setTimeout(() => {
+      if (!closePanelHandler)
+        return;
+      runtime.document.addEventListener("mousedown", handler);
+    }, 0);
+  }
+
   // src/v2ex-time-saver/comment-helpers.ts
   function getCommentNumber(comment) {
     return comment.querySelector(".no")?.textContent?.trim() || "";
@@ -87,13 +353,6 @@
     const domParser = new runtime.DOMParser;
     const dom = domParser.parseFromString(htmlString, "text/html");
     return dom.querySelectorAll("#Main > .box > .cell[id]");
-  }
-
-  // src/utils.ts
-  function htmlToElement(document2, html) {
-    const template = document2.createElement("template");
-    template.innerHTML = html.trim();
-    return template.content.firstChild;
   }
 
   // src/v2ex-time-saver/ui.ts
@@ -132,8 +391,7 @@
     if (existing) {
       return existing;
     }
-    const container = runtime.document.createElement("div");
-    container.className = "gm-reference-hints";
+    const container = htmlToElement(runtime.document, '<div class="gm-reference-hints"></div>');
     host.querySelector(":scope > table")?.insertAdjacentElement("afterend", container);
     return container;
   }
@@ -188,12 +446,8 @@
     runtime.document.body.appendChild(dialog);
   }
 
-  // src/v2ex-time-saver/constants.ts
-  var COMMENT_BOX_SELECTOR = "#Main > .box:nth-child(n+3)";
-  var COMMENT_CELLS_SELECTOR = `${COMMENT_BOX_SELECTOR} > .cell[id]`;
-  var COMMENT_BOX_FIRST_CELL_SELECTOR = `${COMMENT_BOX_SELECTOR} > .cell`;
-
   // src/v2ex-time-saver/discussion-embedder.ts
+  var COMMENT_CELLS_SELECTOR = "#Main > .box:nth-child(n+3) > .cell[id]";
   function getCommentAuthorName(comment) {
     return comment.querySelector(":scope > table strong a.dark[href^='/member/']")?.getAttribute("href")?.split("/")[2] || "";
   }
@@ -335,170 +589,10 @@
     return match ? match[1] : null;
   }
 
-  // src/v2ex-time-saver/tag-panel.ts
-  function addTagPanel(runtime, authorTagMap, onTagAuthor, onSetTag, onUnsetTag) {
-    const btnClass = "gm-tag-btn";
-    let closeOutsideClick = null;
-    function closePanel() {
-      closeOutsideClick?.();
-      closeOutsideClick = null;
-      const panel = runtime.document.querySelector(".gm-tag-panel");
-      if (panel)
-        panel.remove();
-    }
-    function buildPanel(id, commentNumber, btn) {
-      closePanel();
-      const panel = htmlToElement(runtime.document, `<div class="gm-tag-panel">
-        <div class="gm-tag-panel-header">
-          <span class="gm-tag-panel-title"></span>
-          <button class="gm-tag-panel-close">✕</button>
-        </div>
-        <div class="gm-tag-list"></div>
-        <div class="gm-tag-add">
-          <input class="gm-tag-input-name" type="text" placeholder="标签名">
-          <input class="gm-tag-input-score" type="number" value="0" step="1">
-          <button class="gm-tag-add-btn">添加</button>
-        </div>
-        <div class="gm-tag-quick">
-          <button class="gm-tag-quick-shame">不说人话 (-1)</button>
-          <button class="gm-tag-quick-thank">智者 (+1)</button>
-        </div>
-      </div>`);
-      panel.querySelector(".gm-tag-panel-title").textContent = id;
-      const list = panel.querySelector(".gm-tag-list");
-      function renderTags() {
-        const currentTags = authorTagMap[id] || {};
-        const entries = Object.entries(currentTags);
-        list.innerHTML = "";
-        if (entries.length === 0) {
-          const empty = runtime.document.createElement("div");
-          empty.className = "gm-tag-empty";
-          empty.textContent = "暂无标签";
-          list.appendChild(empty);
-          return;
-        }
-        for (const [tagName, record] of entries) {
-          const row = runtime.document.createElement("div");
-          row.className = "gm-tag-row";
-          const nameSpan = runtime.document.createElement("span");
-          nameSpan.className = "gm-tag-name";
-          nameSpan.textContent = tagName;
-          row.appendChild(nameSpan);
-          const scoreSpan = runtime.document.createElement("span");
-          scoreSpan.className = "gm-tag-score";
-          scoreSpan.textContent = record.score > 0 ? `+${record.score}` : String(record.score);
-          row.appendChild(scoreSpan);
-          const incBtn = runtime.document.createElement("button");
-          incBtn.className = "gm-tag-inc";
-          incBtn.textContent = "+1";
-          incBtn.addEventListener("click", () => {
-            onTagAuthor(id, commentNumber, tagName, 1);
-            renderTags();
-          });
-          row.appendChild(incBtn);
-          const decBtn = runtime.document.createElement("button");
-          decBtn.className = "gm-tag-dec";
-          decBtn.textContent = "-1";
-          decBtn.addEventListener("click", () => {
-            onTagAuthor(id, commentNumber, tagName, -1);
-            renderTags();
-          });
-          row.appendChild(decBtn);
-          const delBtn = runtime.document.createElement("button");
-          delBtn.className = "gm-tag-del";
-          delBtn.textContent = "删除";
-          delBtn.addEventListener("click", () => {
-            onUnsetTag(id, tagName);
-            renderTags();
-          });
-          row.appendChild(delBtn);
-          list.appendChild(row);
-        }
-      }
-      const addNameInput = panel.querySelector(".gm-tag-input-name");
-      const addScoreInput = panel.querySelector(".gm-tag-input-score");
-      panel.querySelector(".gm-tag-add-btn").addEventListener("click", () => {
-        const name = addNameInput.value.trim();
-        if (!name)
-          return;
-        const score = parseInt(addScoreInput.value, 10);
-        if (score === 0 || isNaN(score))
-          return;
-        onSetTag(id, name, score, commentNumber);
-        addNameInput.value = "";
-        addScoreInput.value = "0";
-        renderTags();
-      });
-      panel.querySelector(".gm-tag-quick-shame").addEventListener("click", () => {
-        onTagAuthor(id, commentNumber, defaultLabels.shame, -1);
-        renderTags();
-      });
-      panel.querySelector(".gm-tag-quick-thank").addEventListener("click", () => {
-        onTagAuthor(id, commentNumber, defaultLabels.thank, 1);
-        renderTags();
-      });
-      panel.querySelector(".gm-tag-panel-close").addEventListener("click", closePanel);
-      renderTags();
-      const rect = btn.getBoundingClientRect();
-      panel.style.position = "fixed";
-      panel.style.top = `${rect.bottom + 4}px`;
-      panel.style.left = `${Math.min(rect.left, (runtime.document.defaultView?.innerWidth ?? 320) - 320)}px`;
-      runtime.document.body.appendChild(panel);
-      const handler = (e) => {
-        if (e.target.closest(`.${btnClass}`))
-          return;
-        if (!panel.contains(e.target)) {
-          closePanel();
-        }
-      };
-      closeOutsideClick = () => {
-        runtime.document.removeEventListener("mousedown", handler);
-      };
-      setTimeout(() => {
-        if (!closeOutsideClick)
-          return;
-        runtime.document.addEventListener("mousedown", handler);
-      }, 0);
-    }
-    function ensureTagBtn(container, id, commentNumber, ref) {
-      if (container.querySelector(`.${btnClass}`))
-        return;
-      const btn = runtime.document.createElement("a");
-      btn.className = btnClass;
-      btn.textContent = "\uD83C\uDFF7";
-      btn.setAttribute("href", "#;");
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        buildPanel(id, commentNumber, btn);
-      });
-      if (ref) {
-        ref.insertAdjacentElement("afterend", btn);
-      } else {
-        container.appendChild(btn);
-      }
-    }
-    const topicAuthorId = runtime.document.querySelector(".header .avatar")?.getAttribute("alt");
-    if (topicAuthorId) {
-      const topicButtons = runtime.document.querySelector(".topic_buttons");
-      if (topicButtons) {
-        ensureTagBtn(topicButtons, topicAuthorId, 0, null);
-      }
-    }
-    runtime.document.querySelectorAll(".cell").forEach((cell) => {
-      const authorLink = cell.querySelector("strong > a[href]");
-      if (!authorLink)
-        return;
-      const id = authorLink.getAttribute("href")?.split("/")[2];
-      if (!id)
-        return;
-      const commentNumber = cell.querySelector("span.no")?.textContent?.trim();
-      if (!commentNumber)
-        return;
-      ensureTagBtn(cell, id, commentNumber, authorLink);
-    });
-  }
-
   // src/v2ex-time-saver/thread-enhancements.ts
+  var COMMENT_BOX_SELECTOR = "#Main > .box:nth-child(n+3)";
+  var COMMENT_CELLS_SELECTOR2 = `${COMMENT_BOX_SELECTOR} > .cell[id]`;
+  var COMMENT_BOX_FIRST_CELL_SELECTOR = `${COMMENT_BOX_SELECTOR} > .cell`;
   var SCORE_CLASS_MIN = -3;
   var SCORE_CLASS_MAX = 3;
   var SCORE_CLASS_RE = /^gm-author--?\d+$/;
@@ -508,13 +602,6 @@
     if (score < SCORE_CLASS_MIN)
       return SCORE_CLASS_MIN;
     return score;
-  }
-  function tagColor(score) {
-    if (score > 0)
-      return "darkgreen";
-    if (score < 0)
-      return "red";
-    return "gray";
   }
   function clearExistingHighlight(authorLink) {
     authorLink.querySelectorAll(".gm-author-tag").forEach((el) => el.remove());
@@ -554,21 +641,16 @@
       authorLink.closest("tr")?.classList.add(cls);
       for (const [tagName, tag] of Object.entries(tags)) {
         const fullUrl = new URL(tag.url, origin).href;
-        const tagLink = runtime.document.createElement("a");
-        tagLink.className = "gm-author-tag";
-        tagLink.href = fullUrl;
-        tagLink.style.color = tagColor(tag.score);
-        tagLink.textContent = tagName;
         const [pathPart] = tag.url.split("#");
         const isSamePage = pathPart === runtime.location.pathname.replace(/^\//, "");
+        const tagLink = htmlToElement(runtime.document, `<a class="gm-author-tag" href="${fullUrl}" style="color:${tagColor(tag.score)}"${isSamePage ? "" : ' target="_blank"'}>x</a>`);
+        tagLink.textContent = tagName;
         if (isSamePage) {
           tagLink.addEventListener("click", (e) => {
             e.preventDefault();
             const num = tag.url.split("#")[1];
             scrollToComment(num, runtime);
           });
-        } else {
-          tagLink.target = "_blank";
         }
         authorLink.insertAdjacentElement("beforeend", tagLink);
       }
@@ -576,7 +658,7 @@
   }
   function reorderCommentsByHearts(runtime) {
     const heartsFlagKey = "data-hearts";
-    const comments = Array.from(runtime.document.querySelectorAll(COMMENT_CELLS_SELECTOR));
+    const comments = Array.from(runtime.document.querySelectorAll(COMMENT_CELLS_SELECTOR2));
     comments.forEach((comment) => {
       const hearts = Array.from(comment.querySelectorAll('[alt="❤️"]')).map((it) => parseInt(it.nextSibling?.textContent || "0", 10)).reduce((prev, curr) => prev + curr, 0);
       comment.setAttribute(heartsFlagKey, String(hearts));
@@ -589,6 +671,11 @@
   }
 
   // src/v2ex-time-saver/app.ts
+  var authorTagsKeyword = "author_tags";
+  var defaultLabels = {
+    shame: "若婴",
+    thank: "智者"
+  };
   async function startV2exTimeSaver(runtime) {
     const app = await createV2exApp(runtime);
     app.start();
@@ -597,6 +684,8 @@
     const value = await runtime.getValue(authorTagsKeyword, {});
     return parseAuthorTagMap(value);
   }
+  var COMMENT_BOX_SELECTOR2 = "#Main > .box:nth-child(n+3)";
+  var COMMENT_CELLS_SELECTOR3 = `${COMMENT_BOX_SELECTOR2} > .cell[id]`;
   async function createV2exApp(runtime) {
     const authorTagMap = await loadAuthorTagMap(runtime);
     function buildAuthorUrl(commentNumber) {
@@ -631,11 +720,52 @@
         return;
       scrollToComment(hash.slice(1), runtime);
     }
+    const callbacks = { onTagAuthor: tagAuthor, onSetTag: setTag, onUnsetTag: unsetTag };
+    const quickLabels = {
+      shame: { tag: defaultLabels.shame, display: "不说人话" },
+      thank: { tag: defaultLabels.thank, display: defaultLabels.thank }
+    };
+    const btnClass = "gm-tag-btn";
+    function ensureTagBtn(container, id, commentNumber, ref) {
+      if (container.querySelector(`.${btnClass}`))
+        return;
+      const btn = htmlToElement(runtime.document, `<a class="${btnClass}" href="#;">\uD83C\uDFF7</a>`);
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        buildTagPanel(runtime, authorTagMap, id, commentNumber, btn, callbacks, quickLabels);
+      });
+      if (ref) {
+        ref.insertAdjacentElement("afterend", btn);
+      } else {
+        container.appendChild(btn);
+      }
+    }
+    function addTagPanel() {
+      const topicAuthorId = runtime.document.querySelector(".header .avatar")?.getAttribute("alt");
+      if (topicAuthorId) {
+        const topicButtons = runtime.document.querySelector(".topic_buttons");
+        if (topicButtons) {
+          ensureTagBtn(topicButtons, topicAuthorId, 0, null);
+        }
+      }
+      runtime.document.querySelectorAll(".cell").forEach((cell) => {
+        const authorLink = cell.querySelector("strong > a[href]");
+        if (!authorLink)
+          return;
+        const id = authorLink.getAttribute("href")?.split("/")[2];
+        if (!id)
+          return;
+        const commentNumber = cell.querySelector("span.no")?.textContent?.trim();
+        if (!commentNumber)
+          return;
+        ensureTagBtn(cell, id, commentNumber, authorLink);
+      });
+    }
     function enhanceThreadPage() {
       embedDiscussions(runtime);
       reorderCommentsByHearts(runtime);
       addCollapseExpandButtons(runtime);
-      addTagPanel(runtime, authorTagMap, tagAuthor, setTag, unsetTag);
+      addTagPanel();
       highlightCommentsAndTopics(runtime, authorTagMap);
       addTargetToTopicLinks(runtime);
       scrollToCommentByHash();
@@ -650,7 +780,7 @@
       commentsOfPages.forEach((pageComments) => {
         pageComments?.forEach((it) => fragment.appendChild(it));
       });
-      const commentBox = runtime.document.querySelector(COMMENT_BOX_SELECTOR);
+      const commentBox = runtime.document.querySelector(COMMENT_BOX_SELECTOR2);
       const countsElement = commentBox?.querySelector(".cell");
       if (!commentBox || !countsElement) {
         return;
@@ -686,7 +816,7 @@
       commentsOfPages = allPageNumbers.map(() => null);
       allPageNumbers.forEach((pageNum, idx) => {
         if (pageNum === currentPageNum) {
-          commentsOfPages[idx] = runtime.document.querySelectorAll(COMMENT_CELLS_SELECTOR);
+          commentsOfPages[idx] = runtime.document.querySelectorAll(COMMENT_CELLS_SELECTOR3);
         } else {
           loadCommentsByPage(pageNum, idx);
         }
@@ -694,6 +824,7 @@
       tryDisplayAllComments();
     }
     function addStyles() {
+      runtime.addStyle(tagPanelCss);
       runtime.addStyle(`.cell[id] > .cell[id] {
   border-left: 2px solid lightblue;
   padding-bottom: 0;
@@ -756,154 +887,7 @@ button.gm.collapse > svg {
   margin-left: 2px;
   font-weight: normal;
 }
-.gm-tag-btn {
-  cursor: pointer;
-  margin-left: 4px;
-  font-size: 12px;
-  text-decoration: none;
-  user-select: none;
-}
-.gm-tag-btn:hover {
-  text-decoration: none;
-}
-.gm-tag-panel {
-  position: fixed;
-  background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  padding: 12px;
-  min-width: 240px;
-  max-width: 300px;
-  font-size: 13px;
-  line-height: 1.5;
-}
-.gm-tag-panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-  font-weight: bold;
-  font-size: 14px;
-}
-.gm-tag-panel-close {
-  cursor: pointer;
-  border: none;
-  background: none;
-  font-size: 16px;
-  padding: 0 4px;
-  color: #999;
-}
-.gm-tag-panel-close:hover {
-  color: #333;
-}
-.gm-tag-list {
-  margin-bottom: 4px;
-}
-.gm-tag-empty {
-  color: #999;
-  font-size: 12px;
-  padding: 4px 0;
-}
-.gm-tag-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-.gm-tag-row:last-child {
-  border-bottom: none;
-}
-.gm-tag-name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-}
-.gm-tag-score {
-  min-width: 24px;
-  text-align: center;
-  font-weight: bold;
-  font-size: 12px;
-}
-.gm-tag-row button {
-  cursor: pointer;
-  border: 1px solid #d0d0d0;
-  border-radius: 3px;
-  background: #f8f8f8;
-  padding: 1px 6px;
-  font-size: 11px;
-  line-height: 1.4;
-}
-.gm-tag-row button:hover {
-  background: #e8e8e8;
-}
-.gm-tag-del {
-  color: #c00;
-}
-.gm-tag-add {
-  display: flex;
-  gap: 4px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid #e0e0e0;
-}
-.gm-tag-input-name {
-  flex: 1;
-  min-width: 0;
-  padding: 3px 6px;
-  border: 1px solid #d0d0d0;
-  border-radius: 3px;
-  font-size: 12px;
-}
-.gm-tag-input-score {
-  width: 48px;
-  padding: 3px 6px;
-  border: 1px solid #d0d0d0;
-  border-radius: 3px;
-  font-size: 12px;
-  text-align: center;
-}
-.gm-tag-add-btn {
-  cursor: pointer;
-  border: 1px solid #4a90d9;
-  border-radius: 3px;
-  background: #4a90d9;
-  color: white;
-  padding: 3px 10px;
-  font-size: 12px;
-  white-space: nowrap;
-}
-.gm-tag-add-btn:hover {
-  background: #357abd;
-}
-.gm-tag-quick {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid #e0e0e0;
-}
-.gm-tag-quick button {
-  cursor: pointer;
-  border: 1px solid #d0d0d0;
-  border-radius: 3px;
-  padding: 3px 10px;
-  font-size: 12px;
-  background: #f8f8f8;
-  flex: 1;
-}
-.gm-tag-quick button:hover {
-  background: #e8e8e8;
-}
-.gm-tag-quick-shame {
-  color: #c00;
-}
-.gm-tag-quick-thank {
-  color: #080;
-}
+
 .gm-reference-hints {
   display: flex;
   flex-wrap: wrap;
@@ -1031,6 +1015,7 @@ button.gm.collapse > svg {
       document,
       location,
       DOMParser,
+      MutationObserver,
       prompt: window.prompt.bind(window),
       getValue: (key, defaultValue) => GM.getValue(key, defaultValue),
       setValue: (key, value) => GM.setValue(key, value),

@@ -1,19 +1,23 @@
 import type { Runtime } from '../runtime'
-import type { AuthorTagMap } from './author-labels'
+import type { AuthorTagMap } from '../shared/author-labels'
 import {
   addTag,
-  authorTagsKeyword,
   getTotalScore,
   incrementTagScore,
   parseAuthorTagMap,
   removeTag,
   toRelativeUrl,
-} from './author-labels'
+} from '../shared/author-labels'
+import {
+  buildTagPanel,
+  tagPanelCss,
+  type TagPanelCallbacks,
+  type QuickLabels,
+} from '../shared/tag-panel'
+import { htmlToElement } from '../utils'
 import { addCollapseExpandButtons, embedDiscussions } from './discussion-embedder'
 import { getCommentElementsFromHtmlString } from './comment-helpers'
 import { checkAndDoSignIn } from './sign-in'
-import { COMMENT_BOX_SELECTOR, COMMENT_CELLS_SELECTOR } from './constants'
-import { addTagPanel } from './tag-panel'
 import {
   addTargetToTopicLinks,
   highlightCommentsAndTopics,
@@ -21,7 +25,12 @@ import {
   scrollToComment,
 } from './thread-enhancements'
 
-export { authorTagsKeyword }
+export const authorTagsKeyword = 'author_tags'
+
+export const defaultLabels = {
+  shame: '若婴',
+  thank: '智者',
+} as const
 
 export type V2exApp = Awaited<ReturnType<typeof createV2exApp>>
 
@@ -34,6 +43,9 @@ async function loadAuthorTagMap(runtime: Runtime): Promise<AuthorTagMap> {
   const value = await runtime.getValue<unknown>(authorTagsKeyword, {})
   return parseAuthorTagMap(value)
 }
+
+const COMMENT_BOX_SELECTOR = '#Main > .box:nth-child(n+3)'
+const COMMENT_CELLS_SELECTOR = `${COMMENT_BOX_SELECTOR} > .cell[id]`
 
 export async function createV2exApp(runtime: Runtime) {
   const authorTagMap = await loadAuthorTagMap(runtime)
@@ -76,11 +88,68 @@ export async function createV2exApp(runtime: Runtime) {
     scrollToComment(hash.slice(1), runtime)
   }
 
+  // --- tag panel ---
+
+  const callbacks: TagPanelCallbacks = {
+    onTagAuthor: tagAuthor,
+    onSetTag: setTag,
+    onUnsetTag: unsetTag,
+  }
+  const quickLabels: QuickLabels = {
+    shame: { tag: defaultLabels.shame, display: '不说人话' },
+    thank: { tag: defaultLabels.thank, display: defaultLabels.thank },
+  }
+  const btnClass = 'gm-tag-btn'
+
+  function ensureTagBtn(
+    container: Element,
+    id: string,
+    commentNumber: number | string,
+    ref: Element | null,
+  ): void {
+    if (container.querySelector(`.${btnClass}`)) return
+    const btn = htmlToElement<HTMLElement>(
+      runtime.document,
+      `<a class="${btnClass}" href="#;">🏷</a>`,
+    )
+    btn.addEventListener('click', (e) => {
+      e.preventDefault()
+      buildTagPanel(runtime, authorTagMap, id, commentNumber, btn, callbacks, quickLabels)
+    })
+    if (ref) {
+      ref.insertAdjacentElement('afterend', btn)
+    } else {
+      container.appendChild(btn)
+    }
+  }
+
+  function addTagPanel(): void {
+    const topicAuthorId = runtime.document.querySelector('.header .avatar')?.getAttribute('alt')
+    if (topicAuthorId) {
+      const topicButtons = runtime.document.querySelector('.topic_buttons')
+      if (topicButtons) {
+        ensureTagBtn(topicButtons, topicAuthorId, 0, null)
+      }
+    }
+
+    runtime.document.querySelectorAll('.cell').forEach((cell) => {
+      const authorLink = cell.querySelector('strong > a[href]')
+      if (!authorLink) return
+      const id = authorLink.getAttribute('href')?.split('/')[2]
+      if (!id) return
+      const commentNumber = cell.querySelector('span.no')?.textContent?.trim()
+      if (!commentNumber) return
+      ensureTagBtn(cell, id, commentNumber, authorLink)
+    })
+  }
+
+  // ---
+
   function enhanceThreadPage() {
     embedDiscussions(runtime)
     reorderCommentsByHearts(runtime)
     addCollapseExpandButtons(runtime)
-    addTagPanel(runtime, authorTagMap, tagAuthor, setTag, unsetTag)
+    addTagPanel()
     highlightCommentsAndTopics(runtime, authorTagMap)
     addTargetToTopicLinks(runtime)
     scrollToCommentByHash()
@@ -164,6 +233,7 @@ export async function createV2exApp(runtime: Runtime) {
   }
 
   function addStyles() {
+    runtime.addStyle(tagPanelCss)
     runtime.addStyle(`/*{{V2EX_TIME_SAVER_CSS}}*/`)
   }
 

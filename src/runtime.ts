@@ -11,6 +11,7 @@ export type Runtime = {
   document: Document
   location: Location
   DOMParser: typeof DOMParser
+  MutationObserver: typeof MutationObserver
   prompt(message?: string, defaultValue?: string): string | null
   getValue<T>(key: string, defaultValue: T): Promise<T>
   setValue(key: string, value: unknown): Promise<void> | void
@@ -39,6 +40,7 @@ export function createBrowserRuntime(): Runtime {
     document,
     location,
     DOMParser,
+    MutationObserver,
     prompt: window.prompt.bind(window),
     getValue: (key, defaultValue) => GM.getValue(key, defaultValue),
     setValue: (key, value) => GM.setValue(key, value),

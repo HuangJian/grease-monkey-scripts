@@ -290,6 +290,7 @@
       document,
       location,
       DOMParser,
+      MutationObserver,
       prompt: window.prompt.bind(window),
       getValue: (key, defaultValue) => GM.getValue(key, defaultValue),
       setValue: (key, value) => GM.setValue(key, value),
