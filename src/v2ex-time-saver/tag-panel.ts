@@ -1,6 +1,6 @@
 import type { Runtime } from '../runtime'
-import type { AuthorTagMap } from './author-labels'
-import { defaultLabels } from './author-labels'
+import type { AuthorTagMap } from '../shared/author-labels'
+import { defaultLabels } from './constants'
 import { htmlToElement } from '../utils'
 
 export function addTagPanel(
@@ -53,52 +53,39 @@ export function addTagPanel(
       const entries = Object.entries(currentTags)
       list.innerHTML = ''
       if (entries.length === 0) {
-        const empty = runtime.document.createElement('div')
-        empty.className = 'gm-tag-empty'
-        empty.textContent = '暂无标签'
-        list.appendChild(empty)
+        list.appendChild(
+          htmlToElement(runtime.document, '<div class="gm-tag-empty">暂无标签</div>'),
+        )
         return
       }
       for (const [tagName, record] of entries) {
-        const row = runtime.document.createElement('div')
-        row.className = 'gm-tag-row'
+        const scoreText = record.score > 0 ? `+${record.score}` : String(record.score)
+        const row = htmlToElement<HTMLElement>(
+          runtime.document,
+          `<div class="gm-tag-row">
+            <span class="gm-tag-name"></span>
+            <span class="gm-tag-score">${scoreText}</span>
+            <button class="gm-tag-inc">+1</button>
+            <button class="gm-tag-dec">-1</button>
+            <button class="gm-tag-del">删除</button>
+          </div>`,
+        )
 
-        const nameSpan = runtime.document.createElement('span')
-        nameSpan.className = 'gm-tag-name'
-        nameSpan.textContent = tagName
-        row.appendChild(nameSpan)
+        row.querySelector('.gm-tag-name')!.textContent = tagName
 
-        const scoreSpan = runtime.document.createElement('span')
-        scoreSpan.className = 'gm-tag-score'
-        scoreSpan.textContent = record.score > 0 ? `+${record.score}` : String(record.score)
-        row.appendChild(scoreSpan)
-
-        const incBtn = runtime.document.createElement('button')
-        incBtn.className = 'gm-tag-inc'
-        incBtn.textContent = '+1'
+        const [incBtn, decBtn, delBtn] = row.querySelectorAll('button')
         incBtn.addEventListener('click', () => {
           onTagAuthor(id, commentNumber, tagName, 1)
           renderTags()
         })
-        row.appendChild(incBtn)
-
-        const decBtn = runtime.document.createElement('button')
-        decBtn.className = 'gm-tag-dec'
-        decBtn.textContent = '-1'
         decBtn.addEventListener('click', () => {
           onTagAuthor(id, commentNumber, tagName, -1)
           renderTags()
         })
-        row.appendChild(decBtn)
-
-        const delBtn = runtime.document.createElement('button')
-        delBtn.className = 'gm-tag-del'
-        delBtn.textContent = '删除'
         delBtn.addEventListener('click', () => {
           onUnsetTag(id, tagName)
           renderTags()
         })
-        row.appendChild(delBtn)
 
         list.appendChild(row)
       }
@@ -159,10 +146,10 @@ export function addTagPanel(
     ref: Element | null,
   ): void {
     if (container.querySelector(`.${btnClass}`)) return
-    const btn = runtime.document.createElement('a')
-    btn.className = btnClass
-    btn.textContent = '🏷'
-    btn.setAttribute('href', '#;')
+    const btn = htmlToElement<HTMLElement>(
+      runtime.document,
+      `<a class="${btnClass}" href="#;">🏷</a>`,
+    )
     btn.addEventListener('click', (e) => {
       e.preventDefault()
       buildPanel(id, commentNumber, btn)

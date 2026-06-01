@@ -1,6 +1,7 @@
 import type { Runtime } from '../runtime'
-import type { AuthorTagMap } from './author-labels'
-import { getTotalScore } from './author-labels'
+import type { AuthorTagMap } from '../shared/author-labels'
+import { getTotalScore, tagColor } from '../shared/author-labels'
+import { htmlToElement } from '../utils'
 import { COMMENT_BOX_FIRST_CELL_SELECTOR, COMMENT_CELLS_SELECTOR } from './constants'
 
 const SCORE_CLASS_MIN = -3
@@ -11,12 +12,6 @@ function clampScoreClass(score: number): number {
   if (score > SCORE_CLASS_MAX) return SCORE_CLASS_MAX
   if (score < SCORE_CLASS_MIN) return SCORE_CLASS_MIN
   return score
-}
-
-function tagColor(score: number): string {
-  if (score > 0) return 'darkgreen'
-  if (score < 0) return 'red'
-  return 'gray'
 }
 
 function clearExistingHighlight(authorLink: Element): void {
@@ -60,21 +55,19 @@ export function highlightCommentsAndTopics(runtime: Runtime, authorTagMap: Autho
 
     for (const [tagName, tag] of Object.entries(tags)) {
       const fullUrl = new URL(tag.url, origin).href
-      const tagLink = runtime.document.createElement('a')
-      tagLink.className = 'gm-author-tag'
-      tagLink.href = fullUrl
-      tagLink.style.color = tagColor(tag.score)
-      tagLink.textContent = tagName
       const [pathPart] = tag.url.split('#')
       const isSamePage = pathPart === runtime.location.pathname.replace(/^\//, '')
+      const tagLink = htmlToElement<HTMLElement>(
+        runtime.document,
+        `<a class="gm-author-tag" href="${fullUrl}" style="color:${tagColor(tag.score)}"${isSamePage ? '' : ' target="_blank"'}>x</a>`,
+      )
+      tagLink.textContent = tagName
       if (isSamePage) {
         tagLink.addEventListener('click', (e) => {
           e.preventDefault()
           const num = tag.url.split('#')[1]
           scrollToComment(num, runtime)
         })
-      } else {
-        tagLink.target = '_blank'
       }
       authorLink.insertAdjacentElement('beforeend', tagLink)
     }

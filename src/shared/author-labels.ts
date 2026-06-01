@@ -7,13 +7,6 @@ export type AuthorTags = Record<string, TagRecord>
 
 export type AuthorTagMap = Record<string, AuthorTags>
 
-export const authorTagsKeyword = 'author_tags'
-
-export const defaultLabels = {
-  shame: '若婴',
-  thank: '智者',
-} as const
-
 export function toRelativeUrl(url: string): string {
   try {
     const u = new URL(url)
@@ -82,6 +75,12 @@ function isValidTagRecord(v: unknown): v is TagRecord {
 function isValidAuthorTags(v: unknown): v is AuthorTags {
   if (v == null || typeof v !== 'object' || Array.isArray(v)) return false
   return Object.values(v).every((tag) => isValidTagRecord(tag))
+}
+
+export function tagColor(score: number): string {
+  if (score > 0) return 'darkgreen'
+  if (score < 0) return 'red'
+  return 'gray'
 }
 
 export function parseAuthorTagMap(value: unknown): AuthorTagMap {
