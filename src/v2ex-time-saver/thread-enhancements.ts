@@ -1,46 +1,82 @@
 import type { Runtime } from '../runtime'
-import type { AuthorMap } from './author-labels'
-import { defaultLabels, getAuthorLabel } from './author-labels'
-import { htmlToElement } from '../utils'
+import type { AuthorTagMap } from './author-labels'
+import { getTotalScore } from './author-labels'
 import { COMMENT_BOX_FIRST_CELL_SELECTOR, COMMENT_CELLS_SELECTOR } from './constants'
 
-function getTagMarkup(text: string, color: string): string {
-  return ` <span style="color:${color}">[${text}]</span>`
+const SCORE_CLASS_MIN = -3
+const SCORE_CLASS_MAX = 3
+const SCORE_CLASS_RE = /^gm-author--?\d+$/
+
+function clampScoreClass(score: number): number {
+  if (score > SCORE_CLASS_MAX) return SCORE_CLASS_MAX
+  if (score < SCORE_CLASS_MIN) return SCORE_CLASS_MIN
+  return score
 }
 
-function getAuthorIdAndCommentNumber(
-  thankArea: Element,
-): { id: string; commentNumber: string } | null {
-  const cell = thankArea.closest('.cell')
-  const id = cell?.querySelector('a.dark[href]')?.getAttribute('href')?.split('/')[2]
-  const commentNumber = cell?.querySelector('span.no')?.textContent
-  if (!id || !commentNumber) {
-    return null
+function tagColor(score: number): string {
+  if (score > 0) return 'darkgreen'
+  if (score < 0) return 'red'
+  return 'gray'
+}
+
+function clearExistingHighlight(authorLink: Element): void {
+  authorLink.querySelectorAll('.gm-author-tag').forEach((el) => el.remove())
+  const tr = authorLink.closest('tr')
+  if (!tr) return
+  Array.from(tr.classList)
+    .filter((c) => SCORE_CLASS_RE.test(c))
+    .forEach((c) => tr.classList.remove(c))
+}
+
+export function scrollToComment(number: string, runtime: Runtime): void {
+  if (number === '0') {
+    runtime.document.defaultView?.scrollTo(0, 0)
+    return
   }
-  return { id, commentNumber }
+  for (const cell of runtime.document.querySelectorAll('.cell[id]')) {
+    const no = cell.querySelector('span.no')?.textContent?.trim()
+    if (no === number) {
+      cell.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      break
+    }
+  }
 }
 
-export function highlightCommentsAndTopics(
-  runtime: Runtime,
-  shamedMap: AuthorMap,
-  thankedMap: AuthorMap,
-): void {
+export function highlightCommentsAndTopics(runtime: Runtime, authorTagMap: AuthorTagMap): void {
+  const origin = runtime.location.origin
   runtime.document.querySelectorAll('.cell').forEach((cell) => {
-    const it = cell.querySelector('strong > a[href]')
-    if (!it) return
-    const id = it.getAttribute('href')?.split('/')[2]
-    if (!id) {
-      return
-    }
-    const shameLabel = getAuthorLabel(shamedMap, id, defaultLabels.shame)
-    const thankLabel = getAuthorLabel(thankedMap, id, defaultLabels.thank)
-    if (shamedMap.has(id) && !it.textContent?.includes(shameLabel)) {
-      it.insertAdjacentHTML('beforeend', getTagMarkup(shameLabel, 'red'))
-      it.closest('td')?.classList.add('shame')
-    }
-    if (thankedMap.has(id) && !it.textContent?.includes(thankLabel)) {
-      it.insertAdjacentHTML('beforeend', getTagMarkup(thankLabel, 'darkgreen'))
-      it.closest('tr')?.classList.add('nice-author')
+    const authorLink = cell.querySelector('strong > a[href]')
+    if (!authorLink) return
+    const id = authorLink.getAttribute('href')?.split('/')[2]
+    if (!id) return
+    const tags = authorTagMap[id]
+    if (!tags) return
+
+    clearExistingHighlight(authorLink)
+
+    const total = getTotalScore(tags)
+    const cls = `gm-author-${clampScoreClass(total)}`
+    authorLink.closest('tr')?.classList.add(cls)
+
+    for (const [tagName, tag] of Object.entries(tags)) {
+      const fullUrl = new URL(tag.url, origin).href
+      const tagLink = runtime.document.createElement('a')
+      tagLink.className = 'gm-author-tag'
+      tagLink.href = fullUrl
+      tagLink.style.color = tagColor(tag.score)
+      tagLink.textContent = tagName
+      const [pathPart] = tag.url.split('#')
+      const isSamePage = pathPart === runtime.location.pathname.replace(/^\//, '')
+      if (isSamePage) {
+        tagLink.addEventListener('click', (e) => {
+          e.preventDefault()
+          const num = tag.url.split('#')[1]
+          scrollToComment(num, runtime)
+        })
+      } else {
+        tagLink.target = '_blank'
+      }
+      authorLink.insertAdjacentElement('beforeend', tagLink)
     }
   })
 }
@@ -71,57 +107,4 @@ export function addTargetToTopicLinks(runtime: Runtime): void {
   runtime.document
     .querySelectorAll('.topic-link, .item_hot_topic_title > a')
     .forEach((it) => it.setAttribute('target', '_blank'))
-}
-
-export function addShameButtons(
-  runtime: Runtime,
-  likeDislikeAuthor: (id: string, commentNumber: number | string, isLike: boolean) => void,
-): void {
-  const btn = htmlToElement<HTMLAnchorElement>(
-    runtime.document,
-    '<a style="margin-left: 12px; color: lightpink" class="thank" href="#;">不说人话</a>',
-  )
-
-  btn.addEventListener('click', () => {
-    const authorId = runtime.document.querySelector('.header .avatar')?.getAttribute('alt')
-    if (authorId) {
-      likeDislikeAuthor(authorId, 0, false)
-    }
-  })
-  runtime.document.querySelector('.topic_buttons')?.appendChild(btn)
-
-  runtime.document.querySelectorAll('.thank_area').forEach((it) => {
-    const info = getAuthorIdAndCommentNumber(it)
-    if (!info) return
-    const cloned = btn.cloneNode(true) as HTMLAnchorElement
-    cloned.addEventListener('click', () => likeDislikeAuthor(info.id, info.commentNumber, false))
-    it.appendChild(cloned)
-  })
-}
-
-export function addMoreThankActions(
-  runtime: Runtime,
-  likeDislikeAuthor: (id: string, commentNumber: number | string, isLike: boolean) => void,
-): void {
-  const topic = runtime.document.querySelector('#topic_thank') as HTMLElement | null
-  if (topic) {
-    topic.addEventListener('mouseup', () => {
-      setTimeout(() => {
-        const authorId = runtime.document.querySelector('.header .avatar')?.getAttribute('alt')
-        if (authorId) {
-          likeDislikeAuthor(authorId, 0, true)
-        }
-      })
-    })
-  }
-
-  Array.from(runtime.document.querySelectorAll('.thank_area > a.thank'))
-    .filter((it) => it.textContent?.includes('感谢回复者'))
-    .forEach((it) => {
-      const info = getAuthorIdAndCommentNumber(it)
-      if (!info) return
-      it.addEventListener('mouseup', () =>
-        setTimeout(() => likeDislikeAuthor(info.id, info.commentNumber, true)),
-      )
-    })
 }

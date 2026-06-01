@@ -1,27 +1,27 @@
 import type { Runtime } from '../runtime'
-import type { AuthorMap } from './author-labels'
-import { defaultLabels, getAuthorLabel } from './author-labels'
+import type { AuthorTagMap } from './author-labels'
+import {
+  addTag,
+  authorTagsKeyword,
+  getTotalScore,
+  incrementTagScore,
+  parseAuthorTagMap,
+  removeTag,
+  toRelativeUrl,
+} from './author-labels'
 import { addCollapseExpandButtons, embedDiscussions } from './discussion-embedder'
 import { getCommentElementsFromHtmlString } from './comment-helpers'
+import { checkAndDoSignIn } from './sign-in'
+import { COMMENT_BOX_SELECTOR, COMMENT_CELLS_SELECTOR } from './constants'
+import { addTagPanel } from './tag-panel'
 import {
-  addMoreThankActions,
-  addShameButtons,
   addTargetToTopicLinks,
   highlightCommentsAndTopics,
   reorderCommentsByHearts,
+  scrollToComment,
 } from './thread-enhancements'
-import { checkAndDoSignIn } from './sign-in'
-import { COMMENT_BOX_SELECTOR, COMMENT_CELLS_SELECTOR } from './constants'
 
-function parseAuthorMap(value: string | null): AuthorMap {
-  if (!value) {
-    return new Map()
-  }
-  return new Map(JSON.parse(value))
-}
-
-export const shameKeyword = 'shame_on_them'
-export const thankKeyword = 'thanks_to_them'
+export { authorTagsKeyword }
 
 export type V2exApp = Awaited<ReturnType<typeof createV2exApp>>
 
@@ -30,40 +30,60 @@ export async function startV2exTimeSaver(runtime: Runtime): Promise<void> {
   app.start()
 }
 
+async function loadAuthorTagMap(runtime: Runtime): Promise<AuthorTagMap> {
+  const value = await runtime.getValue<unknown>(authorTagsKeyword, {})
+  return parseAuthorTagMap(value)
+}
+
 export async function createV2exApp(runtime: Runtime) {
-  const [shamedMap, thankedMap] = (
-    await Promise.all([shameKeyword, thankKeyword].map(async (key) => runtime.getValue(key, '[]')))
-  ).map((value) => parseAuthorMap(value))
+  const authorTagMap = await loadAuthorTagMap(runtime)
 
-  function likeDislikeAuthorWrapper(id: string, commentNumber: number | string, isLike: boolean) {
-    const url = `${runtime.location.origin}${runtime.location.pathname}#${commentNumber}`
-    const map = isLike ? thankedMap : shamedMap
-    const keyword = isLike ? thankKeyword : shameKeyword
-    const fallbackLabel = isLike ? defaultLabels.thank : defaultLabels.shame
-    const currentLabel = getAuthorLabel(map, id, fallbackLabel)
-    const actionName = isLike ? '感谢' : '标记'
-    const label = runtime.prompt(`请输入给作者 ${id} 的${actionName}标签：`, currentLabel)
+  function buildAuthorUrl(commentNumber: number | string): string {
+    return `${runtime.location.origin}${runtime.location.pathname}#${commentNumber}`
+  }
 
-    if (label === null) {
-      return
-    }
+  function getRelativeAuthorUrl(commentNumber: number | string): string {
+    return toRelativeUrl(buildAuthorUrl(commentNumber))
+  }
 
-    map.set(id, {
-      url,
-      label: label.trim() || fallbackLabel,
-    })
-    void runtime.setValue(keyword, JSON.stringify(Array.from(map)))
-    highlightCommentsAndTopics(runtime, shamedMap, thankedMap)
+  function persist(): void {
+    void runtime.setValue(authorTagsKeyword, authorTagMap)
+  }
+
+  function tagAuthor(id: string, commentNumber: number | string, tag: string, delta: number): void {
+    const url = getRelativeAuthorUrl(commentNumber)
+    incrementTagScore(authorTagMap, id, tag, url, delta)
+    persist()
+    highlightCommentsAndTopics(runtime, authorTagMap)
+  }
+
+  function setTag(id: string, tag: string, score: number, commentNumber: number | string): void {
+    const url = getRelativeAuthorUrl(commentNumber)
+    addTag(authorTagMap, id, tag, url, score)
+    persist()
+    highlightCommentsAndTopics(runtime, authorTagMap)
+  }
+
+  function unsetTag(id: string, tag: string): void {
+    removeTag(authorTagMap, id, tag)
+    persist()
+    highlightCommentsAndTopics(runtime, authorTagMap)
+  }
+
+  function scrollToCommentByHash(): void {
+    const hash = runtime.location.hash
+    if (!/^#\d+$/.test(hash)) return
+    scrollToComment(hash.slice(1), runtime)
   }
 
   function enhanceThreadPage() {
     embedDiscussions(runtime)
     reorderCommentsByHearts(runtime)
     addCollapseExpandButtons(runtime)
-    addShameButtons(runtime, likeDislikeAuthorWrapper)
-    addMoreThankActions(runtime, likeDislikeAuthorWrapper)
-    highlightCommentsAndTopics(runtime, shamedMap, thankedMap)
+    addTagPanel(runtime, authorTagMap, tagAuthor, setTag, unsetTag)
+    highlightCommentsAndTopics(runtime, authorTagMap)
     addTargetToTopicLinks(runtime)
+    scrollToCommentByHash()
   }
 
   let commentsOfPages: (NodeListOf<Element> | null)[] = []
@@ -152,8 +172,13 @@ export async function createV2exApp(runtime: Runtime) {
     embedDiscussions,
     getCommentElementsFromHtmlString: (html: string) =>
       getCommentElementsFromHtmlString(runtime, html),
-    highlightCommentsAndTopics: () => highlightCommentsAndTopics(runtime, shamedMap, thankedMap),
-    likeDislikeAuthor: likeDislikeAuthorWrapper,
+    highlightCommentsAndTopics: () => highlightCommentsAndTopics(runtime, authorTagMap),
+    tagAuthor,
+    setTag,
+    unsetTag,
+    getTags: (id: string) => (authorTagMap[id] ? { ...authorTagMap[id] } : undefined),
+    getScore: (id: string) => getTotalScore(authorTagMap[id]),
+    getAuthorTagMap: () => JSON.parse(JSON.stringify(authorTagMap)),
     reorderCommentsByHearts,
     start,
   }

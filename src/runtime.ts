@@ -13,14 +13,14 @@ export type Runtime = {
   DOMParser: typeof DOMParser
   prompt(message?: string, defaultValue?: string): string | null
   getValue<T>(key: string, defaultValue: T): Promise<T>
-  setValue(key: string, value: string): Promise<void> | void
+  setValue(key: string, value: unknown): Promise<void> | void
   request(details: RequestDetails): void
   addStyle(css: string): void
 }
 
 declare const GM: {
   getValue<T>(key: string, defaultValue: T): Promise<T>
-  setValue(key: string, value: string): Promise<void> | void
+  setValue(key: string, value: unknown): Promise<void> | void
 }
 
 declare function GM_xmlhttpRequest(details: {

@@ -14,22 +14,69 @@
 
 (() => {
   // src/v2ex-time-saver/author-labels.ts
+  var authorTagsKeyword = "author_tags";
   var defaultLabels = {
     shame: "若婴",
     thank: "智者"
   };
-  function getAuthorRecord(map, id) {
-    const value = map.get(id);
-    if (!value) {
-      return null;
+  function toRelativeUrl(url) {
+    try {
+      const u = new URL(url);
+      return u.pathname.replace(/^\//, "") + u.hash;
+    } catch {
+      return url;
     }
-    if (typeof value === "string") {
-      return { url: value };
-    }
-    return value;
   }
-  function getAuthorLabel(map, id, fallbackLabel) {
-    return getAuthorRecord(map, id)?.label || fallbackLabel;
+  function getTotalScore(tags) {
+    if (!tags)
+      return 0;
+    return Object.values(tags).reduce((sum, t) => sum + (t.score || 0), 0);
+  }
+  function addTag(map, id, tag, url, score) {
+    const trimmed = tag.trim();
+    if (!trimmed)
+      return;
+    if (!map[id])
+      map[id] = {};
+    map[id][trimmed] = { url, score };
+  }
+  function removeTag(map, id, tag) {
+    if (!map[id])
+      return;
+    delete map[id][tag];
+    if (Object.keys(map[id]).length === 0) {
+      delete map[id];
+    }
+  }
+  function incrementTagScore(map, id, tag, url, delta) {
+    if (!map[id])
+      map[id] = {};
+    const existing = map[id][tag];
+    if (existing) {
+      existing.score += delta;
+    } else {
+      map[id][tag] = { url, score: delta };
+    }
+  }
+  function isValidTagRecord(v) {
+    return v != null && typeof v === "object" && !Array.isArray(v) && typeof v.url === "string" && typeof v.score === "number";
+  }
+  function isValidAuthorTags(v) {
+    if (v == null || typeof v !== "object" || Array.isArray(v))
+      return false;
+    return Object.values(v).every((tag) => isValidTagRecord(tag));
+  }
+  function parseAuthorTagMap(value) {
+    if (value == null || typeof value !== "object" || Array.isArray(value)) {
+      return {};
+    }
+    const result = {};
+    for (const [id, tags] of Object.entries(value)) {
+      if (typeof id === "string" && isValidAuthorTags(tags)) {
+        result[id] = tags;
+      }
+    }
+    return result;
   }
 
   // src/v2ex-time-saver/comment-helpers.ts
@@ -256,91 +303,6 @@
     comment?.classList.toggle("discussions-collapsed");
   }
 
-  // src/v2ex-time-saver/thread-enhancements.ts
-  function getTagMarkup(text, color) {
-    return ` <span style="color:${color}">[${text}]</span>`;
-  }
-  function getAuthorIdAndCommentNumber(thankArea) {
-    const cell = thankArea.closest(".cell");
-    const id = cell?.querySelector("a.dark[href]")?.getAttribute("href")?.split("/")[2];
-    const commentNumber = cell?.querySelector("span.no")?.textContent;
-    if (!id || !commentNumber) {
-      return null;
-    }
-    return { id, commentNumber };
-  }
-  function highlightCommentsAndTopics(runtime, shamedMap, thankedMap) {
-    runtime.document.querySelectorAll(".cell").forEach((cell) => {
-      const it = cell.querySelector("strong > a[href]");
-      if (!it)
-        return;
-      const id = it.getAttribute("href")?.split("/")[2];
-      if (!id) {
-        return;
-      }
-      const shameLabel = getAuthorLabel(shamedMap, id, defaultLabels.shame);
-      const thankLabel = getAuthorLabel(thankedMap, id, defaultLabels.thank);
-      if (shamedMap.has(id) && !it.textContent?.includes(shameLabel)) {
-        it.insertAdjacentHTML("beforeend", getTagMarkup(shameLabel, "red"));
-        it.closest("td")?.classList.add("shame");
-      }
-      if (thankedMap.has(id) && !it.textContent?.includes(thankLabel)) {
-        it.insertAdjacentHTML("beforeend", getTagMarkup(thankLabel, "darkgreen"));
-        it.closest("tr")?.classList.add("nice-author");
-      }
-    });
-  }
-  function reorderCommentsByHearts(runtime) {
-    const heartsFlagKey = "data-hearts";
-    const comments = Array.from(runtime.document.querySelectorAll(COMMENT_CELLS_SELECTOR));
-    comments.forEach((comment) => {
-      const hearts = Array.from(comment.querySelectorAll('[alt="❤️"]')).map((it) => parseInt(it.nextSibling?.textContent || "0", 10)).reduce((prev, curr) => prev + curr, 0);
-      comment.setAttribute(heartsFlagKey, String(hearts));
-    });
-    const countsElement = runtime.document.querySelector(COMMENT_BOX_FIRST_CELL_SELECTOR);
-    comments.filter((it) => it.getAttribute(heartsFlagKey) !== "0").reverse().sort((a, b) => parseInt(a.getAttribute(heartsFlagKey) || "0", 10) - parseInt(b.getAttribute(heartsFlagKey) || "0", 10)).forEach((it) => countsElement?.insertAdjacentElement("afterend", it));
-  }
-  function addTargetToTopicLinks(runtime) {
-    runtime.document.querySelectorAll(".topic-link, .item_hot_topic_title > a").forEach((it) => it.setAttribute("target", "_blank"));
-  }
-  function addShameButtons(runtime, likeDislikeAuthor) {
-    const btn = htmlToElement(runtime.document, '<a style="margin-left: 12px; color: lightpink" class="thank" href="#;">不说人话</a>');
-    btn.addEventListener("click", () => {
-      const authorId = runtime.document.querySelector(".header .avatar")?.getAttribute("alt");
-      if (authorId) {
-        likeDislikeAuthor(authorId, 0, false);
-      }
-    });
-    runtime.document.querySelector(".topic_buttons")?.appendChild(btn);
-    runtime.document.querySelectorAll(".thank_area").forEach((it) => {
-      const info = getAuthorIdAndCommentNumber(it);
-      if (!info)
-        return;
-      const cloned = btn.cloneNode(true);
-      cloned.addEventListener("click", () => likeDislikeAuthor(info.id, info.commentNumber, false));
-      it.appendChild(cloned);
-    });
-  }
-  function addMoreThankActions(runtime, likeDislikeAuthor) {
-    const topic = runtime.document.querySelector("#topic_thank");
-    if (topic) {
-      topic.addEventListener("mouseup", () => {
-        setTimeout(() => {
-          const authorId = runtime.document.querySelector(".header .avatar")?.getAttribute("alt");
-          if (authorId) {
-            likeDislikeAuthor(authorId, 0, true);
-          }
-        });
-      });
-    }
-    Array.from(runtime.document.querySelectorAll(".thank_area > a.thank")).filter((it) => it.textContent?.includes("感谢回复者")).forEach((it) => {
-      const info = getAuthorIdAndCommentNumber(it);
-      if (!info)
-        return;
-      it.addEventListener("mouseup", () => setTimeout(() => likeDislikeAuthor(info.id, info.commentNumber, true)));
-    });
-  }
-
   // src/v2ex-time-saver/sign-in.ts
   function checkAndDoSignIn(runtime) {
     const linkEl = runtime.document.querySelector("a[href='/mission/daily']");
@@ -373,47 +335,310 @@
     return match ? match[1] : null;
   }
 
-  // src/v2ex-time-saver/app.ts
-  function parseAuthorMap(value) {
-    if (!value) {
-      return new Map;
+  // src/v2ex-time-saver/tag-panel.ts
+  function addTagPanel(runtime, authorTagMap, onTagAuthor, onSetTag, onUnsetTag) {
+    const btnClass = "gm-tag-btn";
+    let closeOutsideClick = null;
+    function closePanel() {
+      closeOutsideClick?.();
+      closeOutsideClick = null;
+      const panel = runtime.document.querySelector(".gm-tag-panel");
+      if (panel)
+        panel.remove();
     }
-    return new Map(JSON.parse(value));
+    function buildPanel(id, commentNumber, btn) {
+      closePanel();
+      const panel = htmlToElement(runtime.document, `<div class="gm-tag-panel">
+        <div class="gm-tag-panel-header">
+          <span class="gm-tag-panel-title"></span>
+          <button class="gm-tag-panel-close">✕</button>
+        </div>
+        <div class="gm-tag-list"></div>
+        <div class="gm-tag-add">
+          <input class="gm-tag-input-name" type="text" placeholder="标签名">
+          <input class="gm-tag-input-score" type="number" value="0" step="1">
+          <button class="gm-tag-add-btn">添加</button>
+        </div>
+        <div class="gm-tag-quick">
+          <button class="gm-tag-quick-shame">不说人话 (-1)</button>
+          <button class="gm-tag-quick-thank">智者 (+1)</button>
+        </div>
+      </div>`);
+      panel.querySelector(".gm-tag-panel-title").textContent = id;
+      const list = panel.querySelector(".gm-tag-list");
+      function renderTags() {
+        const currentTags = authorTagMap[id] || {};
+        const entries = Object.entries(currentTags);
+        list.innerHTML = "";
+        if (entries.length === 0) {
+          const empty = runtime.document.createElement("div");
+          empty.className = "gm-tag-empty";
+          empty.textContent = "暂无标签";
+          list.appendChild(empty);
+          return;
+        }
+        for (const [tagName, record] of entries) {
+          const row = runtime.document.createElement("div");
+          row.className = "gm-tag-row";
+          const nameSpan = runtime.document.createElement("span");
+          nameSpan.className = "gm-tag-name";
+          nameSpan.textContent = tagName;
+          row.appendChild(nameSpan);
+          const scoreSpan = runtime.document.createElement("span");
+          scoreSpan.className = "gm-tag-score";
+          scoreSpan.textContent = record.score > 0 ? `+${record.score}` : String(record.score);
+          row.appendChild(scoreSpan);
+          const incBtn = runtime.document.createElement("button");
+          incBtn.className = "gm-tag-inc";
+          incBtn.textContent = "+1";
+          incBtn.addEventListener("click", () => {
+            onTagAuthor(id, commentNumber, tagName, 1);
+            renderTags();
+          });
+          row.appendChild(incBtn);
+          const decBtn = runtime.document.createElement("button");
+          decBtn.className = "gm-tag-dec";
+          decBtn.textContent = "-1";
+          decBtn.addEventListener("click", () => {
+            onTagAuthor(id, commentNumber, tagName, -1);
+            renderTags();
+          });
+          row.appendChild(decBtn);
+          const delBtn = runtime.document.createElement("button");
+          delBtn.className = "gm-tag-del";
+          delBtn.textContent = "删除";
+          delBtn.addEventListener("click", () => {
+            onUnsetTag(id, tagName);
+            renderTags();
+          });
+          row.appendChild(delBtn);
+          list.appendChild(row);
+        }
+      }
+      const addNameInput = panel.querySelector(".gm-tag-input-name");
+      const addScoreInput = panel.querySelector(".gm-tag-input-score");
+      panel.querySelector(".gm-tag-add-btn").addEventListener("click", () => {
+        const name = addNameInput.value.trim();
+        if (!name)
+          return;
+        const score = parseInt(addScoreInput.value, 10);
+        if (score === 0 || isNaN(score))
+          return;
+        onSetTag(id, name, score, commentNumber);
+        addNameInput.value = "";
+        addScoreInput.value = "0";
+        renderTags();
+      });
+      panel.querySelector(".gm-tag-quick-shame").addEventListener("click", () => {
+        onTagAuthor(id, commentNumber, defaultLabels.shame, -1);
+        renderTags();
+      });
+      panel.querySelector(".gm-tag-quick-thank").addEventListener("click", () => {
+        onTagAuthor(id, commentNumber, defaultLabels.thank, 1);
+        renderTags();
+      });
+      panel.querySelector(".gm-tag-panel-close").addEventListener("click", closePanel);
+      renderTags();
+      const rect = btn.getBoundingClientRect();
+      panel.style.position = "fixed";
+      panel.style.top = `${rect.bottom + 4}px`;
+      panel.style.left = `${Math.min(rect.left, (runtime.document.defaultView?.innerWidth ?? 320) - 320)}px`;
+      runtime.document.body.appendChild(panel);
+      const handler = (e) => {
+        if (e.target.closest(`.${btnClass}`))
+          return;
+        if (!panel.contains(e.target)) {
+          closePanel();
+        }
+      };
+      closeOutsideClick = () => {
+        runtime.document.removeEventListener("mousedown", handler);
+      };
+      setTimeout(() => {
+        if (!closeOutsideClick)
+          return;
+        runtime.document.addEventListener("mousedown", handler);
+      }, 0);
+    }
+    function ensureTagBtn(container, id, commentNumber, ref) {
+      if (container.querySelector(`.${btnClass}`))
+        return;
+      const btn = runtime.document.createElement("a");
+      btn.className = btnClass;
+      btn.textContent = "\uD83C\uDFF7";
+      btn.setAttribute("href", "#;");
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        buildPanel(id, commentNumber, btn);
+      });
+      if (ref) {
+        ref.insertAdjacentElement("afterend", btn);
+      } else {
+        container.appendChild(btn);
+      }
+    }
+    const topicAuthorId = runtime.document.querySelector(".header .avatar")?.getAttribute("alt");
+    if (topicAuthorId) {
+      const topicButtons = runtime.document.querySelector(".topic_buttons");
+      if (topicButtons) {
+        ensureTagBtn(topicButtons, topicAuthorId, 0, null);
+      }
+    }
+    runtime.document.querySelectorAll(".cell").forEach((cell) => {
+      const authorLink = cell.querySelector("strong > a[href]");
+      if (!authorLink)
+        return;
+      const id = authorLink.getAttribute("href")?.split("/")[2];
+      if (!id)
+        return;
+      const commentNumber = cell.querySelector("span.no")?.textContent?.trim();
+      if (!commentNumber)
+        return;
+      ensureTagBtn(cell, id, commentNumber, authorLink);
+    });
   }
-  var shameKeyword = "shame_on_them";
-  var thankKeyword = "thanks_to_them";
+
+  // src/v2ex-time-saver/thread-enhancements.ts
+  var SCORE_CLASS_MIN = -3;
+  var SCORE_CLASS_MAX = 3;
+  var SCORE_CLASS_RE = /^gm-author--?\d+$/;
+  function clampScoreClass(score) {
+    if (score > SCORE_CLASS_MAX)
+      return SCORE_CLASS_MAX;
+    if (score < SCORE_CLASS_MIN)
+      return SCORE_CLASS_MIN;
+    return score;
+  }
+  function tagColor(score) {
+    if (score > 0)
+      return "darkgreen";
+    if (score < 0)
+      return "red";
+    return "gray";
+  }
+  function clearExistingHighlight(authorLink) {
+    authorLink.querySelectorAll(".gm-author-tag").forEach((el) => el.remove());
+    const tr = authorLink.closest("tr");
+    if (!tr)
+      return;
+    Array.from(tr.classList).filter((c) => SCORE_CLASS_RE.test(c)).forEach((c) => tr.classList.remove(c));
+  }
+  function scrollToComment(number, runtime) {
+    if (number === "0") {
+      runtime.document.defaultView?.scrollTo(0, 0);
+      return;
+    }
+    for (const cell of runtime.document.querySelectorAll(".cell[id]")) {
+      const no = cell.querySelector("span.no")?.textContent?.trim();
+      if (no === number) {
+        cell.scrollIntoView({ behavior: "smooth", block: "center" });
+        break;
+      }
+    }
+  }
+  function highlightCommentsAndTopics(runtime, authorTagMap) {
+    const origin = runtime.location.origin;
+    runtime.document.querySelectorAll(".cell").forEach((cell) => {
+      const authorLink = cell.querySelector("strong > a[href]");
+      if (!authorLink)
+        return;
+      const id = authorLink.getAttribute("href")?.split("/")[2];
+      if (!id)
+        return;
+      const tags = authorTagMap[id];
+      if (!tags)
+        return;
+      clearExistingHighlight(authorLink);
+      const total = getTotalScore(tags);
+      const cls = `gm-author-${clampScoreClass(total)}`;
+      authorLink.closest("tr")?.classList.add(cls);
+      for (const [tagName, tag] of Object.entries(tags)) {
+        const fullUrl = new URL(tag.url, origin).href;
+        const tagLink = runtime.document.createElement("a");
+        tagLink.className = "gm-author-tag";
+        tagLink.href = fullUrl;
+        tagLink.style.color = tagColor(tag.score);
+        tagLink.textContent = tagName;
+        const [pathPart] = tag.url.split("#");
+        const isSamePage = pathPart === runtime.location.pathname.replace(/^\//, "");
+        if (isSamePage) {
+          tagLink.addEventListener("click", (e) => {
+            e.preventDefault();
+            const num = tag.url.split("#")[1];
+            scrollToComment(num, runtime);
+          });
+        } else {
+          tagLink.target = "_blank";
+        }
+        authorLink.insertAdjacentElement("beforeend", tagLink);
+      }
+    });
+  }
+  function reorderCommentsByHearts(runtime) {
+    const heartsFlagKey = "data-hearts";
+    const comments = Array.from(runtime.document.querySelectorAll(COMMENT_CELLS_SELECTOR));
+    comments.forEach((comment) => {
+      const hearts = Array.from(comment.querySelectorAll('[alt="❤️"]')).map((it) => parseInt(it.nextSibling?.textContent || "0", 10)).reduce((prev, curr) => prev + curr, 0);
+      comment.setAttribute(heartsFlagKey, String(hearts));
+    });
+    const countsElement = runtime.document.querySelector(COMMENT_BOX_FIRST_CELL_SELECTOR);
+    comments.filter((it) => it.getAttribute(heartsFlagKey) !== "0").reverse().sort((a, b) => parseInt(a.getAttribute(heartsFlagKey) || "0", 10) - parseInt(b.getAttribute(heartsFlagKey) || "0", 10)).forEach((it) => countsElement?.insertAdjacentElement("afterend", it));
+  }
+  function addTargetToTopicLinks(runtime) {
+    runtime.document.querySelectorAll(".topic-link, .item_hot_topic_title > a").forEach((it) => it.setAttribute("target", "_blank"));
+  }
+
+  // src/v2ex-time-saver/app.ts
   async function startV2exTimeSaver(runtime) {
     const app = await createV2exApp(runtime);
     app.start();
   }
+  async function loadAuthorTagMap(runtime) {
+    const value = await runtime.getValue(authorTagsKeyword, {});
+    return parseAuthorTagMap(value);
+  }
   async function createV2exApp(runtime) {
-    const [shamedMap, thankedMap] = (await Promise.all([shameKeyword, thankKeyword].map(async (key) => runtime.getValue(key, "[]")))).map((value) => parseAuthorMap(value));
-    function likeDislikeAuthorWrapper(id, commentNumber, isLike) {
-      const url = `${runtime.location.origin}${runtime.location.pathname}#${commentNumber}`;
-      const map = isLike ? thankedMap : shamedMap;
-      const keyword = isLike ? thankKeyword : shameKeyword;
-      const fallbackLabel = isLike ? defaultLabels.thank : defaultLabels.shame;
-      const currentLabel = getAuthorLabel(map, id, fallbackLabel);
-      const actionName = isLike ? "感谢" : "标记";
-      const label = runtime.prompt(`请输入给作者 ${id} 的${actionName}标签：`, currentLabel);
-      if (label === null) {
+    const authorTagMap = await loadAuthorTagMap(runtime);
+    function buildAuthorUrl(commentNumber) {
+      return `${runtime.location.origin}${runtime.location.pathname}#${commentNumber}`;
+    }
+    function getRelativeAuthorUrl(commentNumber) {
+      return toRelativeUrl(buildAuthorUrl(commentNumber));
+    }
+    function persist() {
+      runtime.setValue(authorTagsKeyword, authorTagMap);
+    }
+    function tagAuthor(id, commentNumber, tag, delta) {
+      const url = getRelativeAuthorUrl(commentNumber);
+      incrementTagScore(authorTagMap, id, tag, url, delta);
+      persist();
+      highlightCommentsAndTopics(runtime, authorTagMap);
+    }
+    function setTag(id, tag, score, commentNumber) {
+      const url = getRelativeAuthorUrl(commentNumber);
+      addTag(authorTagMap, id, tag, url, score);
+      persist();
+      highlightCommentsAndTopics(runtime, authorTagMap);
+    }
+    function unsetTag(id, tag) {
+      removeTag(authorTagMap, id, tag);
+      persist();
+      highlightCommentsAndTopics(runtime, authorTagMap);
+    }
+    function scrollToCommentByHash() {
+      const hash = runtime.location.hash;
+      if (!/^#\d+$/.test(hash))
         return;
-      }
-      map.set(id, {
-        url,
-        label: label.trim() || fallbackLabel
-      });
-      runtime.setValue(keyword, JSON.stringify(Array.from(map)));
-      highlightCommentsAndTopics(runtime, shamedMap, thankedMap);
+      scrollToComment(hash.slice(1), runtime);
     }
     function enhanceThreadPage() {
       embedDiscussions(runtime);
       reorderCommentsByHearts(runtime);
       addCollapseExpandButtons(runtime);
-      addShameButtons(runtime, likeDislikeAuthorWrapper);
-      addMoreThankActions(runtime, likeDislikeAuthorWrapper);
-      highlightCommentsAndTopics(runtime, shamedMap, thankedMap);
+      addTagPanel(runtime, authorTagMap, tagAuthor, setTag, unsetTag);
+      highlightCommentsAndTopics(runtime, authorTagMap);
       addTargetToTopicLinks(runtime);
+      scrollToCommentByHash();
     }
     let commentsOfPages = [];
     function tryDisplayAllComments() {
@@ -508,11 +733,176 @@ button.gm.collapse > svg {
 .cell.discussions-collapsed > :not(.gm) {
   display: none;
 }
-.shame {
-  opacity: 0.5;
+.gm-author--3 > td {
+  opacity: 0.1;
 }
-.nice-author {
-  background: lightcyan;
+.gm-author--2 > td {
+  opacity: 0.3;
+}
+.gm-author--1 > td {
+  opacity: 0.4;
+}
+.gm-author-1 {
+  background: rgba(46, 139, 87, 0.1);
+}
+.gm-author-2 {
+  background: rgba(46, 139, 87, 0.15);
+}
+.gm-author-3 {
+  background: rgba(46, 139, 87, 0.2);
+}
+.gm-author-tag {
+  text-decoration: none;
+  margin-left: 2px;
+  font-weight: normal;
+}
+.gm-tag-btn {
+  cursor: pointer;
+  margin-left: 4px;
+  font-size: 12px;
+  text-decoration: none;
+  user-select: none;
+}
+.gm-tag-btn:hover {
+  text-decoration: none;
+}
+.gm-tag-panel {
+  position: fixed;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  padding: 12px;
+  min-width: 240px;
+  max-width: 300px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.gm-tag-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-weight: bold;
+  font-size: 14px;
+}
+.gm-tag-panel-close {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-size: 16px;
+  padding: 0 4px;
+  color: #999;
+}
+.gm-tag-panel-close:hover {
+  color: #333;
+}
+.gm-tag-list {
+  margin-bottom: 4px;
+}
+.gm-tag-empty {
+  color: #999;
+  font-size: 12px;
+  padding: 4px 0;
+}
+.gm-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.gm-tag-row:last-child {
+  border-bottom: none;
+}
+.gm-tag-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.gm-tag-score {
+  min-width: 24px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 12px;
+}
+.gm-tag-row button {
+  cursor: pointer;
+  border: 1px solid #d0d0d0;
+  border-radius: 3px;
+  background: #f8f8f8;
+  padding: 1px 6px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.gm-tag-row button:hover {
+  background: #e8e8e8;
+}
+.gm-tag-del {
+  color: #c00;
+}
+.gm-tag-add {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e0e0e0;
+}
+.gm-tag-input-name {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 6px;
+  border: 1px solid #d0d0d0;
+  border-radius: 3px;
+  font-size: 12px;
+}
+.gm-tag-input-score {
+  width: 48px;
+  padding: 3px 6px;
+  border: 1px solid #d0d0d0;
+  border-radius: 3px;
+  font-size: 12px;
+  text-align: center;
+}
+.gm-tag-add-btn {
+  cursor: pointer;
+  border: 1px solid #4a90d9;
+  border-radius: 3px;
+  background: #4a90d9;
+  color: white;
+  padding: 3px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.gm-tag-add-btn:hover {
+  background: #357abd;
+}
+.gm-tag-quick {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e0e0e0;
+}
+.gm-tag-quick button {
+  cursor: pointer;
+  border: 1px solid #d0d0d0;
+  border-radius: 3px;
+  padding: 3px 10px;
+  font-size: 12px;
+  background: #f8f8f8;
+  flex: 1;
+}
+.gm-tag-quick button:hover {
+  background: #e8e8e8;
+}
+.gm-tag-quick-shame {
+  color: #c00;
+}
+.gm-tag-quick-thank {
+  color: #080;
 }
 .gm-reference-hints {
   display: flex;
@@ -623,8 +1013,13 @@ button.gm.collapse > svg {
       addTargetToTopicLinks,
       embedDiscussions,
       getCommentElementsFromHtmlString: (html) => getCommentElementsFromHtmlString(runtime, html),
-      highlightCommentsAndTopics: () => highlightCommentsAndTopics(runtime, shamedMap, thankedMap),
-      likeDislikeAuthor: likeDislikeAuthorWrapper,
+      highlightCommentsAndTopics: () => highlightCommentsAndTopics(runtime, authorTagMap),
+      tagAuthor,
+      setTag,
+      unsetTag,
+      getTags: (id) => authorTagMap[id] ? { ...authorTagMap[id] } : undefined,
+      getScore: (id) => getTotalScore(authorTagMap[id]),
+      getAuthorTagMap: () => JSON.parse(JSON.stringify(authorTagMap)),
       reorderCommentsByHearts,
       start
     };

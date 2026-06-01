@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { JSDOM } from 'jsdom'
-import { createV2exApp, shameKeyword, thankKeyword } from '../../src/v2ex-time-saver/app'
+import { authorTagsKeyword, createV2exApp } from '../../src/v2ex-time-saver/app'
+import { defaultLabels } from '../../src/v2ex-time-saver/author-labels'
 import { extractRedeemUrl } from '../../src/v2ex-time-saver/sign-in'
 import { createDom, createRuntime } from '../runtime'
 
@@ -65,14 +66,12 @@ describe('v2ex app unit flows', () => {
     dom = createDom(threadHtml())
   })
 
-  test('highlights stored author labels', async () => {
-    const values: Record<string, string> = {
-      [shameKeyword]: JSON.stringify([
-        ['alice', { url: 'https://www.v2ex.com/t/123#1', label: '低质' }],
-      ]),
-      [thankKeyword]: JSON.stringify([
-        ['bob', { url: 'https://www.v2ex.com/t/123#2', label: '清醒' }],
-      ]),
+  test('highlights stored tags as links with relative URLs and score class', async () => {
+    const values: Record<string, unknown> = {
+      [authorTagsKeyword]: {
+        alice: { 低质: { url: 't/123#1', score: -2 } },
+        bob: { 清醒: { url: 't/123#2', score: 1 } },
+      },
     }
     const runtime = {
       ...createRuntime(dom),
@@ -82,74 +81,179 @@ describe('v2ex app unit flows', () => {
 
     app.highlightCommentsAndTopics()
 
-    expect(dom.window.document.querySelector('a[href="/member/alice"]')?.innerHTML).toContain(
-      '[低质]',
-    )
-    expect(dom.window.document.querySelector('a[href="/member/bob"]')?.innerHTML).toContain(
-      '[清醒]',
-    )
-    expect(
-      dom.window.document
-        .querySelector('a[href="/member/alice"]')
-        ?.closest('td')
-        ?.classList.contains('shame'),
-    ).toBe(true)
-    expect(
-      dom.window.document
-        .querySelector('a[href="/member/bob"]')
-        ?.closest('tr')
-        ?.classList.contains('nice-author'),
-    ).toBe(true)
+    const aliceLink = dom.window.document.querySelector('a[href="/member/alice"]') as HTMLElement
+    const bobLink = dom.window.document.querySelector('a[href="/member/bob"]') as HTMLElement
+
+    const aliceTag = aliceLink.querySelector('a.gm-author-tag')
+    expect(aliceTag?.getAttribute('href')).toBe('https://www.v2ex.com/t/123#1')
+    expect(aliceTag?.textContent).toBe('低质')
+
+    const bobTag = bobLink.querySelector('a.gm-author-tag')
+    expect(bobTag?.getAttribute('href')).toBe('https://www.v2ex.com/t/123#2')
+    expect(bobTag?.textContent).toBe('清醒')
+
+    expect(aliceLink.closest('tr')?.classList.contains('gm-author--2')).toBe(true)
+    expect(bobLink.closest('tr')?.classList.contains('gm-author-1')).toBe(true)
   })
 
-  test('stores a prompted label for a disliked author', async () => {
-    const writes: Record<string, string> = {}
+  test('tagAuthor increments an existing tag score', async () => {
+    const writes: Record<string, unknown> = {}
+    const values: Record<string, unknown> = {
+      [authorTagsKeyword]: { alice: { [defaultLabels.shame]: { url: 't/123#1', score: -1 } } },
+    }
     const runtime = {
       ...createRuntime(dom),
-      setValue: (key: string, value: string) => {
+      getValue: async <T>(_key: string, defaultValue: T) => (values[_key] as T) ?? defaultValue,
+      setValue: (key: string, value: unknown) => {
         writes[key] = value
       },
     }
     const app = await createV2exApp(runtime)
 
-    app.likeDislikeAuthor('alice', 1, false)
+    app.tagAuthor('alice', 1, defaultLabels.shame, -1)
+    app.tagAuthor('alice', 1, defaultLabels.shame, -1)
 
-    expect(JSON.parse(writes[shameKeyword])).toEqual([
-      ['alice', { url: 'https://www.v2ex.com/t/123#1', label: '洞察者' }],
-    ])
+    expect(writes[authorTagsKeyword]).toEqual({
+      alice: { [defaultLabels.shame]: { url: 't/123#1', score: -3 } },
+    })
   })
 
-  test('preserves original thank handlers when adding label prompts', async () => {
-    let topicThankCount = 0
-    let replyThankCount = 0
-    const topicThank = dom.window.document.querySelector<HTMLElement>('#topic_thank')
-    const replyThank = dom.window.document.querySelector<HTMLElement>('#r_1 .thank_area > a.thank')
-    topicThank!.onmouseup = () => {
-      topicThankCount += 1
-    }
-    replyThank!.onmouseup = () => {
-      replyThankCount += 1
-    }
-    const writes: Record<string, string> = {}
+  test('tagAuthor creates a new tag for a fresh author', async () => {
+    const writes: Record<string, unknown> = {}
     const runtime = {
       ...createRuntime(dom),
-      setValue: (key: string, value: string) => {
+      setValue: (key: string, value: unknown) => {
+        writes[key] = value
+      },
+    }
+    const app = await createV2exApp(runtime)
+
+    app.tagAuthor('alice', 1, 'AI researcher', 2)
+
+    expect(writes[authorTagsKeyword]).toEqual({
+      alice: { 'AI researcher': { url: 't/123#1', score: 2 } },
+    })
+  })
+
+  test('tagAuthor supports multiple tags per author and sums to total score', async () => {
+    const writes: Record<string, unknown> = {}
+    const runtime = {
+      ...createRuntime(dom),
+      setValue: (key: string, value: unknown) => {
+        writes[key] = value
+      },
+    }
+    const app = await createV2exApp(runtime)
+
+    app.tagAuthor('alice', 1, defaultLabels.shame, -2)
+    app.tagAuthor('alice', 1, 'AI researcher', 3)
+
+    expect(writes[authorTagsKeyword]).toEqual({
+      alice: {
+        [defaultLabels.shame]: { url: 't/123#1', score: -2 },
+        'AI researcher': { url: 't/123#1', score: 3 },
+      },
+    })
+    expect(app.getScore('alice')).toBe(1)
+  })
+
+  test('setTag and unsetTag manage tags explicitly', async () => {
+    const writes: Record<string, unknown> = {}
+    const runtime = {
+      ...createRuntime(dom),
+      setValue: (key: string, value: unknown) => {
+        writes[key] = value
+      },
+    }
+    const app = await createV2exApp(runtime)
+
+    app.setTag('alice', 'A', 1, 1)
+    app.setTag('alice', 'B', -1, 1)
+    expect(app.getTags('alice')).toEqual({
+      A: { url: 't/123#1', score: 1 },
+      B: { url: 't/123#1', score: -1 },
+    })
+
+    app.unsetTag('alice', 'A')
+    expect(app.getTags('alice')).toEqual({
+      B: { url: 't/123#1', score: -1 },
+    })
+  })
+
+  test('tag panel: quick action buttons write tags and refresh highlights', async () => {
+    const writes: Record<string, unknown> = {}
+    const runtime = {
+      ...createRuntime(dom),
+      setValue: (key: string, value: unknown) => {
         writes[key] = value
       },
     }
     const app = await createV2exApp(runtime)
 
     app.start()
-    topicThank!.dispatchEvent(new dom.window.MouseEvent('mouseup', { bubbles: true }))
-    replyThank!.dispatchEvent(new dom.window.MouseEvent('mouseup', { bubbles: true }))
-    await new Promise((r) => setTimeout(r, 0))
 
-    expect(topicThankCount).toBe(1)
-    expect(replyThankCount).toBe(1)
-    expect(JSON.parse(writes[thankKeyword])).toEqual([
-      ['topic-author', { url: 'https://www.v2ex.com/t/123#0', label: '洞察者' }],
-      ['alice', { url: 'https://www.v2ex.com/t/123#1', label: '洞察者' }],
-    ])
+    const topicTagBtn = dom.window.document.querySelector(
+      '.topic_buttons .gm-tag-btn',
+    ) as HTMLElement | null
+    expect(topicTagBtn).not.toBeNull()
+
+    topicTagBtn!.click()
+
+    const thankBtn = dom.window.document.querySelector('.gm-tag-quick-thank') as HTMLElement | null
+    expect(thankBtn).not.toBeNull()
+    thankBtn!.click()
+
+    expect(writes[authorTagsKeyword]).toEqual({
+      'topic-author': { 智者: { url: 't/123#0', score: 1 } },
+    })
+  })
+
+  test('tag panel: custom tag add form sets exact score', async () => {
+    const writes: Record<string, unknown> = {}
+    const runtime = {
+      ...createRuntime(dom),
+      setValue: (key: string, value: unknown) => {
+        writes[key] = value
+      },
+    }
+    const app = await createV2exApp(runtime)
+
+    app.start()
+
+    const tagBtn = dom.window.document.querySelector('#r_1 .gm-tag-btn') as HTMLElement | null
+    expect(tagBtn).not.toBeNull()
+    tagBtn!.click()
+
+    const nameInput = dom.window.document.querySelector(
+      '.gm-tag-input-name',
+    ) as HTMLInputElement | null
+    const scoreInput = dom.window.document.querySelector(
+      '.gm-tag-input-score',
+    ) as HTMLInputElement | null
+    const addBtn = dom.window.document.querySelector('.gm-tag-add-btn') as HTMLElement | null
+    expect(nameInput).not.toBeNull()
+    expect(scoreInput).not.toBeNull()
+    expect(addBtn).not.toBeNull()
+
+    nameInput!.value = 'AI researcher'
+    scoreInput!.value = '3'
+    addBtn!.click()
+
+    expect(writes[authorTagsKeyword]).toEqual({
+      alice: { 'AI researcher': { url: 't/123#1', score: 3 } },
+    })
+  })
+
+  test('getAuthorTagMap returns a snapshot, not a live reference', async () => {
+    const runtime = createRuntime(dom)
+    const app = await createV2exApp(runtime)
+
+    app.setTag('alice', 'A', 1, 1)
+    const snapshot = app.getAuthorTagMap()
+    app.setTag('alice', 'B', 2, 1)
+
+    expect(snapshot.alice?.B).toBeUndefined()
+    expect(app.getTags('alice')?.B).toEqual({ url: 't/123#1', score: 2 })
   })
 
   test('extracts comments from html strings', async () => {
@@ -234,13 +338,11 @@ describe('v2ex app unit flows', () => {
 describe('v2ex app integration', () => {
   test('runs the no-pagination startup flow in jsdom', async () => {
     const dom = createDom(threadHtml())
-    const values: Record<string, string> = {
-      [shameKeyword]: JSON.stringify([
-        ['alice', { url: 'https://www.v2ex.com/t/123#1', label: '低质' }],
-      ]),
-      [thankKeyword]: JSON.stringify([
-        ['bob', { url: 'https://www.v2ex.com/t/123#2', label: '清醒' }],
-      ]),
+    const values: Record<string, unknown> = {
+      [authorTagsKeyword]: {
+        alice: { 低质: { url: 't/123#1', score: -1 } },
+        bob: { 清醒: { url: 't/123#2', score: 1 } },
+      },
     }
     const runtime = {
       ...createRuntime(dom),
@@ -255,9 +357,10 @@ describe('v2ex app integration', () => {
     ).map((it) => it.id)
     expect(commentBoxIds).toEqual(['r_1', 'r_3'])
     expect(dom.window.document.querySelector('#r_1 > #r_2')).not.toBeNull()
-    expect(dom.window.document.querySelector('a[href="/member/alice"]')?.innerHTML).toContain(
-      '[低质]',
-    )
+    const aliceTag = dom.window.document
+      .querySelector('a[href="/member/alice"]')
+      ?.querySelector('a.gm-author-tag')
+    expect(aliceTag?.textContent).toBe('低质')
     expect(dom.window.document.querySelector('.topic-link')?.getAttribute('target')).toBe('_blank')
   })
   test('loads page 1 comments from DOM and fetches subsequent pages when on page 1', async () => {
@@ -327,8 +430,6 @@ describe('v2ex app integration', () => {
     const app = await createV2exApp(runtime)
     app.start()
 
-    // Before page 2 loads, page 1 comments should not yet be rendered (waiting for all pages).
-    // Now simulate page 2 finishing.
     page2Callback!({ responseText: page2Html })
 
     const ids = Array.from(
@@ -395,13 +496,10 @@ describe('auto sign-in', () => {
     const app = await createV2exApp(runtime)
     app.start()
 
-    // Should have fetched the mission page.
     expect(requests).toContain('https://www.v2ex.com/mission/daily')
 
-    // Simulate the mission page response.
     missionOnload!({ responseText: missionPageHtml })
 
-    // Should now have fired the redeem request.
     expect(requests).toContain('https://www.v2ex.com/mission/daily/redeem?once=99999')
     expect(redeemOnload).not.toBeNull()
   })
