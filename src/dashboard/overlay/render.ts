@@ -1,3 +1,4 @@
+import type { Runtime } from '../../runtime'
 import type { Source } from '../sources/types'
 import type { CachedSource } from '../types'
 import { htmlToElement } from '../../utils'
@@ -8,7 +9,9 @@ export type CardOptions<T> = {
   cached: CachedSource<T> | null
   ttlMs: number
   now: number
+  runtime: Runtime
   onRefresh: () => void
+  onRevert: () => void
 }
 
 export function renderHeader(modal: HTMLElement, options: { onClose: () => void }): void {
@@ -25,12 +28,15 @@ export function renderHeader(modal: HTMLElement, options: { onClose: () => void 
 }
 
 export function renderCard<T>(container: HTMLElement, options: CardOptions<T>): void {
-  const { source, cached, ttlMs, now, onRefresh } = options
+  const { source, cached, ttlMs, now, runtime, onRefresh, onRevert } = options
   const document = container.ownerDocument
   const veryStale = isVeryStale(cached, ttlMs, now)
   container.replaceChildren()
   container.dataset['source'] = source.id
 
+  const editButtonHtml = source.createEditor
+    ? '<button type="button" class="gm-sp-edit" aria-label="edit">⚙</button>'
+    : ''
   const header = htmlToElement<HTMLDivElement>(
     document,
     `<div class="gm-sp-card-header">
@@ -40,6 +46,7 @@ export function renderCard<T>(container: HTMLElement, options: CardOptions<T>): 
       <div class="gm-sp-card-actions">
         <span class="gm-sp-card-updated"></span>
         <button type="button" class="gm-sp-refresh" aria-label="refresh">↻</button>
+        ${editButtonHtml}
       </div>
     </div>`,
   )
@@ -61,6 +68,18 @@ export function renderCard<T>(container: HTMLElement, options: CardOptions<T>): 
       refresh.disabled = false
     }, 800)
   })
+  if (source.createEditor) {
+    const edit = header.querySelector('.gm-sp-edit') as HTMLButtonElement
+    edit.addEventListener('click', () => {
+      refresh.disabled = true
+      edit.disabled = true
+      const body = container.querySelector('.gm-sp-card-body') as HTMLElement | null
+      if (body) {
+        const editor = source.createEditor!()
+        editor(body, { runtime, onRevert })
+      }
+    })
+  }
   container.appendChild(header)
 
   const errorEl = document.createElement('div')

@@ -221,16 +221,18 @@ describe('createDashboard', () => {
       if (msg?.includes('配置 JSON 解析失败')) return null
       if (msg?.includes('配置校验失败')) return null
       if (msg === '配置已保存，刷新页面后生效。') return null
-      return JSON.stringify({ weather: { cityLabel: '上海' } })
+      return JSON.stringify({
+        weather: { cities: [{ latitude: 31.2, longitude: 121.5, cityLabel: '上海' }] },
+      })
     }
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     dashboard.editConfig()
     const stored = runtime.stores['dashboard:v1:config'] as {
-      weather: { cityLabel: string; latitude: number }
+      weather: { cities: { cityLabel: string; latitude: number }[]; ttlMinutes: number }
     }
-    expect(stored.weather.cityLabel).toBe('上海')
-    expect(stored.weather.latitude).toBe(DEFAULT_CONFIG.weather.latitude)
+    expect(stored.weather.cities[0].cityLabel).toBe('上海')
+    expect(stored.weather.cities[0].latitude).toBe(31.2)
   })
 
   test('editConfig reports parse error without overwriting config', () => {
@@ -313,5 +315,45 @@ describe('validateConfig', () => {
   test('rejects bad nested weather type', () => {
     const v = validateConfig({ weather: 'no' })
     expect(v.ok).toBe(false)
+  })
+  test('rejects legacy single-city weather config', () => {
+    const v = validateConfig({
+      weather: { latitude: 1, longitude: 2, cityLabel: 'A', ttlMinutes: 30 },
+    })
+    expect(v.ok).toBe(false)
+    if (!v.ok) {
+      expect(v.error).toMatch(/cities/)
+    }
+  })
+  test('rejects empty weather.cities', () => {
+    const v = validateConfig({ weather: { cities: [], ttlMinutes: 30 } })
+    expect(v.ok).toBe(false)
+  })
+  test('rejects bad city entry (missing fields)', () => {
+    const v = validateConfig({
+      weather: { cities: [{ latitude: 1, longitude: 2 }], ttlMinutes: 30 },
+    })
+    expect(v.ok).toBe(false)
+  })
+  test('rejects bad weather.ttlMinutes', () => {
+    const v = validateConfig({
+      weather: {
+        cities: [{ latitude: 1, longitude: 2, cityLabel: 'A' }],
+        ttlMinutes: -1,
+      },
+    })
+    expect(v.ok).toBe(false)
+  })
+  test('accepts new cities[] shape', () => {
+    const v = validateConfig({
+      weather: {
+        cities: [
+          { latitude: 1, longitude: 2, cityLabel: 'A' },
+          { latitude: 3, longitude: 4, cityLabel: 'B' },
+        ],
+        ttlMinutes: 30,
+      },
+    })
+    expect(v.ok).toBe(true)
   })
 })

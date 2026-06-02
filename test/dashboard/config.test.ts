@@ -64,10 +64,12 @@ describe('loadConfig', () => {
   test('merges user override with defaults', async () => {
     const dom = new JSDOM('<html></html>')
     const runtime = createRuntime(dom)
-    runtime.stores[CONFIG_KEY] = { weather: { cityLabel: 'SH' } }
+    runtime.stores[CONFIG_KEY] = {
+      weather: { cities: [{ latitude: 31.2, longitude: 121.5, cityLabel: 'SH' }] },
+    }
     const cfg = await loadConfig(runtime)
-    expect(cfg.weather.cityLabel).toBe('SH')
-    expect(cfg.weather.latitude).toBe(DEFAULT_CONFIG.weather.latitude)
+    expect(cfg.weather.cities[0].cityLabel).toBe('SH')
+    expect(cfg.weather.cities[0].latitude).toBe(31.2)
     expect(cfg.v2ex.ttlMinutes).toBe(DEFAULT_CONFIG.v2ex.ttlMinutes)
   })
 })

@@ -3,9 +3,7 @@ import { CONFIG_KEY, type Config } from './types'
 
 export const DEFAULT_CONFIG: Config = {
   weather: {
-    latitude: 39.9042,
-    longitude: 116.4074,
-    cityLabel: '北京',
+    cities: [{ latitude: 39.9042, longitude: 116.4074, cityLabel: '北京' }],
     ttlMinutes: 60,
   },
   v2ex: {
@@ -54,7 +52,19 @@ export async function loadConfig(runtime: Runtime): Promise<Config> {
 }
 
 export function defaultConfigExample(): string {
-  return JSON.stringify({ weather: { cityLabel: '上海', ttlMinutes: 30 } }, null, 2)
+  return JSON.stringify(
+    {
+      weather: {
+        ttlMinutes: 30,
+        cities: [
+          { latitude: 39.9042, longitude: 116.4074, cityLabel: '北京' },
+          { latitude: 31.2304, longitude: 121.4737, cityLabel: '上海' },
+        ],
+      },
+    },
+    null,
+    2,
+  )
 }
 
 export type ConfigValidation = { ok: true } | { ok: false; error: string }
@@ -85,6 +95,40 @@ export function validateConfig(value: unknown): ConfigValidation {
     const w = value['weather']
     if (!isPlainObject(w)) {
       return { ok: false, error: 'weather 必须是对象' }
+    }
+    if ('latitude' in w || 'longitude' in w || 'cityLabel' in w) {
+      return {
+        ok: false,
+        error:
+          'weather 不再支持 latitude/longitude/cityLabel,请改为 cities: [{ latitude, longitude, cityLabel }]',
+      }
+    }
+    if ('cities' in w) {
+      const cities = w['cities']
+      if (!Array.isArray(cities) || cities.length === 0) {
+        return { ok: false, error: 'weather.cities 必须是非空数组' }
+      }
+      for (let i = 0; i < cities.length; i++) {
+        const c = cities[i]
+        if (!isPlainObject(c)) {
+          return { ok: false, error: `weather.cities[${i}] 必须是对象` }
+        }
+        if (typeof c['latitude'] !== 'number' || !Number.isFinite(c['latitude'])) {
+          return { ok: false, error: `weather.cities[${i}].latitude 必须是有限数` }
+        }
+        if (typeof c['longitude'] !== 'number' || !Number.isFinite(c['longitude'])) {
+          return { ok: false, error: `weather.cities[${i}].longitude 必须是有限数` }
+        }
+        if (typeof c['cityLabel'] !== 'string' || !c['cityLabel']) {
+          return { ok: false, error: `weather.cities[${i}].cityLabel 必须是非空字符串` }
+        }
+      }
+    }
+    if ('ttlMinutes' in w) {
+      const n = w['ttlMinutes']
+      if (typeof n !== 'number' || !Number.isFinite(n) || n <= 0) {
+        return { ok: false, error: 'weather.ttlMinutes 必须是正数' }
+      }
     }
   }
   if ('v2ex' in value) {

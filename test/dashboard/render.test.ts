@@ -3,6 +3,7 @@ import { JSDOM } from 'jsdom'
 import { formatRelativeTime, renderCard, renderHeader } from '../../src/dashboard/overlay/render'
 import type { Source } from '../../src/dashboard/sources/types'
 import { CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/dashboard/types'
+import { createRuntime } from '../runtime'
 
 function stubSource(): Source<{ msg: string }> {
   return {
@@ -52,9 +53,15 @@ describe('renderHeader', () => {
 })
 
 describe('renderCard', () => {
-  test('renders title, data, and never shows badge for fresh data', () => {
+  function setup() {
     const dom = new JSDOM('<html><body><div id="c"></div></body></html>')
     const container = dom.window.document.getElementById('c') as HTMLElement
+    const runtime = createRuntime(dom)
+    return { dom, container, runtime }
+  }
+
+  test('renders title, data, and never shows badge for fresh data', () => {
+    const { container, runtime } = setup()
     const source = stubSource()
     const now = 1_000_000
     renderCard(container, {
@@ -62,7 +69,9 @@ describe('renderCard', () => {
       cached: cached({ data: { msg: 'hello' }, fetchedAt: now - 1_000 }),
       ttlMs: 60_000,
       now,
+      runtime,
       onRefresh: () => {},
+      onRevert: () => {},
     })
     expect(container.dataset['source']).toBe('stub')
     expect(container.querySelector('.gm-sp-card-title-text')!.textContent).toBe('Stub Source')
@@ -71,8 +80,7 @@ describe('renderCard', () => {
   })
 
   test('shows stale badge when cache is very old', () => {
-    const dom = new JSDOM('<html><body><div id="c"></div></body></html>')
-    const container = dom.window.document.getElementById('c') as HTMLElement
+    const { container, runtime } = setup()
     const source = stubSource()
     const now = 1_000_000
     renderCard(container, {
@@ -80,28 +88,30 @@ describe('renderCard', () => {
       cached: cached({ data: { msg: 'stale' }, fetchedAt: now - 60 * 60_000 * 4 }),
       ttlMs: 60_000,
       now,
+      runtime,
       onRefresh: () => {},
+      onRevert: () => {},
     })
     expect(container.querySelector('.gm-sp-card-stale')!.textContent).toBe('数据陈旧')
   })
 
   test('shows error block when cached.error is set', () => {
-    const dom = new JSDOM('<html><body><div id="c"></div></body></html>')
-    const container = dom.window.document.getElementById('c') as HTMLElement
+    const { container, runtime } = setup()
     const source = stubSource()
     renderCard(container, {
       source,
       cached: cached({ fetchedAt: 1, error: 'boom' }),
       ttlMs: 60_000,
       now: 1_000_000,
+      runtime,
       onRefresh: () => {},
+      onRevert: () => {},
     })
     expect(container.querySelector('.gm-sp-error')!.textContent).toBe('boom')
   })
 
   test('refresh button triggers onRefresh callback', () => {
-    const dom = new JSDOM('<html><body><div id="c"></div></body></html>')
-    const container = dom.window.document.getElementById('c') as HTMLElement
+    const { container, runtime } = setup()
     const source = stubSource()
     let refreshes = 0
     renderCard(container, {
@@ -109,10 +119,57 @@ describe('renderCard', () => {
       cached: cached({ data: { msg: 'x' }, fetchedAt: 1_000_000 }),
       ttlMs: 60_000,
       now: 1_000_000,
+      runtime,
       onRefresh: () => refreshes++,
+      onRevert: () => {},
     })
     const btn = container.querySelector('.gm-sp-refresh') as HTMLButtonElement
     btn.click()
     expect(refreshes).toBe(1)
+  })
+
+  test('omits edit button when source has no createEditor', () => {
+    const { container, runtime } = setup()
+    renderCard(container, {
+      source: stubSource(),
+      cached: null,
+      ttlMs: 60_000,
+      now: 1_000_000,
+      runtime,
+      onRefresh: () => {},
+      onRevert: () => {},
+    })
+    expect(container.querySelector('.gm-sp-edit')).toBeNull()
+  })
+
+  test('shows edit button and swaps body when source has createEditor', () => {
+    const { container, runtime } = setup()
+    const source: Source<{ msg: string }> = {
+      id: 'edit',
+      title: 'E',
+      ttlMs: 60_000,
+      fetch: () => Promise.resolve({ msg: 'x' }),
+      render: (c, d) => {
+        c.textContent = d?.msg ?? ''
+      },
+      createEditor: () => (c) => {
+        c.textContent = 'editor-body'
+      },
+    }
+    let reverted = 0
+    renderCard(container, {
+      source,
+      cached: cached({ data: { msg: 'real-data' }, fetchedAt: 1_000_000 }),
+      ttlMs: 60_000,
+      now: 1_000_000,
+      runtime,
+      onRefresh: () => {},
+      onRevert: () => reverted++,
+    })
+    expect(container.querySelector('.gm-sp-edit')).not.toBeNull()
+    expect(container.querySelector('.gm-sp-card-body')!.textContent).toBe('real-data')
+    ;(container.querySelector('.gm-sp-edit') as HTMLButtonElement).click()
+    expect(container.querySelector('.gm-sp-card-body')!.textContent).toBe('editor-body')
+    expect(reverted).toBe(0)
   })
 })

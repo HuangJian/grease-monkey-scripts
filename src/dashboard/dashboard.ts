@@ -55,6 +55,15 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     return map
   }
 
+  function revertCard(sourceId: string): void {
+    if (!handle) return
+    const source = findSource(sourceId)
+    if (!source) return
+    void loadCache<unknown>(runtime, sourceId).then((cached) => {
+      renderCardById(sourceId, cached, Date.now())
+    })
+  }
+
   function renderAllCards(caches: Map<string, CachedSource<unknown> | null>, now: number): void {
     if (!handle) return
     for (const source of sources) {
@@ -65,9 +74,11 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
         cached: caches.get(source.id) ?? null,
         ttlMs: source.ttlMs,
         now,
+        runtime,
         onRefresh: () => {
           void dashboard.refreshSource(source.id)
         },
+        onRevert: () => revertCard(source.id),
       })
     }
   }
@@ -87,9 +98,11 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
       cached,
       ttlMs: source.ttlMs,
       now,
+      runtime,
       onRefresh: () => {
         void dashboard.refreshSource(sourceId)
       },
+      onRevert: () => revertCard(sourceId),
     })
   }
 
@@ -163,9 +176,11 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
         cached: null,
         ttlMs: source.ttlMs,
         now: Date.now(),
+        runtime,
         onRefresh: () => {
           void dashboard.refreshSource(source.id)
         },
+        onRevert: () => revertCard(source.id),
       })
     }
   }

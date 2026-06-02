@@ -1,6 +1,8 @@
 import type { Runtime } from '../../runtime'
 import { htmlToElement } from '../../utils'
+import type { WeatherCity } from '../types'
 import type { Source } from './types'
+import { createWeatherEditor } from './weatherEditor'
 
 export type WeatherCurrent = {
   time: string
@@ -15,9 +17,17 @@ export type WeatherDaily = {
   weather_code: number[]
 }
 
-export type WeatherData = {
+export type WeatherCityData = {
   current: WeatherCurrent
   daily: WeatherDaily
+}
+
+export type WeatherCityEntry =
+  | { status: 'ok'; cityLabel: string; data: WeatherCityData }
+  | { status: 'error'; cityLabel: string; error: string }
+
+export type WeatherData = {
+  entries: WeatherCityEntry[]
 }
 
 const WEATHER_CODE_ICON: Record<number, string> = {
@@ -56,9 +66,7 @@ export function weatherCodeIcon(code: number): string {
 }
 
 export type WeatherSourceOptions = {
-  latitude: number
-  longitude: number
-  cityLabel: string
+  cities: WeatherCity[]
   ttlMinutes: number
 }
 
@@ -68,10 +76,16 @@ export function createWeatherSource(options: WeatherSourceOptions): Source<Weath
     title: '天气',
     ttlMs: options.ttlMinutes * 60_000,
     fetch(runtime) {
-      return fetchWeather(runtime, options.latitude, options.longitude)
+      return fetchWeatherAll(runtime, options.cities)
     },
     render(container, data) {
-      renderWeather(container, data, options.cityLabel)
+      renderWeather(container, data)
+    },
+    createEditor() {
+      return createWeatherEditor({
+        cities: options.cities,
+        ttlMinutes: options.ttlMinutes,
+      })
     },
   }
 }
@@ -92,8 +106,8 @@ export function fetchWeather(
   runtime: Runtime,
   latitude: number,
   longitude: number,
-): Promise<WeatherData> {
-  return new Promise<WeatherData>((resolve, reject) => {
+): Promise<WeatherCityData> {
+  return new Promise<WeatherCityData>((resolve, reject) => {
     runtime.request({
       url: buildWeatherUrl(latitude, longitude),
       method: 'GET',
@@ -114,7 +128,31 @@ export function fetchWeather(
   })
 }
 
-export function parseWeather(json: unknown): WeatherData | null {
+export async function fetchWeatherAll(
+  runtime: Runtime,
+  cities: WeatherCity[],
+): Promise<WeatherData> {
+  if (cities.length === 0) {
+    throw new Error('weather: no cities configured')
+  }
+  const settled = await Promise.allSettled(
+    cities.map((city) => fetchWeather(runtime, city.latitude, city.longitude)),
+  )
+  const entries: WeatherCityEntry[] = settled.map((s, i) => {
+    const cityLabel = cities[i].cityLabel
+    if (s.status === 'fulfilled') {
+      return { status: 'ok', cityLabel, data: s.value }
+    }
+    return {
+      status: 'error',
+      cityLabel,
+      error: s.reason instanceof Error ? s.reason.message : String(s.reason),
+    }
+  })
+  return { entries }
+}
+
+export function parseWeather(json: unknown): WeatherCityData | null {
   if (!json || typeof json !== 'object') return null
   const obj = json as Record<string, unknown>
   const current = obj.current as Record<string, unknown> | undefined
@@ -150,51 +188,68 @@ export function parseWeather(json: unknown): WeatherData | null {
   }
 }
 
-function renderWeather(container: HTMLElement, data: WeatherData | null, cityLabel: string): void {
+function renderWeather(container: HTMLElement, data: WeatherData | null): void {
   const document = container.ownerDocument
   container.replaceChildren()
-  const wrap = htmlToElement<HTMLDivElement>(
-    document,
-    `<div class="gm-sp-weather">
-      <div class="gm-sp-weather-city"></div>
-      <div class="gm-sp-weather-current">
-        <span class="gm-sp-weather-icon"></span>
-        <span class="gm-sp-weather-temp"></span>
-      </div>
-      <div class="gm-sp-weather-daily"></div>
-    </div>`,
-  )
-  wrap.querySelector('.gm-sp-weather-city')!.textContent = cityLabel
-  if (!data) {
-    wrap.querySelector('.gm-sp-weather-temp')!.textContent = '--'
+  const wrap = htmlToElement<HTMLDivElement>(document, `<div class="gm-sp-weather"></div>`)
+  const entries = data?.entries ?? []
+  if (entries.length === 0) {
+    const empty = htmlToElement<HTMLDivElement>(
+      document,
+      '<div class="gm-sp-weather-empty">--</div>',
+    )
+    wrap.appendChild(empty)
     container.appendChild(wrap)
     return
   }
-  wrap.querySelector('.gm-sp-weather-icon')!.textContent = weatherCodeIcon(
-    data.current.weather_code,
-  )
-  wrap.querySelector('.gm-sp-weather-temp')!.textContent =
-    `${Math.round(data.current.temperature_2m)}°C`
-  const dailyEl = wrap.querySelector('.gm-sp-weather-daily')!
-  dailyEl.replaceChildren()
-  for (let i = 0; i < data.daily.time.length; i++) {
-    const max = data.daily.temperature_2m_max[i]
-    const min = data.daily.temperature_2m_min[i]
-    const code = data.daily.weather_code[i]
-    const label = i === 0 ? '今日' : '明日'
-    const day = htmlToElement<HTMLDivElement>(
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i]
+    const block = htmlToElement<HTMLDivElement>(
       document,
-      `<div class="gm-sp-weather-day">
-        <span class="gm-sp-weather-day-label"></span>
-        <span class="gm-sp-weather-day-icon"></span>
-        <span class="gm-sp-weather-day-temp"></span>
+      `<div class="gm-sp-weather-city">
+        <div class="gm-sp-weather-city-label"></div>
+        <div class="gm-sp-weather-current">
+          <span class="gm-sp-weather-icon"></span>
+          <span class="gm-sp-weather-temp"></span>
+        </div>
+        <div class="gm-sp-weather-daily"></div>
       </div>`,
     )
-    day.querySelector('.gm-sp-weather-day-label')!.textContent = label
-    day.querySelector('.gm-sp-weather-day-icon')!.textContent = weatherCodeIcon(code)
-    day.querySelector('.gm-sp-weather-day-temp')!.textContent =
-      `${Math.round(min)}° / ${Math.round(max)}°`
-    dailyEl.appendChild(day)
+    block.querySelector('.gm-sp-weather-city-label')!.textContent = entry.cityLabel
+    if (entry.status === 'error') {
+      block.querySelector('.gm-sp-weather-temp')!.textContent = '--'
+      const err = htmlToElement<HTMLDivElement>(document, '<div class="gm-sp-weather-error"></div>')
+      err.textContent = entry.error
+      block.appendChild(err)
+    } else {
+      block.querySelector('.gm-sp-weather-icon')!.textContent = weatherCodeIcon(
+        entry.data.current.weather_code,
+      )
+      block.querySelector('.gm-sp-weather-temp')!.textContent =
+        `${Math.round(entry.data.current.temperature_2m)}°C`
+      const dailyEl = block.querySelector('.gm-sp-weather-daily')!
+      dailyEl.replaceChildren()
+      for (let j = 0; j < entry.data.daily.time.length; j++) {
+        const max = entry.data.daily.temperature_2m_max[j]
+        const min = entry.data.daily.temperature_2m_min[j]
+        const code = entry.data.daily.weather_code[j]
+        const label = j === 0 ? '今日' : '明日'
+        const day = htmlToElement<HTMLDivElement>(
+          document,
+          `<div class="gm-sp-weather-day">
+            <span class="gm-sp-weather-day-label"></span>
+            <span class="gm-sp-weather-day-icon"></span>
+            <span class="gm-sp-weather-day-temp"></span>
+          </div>`,
+        )
+        day.querySelector('.gm-sp-weather-day-label')!.textContent = label
+        day.querySelector('.gm-sp-weather-day-icon')!.textContent = weatherCodeIcon(code)
+        day.querySelector('.gm-sp-weather-day-temp')!.textContent =
+          `${Math.round(min)}° / ${Math.round(max)}°`
+        dailyEl.appendChild(day)
+      }
+    }
+    wrap.appendChild(block)
   }
   container.appendChild(wrap)
 }

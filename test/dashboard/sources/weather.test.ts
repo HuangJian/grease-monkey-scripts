@@ -4,9 +4,11 @@ import {
   buildWeatherUrl,
   createWeatherSource,
   fetchWeather,
+  fetchWeatherAll,
   parseWeather,
   weatherCodeIcon,
 } from '../../../src/dashboard/sources/weather'
+import type { WeatherCity } from '../../../src/dashboard/types'
 import type { Runtime, RequestDetails } from '../../../src/runtime'
 import { createRuntime } from '../../runtime'
 
@@ -79,35 +81,126 @@ describe('fetchWeather', () => {
   })
 })
 
+describe('fetchWeatherAll', () => {
+  const cities: WeatherCity[] = [
+    { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ' },
+    { latitude: 31.2, longitude: 121.5, cityLabel: 'SH' },
+  ]
+  test('returns ok entry per city when all fetch', async () => {
+    const dom = new JSDOM('<html></html>')
+    const runtime = makeRuntime(dom, (d) => d.onload({ responseText: JSON.stringify(FIXTURE) }))
+    const result = await fetchWeatherAll(runtime, cities)
+    expect(result.entries).toHaveLength(2)
+    expect(result.entries[0].status).toBe('ok')
+    expect(result.entries[1].status).toBe('ok')
+    if (result.entries[0].status === 'ok') {
+      expect(result.entries[0].cityLabel).toBe('BJ')
+    }
+  })
+  test('marks failed city as error and keeps order', async () => {
+    const dom = new JSDOM('<html></html>')
+    const seen: string[] = []
+    const runtime = makeRuntime(dom, (d) => {
+      seen.push(d.url)
+      if (d.url.includes('latitude=31.2')) {
+        d.onerror?.()
+      } else {
+        d.onload({ responseText: JSON.stringify(FIXTURE) })
+      }
+    })
+    const result = await fetchWeatherAll(runtime, cities)
+    expect(seen).toHaveLength(2)
+    expect(result.entries[0].status).toBe('ok')
+    expect(result.entries[1].status).toBe('error')
+    if (result.entries[1].status === 'error') {
+      expect(result.entries[1].error).toBe('network error')
+      expect(result.entries[1].cityLabel).toBe('SH')
+    }
+  })
+  test('throws when no cities configured', async () => {
+    const dom = new JSDOM('<html></html>')
+    const runtime = makeRuntime(dom, () => {})
+    await expect(fetchWeatherAll(runtime, [])).rejects.toThrow('no cities')
+  })
+})
+
 describe('createWeatherSource.render', () => {
-  test('renders current temp, city label, and day cells', () => {
+  function containerEl(): HTMLElement {
     const dom = new JSDOM('<html><body><div id="c"></div></body></html>')
-    const container = dom.window.document.getElementById('c')!
+    return dom.window.document.getElementById('c')!
+  }
+
+  test('renders one city block per entry', () => {
+    const container = containerEl()
     const source = createWeatherSource({
-      latitude: 39.9,
-      longitude: 116.4,
-      cityLabel: 'BJ',
+      cities: [
+        { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ' },
+        { latitude: 31.2, longitude: 121.5, cityLabel: 'SH' },
+      ],
       ttlMinutes: 60,
     })
-    source.render(container, FIXTURE as never)
-    expect(container.querySelector('.gm-sp-weather-city')!.textContent).toBe('BJ')
-    expect(container.querySelector('.gm-sp-weather-temp')!.textContent).toBe('3°C')
-    expect(container.querySelectorAll('.gm-sp-weather-day')).toHaveLength(2)
-    expect(container.querySelector('.gm-sp-weather-day-label')!.textContent).toBe('今日')
+    source.render(container, {
+      entries: [
+        { status: 'ok', cityLabel: 'BJ', data: FIXTURE },
+        { status: 'ok', cityLabel: 'SH', data: FIXTURE },
+      ],
+    })
+    const blocks = container.querySelectorAll('.gm-sp-weather-city')
+    expect(blocks).toHaveLength(2)
+    const labels = container.querySelectorAll('.gm-sp-weather-city-label')
+    expect(labels[0].textContent).toBe('BJ')
+    expect(labels[1].textContent).toBe('SH')
+    expect(container.querySelectorAll('.gm-sp-weather-day').length).toBeGreaterThan(0)
   })
-  test('renders -- when data is null', () => {
-    const dom = new JSDOM('<html><body><div id="c"></div></body></html>')
-    const container = dom.window.document.getElementById('c')!
+
+  test('renders an error block for a failed city without dropping the others', () => {
+    const container = containerEl()
     const source = createWeatherSource({
-      latitude: 0,
-      longitude: 0,
-      cityLabel: 'X',
+      cities: [
+        { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ' },
+        { latitude: 31.2, longitude: 121.5, cityLabel: 'SH' },
+      ],
+      ttlMinutes: 60,
+    })
+    source.render(container, {
+      entries: [
+        { status: 'ok', cityLabel: 'BJ', data: FIXTURE },
+        { status: 'error', cityLabel: 'SH', error: 'network error' },
+      ],
+    })
+    const labels = container.querySelectorAll('.gm-sp-weather-city-label')
+    expect(labels[0].textContent).toBe('BJ')
+    expect(labels[1].textContent).toBe('SH')
+    const errors = container.querySelectorAll('.gm-sp-weather-error')
+    expect(errors).toHaveLength(1)
+    expect(errors[0].textContent).toBe('network error')
+    const blocks = container.querySelectorAll('.gm-sp-weather-city')
+    expect(blocks[1].querySelector('.gm-sp-weather-temp')!.textContent).toBe('--')
+  })
+
+  test('renders -- placeholder when data is null', () => {
+    const container = containerEl()
+    const source = createWeatherSource({
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
       ttlMinutes: 60,
     })
     source.render(container, null)
-    expect(container.querySelector('.gm-sp-weather-temp')!.textContent).toBe('--')
+    expect(container.querySelector('.gm-sp-weather-empty')!.textContent).toBe('--')
   })
+
   test('uses fallback icon for unknown code', () => {
     expect(weatherCodeIcon(999)).toBe('🌡')
+  })
+
+  test('renders day cells with 今日/明日 labels', () => {
+    const container = containerEl()
+    const source = createWeatherSource({
+      cities: [{ latitude: 39.9, longitude: 116.4, cityLabel: 'BJ' }],
+      ttlMinutes: 60,
+    })
+    source.render(container, { entries: [{ status: 'ok', cityLabel: 'BJ', data: FIXTURE }] })
+    expect(container.querySelector('.gm-sp-weather-temp')!.textContent).toBe('3°C')
+    expect(container.querySelectorAll('.gm-sp-weather-day')).toHaveLength(2)
+    expect(container.querySelector('.gm-sp-weather-day-label')!.textContent).toBe('今日')
   })
 })
