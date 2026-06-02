@@ -119,17 +119,18 @@ describe('createDashboard', () => {
   })
 
   test('refreshSource acquires lock, fetches, persists cache', async () => {
-    let reqUrl = ''
+    const seenUrls: string[] = []
     let reqAnonymous: boolean | undefined
     runtime.request = ((d) => {
-      reqUrl = d.url
+      seenUrls.push(d.url)
       reqAnonymous = d.anonymous
       d.onload({ responseText: '[]' })
     }) as typeof runtime.request
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     await dashboard.refreshSource('v2ex')
-    expect(reqUrl).toContain('hot.json')
+    expect(seenUrls.some((u) => u.includes('hot.json'))).toBe(true)
+    expect(seenUrls.some((u) => u.includes('tab=hot'))).toBe(true)
     expect(reqAnonymous).toBe(true)
     const stored = runtime.stores[CACHE_KEY('v2ex')] as CachedSource<unknown>
     expect(stored.schemaVersion).toBe(CACHE_SCHEMA_VERSION)
@@ -158,7 +159,7 @@ describe('createDashboard', () => {
     dashboard.start()
     await dashboard.refreshSource('v2ex')
     const stored = runtime.stores[CACHE_KEY('v2ex')] as CachedSource<unknown>
-    expect(stored.error).toBe('network error')
+    expect(stored.error).toMatch(/network error/)
     expect(stored.fetchedAt).toBe(1000)
     expect((stored.data as { title: string }[])[0].title).toBe('old')
   })

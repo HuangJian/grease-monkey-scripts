@@ -5,6 +5,7 @@
 // @description  Personal info dashboard overlay (double-tap Shift) on host sites
 // @author       ustc.hj@gmail.com
 // @match        https://mail.google.com/*
+// @match        https://v2ex.com/*
 // @match        https://*.v2ex.com/*
 // @match        https://github.com/*
 // @grant        GM.getValue

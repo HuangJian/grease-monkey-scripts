@@ -30,7 +30,11 @@ export type Config = {
   }
   v2ex: {
     ttlMinutes: number
+    minItems: number
     maxItems: number
+    displayRatio: number
+    elbowDropRatio: number
+    minCutoffReplies: number
   }
   shortcut: {
     doublePressWindowMs: number

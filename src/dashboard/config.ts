@@ -10,7 +10,11 @@ export const DEFAULT_CONFIG: Config = {
   },
   v2ex: {
     ttlMinutes: 30,
-    maxItems: 10,
+    minItems: 10,
+    maxItems: 30,
+    displayRatio: 0.1,
+    elbowDropRatio: 0.4,
+    minCutoffReplies: 5,
   },
   shortcut: {
     doublePressWindowMs: 400,
@@ -87,6 +91,35 @@ export function validateConfig(value: unknown): ConfigValidation {
     const v = value['v2ex']
     if (!isPlainObject(v)) {
       return { ok: false, error: 'v2ex 必须是对象' }
+    }
+    const numFields: Array<[string, number, number]> = [
+      ['ttlMinutes', 0, Number.POSITIVE_INFINITY],
+      ['minItems', 0, Number.POSITIVE_INFINITY],
+      ['maxItems', 0, Number.POSITIVE_INFINITY],
+      ['minCutoffReplies', 0, Number.POSITIVE_INFINITY],
+    ]
+    for (const [name, min, max] of numFields) {
+      if (name in v) {
+        const n = v[name]
+        if (typeof n !== 'number' || !Number.isFinite(n) || n < min || n > max) {
+          return { ok: false, error: `v2ex.${name} 必须是 ${min}–${max} 之间的有限数` }
+        }
+      }
+    }
+    for (const name of ['displayRatio', 'elbowDropRatio']) {
+      if (name in v) {
+        const n = v[name]
+        if (typeof n !== 'number' || !Number.isFinite(n) || n < 0 || n > 1) {
+          return { ok: false, error: `v2ex.${name} 必须是 0–1 之间的有限数` }
+        }
+      }
+    }
+    if ('minItems' in v && 'maxItems' in v) {
+      const minI = v['minItems']
+      const maxI = v['maxItems']
+      if (typeof minI === 'number' && typeof maxI === 'number' && minI > maxI) {
+        return { ok: false, error: 'v2ex.minItems 不能大于 v2ex.maxItems' }
+      }
     }
   }
   return { ok: true }
