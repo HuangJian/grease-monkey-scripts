@@ -2,9 +2,23 @@ export type RequestDetails = {
   url: string
   method: string
   timeout?: number
+  anonymous?: boolean
   onload(response: { responseText: string; status?: number }): void
   onerror?: () => void
   ontimeout?: () => void
+}
+
+export type ValueChangeListener = (
+  key: string,
+  oldValue: unknown,
+  newValue: unknown,
+  remote: boolean,
+) => void
+
+export type AddEventListenerOptions = {
+  capture?: boolean
+  once?: boolean
+  passive?: boolean
 }
 
 export type Runtime = {
@@ -17,6 +31,15 @@ export type Runtime = {
   setValue(key: string, value: unknown): Promise<void> | void
   request(details: RequestDetails): void
   addStyle(css: string): void
+  addEventListener(
+    target: EventTarget,
+    type: string,
+    listener: (e: Event) => void,
+    options?: AddEventListenerOptions,
+  ): void
+  addValueChangeListener(key: string, listener: ValueChangeListener): number
+  requestIdleCallback(cb: () => void, options?: { timeout: number }): void
+  registerMenuCommand(name: string, fn: () => void): number
 }
 
 declare const GM: {
@@ -28,12 +51,20 @@ declare function GM_xmlhttpRequest(details: {
   url: string
   method: string
   timeout?: number
+  anonymous?: boolean
   onload(response: { responseText: string; status?: number }): void
   onerror?: () => void
   ontimeout?: () => void
 }): void
 
 declare function GM_addStyle(css: string): void
+
+declare function GM_addValueChangeListener(
+  name: string,
+  callback: (name: string, oldValue: unknown, newValue: unknown, remote: boolean) => void,
+): number
+
+declare function GM_registerMenuCommand(name: string, fn: () => void): number
 
 export function createBrowserRuntime(): Runtime {
   return {
@@ -46,5 +77,20 @@ export function createBrowserRuntime(): Runtime {
     setValue: (key, value) => GM.setValue(key, value),
     request: (details) => GM_xmlhttpRequest(details),
     addStyle: (css) => GM_addStyle(css),
+    addEventListener: (target, type, listener, options) => {
+      target.addEventListener(type, listener as EventListener, options)
+    },
+    addValueChangeListener: (key, listener) => GM_addValueChangeListener(key, listener),
+    requestIdleCallback: (cb, options) => {
+      const w = window as Window & {
+        requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => void
+      }
+      if (typeof w.requestIdleCallback === 'function') {
+        w.requestIdleCallback(cb, options)
+      } else {
+        setTimeout(cb, options?.timeout ?? 0)
+      }
+    },
+    registerMenuCommand: (name, fn) => GM_registerMenuCommand(name, fn),
   }
 }
