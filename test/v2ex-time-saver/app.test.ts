@@ -352,7 +352,7 @@ describe('v2ex app integration', () => {
     app.start()
 
     const commentBoxIds = Array.from(
-      dom.window.document.querySelectorAll('#Main > .box:nth-child(n+3) > .cell[id]'),
+      dom.window.document.querySelectorAll('#Main > .box > .cell[id]'),
     ).map((it) => it.id)
     expect(commentBoxIds).toEqual(['r_1', 'r_3'])
     expect(dom.window.document.querySelector('#r_1 > #r_2')).not.toBeNull()
@@ -431,9 +431,9 @@ describe('v2ex app integration', () => {
 
     page2Callback!({ responseText: page2Html })
 
-    const ids = Array.from(
-      dom.window.document.querySelectorAll('#Main > .box:nth-child(n+3) > .cell[id]'),
-    ).map((el) => el.id)
+    const ids = Array.from(dom.window.document.querySelectorAll('#Main > .box > .cell[id]')).map(
+      (el) => el.id,
+    )
     expect(ids).toContain('r_1')
     expect(ids).toContain('r_2')
   })

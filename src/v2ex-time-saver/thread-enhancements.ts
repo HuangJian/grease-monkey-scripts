@@ -2,10 +2,7 @@ import type { Runtime } from '../runtime'
 import type { AuthorTagMap } from '../shared/author-labels'
 import { getTotalScore, tagColor } from '../shared/author-labels'
 import { htmlToElement } from '../utils'
-
-const COMMENT_BOX_SELECTOR = '#Main > .box:nth-child(n+3)'
-const COMMENT_CELLS_SELECTOR = `${COMMENT_BOX_SELECTOR} > .cell[id]`
-const COMMENT_BOX_FIRST_CELL_SELECTOR = `${COMMENT_BOX_SELECTOR} > .cell`
+import { findCommentCells, findFirstCommentCell } from './comment-helpers'
 
 const SCORE_CLASS_MIN = -3
 const SCORE_CLASS_MAX = 3
@@ -79,7 +76,9 @@ export function highlightCommentsAndTopics(runtime: Runtime, authorTagMap: Autho
 
 export function reorderCommentsByHearts(runtime: Runtime): void {
   const heartsFlagKey = 'data-hearts'
-  const comments = Array.from(runtime.document.querySelectorAll(COMMENT_CELLS_SELECTOR))
+  const comments = findCommentCells(runtime.document)
+  console.log('[v2ex] reorderCommentsByHearts', { commentCount: comments.length })
+
   comments.forEach((comment) => {
     const hearts = Array.from(comment.querySelectorAll('[alt="❤️"]'))
       .map((it) => parseInt(it.nextSibling?.textContent || '0', 10))
@@ -87,9 +86,13 @@ export function reorderCommentsByHearts(runtime: Runtime): void {
     comment.setAttribute(heartsFlagKey, String(hearts))
   })
 
-  const countsElement = runtime.document.querySelector(COMMENT_BOX_FIRST_CELL_SELECTOR)
-  comments
-    .filter((it) => it.getAttribute(heartsFlagKey) !== '0')
+  const countsElement = findFirstCommentCell(runtime.document)
+  console.log('[v2ex] reorderCommentsByHearts countsElement', { found: !!countsElement })
+
+  const withHearts = comments.filter((it) => it.getAttribute(heartsFlagKey) !== '0')
+  console.log('[v2ex] reorderCommentsByHearts withHearts', { count: withHearts.length })
+
+  withHearts
     .reverse()
     .sort(
       (a, b) =>

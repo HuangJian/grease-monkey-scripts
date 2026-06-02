@@ -16,7 +16,12 @@ import {
 } from '../shared/tag-panel'
 import { htmlToElement } from '../utils'
 import { addCollapseExpandButtons, embedDiscussions } from './discussion-embedder'
-import { getCommentElementsFromHtmlString } from './comment-helpers'
+import {
+  findCommentBox,
+  findCommentCells,
+  findFirstCommentCell,
+  getCommentElementsFromHtmlString,
+} from './comment-helpers'
 import { checkAndDoSignIn } from './sign-in'
 import {
   addTargetToTopicLinks,
@@ -35,17 +40,20 @@ export const defaultLabels = {
 export type V2exApp = Awaited<ReturnType<typeof createV2exApp>>
 
 export async function startV2exTimeSaver(runtime: Runtime): Promise<void> {
-  const app = await createV2exApp(runtime)
-  app.start()
+  console.log('[v2ex] startV2exTimeSaver')
+  try {
+    const app = await createV2exApp(runtime)
+    app.start()
+    console.log('[v2ex] startV2exTimeSaver done')
+  } catch (e) {
+    console.error('[v2ex] startV2exTimeSaver error', e)
+  }
 }
 
 async function loadAuthorTagMap(runtime: Runtime): Promise<AuthorTagMap> {
   const value = await runtime.getValue<unknown>(authorTagsKeyword, {})
   return parseAuthorTagMap(value)
 }
-
-const COMMENT_BOX_SELECTOR = '#Main > .box:nth-child(n+3)'
-const COMMENT_CELLS_SELECTOR = `${COMMENT_BOX_SELECTOR} > .cell[id]`
 
 export async function createV2exApp(runtime: Runtime) {
   const authorTagMap = await loadAuthorTagMap(runtime)
@@ -146,6 +154,7 @@ export async function createV2exApp(runtime: Runtime) {
   // ---
 
   function enhanceThreadPage() {
+    console.log('[v2ex] enhanceThreadPage start')
     embedDiscussions(runtime)
     reorderCommentsByHearts(runtime)
     addCollapseExpandButtons(runtime)
@@ -153,43 +162,60 @@ export async function createV2exApp(runtime: Runtime) {
     highlightCommentsAndTopics(runtime, authorTagMap)
     addTargetToTopicLinks(runtime)
     scrollToCommentByHash()
+    console.log('[v2ex] enhanceThreadPage done')
   }
 
   let commentsOfPages: (NodeListOf<Element> | null)[] = []
 
   function tryDisplayAllComments() {
+    const states = commentsOfPages.map((p) => (p ? `non-null(len=${p.length})` : 'null'))
+    console.log('[v2ex] tryDisplayAllComments', { states })
+
     const isAllPagesLoaded = commentsOfPages.every((page) => page !== null && page.length > 0)
     if (!isAllPagesLoaded) {
+      console.log('[v2ex] not all pages loaded yet, bail')
+      return
+    }
+
+    const commentBox = findCommentBox(runtime.document)
+    const countsElement = findFirstCommentCell(runtime.document)
+    console.log('[v2ex] tryDisplayAllComments', {
+      commentBox: !!commentBox,
+      countsElement: !!countsElement,
+      totalPages: commentsOfPages.length,
+    })
+
+    if (!commentBox || !countsElement) {
       return
     }
 
     const fragment = runtime.document.createDocumentFragment()
     commentsOfPages.forEach((pageComments) => {
-      pageComments?.forEach((it) => fragment.appendChild(it))
+      pageComments?.forEach((it) => {
+        fragment.appendChild(it)
+      })
     })
-
-    const commentBox = runtime.document.querySelector(COMMENT_BOX_SELECTOR)
-    const countsElement = commentBox?.querySelector('.cell')
-    if (!commentBox || !countsElement) {
-      return
-    }
 
     commentBox.prepend(fragment)
     commentBox.prepend(countsElement)
     Array.from(runtime.document.querySelectorAll('.ps_container'))
       .filter((it, idx) => idx > 0)
       .forEach((it) => it.remove())
+    console.log('[v2ex] all pages merged, calling enhanceThreadPage')
     enhanceThreadPage()
   }
 
   function loadCommentsByPage(page: number, idx: number) {
     const url = `${runtime.location.origin}${runtime.location.pathname}?p=${page}`
+    console.log('[v2ex] fetch page', { page, idx, url })
     runtime.request({
       url,
       method: 'GET',
       timeout: 30000,
       onload(response) {
-        commentsOfPages[idx] = getCommentElementsFromHtmlString(runtime, response.responseText)
+        const cells = getCommentElementsFromHtmlString(runtime, response.responseText)
+        console.log('[v2ex] fetched page comments', { page, idx, count: cells.length })
+        commentsOfPages[idx] = cells
         tryDisplayAllComments()
       },
     })
@@ -197,6 +223,7 @@ export async function createV2exApp(runtime: Runtime) {
 
   function start() {
     const isReadingTopic = runtime.location.href.indexOf('v2ex.com/t/') > 0
+    console.log('[v2ex] start', { isReadingTopic, url: runtime.location.href })
 
     addStyles()
     checkAndDoSignIn(runtime)
@@ -209,7 +236,10 @@ export async function createV2exApp(runtime: Runtime) {
       .filter((x, i, a) => a.indexOf(x) === i)
       .sort((a, b) => a - b)
 
+    console.log('[v2ex] pageNumbers', allPageNumbers)
+
     if (!allPageNumbers.length) {
+      console.log('[v2ex] single page — enhanceThreadPage')
       enhanceThreadPage()
       return
     }
@@ -219,11 +249,15 @@ export async function createV2exApp(runtime: Runtime) {
       ? parseInt(currentPageEl.textContent || '', 10)
       : parseInt(new URL(runtime.location.href).searchParams.get('p') || '1', 10) || 1
 
+    console.log('[v2ex] multi-page', { currentPageNum, allPageNumbers })
+
     commentsOfPages = allPageNumbers.map(() => null)
 
     allPageNumbers.forEach((pageNum, idx) => {
       if (pageNum === currentPageNum) {
-        commentsOfPages[idx] = runtime.document.querySelectorAll(COMMENT_CELLS_SELECTOR)
+        const cells = findCommentCells(runtime.document)
+        console.log('[v2ex] current page cells', { pageNum, count: cells.length })
+        commentsOfPages[idx] = cells as unknown as NodeListOf<Element>
       } else {
         loadCommentsByPage(pageNum, idx)
       }
