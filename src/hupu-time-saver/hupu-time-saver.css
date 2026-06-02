@@ -1,0 +1,28 @@
+.gm-highlight-1 {
+  background-color: rgba(46, 139, 87, 0.08);
+}
+.gm-highlight-2 {
+  background-color: rgba(46, 139, 87, 0.14);
+}
+.gm-highlight-3 {
+  background-color: rgba(46, 139, 87, 0.2);
+}
+.gm-highlight-n1 {
+  opacity: 0.4;
+}
+.gm-highlight-n2 {
+  opacity: 0.2;
+}
+.gm-highlight-n3 {
+  opacity: 0.1;
+}
+
+.gm-author-tag {
+  text-decoration: none;
+  margin-left: 2px;
+  font-weight: normal;
+  font-size: 11px;
+}
+.gm-author-tag:hover {
+  text-decoration: underline;
+}
