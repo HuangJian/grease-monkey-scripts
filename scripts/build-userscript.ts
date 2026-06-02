@@ -2,10 +2,28 @@ import { mkdir, readFile, unlink, writeFile, opendir, stat } from 'node:fs/promi
 import { dirname, join } from 'node:path'
 import { $ } from 'bun'
 
+function stripConsoleCalls(bundle: string): string {
+  return bundle
+    .replace(/console\.(log|debug|error)\(\)/g, 'void 0')
+    .replace(/console\.(log|debug|error)\(/g, '(void 0,')
+}
+
+function minifyCss(css: string): string {
+  return css
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*([{}:;,])\s*/g, '$1')
+    .replace(/;}/g, '}')
+    .trim()
+}
+
+const BUILD_MODES = [
+  { suffix: '.debug.js', debug: true },
+  { suffix: '.user.js', debug: false },
+] as const
+
 async function buildUserScript(entrypoint: string): Promise<void> {
-  const outfile = `dist/${dirname(entrypoint).split('/').pop()}.user.js`
-  const temporaryOutfile = `dist/.${dirname(entrypoint).split('/').pop()}.bundle.js`
-  const temporarySourceFile = join(dirname(entrypoint), `.index.user.ts`)
+  const name = dirname(entrypoint).split('/').pop()!
 
   const entrypointSource = await readFile(entrypoint, 'utf8')
 
@@ -23,15 +41,13 @@ async function buildUserScript(entrypoint: string): Promise<void> {
   const buildMetaMatch = entrypointSource.match(
     /^\/\/ ==build.meta==\n[\s\S]*?^\/\/ ==\/build.meta==/m,
   )
-  let buildMeta: Record<string, string> = {}
+  const buildMeta: Record<string, string> = {}
   if (buildMetaMatch) {
-    const buildMetaBlock = buildMetaMatch[0]
-    // Parse each line in the block
-    const lines = buildMetaBlock.split('\n').slice(1, -1) // remove the first and last line (the ==build.meta== and ==/build.meta==)
+    const lines = buildMetaMatch[0].split('\n').slice(1, -1)
     for (const line of lines) {
       const lineTrimmed = line.trim()
       if (lineTrimmed.startsWith('// ')) {
-        const content = lineTrimmed.slice(3) // remove '// '
+        const content = lineTrimmed.slice(3)
         const [key, value] = content.split(':').map((s) => s.trim())
         if (key && value) {
           buildMeta[key] = value
@@ -39,37 +55,48 @@ async function buildUserScript(entrypoint: string): Promise<void> {
       }
     }
   }
-  // Remove the build.meta block from the entrypoint source for bundling
-  const sourceForBundling = entrypointSource.replace(buildMetaMatch ? buildMetaMatch[0] : '', '')
+  const baseSource = entrypointSource.replace(buildMetaMatch ? buildMetaMatch[0] : '', '')
 
-  await mkdir(dirname(outfile), { recursive: true })
-  // Write the source without build.meta block to a temporary file in the same directory as the entrypoint
-  await writeFile(temporarySourceFile, sourceForBundling, 'utf8')
+  await mkdir('dist', { recursive: true })
 
-  let bundle = ''
-  try {
-    // Build the temporary source file
-    await $`bun build ${temporarySourceFile} --target=browser --format=iife --outfile=${temporaryOutfile} --sourcemap=none`
+  for (const mode of BUILD_MODES) {
+    const outfile = `dist/${name}${mode.suffix}`
+    const temporaryOutfile = `dist/.${name}${mode.debug ? '.debug' : '.prod'}.bundle.js`
+    const temporarySourceFile = join(
+      dirname(entrypoint),
+      `.index${mode.debug ? '' : '.prod'}.user.ts`,
+    )
 
-    bundle = await readFile(temporaryOutfile, 'utf8')
+    await writeFile(temporarySourceFile, baseSource, 'utf8')
 
-    // If we have a CSS file and placeholder from build.meta, replace the placeholder with CSS content
-    if (buildMeta.css && buildMeta.placeholder) {
-      const css = await readFile(buildMeta.css, 'utf8')
-      // Escape backticks and dollar signs in the CSS string for use in a template literal
-      const escapedCss = css.replace(/`/g, '\\`').replace(/\$/g, '\\$').trim()
-      // Replace the placeholder with the escaped CSS
-      bundle = bundle.replace(buildMeta.placeholder, escapedCss)
+    let bundle = ''
+    try {
+      const buildCmd = mode.debug
+        ? $`bun build ${temporarySourceFile} --target=browser --format=iife --outfile=${temporaryOutfile} --sourcemap=none`
+        : $`bun build ${temporarySourceFile} --target=browser --format=iife --outfile=${temporaryOutfile} --sourcemap=none --minify`
+      await buildCmd
+
+      bundle = await readFile(temporaryOutfile, 'utf8')
+
+      if (!mode.debug) {
+        bundle = stripConsoleCalls(bundle)
+      }
+
+      if (buildMeta.css && buildMeta.placeholder) {
+        const css = await readFile(buildMeta.css, 'utf8')
+        const processedCss = mode.debug ? css.trim() : minifyCss(css)
+        const escapedCss = processedCss.replace(/`/g, '\\`').replace(/\$/g, '\\$')
+        bundle = bundle.replace(buildMeta.placeholder, escapedCss)
+      }
+
+      bundle = bundle.replace(/^\/\/ ==build.meta==\n[\s\S]*?^\/\/ ==\/build.meta==\n/m, '')
+
+      await writeFile(outfile, `${metadata}\n\n${bundle}`)
+      console.log(`  ✓ ${outfile}`)
+    } finally {
+      await unlink(temporaryOutfile).catch(() => {})
+      await unlink(temporarySourceFile).catch(() => {})
     }
-
-    // Remove any remaining build.meta block from the bundled code (just in case)
-    // This is a safety measure, but we removed it from the source so it shouldn't be in the bundle.
-    bundle = bundle.replace(/^\/\/ ==build.meta==\n[\s\S]*?^\/\/ ==\/build.meta==\n/m, '')
-
-    await writeFile(outfile, `${metadata}\n\n${bundle}`)
-  } finally {
-    await unlink(temporaryOutfile).catch(() => {})
-    await unlink(temporarySourceFile).catch(() => {})
   }
 }
 
@@ -77,7 +104,6 @@ async function main() {
   const srcDir = 'src'
   const entries = []
 
-  // Read src directory
   const dir = await opendir(srcDir)
   for await (const dirent of dir) {
     if (dirent.isDirectory()) {
@@ -86,7 +112,7 @@ async function main() {
         await stat(entryPoint)
         entries.push(entryPoint)
       } catch {
-        // No index.user.ts in this directory, skip
+        // No index.user.ts, skip
       }
     }
   }
@@ -97,16 +123,13 @@ async function main() {
     return
   }
 
-  console.log(`Found ${entries.length} entry point(s): ${entries.join(', ')}`)
-
-  // Build each entry point
+  console.log(`Building ${entries.length} script(s):`)
   for (const entrypoint of entries) {
+    console.log(`\n${dirname(entrypoint).split('/').pop()}:`)
     try {
-      console.log(`Building ${entrypoint}...`)
       await buildUserScript(entrypoint)
-      console.log(`✓ Built ${entrypoint}`)
     } catch (error) {
-      console.error(`✗ Failed to build ${entrypoint}:`, error)
+      console.error(`  ✗ Failed:`, error)
     }
   }
 }
