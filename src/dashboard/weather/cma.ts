@@ -1,4 +1,4 @@
-import type { WeatherCurrent, WeatherDaily, WeatherHourly } from './weather'
+import type { WeatherCurrent, WeatherDaily, WeatherHourly } from './types'
 
 const WMO_CLEAR = 0
 const WMO_MAINLY_CLEAR = 1

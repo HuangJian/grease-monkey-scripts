@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { JSDOM } from 'jsdom'
-import { createWeatherEditor } from '../../../src/dashboard/sources/weatherEditor'
+import { createWeatherEditor } from '../../../src/dashboard/weather/editor'
 import { CONFIG_KEY } from '../../../src/dashboard/types'
 import { createRuntime, type TestRuntime } from '../../runtime'
 

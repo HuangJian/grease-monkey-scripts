@@ -1,8 +1,9 @@
 import type { Runtime } from '../../runtime'
 import { htmlToElement } from '../../utils'
 import { validateConfig } from '../config'
-import { CONFIG_KEY, type WeatherCity } from '../types'
-import type { SourceEditor } from './types'
+import { CONFIG_KEY } from '../types'
+import type { SourceEditor } from '../sources/types'
+import type { WeatherCity } from './types'
 
 export type WeatherEditorOptions = {
   cities: WeatherCity[]

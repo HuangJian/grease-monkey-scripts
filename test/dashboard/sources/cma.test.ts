@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'bun:test'
 import { JSDOM } from 'jsdom'
-import { parseCmaNow, parseCmaPage } from '../../../src/dashboard/sources/cma'
+import { parseCmaNow, parseCmaPage } from '../../../src/dashboard/weather/cma'
 
 const FIXTURE_HTML = readFileSync(
   join(import.meta.dir, '..', 'fixtures', 'cma-beijing.html'),

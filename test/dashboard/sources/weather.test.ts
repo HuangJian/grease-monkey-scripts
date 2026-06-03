@@ -15,8 +15,8 @@ import {
   parseWeather,
   weatherCodeIcon,
   windDirectionArrow,
-} from '../../../src/dashboard/sources/weather'
-import type { WeatherCity } from '../../../src/dashboard/types'
+} from '../../../src/dashboard/weather'
+import type { WeatherCity } from '../../../src/dashboard/weather/types'
 import type { Runtime, RequestDetails } from '../../../src/runtime'
 import { createRuntime } from '../../runtime'
 

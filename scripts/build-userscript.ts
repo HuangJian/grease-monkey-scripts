@@ -2,10 +2,65 @@ import { mkdir, readFile, unlink, writeFile, opendir, stat } from 'node:fs/promi
 import { dirname, join } from 'node:path'
 import { $ } from 'bun'
 
-function stripConsoleCalls(bundle: string): string {
-  return bundle
-    .replace(/console\.(log|debug|error)\(\)/g, 'void 0')
-    .replace(/console\.(log|debug|error)\(/g, '(void 0,')
+function stripConsoleFromSource(source: string): string {
+  // Strip console.log(...) and console.debug(...) from TypeScript source.
+  // Since source is unminified, each call is well-formatted with balanced parens.
+  const CONSOLE_RE = /console\.(log|debug)\(/
+  let result = source
+  let match: RegExpExecArray | null
+
+  while ((match = CONSOLE_RE.exec(result)) !== null) {
+    const start = match.index
+    const parenStart = match[0].length - 1 + start
+
+    // Find matching ')' by counting balanced parens
+    let depth = 1
+    let i = parenStart + 1
+    while (i < result.length && depth > 0) {
+      const ch = result[i]!
+      if (ch === '(') depth++
+      else if (ch === ')') depth--
+      i++
+    }
+    const callEnd = i
+
+    // Consume trailing semicolon
+    let end = callEnd
+    if (end < result.length && result[end] === ';') end++
+
+    // Consume preceding whitespace/newline so no blank lines are left
+    let begin = start
+    while (begin > 0 && (result[begin - 1] === ' ' || result[begin - 1] === '\t')) begin--
+    // Also consume one preceding newline if present
+    if (begin > 0 && result[begin - 1] === '\n') begin--
+
+    result = result.slice(0, begin) + result.slice(end)
+    CONSOLE_RE.lastIndex = begin
+  }
+
+  return result
+}
+
+async function collectSourceFiles(dir: string): Promise<Map<string, string>> {
+  const originals = new Map<string, string>()
+  const entries = await opendir(dir)
+  for await (const entry of entries) {
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      const nested = await collectSourceFiles(full)
+      for (const [k, v] of nested) originals.set(k, v)
+    } else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) {
+      originals.set(full, await readFile(full, 'utf8'))
+    }
+  }
+  await entries.close()
+  return originals
+}
+
+async function restoreSourceFiles(originals: Map<string, string>): Promise<void> {
+  for (const [path, content] of originals) {
+    await writeFile(path, content, 'utf8')
+  }
 }
 
 function minifyCss(css: string): string {
@@ -78,10 +133,6 @@ async function buildUserScript(entrypoint: string): Promise<void> {
 
       bundle = await readFile(temporaryOutfile, 'utf8')
 
-      if (!mode.debug) {
-        bundle = stripConsoleCalls(bundle)
-      }
-
       if (buildMeta.css && buildMeta.placeholder) {
         const css = await readFile(buildMeta.css, 'utf8')
         const processedCss = mode.debug ? css.trim() : minifyCss(css)
@@ -123,14 +174,31 @@ async function main() {
     return
   }
 
-  console.log(`Building ${entries.length} script(s):`)
-  for (const entrypoint of entries) {
-    console.log(`\n${dirname(entrypoint).split('/').pop()}:`)
-    try {
-      await buildUserScript(entrypoint)
-    } catch (error) {
-      console.error(`  ✗ Failed:`, error)
+  // Strip console.log/debug from all source files before bundling,
+  // then restore originals afterwards. This avoids regex issues with
+  // minified output (comma expressions, else-body, etc.).
+  console.log('Stripping console.log/debug from source...')
+  const originals = await collectSourceFiles(srcDir)
+  for (const [path, content] of originals) {
+    const stripped = stripConsoleFromSource(content)
+    if (stripped !== content) {
+      await writeFile(path, stripped, 'utf8')
     }
+  }
+
+  try {
+    console.log(`Building ${entries.length} script(s):`)
+    for (const entrypoint of entries) {
+      console.log(`\n${dirname(entrypoint).split('/').pop()}:`)
+      try {
+        await buildUserScript(entrypoint)
+      } catch (error) {
+        console.error(`  ✗ Failed:`, error)
+      }
+    }
+  } finally {
+    console.log('Restoring source files...')
+    await restoreSourceFiles(originals)
   }
 }
 

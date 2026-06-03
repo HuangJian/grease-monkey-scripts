@@ -21,12 +21,7 @@ export type CachedSource<T> = {
   error?: string
 }
 
-export type WeatherCity = {
-  latitude: number
-  longitude: number
-  cityLabel: string
-  cmaStationId?: string
-}
+import type { WeatherCity } from './weather/types'
 
 export type Config = {
   weather: {
