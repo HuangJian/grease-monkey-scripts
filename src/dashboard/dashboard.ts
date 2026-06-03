@@ -79,9 +79,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
         ttlMs: source.ttlMs,
         now,
         runtime,
-        onRefresh: () => {
-          void dashboard.refreshSource(source.id)
-        },
+        onRefresh: () => dashboard.refreshSource(source.id),
         onRevert: () => revertCard(source.id),
       })
     }
@@ -103,9 +101,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
       ttlMs: source.ttlMs,
       now,
       runtime,
-      onRefresh: () => {
-        void dashboard.refreshSource(sourceId)
-      },
+      onRefresh: () => dashboard.refreshSource(sourceId),
       onRevert: () => revertCard(sourceId),
     })
   }
@@ -182,9 +178,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
         ttlMs: source.ttlMs,
         now: Date.now(),
         runtime,
-        onRefresh: () => {
-          void dashboard.refreshSource(source.id)
-        },
+        onRefresh: () => dashboard.refreshSource(source.id),
         onRevert: () => revertCard(source.id),
       })
     }

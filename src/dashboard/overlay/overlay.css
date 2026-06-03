@@ -159,6 +159,16 @@
   opacity: 0.5;
 }
 
+.gm-sp-refresh-loading {
+  animation: gm-sp-refresh-spin 0.9s linear infinite;
+}
+
+@keyframes gm-sp-refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .gm-sp-edit {
   cursor: pointer;
   background: transparent;
@@ -394,6 +404,18 @@
   line-height: 1;
 }
 
+.gm-sp-weather-source {
+  font-size: 10px;
+  color: #9ca3af;
+  margin-top: 4px;
+  text-align: right;
+}
+
+.gm-sp-weather-source-link {
+  color: inherit;
+  text-decoration: underline;
+}
+
 .gm-sp-weather-hourly {
   display: flex;
   gap: 3px;
@@ -509,7 +531,7 @@
 
 .gm-sp-we-item {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   align-items: center;
   gap: 8px;
   font-size: 12px;
@@ -525,6 +547,12 @@
 
 .gm-sp-we-item-coord {
   color: #6b7280;
+  font-variant-numeric: tabular-nums;
+}
+
+.gm-sp-we-item-cma {
+  color: #2563eb;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
 

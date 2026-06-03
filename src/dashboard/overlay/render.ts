@@ -10,7 +10,7 @@ export type CardOptions<T> = {
   ttlMs: number
   now: number
   runtime: Runtime
-  onRefresh: () => void
+  onRefresh: () => Promise<void>
   onRevert: () => void
 }
 
@@ -63,10 +63,17 @@ export function renderCard<T>(container: HTMLElement, options: CardOptions<T>): 
   const refresh = header.querySelector('.gm-sp-refresh') as HTMLButtonElement
   refresh.addEventListener('click', () => {
     refresh.disabled = true
-    onRefresh()
-    setTimeout(() => {
-      refresh.disabled = false
-    }, 800)
+    refresh.classList.add('gm-sp-refresh-loading')
+    onRefresh().then(
+      () => {
+        refresh.disabled = false
+        refresh.classList.remove('gm-sp-refresh-loading')
+      },
+      () => {
+        refresh.disabled = false
+        refresh.classList.remove('gm-sp-refresh-loading')
+      },
+    )
   })
   if (source.createEditor) {
     const edit = header.querySelector('.gm-sp-edit') as HTMLButtonElement

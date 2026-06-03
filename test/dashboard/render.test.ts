@@ -21,6 +21,16 @@ function cached<T>(partial: Omit<CachedSource<T>, 'schemaVersion' | 'byteSize'>)
   return { schemaVersion: CACHE_SCHEMA_VERSION, byteSize: 0, ...partial }
 }
 
+function suppressConsoleError(fn: () => void): void {
+  const orig = console.error
+  console.error = () => {}
+  try {
+    fn()
+  } finally {
+    console.error = orig
+  }
+}
+
 describe('formatRelativeTime', () => {
   test('returns 从未更新 when null', () => {
     expect(formatRelativeTime(null, 1_000_000)).toBe('从未更新')
@@ -70,7 +80,7 @@ describe('renderCard', () => {
       ttlMs: 60_000,
       now,
       runtime,
-      onRefresh: () => {},
+      onRefresh: () => Promise.resolve(),
       onRevert: () => {},
     })
     expect(container.dataset['source']).toBe('stub')
@@ -89,7 +99,7 @@ describe('renderCard', () => {
       ttlMs: 60_000,
       now,
       runtime,
-      onRefresh: () => {},
+      onRefresh: () => Promise.resolve(),
       onRevert: () => {},
     })
     expect(container.querySelector('.gm-sp-card-stale')!.textContent).toBe('数据陈旧')
@@ -104,7 +114,7 @@ describe('renderCard', () => {
       ttlMs: 60_000,
       now: 1_000_000,
       runtime,
-      onRefresh: () => {},
+      onRefresh: () => Promise.resolve(),
       onRevert: () => {},
     })
     expect(container.querySelector('.gm-sp-error')!.textContent).toBe('boom')
@@ -120,12 +130,67 @@ describe('renderCard', () => {
       ttlMs: 60_000,
       now: 1_000_000,
       runtime,
-      onRefresh: () => refreshes++,
+      onRefresh: () => {
+        refreshes++
+        return Promise.resolve()
+      },
       onRevert: () => {},
     })
     const btn = container.querySelector('.gm-sp-refresh') as HTMLButtonElement
     btn.click()
     expect(refreshes).toBe(1)
+    expect(btn.classList.contains('gm-sp-refresh-loading')).toBe(true)
+    expect(btn.disabled).toBe(true)
+  })
+
+  test('refresh button removes loading class after onRefresh resolves', async () => {
+    const { container, runtime } = setup()
+    const source = stubSource()
+    let resolveRefresh: () => void = () => {}
+    renderCard(container, {
+      source,
+      cached: cached({ data: { msg: 'x' }, fetchedAt: 1_000_000 }),
+      ttlMs: 60_000,
+      now: 1_000_000,
+      runtime,
+      onRefresh: () =>
+        new Promise<void>((resolve) => {
+          resolveRefresh = resolve
+        }),
+      onRevert: () => {},
+    })
+    const btn = container.querySelector('.gm-sp-refresh') as HTMLButtonElement
+    btn.click()
+    expect(btn.classList.contains('gm-sp-refresh-loading')).toBe(true)
+    resolveRefresh()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(btn.classList.contains('gm-sp-refresh-loading')).toBe(false)
+    expect(btn.disabled).toBe(false)
+  })
+
+  test('refresh button removes loading class even when onRefresh rejects', async () => {
+    const { container, runtime } = setup()
+    const source = stubSource()
+    let rejectRefresh: (e: Error) => void = () => {}
+    renderCard(container, {
+      source,
+      cached: cached({ data: { msg: 'x' }, fetchedAt: 1_000_000 }),
+      ttlMs: 60_000,
+      now: 1_000_000,
+      runtime,
+      onRefresh: () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectRefresh = reject
+        }),
+      onRevert: () => {},
+    })
+    const btn = container.querySelector('.gm-sp-refresh') as HTMLButtonElement
+    btn.click()
+    expect(btn.classList.contains('gm-sp-refresh-loading')).toBe(true)
+    suppressConsoleError(() => rejectRefresh(new Error('boom')))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(btn.classList.contains('gm-sp-refresh-loading')).toBe(false)
+    expect(btn.disabled).toBe(false)
   })
 
   test('omits edit button when source has no createEditor', () => {
@@ -136,7 +201,7 @@ describe('renderCard', () => {
       ttlMs: 60_000,
       now: 1_000_000,
       runtime,
-      onRefresh: () => {},
+      onRefresh: () => Promise.resolve(),
       onRevert: () => {},
     })
     expect(container.querySelector('.gm-sp-edit')).toBeNull()
@@ -163,7 +228,7 @@ describe('renderCard', () => {
       ttlMs: 60_000,
       now: 1_000_000,
       runtime,
-      onRefresh: () => {},
+      onRefresh: () => Promise.resolve(),
       onRevert: () => reverted++,
     })
     expect(container.querySelector('.gm-sp-edit')).not.toBeNull()

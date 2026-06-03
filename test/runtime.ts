@@ -11,6 +11,9 @@ export type TestRuntime = Runtime & {
   stores: Record<string, unknown>
   listeners: Map<string, ValueChangeListener[]>
   menuCommands: MenuCommand[]
+  responses: Map<string, { text: string; status?: number }>
+  lastRequest: { url: string; method: string; headers?: Record<string, string> } | null
+  queueResponse(url: string, text: string, status?: number): void
   simulateRemoteChange(key: string, newValue: unknown): void
   runMenuCommand(name: string): boolean
 }
@@ -28,6 +31,8 @@ export function createRuntime(dom: JSDOM): TestRuntime {
   const stores: Record<string, unknown> = {}
   const listeners: Map<string, ValueChangeListener[]> = new Map()
   const menuCommands: MenuCommand[] = []
+  const responses: Map<string, { text: string; status?: number }> = new Map()
+  let lastRequest: TestRuntime['lastRequest'] = null
   let nextId = 1
   const runtime: TestRuntime = {
     document: dom.window.document,
@@ -37,13 +42,29 @@ export function createRuntime(dom: JSDOM): TestRuntime {
     stores,
     listeners,
     menuCommands,
+    responses,
+    get lastRequest() {
+      return lastRequest
+    },
     prompt: () => '洞察者',
     getValue: async <T>(key: string, defaultValue: T) =>
       key in stores ? (stores[key] as T) : defaultValue,
     setValue: (key, value) => {
       stores[key] = value
     },
-    request: () => {},
+    request: (details) => {
+      lastRequest = {
+        url: details.url,
+        method: details.method,
+        headers: details.headers,
+      }
+      const r = responses.get(details.url)
+      if (r) {
+        details.onload({ responseText: r.text, status: r.status ?? 200 })
+      } else {
+        details.onerror?.()
+      }
+    },
     addStyle: () => {},
     addEventListener: (target, type, listener, options) => {
       const et = target as EventTarget
@@ -64,6 +85,9 @@ export function createRuntime(dom: JSDOM): TestRuntime {
       const id = nextId++
       menuCommands.push({ id, name, fn })
       return id
+    },
+    queueResponse(url, text, status) {
+      responses.set(url, { text, status })
     },
     simulateRemoteChange(key, newValue) {
       const oldValue = stores[key]

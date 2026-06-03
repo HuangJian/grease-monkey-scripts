@@ -25,6 +25,7 @@ export type WeatherCity = {
   latitude: number
   longitude: number
   cityLabel: string
+  cmaStationId?: string
 }
 
 export type Config = {

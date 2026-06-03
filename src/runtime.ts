@@ -3,6 +3,7 @@ export type RequestDetails = {
   method: string
   timeout?: number
   anonymous?: boolean
+  headers?: Record<string, string>
   onload(response: { responseText: string; status?: number }): void
   onerror?: () => void
   ontimeout?: () => void
@@ -52,6 +53,7 @@ declare function GM_xmlhttpRequest(details: {
   method: string
   timeout?: number
   anonymous?: boolean
+  headers?: Record<string, string>
   onload(response: { responseText: string; status?: number }): void
   onerror?: () => void
   ontimeout?: () => void

@@ -1,4 +1,6 @@
 import { describe, expect, test } from 'bun:test'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { JSDOM } from 'jsdom'
 import {
   aqiLevel,
@@ -227,6 +229,61 @@ describe('fetchWeatherAll', () => {
     const dom = new JSDOM('<html></html>')
     const runtime = makeRuntime(dom, () => {})
     await expect(fetchWeatherAll(runtime, [])).rejects.toThrow('no cities')
+  })
+
+  test('merges CMA daily + current into Open-Meteo base when cmaStationId is set', async () => {
+    const dom = new JSDOM('<html></html>')
+    const cmaPageHtml = readFileSync(
+      join(import.meta.dir, '..', 'fixtures', 'cma-beijing.html'),
+      'utf8',
+    )
+    const cmaNowJson = readFileSync(join(import.meta.dir, '..', 'fixtures', 'cma-now.json'), 'utf8')
+    const runtime = makeRuntime(dom, (d) => {
+      if (d.url.includes('weather.cma.cn/web/weather/')) {
+        d.onload({ responseText: cmaPageHtml })
+      } else if (d.url.includes('weather.cma.cn/api/now/')) {
+        d.onload({ responseText: cmaNowJson })
+      } else if (d.url.includes('air-quality-api')) {
+        d.onload({ responseText: JSON.stringify(AIR_QUALITY) })
+      } else {
+        d.onload({ responseText: JSON.stringify(FIXTURE) })
+      }
+    })
+    const result = await fetchWeatherAll(runtime, [
+      { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ', cmaStationId: '54511' },
+    ])
+    expect(result.entries).toHaveLength(1)
+    if (result.entries[0]?.status !== 'ok') throw new Error('expected ok')
+    const data = result.entries[0].data
+    expect(data.current.source).toBe('cma')
+    expect(data.current.temperature_2m).toBe(27.5)
+    expect(data.current.humidity).toBe(62)
+    expect(data.current.pressure).toBe(998)
+    expect(data.current.wind_direction_10m).toBe(45)
+    expect(data.current.air_quality?.us_aqi).toBe(42)
+    expect(data.daily.time.length).toBeGreaterThanOrEqual(2)
+    expect(data.daily.temperature_2m_max[0]).toBe(28)
+    expect(data.hourly.temperature_2m[0]).toBe(28.3)
+  })
+
+  test('falls back to Open-Meteo when CMA page HTML fails', async () => {
+    const dom = new JSDOM('<html></html>')
+    const runtime = makeRuntime(dom, (d) => {
+      if (d.url.includes('weather.cma.cn/web/weather/')) {
+        d.onerror?.()
+      } else if (d.url.includes('weather.cma.cn/api/now/')) {
+        d.onerror?.()
+      } else if (d.url.includes('air-quality-api')) {
+        d.onload({ responseText: JSON.stringify(AIR_QUALITY) })
+      } else {
+        d.onload({ responseText: JSON.stringify(FIXTURE) })
+      }
+    })
+    const result = await fetchWeatherAll(runtime, [
+      { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ', cmaStationId: '54511' },
+    ])
+    if (result.entries[0]?.status !== 'ok') throw new Error('expected ok')
+    expect(result.entries[0].data.current.source).toBe('open-meteo')
   })
 })
 
@@ -515,16 +572,111 @@ describe('createWeatherSource.render', () => {
     expect(summary.querySelector('.gm-sp-weather-range')!.textContent).toBe('-2°~5°')
     const chips = summary.querySelectorAll('.gm-sp-weather-chip')
     expect(chips).toHaveLength(3)
-    expect(chips[0]!.textContent).toBe('体感 0°')
+    expect(chips[0]!.textContent).toBe('🌡️ 0°')
     expect(chips[1]!.textContent!.replace(/\s+/g, ' ').trim()).toBe('↑ 12.5 km/h')
     const arrow = summary.querySelector('.gm-sp-weather-wind-arrow') as HTMLElement
-    expect(arrow.style.getPropertyValue('--gm-sp-wind-rot')).toBe('45deg')
+    expect(arrow.style.getPropertyValue('--gm-sp-wind-rot')).toBe('225deg')
     const precipChip = chips[2] as HTMLElement
     expect(precipChip.classList.contains('gm-sp-weather-precip')).toBe(true)
     const precipIcon = precipChip.querySelector('.gm-sp-weather-precip-icon')!
     expect(precipIcon.textContent).toBe('☁️')
     expect(precipChip.textContent!.replace(/\s+/g, ' ').trim()).toBe('☁️ 20%')
     expect(summary.querySelector('.gm-sp-weather-today')).toBeNull()
+  })
+
+  test('renders humidity chip when current.humidity is present', () => {
+    const container = containerEl()
+    const source = createWeatherSource({
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
+      ttlMinutes: 60,
+    })
+    const data = buildData()
+    if (data.entries[0]!.status === 'ok') {
+      ;(data.entries[0]!.data.current as { humidity?: number }).humidity = 65
+    }
+    source.render(container, data)
+    const summary = container.querySelector('.gm-sp-weather-summary')!
+    const chips = Array.from(summary.querySelectorAll('.gm-sp-weather-chip'))
+    const humidityChip = chips.find((c) => c.textContent === '💧 65%')
+    expect(humidityChip).not.toBeUndefined()
+  })
+
+  test('omits humidity chip when current.humidity is absent', () => {
+    const container = containerEl()
+    const source = createWeatherSource({
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
+      ttlMinutes: 60,
+    })
+    source.render(container, buildData())
+    const summary = container.querySelector('.gm-sp-weather-summary')!
+    const chips = Array.from(summary.querySelectorAll('.gm-sp-weather-chip'))
+    expect(chips.some((c) => c.textContent?.startsWith('💧'))).toBe(false)
+  })
+
+  test('wind arrow rotates +180deg so a north wind points south', () => {
+    const container = containerEl()
+    const source = createWeatherSource({
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
+      ttlMinutes: 60,
+    })
+    const data = buildData()
+    if (data.entries[0]!.status === 'ok') {
+      data.entries[0]!.data.current.wind_direction_10m = 0
+    }
+    source.render(container, data)
+    const arrow = container.querySelector('.gm-sp-weather-wind-arrow') as HTMLElement
+    expect(arrow.style.getPropertyValue('--gm-sp-wind-rot')).toBe('180deg')
+  })
+
+  test('wind arrow wraps at 360deg for 270deg wind (becomes 90deg)', () => {
+    const container = containerEl()
+    const source = createWeatherSource({
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
+      ttlMinutes: 60,
+    })
+    const data = buildData()
+    if (data.entries[0]!.status === 'ok') {
+      data.entries[0]!.data.current.wind_direction_10m = 270
+    }
+    source.render(container, data)
+    const arrow = container.querySelector('.gm-sp-weather-wind-arrow') as HTMLElement
+    expect(arrow.style.getPropertyValue('--gm-sp-wind-rot')).toBe('90deg')
+  })
+
+  test('renders source attribution with CMA link when cmaUrl is set', () => {
+    const container = containerEl()
+    const source = createWeatherSource({
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
+      ttlMinutes: 60,
+    })
+    const data = buildData()
+    if (data.entries[0]!.status === 'ok') {
+      const cur = data.entries[0]!.data
+      ;(cur.current as { source?: 'open-meteo' | 'cma' }).source = 'cma'
+      ;(cur as { cmaUrl?: string }).cmaUrl = 'https://weather.cma.cn/web/weather/54511.html'
+    }
+    source.render(container, data)
+    const sourceEl = container.querySelector('.gm-sp-weather-source')
+    expect(sourceEl).not.toBeNull()
+    const link = sourceEl!.querySelector('a.gm-sp-weather-source-link')
+    expect(link).not.toBeNull()
+    expect(link!.getAttribute('href')).toBe('https://weather.cma.cn/web/weather/54511.html')
+    expect(link!.getAttribute('target')).toBe('_blank')
+    expect(link!.textContent).toBe('中国气象局')
+  })
+
+  test('omits source attribution when cmaUrl is missing even if source is cma', () => {
+    const container = containerEl()
+    const source = createWeatherSource({
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
+      ttlMinutes: 60,
+    })
+    const data = buildData()
+    if (data.entries[0]!.status === 'ok') {
+      ;(data.entries[0]!.data.current as { source?: 'open-meteo' | 'cma' }).source = 'cma'
+    }
+    source.render(container, data)
+    expect(container.querySelector('.gm-sp-weather-source')).toBeNull()
   })
 
   test('renders hourly cells only for remaining hours of current day', () => {
@@ -542,6 +694,107 @@ describe('createWeatherSource.render', () => {
       (c) => c.querySelector('.gm-sp-weather-hour-time')!.textContent,
     )
     expect(times).toEqual(['14:00', '15:00', '23:00'])
+  })
+
+  test('renders all CMA hourly slots including next-morning hours when source is cma', () => {
+    const container = containerEl()
+    const source = createWeatherSource({
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
+      ttlMinutes: 60,
+    })
+    const data = buildData()
+    if (data.entries[0]!.status === 'ok') {
+      const cur = data.entries[0]!.data
+      ;(cur.current as { source?: 'open-meteo' | 'cma' }).source = 'cma'
+      cur.current.time = '2024-01-15 11:00'
+      cur.hourly = {
+        time: [
+          '2024-01-15T11:00',
+          '2024-01-15T14:00',
+          '2024-01-15T17:00',
+          '2024-01-15T20:00',
+          '2024-01-15T23:00',
+          '2024-01-16T02:00',
+          '2024-01-16T05:00',
+          '2024-01-16T08:00',
+        ],
+        temperature_2m: [22, 24, 23, 21, 19, 17, 16, 18],
+        weather_code: [1, 1, 2, 3, 3, 2, 2, 1],
+        precipitation_probability: [0, 0, 0, 0, 0, 0, 0, 0],
+      }
+    }
+    source.render(container, data)
+    const cells = container.querySelectorAll('.gm-sp-weather-hour')
+    const times = Array.from(cells).map(
+      (c) => c.querySelector('.gm-sp-weather-hour-time')!.textContent,
+    )
+    expect(times).toEqual(['11:00', '14:00', '17:00', '20:00', '23:00', '02:00', '05:00', '08:00'])
+  })
+
+  test('caps CMA hourly at 8 cells when more are available', () => {
+    const container = containerEl()
+    const source = createWeatherSource({
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X', cmaStationId: '54511' }],
+      ttlMinutes: 60,
+    })
+    const data = buildData()
+    if (data.entries[0]!.status === 'ok') {
+      const cur = data.entries[0]!.data
+      ;(cur.current as { source?: 'open-meteo' | 'cma' }).source = 'cma'
+      cur.current.time = '2024-01-15 09:00'
+      cur.hourly = {
+        time: [
+          '2024-01-15T05:00',
+          '2024-01-15T08:00',
+          '2024-01-15T11:00',
+          '2024-01-15T14:00',
+          '2024-01-15T17:00',
+          '2024-01-15T20:00',
+          '2024-01-15T23:00',
+          '2024-01-16T02:00',
+          '2024-01-16T05:00',
+          '2024-01-16T08:00',
+        ],
+        temperature_2m: [15, 18, 22, 24, 23, 21, 19, 17, 16, 18],
+        weather_code: [1, 1, 1, 1, 2, 3, 3, 2, 2, 1],
+        precipitation_probability: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      }
+    }
+    source.render(container, data)
+    const cells = container.querySelectorAll('.gm-sp-weather-hour')
+    expect(cells).toHaveLength(8)
+  })
+
+  test('renders CMA hourly when current.time uses YYYY/MM/DD HH:MM (CMA /api/now format)', () => {
+    const container = containerEl()
+    const source = createWeatherSource({
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X', cmaStationId: '54511' }],
+      ttlMinutes: 60,
+    })
+    const data = buildData()
+    if (data.entries[0]!.status === 'ok') {
+      const cur = data.entries[0]!.data
+      ;(cur.current as { source?: 'open-meteo' | 'cma' }).source = 'cma'
+      cur.current.time = '2026/06/03 10:35'
+      cur.hourly = {
+        time: [
+          '2026-06-03T11:00',
+          '2026-06-03T14:00',
+          '2026-06-03T17:00',
+          '2026-06-03T20:00',
+          '2026-06-03T23:00',
+          '2026-06-04T02:00',
+          '2026-06-04T05:00',
+          '2026-06-04T08:00',
+        ],
+        temperature_2m: [30, 32, 31, 28, 26, 25, 25, 27],
+        weather_code: [1, 1, 2, 3, 3, 3, 2, 1],
+        precipitation_probability: [0, 0, 0, 0, 0, 0, 0, 0],
+      }
+    }
+    source.render(container, data)
+    const cells = container.querySelectorAll('.gm-sp-weather-hour')
+    expect(cells).toHaveLength(8)
   })
 
   test('renders 3 day pills for +1/+2/+3 only (today moved to summary)', () => {

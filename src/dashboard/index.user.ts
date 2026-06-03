@@ -15,6 +15,7 @@
 // @grant        GM_registerMenuCommand
 // @connect      api.open-meteo.com
 // @connect      air-quality-api.open-meteo.com
+// @connect      weather.cma.cn
 // @connect      www.v2ex.com
 // ==/UserScript==
 // ==build.meta==

@@ -1,0 +1,15 @@
+{
+  "code": 0,
+  "data": {
+    "lastUpdate": "2024-06-03 11:30",
+    "now": {
+      "temperature": 27.5,
+      "pressure": 998,
+      "humidity": 62,
+      "precipitation": 0,
+      "windDirection": "东北风",
+      "windScale": "3级"
+    },
+    "alarm": []
+  }
+}

@@ -133,4 +133,35 @@ describe('createWeatherEditor', () => {
     )
     expect(container.querySelectorAll('.gm-sp-we-item')).toHaveLength(2)
   })
+
+  test('adds a CMA station id and shows it in the list', () => {
+    mount(runtime, container)
+    const labelInput = container.querySelector('.gm-sp-we-city-label') as HTMLInputElement
+    const latInput = container.querySelector('.gm-sp-we-lat') as HTMLInputElement
+    const lonInput = container.querySelector('.gm-sp-we-lon') as HTMLInputElement
+    const cmaInput = container.querySelector('.gm-sp-we-cma') as HTMLInputElement
+    labelInput.value = 'BJ'
+    latInput.value = '39.9'
+    lonInput.value = '116.4'
+    cmaInput.value = '54511'
+    ;(container.querySelector('.gm-sp-we-add') as HTMLButtonElement).click()
+    const items = container.querySelectorAll('.gm-sp-we-item')
+    expect(items[1].querySelector('.gm-sp-we-item-cma')!.textContent).toBe('CMA 54511')
+  })
+
+  test('rejects malformed CMA station id with an error', () => {
+    mount(runtime, container)
+    const labelInput = container.querySelector('.gm-sp-we-city-label') as HTMLInputElement
+    const latInput = container.querySelector('.gm-sp-we-lat') as HTMLInputElement
+    const lonInput = container.querySelector('.gm-sp-we-lon') as HTMLInputElement
+    const cmaInput = container.querySelector('.gm-sp-we-cma') as HTMLInputElement
+    labelInput.value = 'BJ'
+    latInput.value = '39.9'
+    lonInput.value = '116.4'
+    cmaInput.value = '5451'
+    ;(container.querySelector('.gm-sp-we-add') as HTMLButtonElement).click()
+    const errorEl = container.querySelector('.gm-sp-we-error') as HTMLDivElement
+    expect(errorEl.hidden).toBe(false)
+    expect(errorEl.textContent).toMatch(/5 位数字/)
+  })
 })

@@ -42,6 +42,10 @@ function renderWeatherEditor(
           <span>经度</span>
           <input type="number" step="any" class="gm-sp-we-lon" placeholder="116.4074" />
         </label>
+        <label class="gm-sp-weather-editor-row">
+          <span>CMA 站点 ID</span>
+          <input type="text" inputmode="numeric" pattern="\\d{5}" class="gm-sp-we-cma" placeholder="54511（可选）" />
+        </label>
         <button type="button" class="gm-sp-we-add">添加城市</button>
       </div>
       <div class="gm-sp-we-error" hidden></div>
@@ -56,6 +60,7 @@ function renderWeatherEditor(
   const labelInput = form.querySelector('.gm-sp-we-city-label') as HTMLInputElement
   const latInput = form.querySelector('.gm-sp-we-lat') as HTMLInputElement
   const lonInput = form.querySelector('.gm-sp-we-lon') as HTMLInputElement
+  const cmaInput = form.querySelector('.gm-sp-we-cma') as HTMLInputElement
   const addBtn = form.querySelector('.gm-sp-we-add') as HTMLButtonElement
   const saveBtn = form.querySelector('.gm-sp-we-save') as HTMLButtonElement
   const cancelBtn = form.querySelector('.gm-sp-we-cancel') as HTMLButtonElement
@@ -78,12 +83,19 @@ function renderWeatherEditor(
         `<div class="gm-sp-we-item">
           <span class="gm-sp-we-item-label"></span>
           <span class="gm-sp-we-item-coord"></span>
+          <span class="gm-sp-we-item-cma"></span>
           <button type="button" class="gm-sp-we-remove" aria-label="remove">×</button>
         </div>`,
       )
       row.querySelector('.gm-sp-we-item-label')!.textContent = city.cityLabel
       row.querySelector('.gm-sp-we-item-coord')!.textContent =
         `${city.latitude.toFixed(4)}, ${city.longitude.toFixed(4)}`
+      const cmaEl = row.querySelector('.gm-sp-we-item-cma') as HTMLSpanElement
+      if (city.cmaStationId) {
+        cmaEl.textContent = `CMA ${city.cmaStationId}`
+      } else {
+        cmaEl.textContent = ''
+      }
       const remove = row.querySelector('.gm-sp-we-remove') as HTMLButtonElement
       remove.addEventListener('click', () => {
         cities.splice(i, 1)
@@ -108,6 +120,7 @@ function renderWeatherEditor(
     const cityLabel = labelInput.value.trim()
     const lat = Number(latInput.value)
     const lon = Number(lonInput.value)
+    const cmaStationId = cmaInput.value.trim()
     if (!cityLabel) {
       showError('请输入城市名')
       return
@@ -116,15 +129,29 @@ function renderWeatherEditor(
       showError('经纬度必须是有限数字')
       return
     }
-    cities.push({ cityLabel, latitude: lat, longitude: lon })
+    if (cmaStationId && !/^\d{5}$/.test(cmaStationId)) {
+      showError('CMA 站点 ID 必须是 5 位数字')
+      return
+    }
+    const city: WeatherCity = cmaStationId
+      ? { cityLabel, latitude: lat, longitude: lon, cmaStationId }
+      : { cityLabel, latitude: lat, longitude: lon }
+    cities.push(city)
     labelInput.value = ''
     latInput.value = ''
     lonInput.value = ''
+    cmaInput.value = ''
     renderList()
   }
 
   addBtn.addEventListener('click', tryAdd)
   labelInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      tryAdd()
+    }
+  })
+  cmaInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault()
       tryAdd()
