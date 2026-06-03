@@ -45,7 +45,7 @@ export function renderCard<T>(container: HTMLElement, options: CardOptions<T>): 
       </div>
       <div class="gm-sp-card-actions">
         <span class="gm-sp-card-updated"></span>
-        <button type="button" class="gm-sp-refresh" aria-label="refresh">↻</button>
+        <button type="button" class="gm-sp-refresh" aria-label="refresh"><span class="gm-sp-refresh-icon">↻</span></button>
         ${editButtonHtml}
       </div>
     </div>`,

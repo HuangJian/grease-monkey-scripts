@@ -159,7 +159,12 @@
   opacity: 0.5;
 }
 
-.gm-sp-refresh-loading {
+.gm-sp-refresh-icon {
+  display: inline-block;
+}
+
+.gm-sp-refresh-loading .gm-sp-refresh-icon {
+  display: inline-block;
   animation: gm-sp-refresh-spin 0.9s linear infinite;
 }
 
@@ -413,6 +418,18 @@
 
 .gm-sp-weather-source-link {
   color: inherit;
+  text-decoration: underline;
+}
+
+.gm-sp-weather-source-inline {
+  font-size: 10px;
+  color: #9ca3af;
+  text-decoration: none;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.gm-sp-weather-source-inline:hover {
   text-decoration: underline;
 }
 

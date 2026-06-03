@@ -656,13 +656,15 @@ describe('createWeatherSource.render', () => {
       ;(cur as { cmaUrl?: string }).cmaUrl = 'https://weather.cma.cn/web/weather/54511.html'
     }
     source.render(container, data)
-    const sourceEl = container.querySelector('.gm-sp-weather-source')
-    expect(sourceEl).not.toBeNull()
-    const link = sourceEl!.querySelector('a.gm-sp-weather-source-link')
+    const link = container.querySelector(
+      'a.gm-sp-weather-source-inline',
+    ) as HTMLAnchorElement | null
     expect(link).not.toBeNull()
     expect(link!.getAttribute('href')).toBe('https://weather.cma.cn/web/weather/54511.html')
     expect(link!.getAttribute('target')).toBe('_blank')
-    expect(link!.textContent).toBe('中国气象局')
+    expect(link!.textContent).toBe('气象局')
+    const daily = container.querySelector('.gm-sp-weather-daily')
+    expect(daily!.contains(link!)).toBe(true)
   })
 
   test('omits source attribution when cmaUrl is missing even if source is cma', () => {
@@ -677,6 +679,7 @@ describe('createWeatherSource.render', () => {
     }
     source.render(container, data)
     expect(container.querySelector('.gm-sp-weather-source')).toBeNull()
+    expect(container.querySelector('.gm-sp-weather-source-inline')).toBeNull()
   })
 
   test('renders hourly cells only for remaining hours of current day', () => {

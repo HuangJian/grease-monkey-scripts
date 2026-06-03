@@ -522,14 +522,6 @@ function buildCityBlock(document: Document, data: WeatherCityData): HTMLElement 
     summary.appendChild(humidityEl)
   }
 
-  const aqiEl = htmlToElement<HTMLSpanElement>(document, `<span class="gm-sp-weather-aqi"></span>`)
-  const aq = data.current.air_quality
-  const level = aqiLevel(aq?.us_aqi ?? null)
-  aqiEl.dataset['level'] = level.label
-  aqiEl.style.setProperty('--gm-sp-aqi-color', level.color)
-  aqiEl.textContent = aq ? `${aq.us_aqi} ${level.label}` : '--'
-  summary.appendChild(aqiEl)
-
   const windArrow = htmlToElement<HTMLSpanElement>(
     document,
     `<span class="gm-sp-weather-wind-arrow"></span>`,
@@ -564,6 +556,14 @@ function buildCityBlock(document: Document, data: WeatherCityData): HTMLElement 
     precipEl.textContent = `降水 ${precipMax}%`
   }
   summary.appendChild(precipEl)
+
+  const aqiEl = htmlToElement<HTMLSpanElement>(document, `<span class="gm-sp-weather-aqi"></span>`)
+  const aq = data.current.air_quality
+  const level = aqiLevel(aq?.us_aqi ?? null)
+  aqiEl.dataset['level'] = level.label
+  aqiEl.style.setProperty('--gm-sp-aqi-color', level.color)
+  aqiEl.textContent = aq ? `${aq.us_aqi} ${level.label}` : '--'
+  summary.appendChild(aqiEl)
 
   const hourlyEl = block.querySelector('.gm-sp-weather-hourly')!
   hourlyEl.replaceChildren()
@@ -627,11 +627,11 @@ function buildCityBlock(document: Document, data: WeatherCityData): HTMLElement 
   }
 
   if (data.current.source === 'cma' && data.cmaUrl) {
-    const sourceEl = htmlToElement<HTMLDivElement>(
+    const sourceEl = htmlToElement<HTMLSpanElement>(
       document,
-      `<div class="gm-sp-weather-source">数据来源: <a class="gm-sp-weather-source-link" href="${data.cmaUrl}" target="_blank" rel="noopener noreferrer">中国气象局</a></div>`,
+      `<a class="gm-sp-weather-source-inline" href="${data.cmaUrl}" target="_blank" rel="noopener noreferrer">气象局</a>`,
     )
-    block.appendChild(sourceEl)
+    dailyEl.appendChild(sourceEl)
   }
 
   return block
