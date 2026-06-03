@@ -45,6 +45,10 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     return root.querySelector<HTMLElement>(`[data-source="${sourceId}"]`)
   }
 
+  function placementFor(source: Source<unknown>): 'main' | 'side' {
+    return source.placement === 'side' ? 'side' : 'main'
+  }
+
   async function readAllCaches(): Promise<Map<string, CachedSource<unknown> | null>> {
     const map = new Map<string, CachedSource<unknown> | null>()
     await Promise.all(
@@ -170,7 +174,8 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     for (const source of sources) {
       const card = runtime.document.createElement('div')
       card.className = 'gm-sp-card'
-      newHandle.cards.appendChild(card)
+      const container = placementFor(source) === 'side' ? newHandle.sideCards : newHandle.mainCards
+      container.appendChild(card)
       renderCard(card, {
         source,
         cached: null,

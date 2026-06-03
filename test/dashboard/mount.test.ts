@@ -35,11 +35,12 @@ describe('mountOverlay', () => {
     expect(handle.root).not.toBeNull()
   })
 
-  test('exposes backdrop, modal, cards via the root', () => {
+  test('exposes backdrop, modal, mainCards, sideCards via the root', () => {
     const handle = mountOverlay(dom.window.document)
     expect(handle.root.querySelector('.gm-sp-backdrop')).toBe(handle.backdrop)
     expect(handle.root.querySelector('.gm-sp-modal')).toBe(handle.modal)
-    expect(handle.root.querySelector('.gm-sp-cards')).toBe(handle.cards)
+    expect(handle.root.querySelector('.gm-sp-cards-main')).toBe(handle.mainCards)
+    expect(handle.root.querySelector('.gm-sp-cards-side')).toBe(handle.sideCards)
   })
 
   test('injects <style> node with overlay css', () => {

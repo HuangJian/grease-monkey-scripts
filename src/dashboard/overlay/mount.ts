@@ -4,7 +4,8 @@ export type OverlayHandle = {
   root: ShadowRoot
   backdrop: HTMLElement
   modal: HTMLElement
-  cards: HTMLElement
+  mainCards: HTMLElement
+  sideCards: HTMLElement
   unmount: () => void
 }
 
@@ -29,9 +30,15 @@ export function mountOverlay(document: Document): OverlayHandle {
   backdrop.className = 'gm-sp-backdrop'
   const modal = document.createElement('div')
   modal.className = 'gm-sp-modal'
-  const cards = document.createElement('div')
-  cards.className = 'gm-sp-cards'
-  modal.appendChild(cards)
+  const grid = document.createElement('div')
+  grid.className = 'gm-sp-cards'
+  const mainCards = document.createElement('div')
+  mainCards.className = 'gm-sp-cards-main'
+  const sideCards = document.createElement('div')
+  sideCards.className = 'gm-sp-cards-side'
+  grid.appendChild(mainCards)
+  grid.appendChild(sideCards)
+  modal.appendChild(grid)
   backdrop.appendChild(modal)
   root.appendChild(backdrop)
   document.body.appendChild(host)
@@ -39,7 +46,8 @@ export function mountOverlay(document: Document): OverlayHandle {
     root,
     backdrop,
     modal,
-    cards,
+    mainCards,
+    sideCards,
     unmount: () => host.remove(),
   }
 }

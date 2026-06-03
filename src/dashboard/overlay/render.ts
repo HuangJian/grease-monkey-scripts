@@ -56,7 +56,7 @@ export function renderCard<T>(container: HTMLElement, options: CardOptions<T>): 
       document,
       '<span class="gm-sp-card-stale">数据陈旧</span>',
     )
-    header.querySelector('.gm-sp-card-title')!.appendChild(badge)
+    header.insertBefore(badge, header.querySelector('.gm-sp-card-actions')!)
   }
   const updated = header.querySelector('.gm-sp-card-updated')!
   updated.textContent = formatRelativeTime(cached?.fetchedAt ?? null, now)
@@ -93,7 +93,11 @@ export function renderCard<T>(container: HTMLElement, options: CardOptions<T>): 
   const body = document.createElement('div')
   body.className = 'gm-sp-card-body'
   container.appendChild(body)
-  source.render(body, (cached?.data ?? null) as T | null)
+  const data = (cached?.data ?? null) as T | null
+  source.render(body, data)
+  if (source.customizeHeader) {
+    source.customizeHeader(header.querySelector('.gm-sp-card-title')!, data)
+  }
 }
 
 export function formatRelativeTime(fetchedAt: number | null, now: number): string {

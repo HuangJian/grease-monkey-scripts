@@ -11,8 +11,10 @@ export type Source<T> = {
   readonly id: string
   readonly title: string
   readonly ttlMs: number
+  readonly placement?: 'main' | 'side'
   fetch(runtime: Runtime): Promise<T>
   render(container: HTMLElement, data: T | null): void
+  customizeHeader?(titleContainer: HTMLElement, data: T | null): void
   createEditor?: () => SourceEditor
 }
 

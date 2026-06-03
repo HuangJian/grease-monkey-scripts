@@ -14,6 +14,7 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM_registerMenuCommand
 // @connect      api.open-meteo.com
+// @connect      air-quality-api.open-meteo.com
 // @connect      www.v2ex.com
 // ==/UserScript==
 // ==build.meta==
