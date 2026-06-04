@@ -5,10 +5,10 @@ import { mountOverlay, type OverlayHandle } from './overlay/mount'
 import { renderCard, renderHeader } from './overlay/render'
 import { renderTabsCard } from './overlay/tabs-render'
 import { createDoubleShiftHandler, isEditableTarget } from './shortcut'
-import { createV2exSource } from './sources/v2ex'
+import { createV2exSource } from './v2ex/source'
 import { createWeatherSource } from './weather'
 import { createNovelsSource } from './novels'
-import type { Source } from './sources/types'
+import type { Source } from './types'
 import { buildCardGroups, type CardGroup } from './card-group'
 import { CACHE_KEY, type CachedSource, type Config } from './types'
 import { defaultConfigExample, deepMerge, loadConfig, validateConfig } from './config'
@@ -89,7 +89,8 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
 
   async function renderGroup(group: CardGroup, now: number): Promise<void> {
     if (!handle) return
-    const card = cardForGroup(handle.root, group.id)
+    const root = handle.root
+    const card = cardForGroup(root, group.id)
     if (!card) return
     const caches = await readGroupCaches(group)
     const activeTabId = activeTabByGroup.get(group.id) ?? group.tabs[0]!.id
@@ -99,6 +100,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
         caches,
         now,
         runtime,
+        root,
         activeTabId,
         onTabChange: (tabId) => {
           activeTabByGroup.set(group.id, tabId)
@@ -118,6 +120,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
         ttlMs: source.ttlMs,
         now,
         runtime,
+        root,
         onRefresh: () => dashboard.refreshSource(source.id),
         onRevert: () => revertGroup(group.id),
       })
@@ -210,6 +213,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
           caches: emptyCaches,
           now,
           runtime,
+          root: newHandle.root,
           activeTabId,
           onTabChange: (tabId) => {
             activeTabByGroup.set(group.id, tabId)
@@ -228,6 +232,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
           ttlMs: source.ttlMs,
           now,
           runtime,
+          root: newHandle.root,
           onRefresh: () => dashboard.refreshSource(source.id),
           onRevert: () => revertGroup(group.id),
         })

@@ -12,7 +12,7 @@ import {
   type V2exCountOptions,
   type V2exSourceOptions,
   type V2exTopic,
-} from '../../../src/dashboard/sources/v2ex'
+} from '../../../src/dashboard/v2ex/source'
 import type { Runtime, RequestDetails } from '../../../src/runtime'
 import { createRuntime } from '../../runtime'
 

@@ -1,4 +1,4 @@
-import type { Source } from '../sources/types'
+import type { Source } from '../types'
 import { createWeatherEditor } from './editor'
 import { fetchWeatherAll } from './api'
 import { renderWeather, customizeWeatherHeader } from './render'

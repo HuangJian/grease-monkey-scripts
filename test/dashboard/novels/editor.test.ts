@@ -13,14 +13,14 @@ function dom(): JSDOM {
 
 let runtime: TestRuntime
 let root: HTMLElement
-let reverted: boolean
+let closed: boolean
 
 beforeEach(() => {
   const d = dom()
   runtime = createRuntime(d)
   root = d.window.document.createElement('div')
   d.window.document.body.appendChild(root)
-  reverted = false
+  closed = false
 })
 
 afterEach(() => {
@@ -45,8 +45,9 @@ async function mountEditor(
   })
   editor(root, {
     runtime,
-    onRevert: () => {
-      reverted = true
+    onRevert: () => {},
+    close: () => {
+      closed = true
     },
   })
   await new Promise((r) => setTimeout(r, 0))
@@ -143,10 +144,10 @@ describe('createNovelsEditor', () => {
     expect(root.querySelector('.gm-sp-ne-item-url')!.textContent).toContain('12/')
   })
 
-  test('cancel button triggers onRevert', async () => {
+  test('cancel button triggers close', async () => {
     await mountEditor([])
     ;(root.querySelector('.gm-sp-ne-cancel') as HTMLButtonElement).click()
-    expect(reverted).toBe(true)
+    expect(closed).toBe(true)
   })
 
   test('save persists novels config to CONFIG_KEY', async () => {
@@ -177,5 +178,26 @@ describe('createNovelsEditor', () => {
     await new Promise((r) => setTimeout(r, 0))
     const stored = runtime.stores[CONFIG_KEY] as { novels: { entries: NovelEntry[] } } | undefined
     expect(stored?.novels.entries).toEqual([{ url: 'https://other.example/x/' }])
+  })
+
+  test('save merges with existing weather config instead of overwriting it', async () => {
+    const preexisting = {
+      weather: {
+        cities: [{ latitude: 39.9, longitude: 116.4, cityLabel: 'BJ' }],
+        ttlMinutes: 30,
+      },
+    }
+    runtime.stores[CONFIG_KEY] = preexisting
+    await mountEditor([{ url: 'https://www.sudugu.org/166/' }])
+    ;(root.querySelector('.gm-sp-ne-save') as HTMLButtonElement).click()
+    await new Promise((r) => setTimeout(r, 0))
+    const stored = runtime.stores[CONFIG_KEY] as Record<string, unknown> | undefined
+    expect(stored?.weather).toEqual(preexisting.weather)
+    expect(stored?.novels).toBeTruthy()
+    if (stored) {
+      expect((stored.novels as { entries: NovelEntry[] }).entries).toEqual([
+        { url: 'https://www.sudugu.org/166/' },
+      ])
+    }
   })
 })

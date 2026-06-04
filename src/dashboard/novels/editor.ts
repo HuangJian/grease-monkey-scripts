@@ -2,7 +2,7 @@ import type { Runtime } from '../../runtime'
 import { htmlToElement } from '../../utils'
 import { validateConfig } from '../config'
 import { CONFIG_KEY } from '../types'
-import type { SourceEditor } from '../sources/types'
+import type { SourceEditor } from '../types'
 import { adapterByHostname } from './adapters/registry'
 import type { NovelEntry } from './types'
 
@@ -16,19 +16,56 @@ export type NovelsEditorOptions = {
 }
 
 export function createNovelsEditor(options: NovelsEditorOptions): SourceEditor {
-  return (container, ctx) => {
-    void renderNovelsEditor(container, options, ctx)
-  }
+  return (container, ctx) => renderNovelsEditor(container, options, ctx)
+}
+
+async function loadFreshNovelsOptions(
+  runtime: Runtime,
+  fallback: NovelsEditorOptions,
+): Promise<NovelsEditorOptions> {
+  try {
+    const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
+    const novels = stored?.novels as
+      | {
+          entries?: NovelEntry[]
+          ttlMinutes?: number
+          maxNewChaptersPerBook?: number
+          initialNewChapters?: number
+          maxLatestWindow?: number
+        }
+      | undefined
+    if (novels) {
+      return {
+        entries: Array.isArray(novels.entries) ? novels.entries : fallback.entries,
+        ttlMinutes: typeof novels.ttlMinutes === 'number' ? novels.ttlMinutes : fallback.ttlMinutes,
+        maxNewChaptersPerBook:
+          typeof novels.maxNewChaptersPerBook === 'number'
+            ? novels.maxNewChaptersPerBook
+            : fallback.maxNewChaptersPerBook,
+        initialNewChapters:
+          typeof novels.initialNewChapters === 'number'
+            ? novels.initialNewChapters
+            : fallback.initialNewChapters,
+        maxLatestWindow:
+          typeof novels.maxLatestWindow === 'number'
+            ? novels.maxLatestWindow
+            : fallback.maxLatestWindow,
+        getCachedTitles: fallback.getCachedTitles,
+      }
+    }
+  } catch {}
+  return fallback
 }
 
 async function renderNovelsEditor(
   container: HTMLElement,
   options: NovelsEditorOptions,
-  ctx: { runtime: Runtime; onRevert: () => void },
+  ctx: { runtime: Runtime; onRevert: () => void; close: () => void },
 ): Promise<void> {
   const document = container.ownerDocument
-  const titleMap = await options.getCachedTitles()
-  const entries: NovelEntry[] = options.entries.map((e) => ({ ...e }))
+  const fresh = await loadFreshNovelsOptions(ctx.runtime, options)
+  const titleMap = await fresh.getCachedTitles()
+  const entries: NovelEntry[] = fresh.entries.map((e) => ({ ...e }))
 
   const form = htmlToElement<HTMLDivElement>(
     document,
@@ -83,10 +120,10 @@ async function renderNovelsEditor(
   const saveBtn = form.querySelector('.gm-sp-ne-save') as HTMLButtonElement
   const cancelBtn = form.querySelector('.gm-sp-ne-cancel') as HTMLButtonElement
 
-  ttlInput.value = String(options.ttlMinutes)
-  initialInput.value = String(options.initialNewChapters)
-  foldInput.value = String(options.maxNewChaptersPerBook)
-  windowInput.value = String(options.maxLatestWindow)
+  ttlInput.value = String(fresh.ttlMinutes)
+  initialInput.value = String(fresh.initialNewChapters)
+  foldInput.value = String(fresh.maxNewChaptersPerBook)
+  windowInput.value = String(fresh.maxLatestWindow)
 
   function showError(message: string): void {
     errorEl.textContent = message
@@ -189,7 +226,7 @@ async function renderNovelsEditor(
   })
 
   cancelBtn.addEventListener('click', () => {
-    ctx.onRevert()
+    ctx.close()
   })
 
   saveBtn.addEventListener('click', () => {
@@ -226,9 +263,11 @@ async function renderNovelsEditor(
       showError(validation.error)
       return
     }
-    const result = ctx.runtime.setValue(CONFIG_KEY, { novels })
+    const result = ctx.runtime.getValue(CONFIG_KEY, null).then((existing) => {
+      return ctx.runtime.setValue(CONFIG_KEY, { ...(existing ?? {}), novels })
+    })
     Promise.resolve(result).then(() => {
-      ctx.runtime.location.reload()
+      ctx.close()
     })
   })
 

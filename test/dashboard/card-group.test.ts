@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { buildCardGroups } from '../../src/dashboard/card-group'
-import type { Source } from '../../src/dashboard/sources/types'
+import type { Source } from '../../src/dashboard/types'
 
 function source(id: string, overrides: Partial<Source<unknown>> = {}): Source<unknown> {
   return {

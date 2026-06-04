@@ -8,18 +8,20 @@ function makeDom(): JSDOM {
   return new JSDOM('<!doctype html><html><head></head><body></body></html>')
 }
 
-function mount(
+async function mount(
   runtime: TestRuntime,
   container: HTMLElement,
   initialCities: { latitude: number; longitude: number; cityLabel: string }[] = [
     { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ' },
   ],
-): { revertCalls: () => number } {
+): Promise<{ revertCalls: () => number; closeCalls: () => number }> {
   let revertCalls = 0
+  let closeCalls = 0
   const editor = createWeatherEditor({ cities: initialCities, ttlMinutes: 60 })
-  editor(container, { runtime, onRevert: () => revertCalls++ })
+  await editor(container, { runtime, onRevert: () => revertCalls++, close: () => closeCalls++ })
   return {
     revertCalls: () => revertCalls,
+    closeCalls: () => closeCalls,
   }
 }
 
@@ -39,8 +41,8 @@ describe('createWeatherEditor', () => {
     dom.window.document.body.innerHTML = ''
   })
 
-  test('renders initial cities as list items', () => {
-    mount(runtime, container, [
+  test('renders initial cities as list items', async () => {
+    await mount(runtime, container, [
       { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ' },
       { latitude: 31.2, longitude: 121.5, cityLabel: 'SH' },
     ])
@@ -50,8 +52,8 @@ describe('createWeatherEditor', () => {
     expect(items[1].querySelector('.gm-sp-we-item-label')!.textContent).toBe('SH')
   })
 
-  test('adds a new city from the form', () => {
-    mount(runtime, container)
+  test('adds a new city from the form', async () => {
+    await mount(runtime, container)
     const labelInput = container.querySelector('.gm-sp-we-city-label') as HTMLInputElement
     const latInput = container.querySelector('.gm-sp-we-lat') as HTMLInputElement
     const lonInput = container.querySelector('.gm-sp-we-lon') as HTMLInputElement
@@ -65,16 +67,16 @@ describe('createWeatherEditor', () => {
     expect(labelInput.value).toBe('')
   })
 
-  test('shows an error when add is missing fields', () => {
-    mount(runtime, container)
+  test('shows an error when add is missing fields', async () => {
+    await mount(runtime, container)
     ;(container.querySelector('.gm-sp-we-add') as HTMLButtonElement).click()
     const errorEl = container.querySelector('.gm-sp-we-error') as HTMLDivElement
     expect(errorEl.hidden).toBe(false)
     expect(errorEl.textContent).toMatch(/城市名/)
   })
 
-  test('removes a city when its × is clicked', () => {
-    mount(runtime, container, [
+  test('removes a city when its × is clicked', async () => {
+    await mount(runtime, container, [
       { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ' },
       { latitude: 31.2, longitude: 121.5, cityLabel: 'SH' },
     ])
@@ -85,14 +87,14 @@ describe('createWeatherEditor', () => {
     expect(after[0].querySelector('.gm-sp-we-item-label')!.textContent).toBe('SH')
   })
 
-  test('cancel calls onRevert', () => {
-    const handle = mount(runtime, container, [{ latitude: 1, longitude: 2, cityLabel: 'A' }])
+  test('cancel calls close', async () => {
+    const handle = await mount(runtime, container, [{ latitude: 1, longitude: 2, cityLabel: 'A' }])
     ;(container.querySelector('.gm-sp-we-cancel') as HTMLButtonElement).click()
-    expect(handle.revertCalls()).toBe(1)
+    expect(handle.closeCalls()).toBe(1)
   })
 
   test('save persists the patch', async () => {
-    mount(runtime, container, [
+    await mount(runtime, container, [
       { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ' },
       { latitude: 31.2, longitude: 121.5, cityLabel: 'SH' },
     ])
@@ -107,7 +109,7 @@ describe('createWeatherEditor', () => {
   })
 
   test('save with empty list shows error and does not persist', async () => {
-    mount(runtime, container, [])
+    await mount(runtime, container, [])
     ;(container.querySelector('.gm-sp-we-save') as HTMLButtonElement).click()
     await new Promise<void>((r) => setTimeout(r, 0))
     expect(runtime.stores[CONFIG_KEY]).toBeUndefined()
@@ -115,13 +117,13 @@ describe('createWeatherEditor', () => {
     expect(errorEl.hidden).toBe(false)
   })
 
-  test('shows empty-state hint when no cities are configured', () => {
-    mount(runtime, container, [])
+  test('shows empty-state hint when no cities are configured', async () => {
+    await mount(runtime, container, [])
     expect(container.querySelector('.gm-sp-we-empty')!.textContent).toBe('尚未添加城市')
   })
 
-  test('Enter in label input adds the city', () => {
-    mount(runtime, container)
+  test('Enter in label input adds the city', async () => {
+    await mount(runtime, container)
     const labelInput = container.querySelector('.gm-sp-we-city-label') as HTMLInputElement
     const latInput = container.querySelector('.gm-sp-we-lat') as HTMLInputElement
     const lonInput = container.querySelector('.gm-sp-we-lon') as HTMLInputElement
@@ -134,8 +136,8 @@ describe('createWeatherEditor', () => {
     expect(container.querySelectorAll('.gm-sp-we-item')).toHaveLength(2)
   })
 
-  test('adds a CMA station id and shows it in the list', () => {
-    mount(runtime, container)
+  test('adds a CMA station id and shows it in the list', async () => {
+    await mount(runtime, container)
     const labelInput = container.querySelector('.gm-sp-we-city-label') as HTMLInputElement
     const latInput = container.querySelector('.gm-sp-we-lat') as HTMLInputElement
     const lonInput = container.querySelector('.gm-sp-we-lon') as HTMLInputElement
@@ -149,8 +151,8 @@ describe('createWeatherEditor', () => {
     expect(items[1].querySelector('.gm-sp-we-item-cma')!.textContent).toBe('CMA 54511')
   })
 
-  test('rejects malformed CMA station id with an error', () => {
-    mount(runtime, container)
+  test('rejects malformed CMA station id with an error', async () => {
+    await mount(runtime, container)
     const labelInput = container.querySelector('.gm-sp-we-city-label') as HTMLInputElement
     const latInput = container.querySelector('.gm-sp-we-lat') as HTMLInputElement
     const lonInput = container.querySelector('.gm-sp-we-lon') as HTMLInputElement

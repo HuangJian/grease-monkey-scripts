@@ -1,3 +1,5 @@
+import type { Runtime } from '../runtime'
+
 export const KEY_PREFIX = 'dashboard:v1'
 
 export const CACHE_KEY = (sourceId: string): string => `${KEY_PREFIX}:${sourceId}`
@@ -49,4 +51,35 @@ export type Config = {
     enabled: boolean
   }
   hostAllowlist: string[]
+}
+
+export type SourceEditorContext = {
+  runtime: Runtime
+  onRevert: () => void
+  close: () => void
+}
+
+export type SourceEditor = (
+  container: HTMLElement,
+  ctx: SourceEditorContext,
+) => void | Promise<void>
+
+export type TabLabel = { label: string; badge?: string | number | null }
+
+export type Source<T> = {
+  readonly id: string
+  readonly title: string
+  readonly ttlMs: number
+  readonly placement?: 'main' | 'side'
+  readonly groupId?: string
+  readonly order?: number
+  readonly getTabLabel?: (data: any) => TabLabel
+  fetch(runtime: Runtime, prevData?: T): Promise<T>
+  render(container: HTMLElement, data: T | null): void
+  customizeHeader?(titleContainer: HTMLElement, data: T | null): void
+  createEditor?: () => SourceEditor
+}
+
+export function resolveTtl<T>(source: Source<T>, ttlMinutes: number): number {
+  return ttlMinutes * 60_000
 }

@@ -3,13 +3,14 @@ import { htmlToElement } from '../../utils'
 import { isVeryStale } from '../cache'
 import type { CardGroup } from '../card-group'
 import type { CachedSource } from '../types'
-import { formatRelativeTime } from './render'
+import { formatRelativeTime, showEditorDialog } from './render'
 
 export type TabsCardOptions = {
   group: CardGroup
   caches: ReadonlyMap<string, CachedSource<unknown> | null>
   now: number
   runtime: Runtime
+  root: ShadowRoot
   activeTabId: string
   onTabChange: (tabId: string) => void
   onRefresh: (sourceId: string) => Promise<void>
@@ -100,15 +101,22 @@ export function renderTabsCard(container: HTMLElement, options: TabsCardOptions)
       '<button type="button" class="gm-sp-edit" aria-label="edit">⚙</button>',
     )
     const actions = header.querySelector('.gm-sp-card-actions')!
-    actions.insertBefore(editBtn, refresh)
+    actions.appendChild(editBtn)
     editBtn.addEventListener('click', () => {
-      refresh.disabled = true
-      editBtn.disabled = true
-      const body = container.querySelector('.gm-sp-card-body') as HTMLElement | null
-      if (body) {
-        const editor = activeTab.createEditor!()
-        editor(body, { runtime, onRevert: () => onEdit(activeTab.id) })
-      }
+      showEditorDialog(
+        document,
+        options.root,
+        activeTab.title,
+        runtime,
+        async (dialogBody, dialogClose) => {
+          const editor = activeTab.createEditor!()
+          await editor(dialogBody, {
+            runtime,
+            onRevert: () => onEdit(activeTab.id),
+            close: dialogClose,
+          })
+        },
+      )
     })
   }
 

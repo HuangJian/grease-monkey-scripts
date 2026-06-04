@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { JSDOM } from 'jsdom'
 import { formatRelativeTime, renderCard, renderHeader } from '../../src/dashboard/overlay/render'
-import type { Source } from '../../src/dashboard/sources/types'
+import type { Source } from '../../src/dashboard/types'
 import { CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/dashboard/types'
 import { createRuntime } from '../runtime'
 
@@ -67,11 +67,12 @@ describe('renderCard', () => {
     const dom = new JSDOM('<html><body><div id="c"></div></body></html>')
     const container = dom.window.document.getElementById('c') as HTMLElement
     const runtime = createRuntime(dom)
-    return { dom, container, runtime }
+    const root = dom.window.document.createElement('div') as unknown as ShadowRoot
+    return { dom, container, runtime, root }
   }
 
   test('renders title, data, and never shows badge for fresh data', () => {
-    const { container, runtime } = setup()
+    const { container, runtime, root } = setup()
     const source = stubSource()
     const now = 1_000_000
     renderCard(container, {
@@ -80,6 +81,7 @@ describe('renderCard', () => {
       ttlMs: 60_000,
       now,
       runtime,
+      root,
       onRefresh: () => Promise.resolve(),
       onRevert: () => {},
     })
@@ -90,7 +92,7 @@ describe('renderCard', () => {
   })
 
   test('shows stale badge when cache is very old', () => {
-    const { container, runtime } = setup()
+    const { container, runtime, root } = setup()
     const source = stubSource()
     const now = 1_000_000
     renderCard(container, {
@@ -99,6 +101,7 @@ describe('renderCard', () => {
       ttlMs: 60_000,
       now,
       runtime,
+      root,
       onRefresh: () => Promise.resolve(),
       onRevert: () => {},
     })
@@ -106,7 +109,7 @@ describe('renderCard', () => {
   })
 
   test('shows error block when cached.error is set', () => {
-    const { container, runtime } = setup()
+    const { container, runtime, root } = setup()
     const source = stubSource()
     renderCard(container, {
       source,
@@ -114,6 +117,7 @@ describe('renderCard', () => {
       ttlMs: 60_000,
       now: 1_000_000,
       runtime,
+      root,
       onRefresh: () => Promise.resolve(),
       onRevert: () => {},
     })
@@ -121,7 +125,7 @@ describe('renderCard', () => {
   })
 
   test('refresh button triggers onRefresh callback', () => {
-    const { container, runtime } = setup()
+    const { container, runtime, root } = setup()
     const source = stubSource()
     let refreshes = 0
     renderCard(container, {
@@ -130,6 +134,7 @@ describe('renderCard', () => {
       ttlMs: 60_000,
       now: 1_000_000,
       runtime,
+      root,
       onRefresh: () => {
         refreshes++
         return Promise.resolve()
@@ -144,7 +149,7 @@ describe('renderCard', () => {
   })
 
   test('refresh button removes loading class after onRefresh resolves', async () => {
-    const { container, runtime } = setup()
+    const { container, runtime, root } = setup()
     const source = stubSource()
     let resolveRefresh: () => void = () => {}
     renderCard(container, {
@@ -153,6 +158,7 @@ describe('renderCard', () => {
       ttlMs: 60_000,
       now: 1_000_000,
       runtime,
+      root,
       onRefresh: () =>
         new Promise<void>((resolve) => {
           resolveRefresh = resolve
@@ -169,7 +175,7 @@ describe('renderCard', () => {
   })
 
   test('refresh button removes loading class even when onRefresh rejects', async () => {
-    const { container, runtime } = setup()
+    const { container, runtime, root } = setup()
     const source = stubSource()
     let rejectRefresh: (e: Error) => void = () => {}
     renderCard(container, {
@@ -178,6 +184,7 @@ describe('renderCard', () => {
       ttlMs: 60_000,
       now: 1_000_000,
       runtime,
+      root,
       onRefresh: () =>
         new Promise<void>((_resolve, reject) => {
           rejectRefresh = reject
@@ -194,21 +201,22 @@ describe('renderCard', () => {
   })
 
   test('omits edit button when source has no createEditor', () => {
-    const { container, runtime } = setup()
+    const { container, runtime, root } = setup()
     renderCard(container, {
       source: stubSource(),
       cached: null,
       ttlMs: 60_000,
       now: 1_000_000,
       runtime,
+      root,
       onRefresh: () => Promise.resolve(),
       onRevert: () => {},
     })
     expect(container.querySelector('.gm-sp-edit')).toBeNull()
   })
 
-  test('shows edit button and swaps body when source has createEditor', () => {
-    const { container, runtime } = setup()
+  test('shows edit button and opens dialog when source has createEditor', () => {
+    const { container, runtime, root } = setup()
     const source: Source<{ msg: string }> = {
       id: 'edit',
       title: 'E',
@@ -221,20 +229,22 @@ describe('renderCard', () => {
         c.textContent = 'editor-body'
       },
     }
-    let reverted = 0
     renderCard(container, {
       source,
       cached: cached({ data: { msg: 'real-data' }, fetchedAt: 1_000_000 }),
       ttlMs: 60_000,
       now: 1_000_000,
       runtime,
+      root,
       onRefresh: () => Promise.resolve(),
-      onRevert: () => reverted++,
+      onRevert: () => {},
     })
     expect(container.querySelector('.gm-sp-edit')).not.toBeNull()
     expect(container.querySelector('.gm-sp-card-body')!.textContent).toBe('real-data')
     ;(container.querySelector('.gm-sp-edit') as HTMLButtonElement).click()
-    expect(container.querySelector('.gm-sp-card-body')!.textContent).toBe('editor-body')
-    expect(reverted).toBe(0)
+    expect(container.querySelector('.gm-sp-card-body')!.textContent).toBe('real-data')
+    const dialog = (root as unknown as HTMLElement).querySelector('.gm-sp-editor-dialog')
+    expect(dialog).not.toBeNull()
+    expect(dialog!.querySelector('.gm-sp-editor-dialog-body')!.textContent).toBe('editor-body')
   })
 })

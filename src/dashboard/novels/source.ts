@@ -1,11 +1,11 @@
 import type { Runtime } from '../../runtime'
-import { CACHE_KEY, CACHE_SCHEMA_VERSION } from '../types'
-import type { Source, TabLabel } from '../sources/types'
+import { CACHE_KEY, CACHE_SCHEMA_VERSION, CONFIG_KEY } from '../types'
+import type { Source, TabLabel } from '../types'
 import { createNovelsEditor } from './editor'
 import { fetchNovels } from './fetcher'
 import { renderNovels } from './render'
 import { newChapters } from './state'
-import type { NovelBook, NovelData, NovelSourceOptions } from './types'
+import type { NovelBook, NovelData, NovelEntry, NovelSourceOptions } from './types'
 
 export function createNovelsSource(
   options: NovelSourceOptions,
@@ -20,12 +20,15 @@ export function createNovelsSource(
     getTabLabel(data) {
       return novelsTabLabel(data)
     },
-    fetch(runtimeArg, prevData) {
+    async fetch(runtimeArg, prevData) {
+      const entries = await loadFreshEntries(runtimeArg, options.entries)
       const prevBooks = prevData?.books ?? []
-      return fetchNovels(runtimeArg, options.entries, prevBooks, {
+      const books = await fetchNovels(runtimeArg, entries, prevBooks, {
         initialNewChapters: options.initialNewChapters,
         maxLatestWindow: options.maxLatestWindow,
-      }).then((books) => ({ books }))
+      })
+      void persistFetchedTitles(runtimeArg, entries, books)
+      return { books }
     },
     render(container, data) {
       renderNovels(container, data, {
@@ -51,6 +54,45 @@ export function novelsTabLabel(data: NovelData | null): TabLabel {
   const books = (data?.books ?? []) as NovelBook[]
   const updated = books.filter((b) => newChapters(b).length > 0).length
   return { label: '网文更新', badge: updated > 0 ? updated : null }
+}
+
+async function loadFreshEntries(runtime: Runtime, fallback: NovelEntry[]): Promise<NovelEntry[]> {
+  try {
+    const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
+    const entries = (stored?.novels as { entries?: NovelEntry[] } | undefined)?.entries
+    if (Array.isArray(entries) && entries.length > 0) return entries
+  } catch {}
+  return fallback
+}
+
+function entryHostname(url: string): string {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return url
+  }
+}
+
+async function persistFetchedTitles(
+  runtime: Runtime,
+  entries: NovelEntry[],
+  books: NovelBook[],
+): Promise<void> {
+  const bookByUrl = new Map(books.map((b) => [b.url, b]))
+  let changed = false
+  const updated = entries.map((e) => {
+    if (e.alias) return e
+    const book = bookByUrl.get(e.url)
+    if (!book?.title || book.title === entryHostname(e.url)) return e
+    changed = true
+    return { url: e.url, alias: book.title }
+  })
+  if (!changed) return
+  const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
+  await runtime.setValue(CONFIG_KEY, {
+    ...(stored ?? {}),
+    novels: { ...((stored?.novels as Record<string, unknown>) ?? {}), entries: updated },
+  })
 }
 
 async function loadCachedTitleMap(runtime: Runtime): Promise<Map<string, string>> {

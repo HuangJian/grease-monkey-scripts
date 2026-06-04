@@ -2,7 +2,7 @@ import type { Runtime } from '../../runtime'
 import { htmlToElement } from '../../utils'
 import { validateConfig } from '../config'
 import { CONFIG_KEY } from '../types'
-import type { SourceEditor } from '../sources/types'
+import type { SourceEditor } from '../types'
 import type { WeatherCity } from './types'
 
 export type WeatherEditorOptions = {
@@ -11,20 +11,36 @@ export type WeatherEditorOptions = {
 }
 
 export function createWeatherEditor(options: WeatherEditorOptions): SourceEditor {
-  return (container, ctx) => {
-    renderWeatherEditor(container, options, ctx)
-  }
+  return (container, ctx) => renderWeatherEditor(container, options, ctx)
 }
 
-function renderWeatherEditor(
+async function loadFreshWeatherOptions(
+  runtime: Runtime,
+  fallback: WeatherEditorOptions,
+): Promise<WeatherEditorOptions> {
+  try {
+    const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
+    const weather = stored?.weather as { cities?: WeatherCity[]; ttlMinutes?: number } | undefined
+    if (weather?.cities && Array.isArray(weather.cities) && weather.cities.length > 0) {
+      return {
+        cities: weather.cities,
+        ttlMinutes:
+          typeof weather.ttlMinutes === 'number' ? weather.ttlMinutes : fallback.ttlMinutes,
+      }
+    }
+  } catch {}
+  return fallback
+}
+
+async function renderWeatherEditor(
   container: HTMLElement,
   options: WeatherEditorOptions,
-  ctx: { runtime: Runtime; onRevert: () => void },
-): void {
+  ctx: { runtime: Runtime; onRevert: () => void; close: () => void },
+): Promise<void> {
   const document = container.ownerDocument
-  container.replaceChildren()
+  const fresh = await loadFreshWeatherOptions(ctx.runtime, options)
 
-  const cities: WeatherCity[] = options.cities.map((c) => ({ ...c }))
+  const cities: WeatherCity[] = fresh.cities.map((c) => ({ ...c }))
 
   const form = htmlToElement<HTMLDivElement>(
     document,
@@ -160,7 +176,7 @@ function renderWeatherEditor(
   })
 
   cancelBtn.addEventListener('click', () => {
-    ctx.onRevert()
+    ctx.close()
   })
 
   saveBtn.addEventListener('click', () => {
@@ -169,15 +185,17 @@ function renderWeatherEditor(
       showError('至少保留一个城市')
       return
     }
-    const patch = { weather: { cities, ttlMinutes: options.ttlMinutes } }
+    const patch = { weather: { cities, ttlMinutes: fresh.ttlMinutes } }
     const validation = validateConfig(patch)
     if (!validation.ok) {
       showError(validation.error)
       return
     }
-    const result = ctx.runtime.setValue(CONFIG_KEY, patch)
+    const result = ctx.runtime.getValue(CONFIG_KEY, null).then((existing) => {
+      return ctx.runtime.setValue(CONFIG_KEY, { ...(existing ?? {}), ...patch })
+    })
     Promise.resolve(result).then(() => {
-      ctx.runtime.location.reload()
+      ctx.close()
     })
   })
 

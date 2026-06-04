@@ -1,5 +1,5 @@
 import type { Runtime } from '../../runtime'
-import type { Source } from '../sources/types'
+import type { Source } from '../types'
 import type { CachedSource } from '../types'
 import { htmlToElement } from '../../utils'
 import { isVeryStale } from '../cache'
@@ -10,8 +10,64 @@ export type CardOptions<T> = {
   ttlMs: number
   now: number
   runtime: Runtime
+  root: ShadowRoot
   onRefresh: () => Promise<void>
   onRevert: () => void
+}
+
+export function showEditorDialog(
+  document: Document,
+  root: ShadowRoot,
+  title: string,
+  runtime: Runtime,
+  renderEditor: (container: HTMLElement, close: () => void) => void,
+): () => void {
+  const backdrop = htmlToElement<HTMLDivElement>(
+    document,
+    `<div class="gm-sp-editor-dialog">
+      <div class="gm-sp-editor-dialog-panel">
+        <div class="gm-sp-editor-dialog-header">
+          <span class="gm-sp-editor-dialog-title"></span>
+          <button type="button" class="gm-sp-editor-dialog-close" aria-label="close">×</button>
+        </div>
+        <div class="gm-sp-editor-dialog-body"></div>
+      </div>
+    </div>`,
+  )
+
+  const panel = backdrop.querySelector('.gm-sp-editor-dialog-panel') as HTMLDivElement
+  const titleEl = backdrop.querySelector('.gm-sp-editor-dialog-title') as HTMLSpanElement
+  const closeBtn = backdrop.querySelector('.gm-sp-editor-dialog-close') as HTMLButtonElement
+  const body = backdrop.querySelector('.gm-sp-editor-dialog-body') as HTMLDivElement
+
+  titleEl.textContent = title
+
+  function close(): void {
+    backdrop.remove()
+  }
+
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) close()
+  })
+  closeBtn.addEventListener('click', close)
+  const onKeydown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation()
+      close()
+    }
+  }
+  document.addEventListener('keydown', onKeydown, { capture: true })
+
+  const origRemove = backdrop.remove.bind(backdrop)
+  backdrop.remove = () => {
+    document.removeEventListener('keydown', onKeydown, { capture: true })
+    origRemove()
+  }
+
+  renderEditor(body, close)
+  root.appendChild(backdrop)
+  panel.focus()
+  return close
 }
 
 export function renderHeader(modal: HTMLElement, options: { onClose: () => void }): void {
@@ -78,13 +134,16 @@ export function renderCard<T>(container: HTMLElement, options: CardOptions<T>): 
   if (source.createEditor) {
     const edit = header.querySelector('.gm-sp-edit') as HTMLButtonElement
     edit.addEventListener('click', () => {
-      refresh.disabled = true
-      edit.disabled = true
-      const body = container.querySelector('.gm-sp-card-body') as HTMLElement | null
-      if (body) {
-        const editor = source.createEditor!()
-        editor(body, { runtime, onRevert })
-      }
+      showEditorDialog(
+        document,
+        options.root,
+        source.title,
+        runtime,
+        async (dialogBody, dialogClose) => {
+          const editor = source.createEditor!()
+          await editor(dialogBody, { runtime, onRevert, close: dialogClose })
+        },
+      )
     })
   }
   container.appendChild(header)

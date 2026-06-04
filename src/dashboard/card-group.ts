@@ -1,4 +1,4 @@
-import type { Source } from './sources/types'
+import type { Source } from './types'
 
 export type CardGroup = {
   id: string

@@ -1,6 +1,7 @@
 import type { Runtime } from '../../runtime'
 import { htmlToDocument, htmlToElement, toAbsoluteUrl } from '../../utils'
-import type { Source } from './types'
+import type { Source } from '../types'
+import { createV2exEditor } from './editor'
 
 export type V2exSource = 'api' | 'page'
 
@@ -58,6 +59,9 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
     },
     render(container, data) {
       renderV2ex(container, data)
+    },
+    createEditor() {
+      return createV2exEditor(options)
     },
   }
 }

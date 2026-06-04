@@ -4,7 +4,7 @@ import { renderTabsCard } from '../../src/dashboard/overlay/tabs-render'
 import type { CardGroup } from '../../src/dashboard/card-group'
 import { CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/dashboard/types'
 import { createRuntime } from '../runtime'
-import type { Source, TabLabel } from '../../src/dashboard/sources/types'
+import type { Source, TabLabel } from '../../src/dashboard/types'
 
 function cached<T>(data: T | null, fetchedAt = 1_000_000, error?: string): CachedSource<T> {
   const out: CachedSource<T> = { schemaVersion: CACHE_SCHEMA_VERSION, byteSize: 0, fetchedAt }
@@ -39,7 +39,8 @@ function setup() {
   const dom = new JSDOM('<html><body><div id="c"></div></body></html>')
   const container = dom.window.document.getElementById('c') as HTMLElement
   const runtime = createRuntime(dom)
-  return { dom, container, runtime }
+  const root = dom.window.document.createElement('div') as unknown as ShadowRoot
+  return { dom, container, runtime, root }
 }
 
 function browseGroup(tabs: Source<unknown>[]): CardGroup {
@@ -49,6 +50,7 @@ function browseGroup(tabs: Source<unknown>[]): CardGroup {
 function renderOnce(opts: {
   container: HTMLElement
   runtime: ReturnType<typeof createRuntime>
+  root: ShadowRoot
   group: CardGroup
   caches: Map<string, CachedSource<unknown> | null>
   activeTabId: string
@@ -65,6 +67,7 @@ function renderOnce(opts: {
     caches: opts.caches,
     now: opts.now ?? 1_000_000,
     runtime: opts.runtime,
+    root: opts.root,
     activeTabId: opts.activeTabId,
     onTabChange: (id) => {
       tabChanges.push(id)
@@ -84,11 +87,11 @@ function renderOnce(opts: {
 
 describe('renderTabsCard', () => {
   test('sets data-source to group id and renders one tab per source', () => {
-    const { container, runtime } = setup()
+    const { container, runtime, root } = setup()
     const v2ex = makeSource({ id: 'v2ex', title: 'V2EX 热议' })
     const novels = makeSource({ id: 'novels', title: '网文更新' })
     const group: CardGroup = browseGroup([v2ex, novels])
-    renderOnce({ container, runtime, group, caches: new Map(), activeTabId: 'v2ex' })
+    renderOnce({ container, runtime, root, group, caches: new Map(), activeTabId: 'v2ex' })
     expect(container.dataset['source']).toBe('browse')
     const tabs = container.querySelectorAll('.gm-sp-tab')
     expect(tabs.length).toBe(2)
@@ -97,7 +100,7 @@ describe('renderTabsCard', () => {
   })
 
   test('marks the active tab and shows only the active panel by default', () => {
-    const { container, runtime } = setup()
+    const { container, runtime, root } = setup()
     const v2ex = makeSource({
       id: 'v2ex',
       title: 'V2EX 热议',
@@ -113,8 +116,10 @@ describe('renderTabsCard', () => {
       },
     })
     const group: CardGroup = browseGroup([v2ex, novels])
-    renderOnce({ container, runtime, group, caches: new Map(), activeTabId: 'v2ex' })
-    expect((container.querySelector('.gm-sp-tab-active') as HTMLElement).dataset['tabId']).toBe('v2ex')
+    renderOnce({ container, runtime, root, group, caches: new Map(), activeTabId: 'v2ex' })
+    expect((container.querySelector('.gm-sp-tab-active') as HTMLElement).dataset['tabId']).toBe(
+      'v2ex',
+    )
     const panels = container.querySelectorAll('.gm-sp-tab-panel')
     expect(panels.length).toBe(2)
     expect(panels[0]!.classList.contains('gm-sp-tab-panel-active')).toBe(true)
@@ -122,13 +127,14 @@ describe('renderTabsCard', () => {
   })
 
   test('clicking a tab fires onTabChange', () => {
-    const { container, runtime } = setup()
+    const { container, runtime, root } = setup()
     const v2ex = makeSource({ id: 'v2ex', title: 'V2EX 热议' })
     const novels = makeSource({ id: 'novels', title: '网文更新' })
     const group: CardGroup = browseGroup([v2ex, novels])
     const { tabChanges } = renderOnce({
       container,
       runtime,
+      root,
       group,
       caches: new Map(),
       activeTabId: 'v2ex',
@@ -138,7 +144,7 @@ describe('renderTabsCard', () => {
   })
 
   test('shows badge when getTabLabel returns one, hides otherwise', () => {
-    const { container, runtime } = setup()
+    const { container, runtime, root } = setup()
     const v2ex = makeSource({ id: 'v2ex', title: 'V2EX 热议' })
     const novels = makeSource({
       id: 'novels',
@@ -153,7 +159,7 @@ describe('renderTabsCard', () => {
       ['v2ex', null],
       ['novels', cached({ books: [{ hasNew: true }, { hasNew: false }, { hasNew: true }] })],
     ])
-    renderOnce({ container, runtime, group, caches, activeTabId: 'v2ex' })
+    renderOnce({ container, runtime, root, group, caches, activeTabId: 'v2ex' })
     const novelTab = container.querySelectorAll('.gm-sp-tab')[1]!
     const badge = novelTab.querySelector('.gm-sp-tab-badge') as HTMLElement
     expect(badge.hidden).toBe(false)
@@ -161,7 +167,7 @@ describe('renderTabsCard', () => {
   })
 
   test('hides badge when count is zero', () => {
-    const { container, runtime } = setup()
+    const { container, runtime, root } = setup()
     const v2ex = makeSource({ id: 'v2ex', title: 'V2EX 热议' })
     const novels = makeSource({
       id: 'novels',
@@ -176,7 +182,7 @@ describe('renderTabsCard', () => {
       ['v2ex', null],
       ['novels', cached({ books: [{ hasNew: false }] })],
     ])
-    renderOnce({ container, runtime, group, caches, activeTabId: 'v2ex' })
+    renderOnce({ container, runtime, root, group, caches, activeTabId: 'v2ex' })
     const badge = container
       .querySelectorAll('.gm-sp-tab')[1]!
       .querySelector('.gm-sp-tab-badge') as HTMLElement
@@ -184,13 +190,14 @@ describe('renderTabsCard', () => {
   })
 
   test('clicking refresh fires onRefresh for the active tab', () => {
-    const { container, runtime } = setup()
+    const { container, runtime, root } = setup()
     const v2ex = makeSource({ id: 'v2ex', title: 'V2EX 热议' })
     const novels = makeSource({ id: 'novels', title: '网文更新' })
     const group: CardGroup = browseGroup([v2ex, novels])
     const { refreshes } = renderOnce({
       container,
       runtime,
+      root,
       group,
       caches: new Map(),
       activeTabId: 'novels',
@@ -200,7 +207,7 @@ describe('renderTabsCard', () => {
   })
 
   test('renders each tab body with its own data', () => {
-    const { container, runtime } = setup()
+    const { container, runtime, root } = setup()
     const v2ex = makeSource({
       id: 'v2ex',
       title: 'V2EX 热议',
@@ -220,14 +227,14 @@ describe('renderTabsCard', () => {
       ['v2ex', cached({ n: 1 })],
       ['novels', cached({ n: 2 })],
     ])
-    renderOnce({ container, runtime, group, caches, activeTabId: 'v2ex' })
+    renderOnce({ container, runtime, root, group, caches, activeTabId: 'v2ex' })
     const panels = container.querySelectorAll('.gm-sp-tab-panel')
     expect(panels[0]!.textContent).toBe('v:1')
     expect(panels[1]!.textContent).toBe('n:2')
   })
 
   test('shows edit button only when active tab has createEditor', () => {
-    const { container, runtime } = setup()
+    const { container, runtime, root } = setup()
     const v2ex = makeSource({ id: 'v2ex', title: 'V2EX 热议' })
     const novels = makeSource({
       id: 'novels',
@@ -237,13 +244,14 @@ describe('renderTabsCard', () => {
       },
     })
     const group: CardGroup = browseGroup([v2ex, novels])
-    renderOnce({ container, runtime, group, caches: new Map(), activeTabId: 'v2ex' })
+    renderOnce({ container, runtime, root, group, caches: new Map(), activeTabId: 'v2ex' })
     expect(container.querySelector('.gm-sp-edit')).toBeNull()
     renderTabsCard(container, {
       group,
       caches: new Map(),
       now: 1_000_000,
       runtime,
+      root,
       activeTabId: 'novels',
       onTabChange: () => {},
       onRefresh: async () => {},
@@ -253,7 +261,7 @@ describe('renderTabsCard', () => {
   })
 
   test('shows error from the active tab cache', () => {
-    const { container, runtime } = setup()
+    const { container, runtime, root } = setup()
     const v2ex = makeSource({ id: 'v2ex', title: 'V2EX 热议' })
     const novels = makeSource({ id: 'novels', title: '网文更新' })
     const group: CardGroup = browseGroup([v2ex, novels])
@@ -261,12 +269,12 @@ describe('renderTabsCard', () => {
       ['v2ex', null],
       ['novels', cached(null, 1, 'network error')],
     ])
-    renderOnce({ container, runtime, group, caches, activeTabId: 'novels' })
+    renderOnce({ container, runtime, root, group, caches, activeTabId: 'novels' })
     expect(container.querySelector('.gm-sp-error')!.textContent).toBe('network error')
   })
 
-  test('clicking edit swaps body to the editor; editor.onRevert fires onEdit', () => {
-    const { container, runtime } = setup()
+  test('clicking edit opens dialog with editor; editor.onRevert fires onEdit', () => {
+    const { container, runtime, root } = setup()
     const v2ex = makeSource({ id: 'v2ex', title: 'V2EX 热议' })
     let captured: { onRevert: () => void } | null = null
     const novels = makeSource({
@@ -281,6 +289,7 @@ describe('renderTabsCard', () => {
     const { edits } = renderOnce({
       container,
       runtime,
+      root,
       group,
       caches: new Map(),
       activeTabId: 'novels',
@@ -288,7 +297,10 @@ describe('renderTabsCard', () => {
     const body = container.querySelector('.gm-sp-card-body')!
     expect(body.textContent).not.toBe('editor')
     ;(container.querySelector('.gm-sp-edit') as HTMLButtonElement).click()
-    expect(body.textContent).toBe('editor')
+    expect(body.textContent).not.toBe('editor')
+    const dialog = (root as unknown as HTMLElement).querySelector('.gm-sp-editor-dialog')
+    expect(dialog).not.toBeNull()
+    expect(dialog!.querySelector('.gm-sp-editor-dialog-body')!.textContent).toBe('editor')
     expect(edits).toEqual([])
     captured!.onRevert()
     expect(edits).toEqual(['novels'])
