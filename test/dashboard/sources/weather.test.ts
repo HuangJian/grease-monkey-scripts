@@ -16,9 +16,11 @@ import {
   weatherCodeIcon,
   windDirectionArrow,
 } from '../../../src/dashboard/weather'
+import { CONFIG_KEY } from '../../../src/dashboard/types'
 import type { WeatherCity } from '../../../src/dashboard/weather/types'
 import type { Runtime, RequestDetails } from '../../../src/runtime'
 import { createRuntime } from '../../runtime'
+import type { TestRuntime } from '../../runtime'
 
 const FIXTURE = {
   latitude: 39.9,
@@ -320,6 +322,36 @@ describe('createWeatherSource', () => {
       ttlMinutes: 60,
     })
     expect(source.placement).toBe('side')
+  })
+
+  test('fetch reads cities from storage over options.cities', async () => {
+    const dom = new JSDOM('<html></html>')
+    const runtime = createRuntime(dom) as TestRuntime
+    const omBody = JSON.stringify(FIXTURE)
+    const aqBody = JSON.stringify(AIR_QUALITY)
+    runtime.queueResponse(
+      'https://api.open-meteo.com/v1/forecast?latitude=31.2&longitude=121.5&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&hourly=temperature_2m,weather_code,precipitation_probability&timezone=auto&forecast_days=3',
+      omBody,
+    )
+    runtime.queueResponse(
+      'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=31.2&longitude=121.5&current=us_aqi,pm2_5,pm10&timezone=auto',
+      aqBody,
+    )
+    runtime.stores[CONFIG_KEY] = {
+      weather: {
+        cities: [{ latitude: 31.2, longitude: 121.5, cityLabel: '上海' }],
+        ttlMinutes: 60,
+      },
+    }
+    const source = createWeatherSource({
+      cities: [{ latitude: 39.9, longitude: 116.4, cityLabel: '北京' }],
+      ttlMinutes: 60,
+    })
+    const result = await source.fetch(runtime)
+    expect(result.entries).toHaveLength(1)
+    if (result.entries[0]!.status === 'ok') {
+      expect(result.entries[0]!.cityLabel).toBe('上海')
+    }
   })
 })
 
