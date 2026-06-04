@@ -3,11 +3,13 @@ import { isStale, loadCache, saveCache } from './cache'
 import { tryAcquireLock } from './lock'
 import { mountOverlay, type OverlayHandle } from './overlay/mount'
 import { renderCard, renderHeader } from './overlay/render'
+import { renderTabsCard } from './overlay/tabs-render'
 import { createDoubleShiftHandler, isEditableTarget } from './shortcut'
 import { createV2exSource } from './sources/v2ex'
 import { createWeatherSource } from './weather'
 import { createNovelsSource } from './novels'
 import type { Source } from './sources/types'
+import { buildCardGroups, type CardGroup } from './card-group'
 import { CACHE_KEY, type CachedSource, type Config } from './types'
 import { defaultConfigExample, deepMerge, loadConfig, validateConfig } from './config'
 
@@ -36,6 +38,16 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     createWeatherSource(options.config.weather),
     createNovelsSource(options.config.novels, runtime),
   ]
+  const cardGroups = buildCardGroups(sources)
+  const groupById = new Map<string, CardGroup>()
+  const groupForSource = new Map<string, CardGroup>()
+  for (const group of cardGroups) {
+    groupById.set(group.id, group)
+    for (const tab of group.tabs) {
+      groupForSource.set(tab.id, group)
+    }
+  }
+  const activeTabByGroup = new Map<string, string>()
   let handle: OverlayHandle | null = null
   let mountedUnmount: (() => void) | null = null
 
@@ -43,69 +55,80 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     return sources.find((s) => s.id === id)
   }
 
-  function cardForSource(root: ShadowRoot, sourceId: string): HTMLElement | null {
-    return root.querySelector<HTMLElement>(`[data-source="${sourceId}"]`)
+  function cardForGroup(root: ShadowRoot, groupId: string): HTMLElement | null {
+    return root.querySelector<HTMLElement>(`[data-source="${groupId}"]`)
   }
 
-  function placementFor(source: Source<unknown>): 'main' | 'side' {
-    return source.placement === 'side' ? 'side' : 'main'
+  function isTabsGroup(group: CardGroup): boolean {
+    return group.tabs.length > 1
   }
 
-  async function readAllCaches(): Promise<Map<string, CachedSource<unknown> | null>> {
+  async function readGroupCaches(
+    group: CardGroup,
+  ): Promise<Map<string, CachedSource<unknown> | null>> {
     const map = new Map<string, CachedSource<unknown> | null>()
     await Promise.all(
-      sources.map(async (s) => {
-        map.set(s.id, await loadCache<unknown>(runtime, s.id))
+      group.tabs.map(async (tab) => {
+        map.set(tab.id, await loadCache<unknown>(runtime, tab.id))
       }),
     )
     return map
   }
 
-  function revertCard(sourceId: string): void {
+  function revertGroup(groupId: string): void {
     if (!handle) return
-    const source = findSource(sourceId)
-    if (!source) return
-    void loadCache<unknown>(runtime, sourceId).then((cached) => {
-      renderCardById(sourceId, cached, Date.now())
-    })
+    const group = groupById.get(groupId)
+    if (!group) return
+    void renderGroupById(groupId)
   }
 
-  function renderAllCards(caches: Map<string, CachedSource<unknown> | null>, now: number): void {
+  async function renderAllGroups(now: number): Promise<void> {
     if (!handle) return
-    for (const source of sources) {
-      const card = cardForSource(handle.root, source.id)
-      if (!card) continue
+    await Promise.all(cardGroups.map((group) => renderGroup(group, now)))
+  }
+
+  async function renderGroup(group: CardGroup, now: number): Promise<void> {
+    if (!handle) return
+    const card = cardForGroup(handle.root, group.id)
+    if (!card) return
+    const caches = await readGroupCaches(group)
+    const activeTabId = activeTabByGroup.get(group.id) ?? group.tabs[0]!.id
+    if (isTabsGroup(group)) {
+      renderTabsCard(card, {
+        group,
+        caches,
+        now,
+        runtime,
+        activeTabId,
+        onTabChange: (tabId) => {
+          activeTabByGroup.set(group.id, tabId)
+          void renderGroupById(group.id)
+        },
+        onRefresh: (sourceId) => dashboard.refreshSource(sourceId),
+        onEdit: (sourceId) => {
+          void renderGroupById(groupForSource.get(sourceId)?.id ?? group.id)
+        },
+      })
+    } else {
+      const source = group.tabs[0]!
+      const cached = caches.get(source.id) ?? null
       renderCard(card, {
         source,
-        cached: caches.get(source.id) ?? null,
+        cached,
         ttlMs: source.ttlMs,
         now,
         runtime,
         onRefresh: () => dashboard.refreshSource(source.id),
-        onRevert: () => revertCard(source.id),
+        onRevert: () => revertGroup(group.id),
       })
     }
   }
 
-  function renderCardById(
-    sourceId: string,
-    cached: CachedSource<unknown> | null,
-    now: number,
-  ): void {
+  async function renderGroupById(groupId: string): Promise<void> {
     if (!handle) return
-    const source = findSource(sourceId)
-    if (!source) return
-    const card = cardForSource(handle.root, sourceId)
-    if (!card) return
-    renderCard(card, {
-      source,
-      cached,
-      ttlMs: source.ttlMs,
-      now,
-      runtime,
-      onRefresh: () => dashboard.refreshSource(sourceId),
-      onRevert: () => revertCard(sourceId),
-    })
+    const group = groupById.get(groupId)
+    if (!group) return
+    await renderGroup(group, Date.now())
   }
 
   async function refreshSource(sourceId: string): Promise<void> {
@@ -136,7 +159,10 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
       }
       await saveCache(runtime, sourceId, next)
     }
-    renderCardById(sourceId, await loadCache<unknown>(runtime, sourceId), Date.now())
+    const group = groupForSource.get(sourceId)
+    if (group) {
+      await renderGroupById(group.id)
+    }
   }
 
   async function runOpportunisticRefresh(): Promise<void> {
@@ -169,27 +195,49 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
       runtime.document.removeEventListener('keydown', onKeydown, { capture: true })
       newHandle.unmount()
     }
-    for (const source of sources) {
+    const now = Date.now()
+    for (const group of cardGroups) {
       const card = runtime.document.createElement('div')
       card.className = 'gm-sp-card'
-      const container = placementFor(source) === 'side' ? newHandle.sideCards : newHandle.mainCards
+      const container = group.placement === 'side' ? newHandle.sideCards : newHandle.mainCards
       container.appendChild(card)
-      renderCard(card, {
-        source,
-        cached: null,
-        ttlMs: source.ttlMs,
-        now: Date.now(),
-        runtime,
-        onRefresh: () => dashboard.refreshSource(source.id),
-        onRevert: () => revertCard(source.id),
-      })
+      if (isTabsGroup(group)) {
+        const activeTabId = activeTabByGroup.get(group.id) ?? group.tabs[0]!.id
+        const emptyCaches = new Map<string, CachedSource<unknown> | null>()
+        for (const tab of group.tabs) emptyCaches.set(tab.id, null)
+        renderTabsCard(card, {
+          group,
+          caches: emptyCaches,
+          now,
+          runtime,
+          activeTabId,
+          onTabChange: (tabId) => {
+            activeTabByGroup.set(group.id, tabId)
+            void renderGroupById(group.id)
+          },
+          onRefresh: (sourceId) => dashboard.refreshSource(sourceId),
+          onEdit: (sourceId) => {
+            void renderGroupById(groupForSource.get(sourceId)?.id ?? group.id)
+          },
+        })
+      } else {
+        const source = group.tabs[0]!
+        renderCard(card, {
+          source,
+          cached: null,
+          ttlMs: source.ttlMs,
+          now,
+          runtime,
+          onRefresh: () => dashboard.refreshSource(source.id),
+          onRevert: () => revertGroup(group.id),
+        })
+      }
     }
   }
 
   async function open(): Promise<void> {
     mount()
-    const caches = await readAllCaches()
-    renderAllCards(caches, Date.now())
+    await renderAllGroups(Date.now())
     void runOpportunisticRefresh()
   }
 
@@ -248,9 +296,11 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
       })
       runtime.registerMenuCommand('编辑仪表盘配置', () => dashboard.editConfig())
       for (const source of sources) {
-        runtime.addValueChangeListener(CACHE_KEY(source.id), (_key, _oldValue, newValue) => {
+        runtime.addValueChangeListener(CACHE_KEY(source.id), (_key, _oldValue, _newValue) => {
           if (!handle) return
-          renderCardById(source.id, (newValue as CachedSource<unknown> | null) ?? null, Date.now())
+          const group = groupForSource.get(source.id)
+          if (!group) return
+          void renderGroupById(group.id)
         })
       }
       if (

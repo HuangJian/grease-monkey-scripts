@@ -7,11 +7,16 @@ export type SourceEditorContext = {
 
 export type SourceEditor = (container: HTMLElement, ctx: SourceEditorContext) => void
 
+export type TabLabel = { label: string; badge?: string | number | null }
+
 export type Source<T> = {
   readonly id: string
   readonly title: string
   readonly ttlMs: number
   readonly placement?: 'main' | 'side'
+  readonly groupId?: string
+  readonly order?: number
+  readonly getTabLabel?: (data: any) => TabLabel
   fetch(runtime: Runtime, prevData?: T): Promise<T>
   render(container: HTMLElement, data: T | null): void
   customizeHeader?(titleContainer: HTMLElement, data: T | null): void

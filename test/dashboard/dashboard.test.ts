@@ -48,10 +48,10 @@ describe('createDashboard', () => {
     const shadow = shadowOf(dom)
     expect(shadow.querySelector('.gm-sp-header')).not.toBeNull()
     const cards = shadow.querySelectorAll('.gm-sp-card')
-    expect(cards.length).toBe(3)
+    expect(cards.length).toBe(2)
   })
 
-  test('open() renders cached data into cards', async () => {
+  test('open() renders cached v2ex data into the browse card v2ex panel', async () => {
     const v2exCache: CachedSource<unknown> = {
       schemaVersion: CACHE_SCHEMA_VERSION,
       data: [
@@ -72,8 +72,53 @@ describe('createDashboard', () => {
     dashboard.start()
     await dashboard.open()
     const shadow = shadowOf(dom)
-    const v2exCard = shadow.querySelector('[data-source="v2ex"]') as HTMLElement
-    expect(v2exCard.querySelector('.gm-sp-v2ex-title')!.textContent).toBe('cached')
+    const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
+    const v2exPanel = browseCard.querySelector(
+      '.gm-sp-tab-panel[data-tab-id="v2ex"]',
+    ) as HTMLElement
+    expect(v2exPanel.querySelector('.gm-sp-v2ex-title')!.textContent).toBe('cached')
+  })
+
+  test('browse card defaults to v2ex tab and shows a badge on novels tab when books have updates', async () => {
+    const novelsCache: CachedSource<unknown> = {
+      schemaVersion: CACHE_SCHEMA_VERSION,
+      data: {
+        books: [
+          {
+            url: 'https://example.com/a',
+            siteId: 'sudugu',
+            title: 'A',
+            latestChapters: [{ url: 'c1', title: 'c1', postedAt: Date.now() }],
+            fetchedAt: Date.now(),
+          },
+        ],
+      },
+      fetchedAt: Date.now(),
+      byteSize: 100,
+    }
+    runtime.stores[CACHE_KEY('novels')] = novelsCache
+    const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
+    dashboard.start()
+    await dashboard.open()
+    const shadow = shadowOf(dom)
+    const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
+    const tabs = browseCard.querySelectorAll('.gm-sp-tab')
+    expect(tabs[0]!.classList.contains('gm-sp-tab-active')).toBe(true)
+    const badge = tabs[1]!.querySelector('.gm-sp-tab-badge') as HTMLElement
+    expect(badge.hidden).toBe(false)
+    expect(badge.textContent).toBe('1')
+  })
+
+  test('clicking the novels tab activates its panel', async () => {
+    const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
+    dashboard.start()
+    await dashboard.open()
+    const shadow = shadowOf(dom)
+    const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
+    ;(browseCard.querySelectorAll('.gm-sp-tab')[1] as HTMLButtonElement).click()
+    await new Promise((r) => setTimeout(r, 0))
+    const panels = browseCard.querySelectorAll('.gm-sp-tab-panel')
+    expect(panels[1]!.classList.contains('gm-sp-tab-panel-active')).toBe(true)
   })
 
   test('close() removes the host element', async () => {
@@ -113,9 +158,13 @@ describe('createDashboard', () => {
       byteSize: 100,
     }
     runtime.simulateRemoteChange(CACHE_KEY('v2ex'), newCache)
+    await new Promise((r) => setTimeout(r, 0))
     const shadow = shadowOf(dom)
-    const v2exCard = shadow.querySelector('[data-source="v2ex"]') as HTMLElement
-    expect(v2exCard.querySelector('.gm-sp-v2ex-title')!.textContent).toBe('live-update')
+    const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
+    const v2exPanel = browseCard.querySelector(
+      '.gm-sp-tab-panel[data-tab-id="v2ex"]',
+    ) as HTMLElement
+    expect(v2exPanel.querySelector('.gm-sp-v2ex-title')!.textContent).toBe('live-update')
   })
 
   test('refreshSource acquires lock, fetches, persists cache', async () => {
@@ -171,8 +220,11 @@ describe('createDashboard', () => {
     await dashboard.open()
     await dashboard.refreshSource('v2ex')
     const shadow = shadowOf(dom)
-    const v2exCard = shadow.querySelector('[data-source="v2ex"]') as HTMLElement
-    expect(v2exCard.querySelector('.gm-sp-empty')!.textContent).toBe('暂无数据')
+    const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
+    const v2exPanel = browseCard.querySelector(
+      '.gm-sp-tab-panel[data-tab-id="v2ex"]',
+    ) as HTMLElement
+    expect(v2exPanel.querySelector('.gm-sp-empty')!.textContent).toBe('暂无数据')
   })
 
   test('refreshSource skips fetch when lock is held', async () => {

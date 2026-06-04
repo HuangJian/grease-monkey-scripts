@@ -61,8 +61,10 @@ describe('cross-tab broadcast', () => {
     // refreshSource) must not fire it. We assert the card updates *anyway*
     // because refreshSource re-renders explicitly.
     await dashboard.refreshSource('v2ex')
-    const v2exCard = shadow.querySelector('[data-source="v2ex"]') as HTMLElement
-    expect(v2exCard.querySelector('.gm-sp-empty')!.textContent).toBe('暂无数据')
+    const v2exPanel = shadow.querySelector(
+      '[data-source="browse"] .gm-sp-tab-panel[data-tab-id="v2ex"]',
+    ) as HTMLElement
+    expect(v2exPanel.querySelector('.gm-sp-empty')!.textContent).toBe('暂无数据')
   })
 
   test('remote change from another tab re-renders the open card', async () => {
@@ -84,9 +86,12 @@ describe('cross-tab broadcast', () => {
       byteSize: 200,
     }
     runtime.simulateRemoteChange(CACHE_KEY('v2ex'), newCache)
+    await new Promise((r) => setTimeout(r, 0))
     const shadow = shadowOf(dom)
-    const v2exCard = shadow.querySelector('[data-source="v2ex"]') as HTMLElement
-    expect(v2exCard.querySelector('.gm-sp-v2ex-title')!.textContent).toBe('from-other-tab')
+    const v2exPanel = shadow.querySelector(
+      '[data-source="browse"] .gm-sp-tab-panel[data-tab-id="v2ex"]',
+    ) as HTMLElement
+    expect(v2exPanel.querySelector('.gm-sp-v2ex-title')!.textContent).toBe('from-other-tab')
   })
 
   test('remote change while overlay closed is a no-op (no crash)', () => {

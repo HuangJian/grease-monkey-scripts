@@ -291,6 +291,75 @@
   padding: 6px 10px 8px;
 }
 
+.gm-sp-card[data-source='browse'] .gm-sp-card-body {
+  padding: 6px 10px 8px;
+}
+
+.gm-sp-tabs {
+  display: flex;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.gm-sp-tab {
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  white-space: nowrap;
+  line-height: 1.4;
+  flex: 0 0 auto;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gm-sp-tab:hover {
+  color: #1f2328;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.gm-sp-tab-active {
+  color: #1f2328;
+  background: #ffffff;
+}
+
+.gm-sp-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.gm-sp-tab-badge[hidden] {
+  display: none;
+}
+
+.gm-sp-tab-panel {
+  display: none;
+}
+
+.gm-sp-tab-panel-active {
+  display: block;
+}
+
 .gm-sp-weather {
   display: flex;
   flex-direction: column;
@@ -734,6 +803,17 @@
     background: rgba(255, 255, 255, 0.06);
   }
   .gm-sp-weather-tab-active {
+    color: #e5e7eb;
+    background: #374151;
+  }
+  .gm-sp-tab {
+    color: #9ca3af;
+  }
+  .gm-sp-tab:hover {
+    color: #e5e7eb;
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .gm-sp-tab-active {
     color: #e5e7eb;
     background: #374151;
   }

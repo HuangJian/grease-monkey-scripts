@@ -1,10 +1,11 @@
 import type { Runtime } from '../../runtime'
 import { CACHE_KEY, CACHE_SCHEMA_VERSION } from '../types'
-import type { Source } from '../sources/types'
+import type { Source, TabLabel } from '../sources/types'
 import { createNovelsEditor } from './editor'
 import { fetchNovels } from './fetcher'
 import { renderNovels } from './render'
-import type { NovelData, NovelSourceOptions } from './types'
+import { newChapters } from './state'
+import type { NovelBook, NovelData, NovelSourceOptions } from './types'
 
 export function createNovelsSource(
   options: NovelSourceOptions,
@@ -14,6 +15,11 @@ export function createNovelsSource(
     id: 'novels',
     title: '网文更新',
     ttlMs: options.ttlMinutes * 60_000,
+    groupId: 'browse',
+    order: 1,
+    getTabLabel(data) {
+      return novelsTabLabel(data)
+    },
     fetch(runtimeArg, prevData) {
       const prevBooks = prevData?.books ?? []
       return fetchNovels(runtimeArg, options.entries, prevBooks, {
@@ -39,6 +45,12 @@ export function createNovelsSource(
       })
     },
   }
+}
+
+export function novelsTabLabel(data: NovelData | null): TabLabel {
+  const books = (data?.books ?? []) as NovelBook[]
+  const updated = books.filter((b) => newChapters(b).length > 0).length
+  return { label: '网文更新', badge: updated > 0 ? updated : null }
 }
 
 async function loadCachedTitleMap(runtime: Runtime): Promise<Map<string, string>> {

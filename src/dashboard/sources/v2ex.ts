@@ -39,6 +39,8 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
     id: 'v2ex',
     title: 'V2EX 热议',
     ttlMs: options.ttlMinutes * 60_000,
+    groupId: 'browse',
+    order: 0,
     fetch(runtime, _prevData) {
       const fetchCap = Math.max(options.maxItems, FETCH_CAP_FLOOR)
       return fetchV2ex(
