@@ -27,8 +27,15 @@ export function renderNovels(
     return
   }
 
+  const sorted = [...books].sort((a, b) => {
+    const aRead = newChapters(a).length === 0
+    const bRead = newChapters(b).length === 0
+    if (aRead && !bRead) return 1
+    if (!aRead && bRead) return -1
+    return 0
+  })
   const wrap = htmlToElement<HTMLDivElement>(document, '<div class="gm-sp-novels"></div>')
-  for (const book of books) {
+  for (const book of sorted) {
     wrap.appendChild(buildBookBlock(document, book, ctx))
   }
   container.appendChild(wrap)
@@ -81,7 +88,17 @@ function buildBookBlock(
   const unread = newChapters(book)
   if (unread.length === 0) {
     statusEl.textContent = '无更新'
-    block.appendChild(buildNote(document, 'gm-sp-novels-book-note', '暂无新章节'))
+    if (book.latestChapters.length > 0) {
+      const latest = book.latestChapters[0]
+      const list = htmlToElement<HTMLUListElement>(
+        document,
+        '<ul class="gm-sp-novels-chapters"></ul>',
+      )
+      list.appendChild(buildReadChapterItem(document, latest, book))
+      block.appendChild(list)
+    } else {
+      block.appendChild(buildNote(document, 'gm-sp-novels-book-note', '暂无新章节'))
+    }
     return block
   }
 
@@ -132,6 +149,29 @@ function buildChapterItem(document: Document, chapter: NovelChapter): HTMLElemen
   const time = item.querySelector('.gm-sp-novels-chapter-time') as HTMLSpanElement
   time.textContent =
     chapter.postedAt !== undefined ? formatPostedAt(chapter.postedAt) : FALLBACK_DATE_LABEL
+  const title = item.querySelector('.gm-sp-novels-chapter-title') as HTMLSpanElement
+  title.textContent = chapter.title
+  return item
+}
+
+function buildReadChapterItem(
+  document: Document,
+  chapter: NovelChapter,
+  book: NovelBook,
+): HTMLElement {
+  const item = htmlToElement<HTMLLIElement>(
+    document,
+    `<li class="gm-sp-novels-chapter gm-sp-novels-chapter-read">
+      <a class="gm-sp-novels-chapter-link" target="_blank" rel="noopener noreferrer">
+        <span class="gm-sp-novels-chapter-time"></span>
+        <span class="gm-sp-novels-chapter-title"></span>
+      </a>
+    </li>`,
+  )
+  const link = item.querySelector('.gm-sp-novels-chapter-link') as HTMLAnchorElement
+  link.href = chapter.url
+  const time = item.querySelector('.gm-sp-novels-chapter-time') as HTMLSpanElement
+  time.textContent = formatPostedAt(chapter.postedAt ?? book.fetchedAt) + '【已读】'
   const title = item.querySelector('.gm-sp-novels-chapter-title') as HTMLSpanElement
   title.textContent = chapter.title
   return item

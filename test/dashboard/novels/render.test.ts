@@ -99,7 +99,14 @@ describe('renderNovels', () => {
     renderNovels(root, data, ctx())
     const status = root.querySelector('.gm-sp-novels-book-status')!
     expect(status.textContent).toBe('无更新')
-    expect(root.querySelectorAll('.gm-sp-novels-chapter').length).toBe(0)
+    const readItems = root.querySelectorAll('.gm-sp-novels-chapter')
+    expect(readItems.length).toBe(1)
+    expect(readItems[0]!.querySelector('.gm-sp-novels-chapter-time')!.textContent).toContain(
+      '【已读】',
+    )
+    expect(readItems[0]!.querySelector('.gm-sp-novels-chapter-title')!.textContent).not.toContain(
+      '【已读】',
+    )
   })
 
   test('book with more than 5 new chapters starts folded and expands on click', () => {
@@ -216,6 +223,34 @@ describe('renderNovels', () => {
     expect(root.querySelectorAll('.gm-sp-novels-chapter').length).toBe(1)
     const err = root.querySelector('.gm-sp-novels-book-error') as HTMLElement
     expect(err.textContent).toContain('timeout')
+  })
+
+  test('read books appear after unread books', () => {
+    const data: NovelData = {
+      books: [
+        book({
+          url: 'https://example.com/a/',
+          siteId: 'test',
+          title: '已读完',
+          latestChapters: [chapter('https://example.com/a/c2', '第2章', 1000)],
+          lastSeenChapterUrl: 'https://example.com/a/c2',
+        }),
+        book({
+          url: 'https://example.com/b/',
+          siteId: 'test',
+          title: '有更新',
+          latestChapters: [
+            chapter('https://example.com/b/c3', '第3章', 2000),
+            chapter('https://example.com/b/c2', '第2章', 1000),
+          ],
+        }),
+      ],
+    }
+    renderNovels(root, data, ctx())
+    const blocks = root.querySelectorAll('.gm-sp-novels-book')
+    expect(blocks.length).toBe(2)
+    expect(blocks[0]!.querySelector('.gm-sp-novels-book-title')!.textContent).toBe('有更新')
+    expect(blocks[1]!.querySelector('.gm-sp-novels-book-title')!.textContent).toBe('已读完')
   })
 
   test('clicking any chapter link marks the book as seen', () => {
