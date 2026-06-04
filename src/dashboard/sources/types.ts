@@ -12,7 +12,7 @@ export type Source<T> = {
   readonly title: string
   readonly ttlMs: number
   readonly placement?: 'main' | 'side'
-  fetch(runtime: Runtime): Promise<T>
+  fetch(runtime: Runtime, prevData?: T): Promise<T>
   render(container: HTMLElement, data: T | null): void
   customizeHeader?(titleContainer: HTMLElement, data: T | null): void
   createEditor?: () => SourceEditor

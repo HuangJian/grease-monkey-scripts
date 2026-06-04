@@ -48,7 +48,7 @@ describe('createDashboard', () => {
     const shadow = shadowOf(dom)
     expect(shadow.querySelector('.gm-sp-header')).not.toBeNull()
     const cards = shadow.querySelectorAll('.gm-sp-card')
-    expect(cards.length).toBe(2)
+    expect(cards.length).toBe(3)
   })
 
   test('open() renders cached data into cards', async () => {

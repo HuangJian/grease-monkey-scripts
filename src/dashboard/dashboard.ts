@@ -6,6 +6,7 @@ import { renderCard, renderHeader } from './overlay/render'
 import { createDoubleShiftHandler, isEditableTarget } from './shortcut'
 import { createV2exSource } from './sources/v2ex'
 import { createWeatherSource } from './weather'
+import { createNovelsSource } from './novels'
 import type { Source } from './sources/types'
 import { CACHE_KEY, type CachedSource, type Config } from './types'
 import { defaultConfigExample, deepMerge, loadConfig, validateConfig } from './config'
@@ -33,6 +34,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
   const sources: Source<unknown>[] = [
     createV2exSource(options.config.v2ex),
     createWeatherSource(options.config.weather),
+    createNovelsSource(options.config.novels, runtime),
   ]
   let handle: OverlayHandle | null = null
   let mountedUnmount: (() => void) | null = null
@@ -114,7 +116,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     const oldCache = await loadCache<unknown>(runtime, sourceId)
     let next: Omit<CachedSource<unknown>, 'schemaVersion' | 'byteSize'> | null = null
     try {
-      const data = await source.fetch(runtime)
+      const data = await source.fetch(runtime, oldCache?.data)
       next = { data, fetchedAt: Date.now() }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)

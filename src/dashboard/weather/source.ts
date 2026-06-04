@@ -10,7 +10,7 @@ export function createWeatherSource(options: WeatherSourceOptions): Source<Weath
     title: '天气',
     ttlMs: options.ttlMinutes * 60_000,
     placement: 'side',
-    fetch(runtime) {
+    fetch(runtime, _prevData) {
       return fetchWeatherAll(runtime, options.cities)
     },
     render(container, data) {

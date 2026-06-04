@@ -17,6 +17,7 @@
 // @connect      air-quality-api.open-meteo.com
 // @connect      weather.cma.cn
 // @connect      www.v2ex.com
+// @connect      www.sudugu.org
 // ==/UserScript==
 // ==build.meta==
 // css: src/dashboard/overlay/overlay.css

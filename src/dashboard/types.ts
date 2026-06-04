@@ -22,6 +22,7 @@ export type CachedSource<T> = {
 }
 
 import type { WeatherCity } from './weather/types'
+import type { NovelEntry } from './novels/types'
 
 export type Config = {
   weather: {
@@ -35,6 +36,13 @@ export type Config = {
     displayRatio: number
     elbowDropRatio: number
     minCutoffReplies: number
+  }
+  novels: {
+    entries: NovelEntry[]
+    ttlMinutes: number
+    initialNewChapters: number
+    maxNewChaptersPerBook: number
+    maxLatestWindow: number
   }
   shortcut: {
     doublePressWindowMs: number

@@ -14,11 +14,18 @@ export const DEFAULT_CONFIG: Config = {
     elbowDropRatio: 0.4,
     minCutoffReplies: 5,
   },
+  novels: {
+    entries: [],
+    ttlMinutes: 60,
+    initialNewChapters: 3,
+    maxNewChaptersPerBook: 5,
+    maxLatestWindow: 50,
+  },
   shortcut: {
     doublePressWindowMs: 400,
     enabled: true,
   },
-  hostAllowlist: ['mail.google.com', 'v2ex.com', 'github.com'],
+  hostAllowlist: ['mail.google.com', 'v2ex.com', 'github.com', 'www.sudugu.org'],
 } as const
 
 export function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -163,6 +170,49 @@ export function validateConfig(value: unknown): ConfigValidation {
       const maxI = v['maxItems']
       if (typeof minI === 'number' && typeof maxI === 'number' && minI > maxI) {
         return { ok: false, error: 'v2ex.minItems 不能大于 v2ex.maxItems' }
+      }
+    }
+  }
+  if ('novels' in value) {
+    const n = value['novels']
+    if (!isPlainObject(n)) {
+      return { ok: false, error: 'novels 必须是对象' }
+    }
+    if ('entries' in n) {
+      const list = n['entries']
+      if (!Array.isArray(list)) {
+        return { ok: false, error: 'novels.entries 必须是数组' }
+      }
+      for (let i = 0; i < list.length; i++) {
+        const e = list[i]
+        if (!isPlainObject(e)) {
+          return { ok: false, error: `novels.entries[${i}] 必须是对象` }
+        }
+        if (typeof e['url'] !== 'string' || !e['url']) {
+          return { ok: false, error: `novels.entries[${i}].url 必须是非空字符串` }
+        }
+        try {
+          void new URL(e['url'])
+        } catch {
+          return { ok: false, error: `novels.entries[${i}].url 必须是有效 URL` }
+        }
+        if ('alias' in e && e['alias'] != null && typeof e['alias'] !== 'string') {
+          return { ok: false, error: `novels.entries[${i}].alias 必须是 string 或省略` }
+        }
+      }
+    }
+    const numFields: Array<[string, number, number]> = [
+      ['ttlMinutes', 1, Number.POSITIVE_INFINITY],
+      ['initialNewChapters', 0, Number.POSITIVE_INFINITY],
+      ['maxNewChaptersPerBook', 1, Number.POSITIVE_INFINITY],
+      ['maxLatestWindow', 1, Number.POSITIVE_INFINITY],
+    ]
+    for (const [name, min, max] of numFields) {
+      if (name in n) {
+        const v = n[name]
+        if (typeof v !== 'number' || !Number.isFinite(v) || v < min || v > max) {
+          return { ok: false, error: `novels.${name} 必须是 ${min}–${max} 之间的有限数` }
+        }
       }
     }
   }
