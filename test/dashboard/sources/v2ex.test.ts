@@ -1,8 +1,9 @@
-import { describe, expect, test } from 'bun:test'
+import { beforeEach, describe, expect, test } from 'bun:test'
 import { JSDOM } from 'jsdom'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
+  clearV2exTopicState,
   createV2exSource,
   dynamicV2exCount,
   fetchV2ex,
@@ -401,6 +402,9 @@ describe('fetchV2ex', () => {
 })
 
 describe('createV2exSource.render', () => {
+  beforeEach(() => {
+    clearV2exTopicState()
+  })
   test('renders topic list with links and meta', () => {
     const dom = makeDom()
     const container = dom.window.document.createElement('div')
@@ -426,14 +430,15 @@ describe('createV2exSource.render', () => {
     expect(badge.textContent).toBe('🔥')
     expect(badge.getAttribute('title')).toBe('双源确认热帖')
   })
-  test('hides badge for single-source topics', () => {
+  test('shows badge for api source', () => {
     const dom = makeDom()
     const container = dom.window.document.createElement('div')
     const source = createV2exSource(defaultV2exOpts())
     const single = { ...FIXTURE[0], sources: ['api'] as const }
     source.render(container, [single] as never)
     const badge = container.querySelector('.gm-sp-v2ex-source')!
-    expect(badge.textContent).toBe('')
+    expect(badge.textContent).toBe('⏳')
+    expect(badge.getAttribute('title')).toBe('API 抓取（24小时内热帖）')
   })
   test('renders empty state when no topics', () => {
     const dom = makeDom()
@@ -448,5 +453,33 @@ describe('createV2exSource.render', () => {
     const source = createV2exSource(defaultV2exOpts())
     source.render(container, null)
     expect(container.querySelector('.gm-sp-empty')).not.toBeNull()
+  })
+  test('applies read class for previously-read topic', () => {
+    const dom = makeDom()
+    const container = dom.window.document.createElement('div')
+    const source = createV2exSource(defaultV2exOpts())
+    source.render(container, [{ ...FIXTURE[0], sources: [] }] as never)
+    const item = container.querySelector('.gm-sp-v2ex-item')!
+    expect(item.classList.contains('gm-sp-v2ex-read')).toBe(false)
+  })
+  test('clicking topic link marks it as read', () => {
+    const dom = makeDom()
+    const container = dom.window.document.createElement('div')
+    const source = createV2exSource(defaultV2exOpts())
+    source.render(container, [{ ...FIXTURE[0], sources: [] }] as never)
+    const link = container.querySelector('.gm-sp-v2ex-title') as HTMLAnchorElement
+    link.click()
+    const item = container.querySelector('.gm-sp-v2ex-item')!
+    expect(item.classList.contains('gm-sp-v2ex-read')).toBe(true)
+  })
+  test('hide button removes the topic item', () => {
+    const dom = makeDom()
+    const container = dom.window.document.createElement('div')
+    const source = createV2exSource(defaultV2exOpts())
+    source.render(container, FIXTURE as never)
+    expect(container.querySelectorAll('.gm-sp-v2ex-item')).toHaveLength(3)
+    const hideBtn = container.querySelector('.gm-sp-v2ex-hide') as HTMLButtonElement
+    hideBtn.click()
+    expect(container.querySelectorAll('.gm-sp-v2ex-item')).toHaveLength(2)
   })
 })

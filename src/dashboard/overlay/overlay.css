@@ -277,6 +277,7 @@
 }
 
 .gm-sp-v2ex-source {
+  flex: 0 0 auto;
   font-size: 10px;
   color: #047857;
   font-weight: 600;
@@ -285,6 +286,31 @@
 
 .gm-sp-v2ex-source:empty {
   display: none;
+}
+
+.gm-sp-v2ex-read {
+  opacity: 0.55;
+}
+
+.gm-sp-v2ex-hide {
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.gm-sp-v2ex-item:hover .gm-sp-v2ex-hide {
+  opacity: 1;
+}
+
+.gm-sp-v2ex-hide:hover {
+  color: #ef4444;
 }
 
 .gm-sp-card[data-source='weather'] .gm-sp-card-body {

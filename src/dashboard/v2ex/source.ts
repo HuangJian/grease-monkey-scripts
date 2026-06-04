@@ -42,9 +42,10 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 0,
-    fetch(runtime, _prevData) {
+    async fetch(runtime, _prevData) {
       const fetchCap = Math.max(options.maxItems, FETCH_CAP_FLOOR)
-      return fetchV2ex(
+      await loadTopicState(runtime)
+      const allTopics = await fetchV2ex(
         runtime,
         fetchCap,
         {
@@ -56,6 +57,9 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
         },
         new runtime.DOMParser(),
       )
+      const visible = allTopics.filter((t) => !hiddenAt.has(t.id))
+      await saveTopicState(runtime)
+      return visible
     },
     render(container, data) {
       renderV2ex(container, data)
@@ -288,6 +292,59 @@ export function dynamicV2exCount(
   return Math.max(options.minItems, Math.min(options.maxItems, count))
 }
 
+const TOPIC_STATE_KEY = 'gm:v2ex:topic-state'
+const TOPIC_STATE_TTL = 72 * 60 * 60 * 1000
+
+const readAt = new Map<number, number>()
+const hiddenAt = new Map<number, number>()
+
+export function clearV2exTopicState(): void {
+  readAt.clear()
+  hiddenAt.clear()
+}
+
+async function loadTopicState(runtime: Runtime): Promise<void> {
+  const stored = await runtime.getValue<Record<string, { r?: number; h?: number }> | null>(
+    TOPIC_STATE_KEY,
+    null,
+  )
+  const now = Date.now()
+  if (stored) {
+    for (const [idStr, entry] of Object.entries(stored)) {
+      const id = Number(idStr)
+      if (entry.r && now - entry.r < TOPIC_STATE_TTL && !readAt.has(id)) {
+        readAt.set(id, entry.r)
+      }
+      if (entry.h && now - entry.h < TOPIC_STATE_TTL && !hiddenAt.has(id)) {
+        hiddenAt.set(id, entry.h)
+      }
+    }
+  }
+  for (const [id, ts] of readAt) {
+    if (now - ts >= TOPIC_STATE_TTL) readAt.delete(id)
+  }
+  for (const [id, ts] of hiddenAt) {
+    if (now - ts >= TOPIC_STATE_TTL) hiddenAt.delete(id)
+  }
+}
+
+async function saveTopicState(runtime: Runtime): Promise<void> {
+  const now = Date.now()
+  const obj: Record<string, { r?: number; h?: number }> = {}
+  for (const [id, ts] of readAt) {
+    if (now - ts < TOPIC_STATE_TTL) {
+      obj[String(id)] = { r: ts }
+    }
+  }
+  for (const [id, ts] of hiddenAt) {
+    if (now - ts < TOPIC_STATE_TTL) {
+      const prev = obj[String(id)]
+      obj[String(id)] = prev ? { ...prev, h: ts } : { h: ts }
+    }
+  }
+  await runtime.setValue(TOPIC_STATE_KEY, obj)
+}
+
 function renderV2ex(container: HTMLElement, data: V2exTopic[] | null): void {
   const document = container.ownerDocument
   container.replaceChildren()
@@ -301,12 +358,12 @@ function renderV2ex(container: HTMLElement, data: V2exTopic[] | null): void {
     const item = htmlToElement<HTMLLIElement>(
       document,
       `<li class="gm-sp-v2ex-item">
+        <span class="gm-sp-v2ex-source"></span>
         <span class="gm-sp-v2ex-count" title="回复数"></span>
         <a class="gm-sp-v2ex-title" target="_blank" rel="noopener noreferrer"></a>
         <span class="gm-sp-v2ex-meta">
           <span class="gm-sp-v2ex-node"></span>
           <span class="gm-sp-v2ex-author"></span>
-          <span class="gm-sp-v2ex-source" aria-label=""></span>
         </span>
       </li>`,
     )
@@ -320,10 +377,34 @@ function renderV2ex(container: HTMLElement, data: V2exTopic[] | null): void {
       ? `@${topic.member.username}`
       : ''
     const sourceEl = item.querySelector('.gm-sp-v2ex-source') as HTMLSpanElement
-    if ((topic.sources?.length ?? 0) > 1) {
+    const sources = topic.sources
+    if (sources && sources.length > 1) {
       sourceEl.textContent = '🔥'
       sourceEl.title = '双源确认热帖'
+    } else if (sources && sources[0] === 'api') {
+      sourceEl.textContent = '⏳'
+      sourceEl.title = 'API 抓取（24小时内热帖）'
+    } else if (sources && sources[0] === 'page') {
+      sourceEl.textContent = '🌅'
+      sourceEl.title = 'HTML 页面抓取（今天8:00后热帖）'
     }
+    if (readAt.has(topic.id)) {
+      item.classList.add('gm-sp-v2ex-read')
+    }
+    link.addEventListener('click', () => {
+      readAt.set(topic.id, Date.now())
+      item.classList.add('gm-sp-v2ex-read')
+    })
+    const hideBtn = htmlToElement<HTMLButtonElement>(
+      document,
+      '<button class="gm-sp-v2ex-hide" title="隐藏该主题">×</button>',
+    )
+    hideBtn.addEventListener('click', (e) => {
+      e.preventDefault()
+      hiddenAt.set(topic.id, Date.now())
+      item.remove()
+    })
+    item.appendChild(hideBtn)
     list.appendChild(item)
   }
   container.appendChild(list)
