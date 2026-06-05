@@ -3,47 +3,10 @@ import { htmlToElement } from '../../utils'
 import { validateConfig } from '../config'
 import { CONFIG_KEY } from '../types'
 import type { SourceEditor } from '../types'
-import { normalizeSubredditName, type RedditSourceOptions } from './source'
+import { loadFreshRedditOptions, normalizeSubredditName, type RedditSourceOptions } from './source'
 
 export function createRedditEditor(options: RedditSourceOptions): SourceEditor {
   return (container, ctx) => renderRedditEditor(container, options, ctx)
-}
-
-async function loadFreshRedditOptions(
-  runtime: Runtime,
-  fallback: RedditSourceOptions,
-): Promise<RedditSourceOptions> {
-  try {
-    const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
-    const r = stored?.reddit as
-      | {
-          ttlMinutes?: number
-          subreddits?: string[]
-          minItems?: number
-          maxItems?: number
-          displayRatio?: number
-          elbowDropRatio?: number
-          minCutoffScore?: number
-        }
-      | undefined
-    if (r) {
-      return {
-        ttlMinutes: typeof r.ttlMinutes === 'number' ? r.ttlMinutes : fallback.ttlMinutes,
-        subreddits:
-          Array.isArray(r.subreddits) && r.subreddits.length > 0
-            ? r.subreddits.map((s) => String(s)).filter((s) => s.length > 0)
-            : fallback.subreddits,
-        minItems: typeof r.minItems === 'number' ? r.minItems : fallback.minItems,
-        maxItems: typeof r.maxItems === 'number' ? r.maxItems : fallback.maxItems,
-        displayRatio: typeof r.displayRatio === 'number' ? r.displayRatio : fallback.displayRatio,
-        elbowDropRatio:
-          typeof r.elbowDropRatio === 'number' ? r.elbowDropRatio : fallback.elbowDropRatio,
-        minCutoffScore:
-          typeof r.minCutoffScore === 'number' ? r.minCutoffScore : fallback.minCutoffScore,
-      }
-    }
-  } catch {}
-  return fallback
 }
 
 async function renderRedditEditor(
@@ -80,6 +43,10 @@ async function renderRedditEditor(
           <input type="number" min="1" step="1" class="gm-sp-re-max" />
         </label>
         <label class="gm-sp-reddit-editor-row">
+          <span>每板块保底</span>
+          <input type="number" min="0" step="1" class="gm-sp-re-minpersub" />
+        </label>
+        <label class="gm-sp-reddit-editor-row">
           <span>显示比例</span>
           <input type="number" min="0" max="1" step="0.01" class="gm-sp-re-ratio" />
         </label>
@@ -106,6 +73,7 @@ async function renderRedditEditor(
   const ttlInput = form.querySelector('.gm-sp-re-ttl') as HTMLInputElement
   const minInput = form.querySelector('.gm-sp-re-min') as HTMLInputElement
   const maxInput = form.querySelector('.gm-sp-re-max') as HTMLInputElement
+  const minPerSubInput = form.querySelector('.gm-sp-re-minpersub') as HTMLInputElement
   const ratioInput = form.querySelector('.gm-sp-re-ratio') as HTMLInputElement
   const elbowInput = form.querySelector('.gm-sp-re-elbow') as HTMLInputElement
   const cutoffInput = form.querySelector('.gm-sp-re-cutoff') as HTMLInputElement
@@ -116,6 +84,7 @@ async function renderRedditEditor(
   ttlInput.value = String(fresh.ttlMinutes)
   minInput.value = String(fresh.minItems)
   maxInput.value = String(fresh.maxItems)
+  minPerSubInput.value = String(fresh.minPerSub)
   ratioInput.value = String(fresh.displayRatio)
   elbowInput.value = String(fresh.elbowDropRatio)
   cutoffInput.value = String(fresh.minCutoffScore)
@@ -195,6 +164,7 @@ async function renderRedditEditor(
     const ttl = Number(ttlInput.value)
     const min = Number(minInput.value)
     const max = Number(maxInput.value)
+    const minPerSub = Number(minPerSubInput.value)
     const ratio = Number(ratioInput.value)
     const elbow = Number(elbowInput.value)
     const cutoff = Number(cutoffInput.value)
@@ -208,6 +178,10 @@ async function renderRedditEditor(
     }
     if (!Number.isFinite(max) || max < min) {
       showError('最多条数必须 ≥ 最少条数')
+      return
+    }
+    if (!Number.isFinite(minPerSub) || minPerSub < 0) {
+      showError('每板块保底必须 ≥0')
       return
     }
     if (!Number.isFinite(ratio) || ratio < 0 || ratio > 1) {
@@ -227,6 +201,7 @@ async function renderRedditEditor(
       subreddits: [...subs],
       minItems: Math.round(min),
       maxItems: Math.round(max),
+      minPerSub: Math.round(minPerSub),
       displayRatio: ratio,
       elbowDropRatio: elbow,
       minCutoffScore: Math.round(cutoff),

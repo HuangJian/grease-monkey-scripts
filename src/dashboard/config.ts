@@ -19,6 +19,7 @@ export const DEFAULT_CONFIG: Config = {
     subreddits: ['popular'],
     minItems: 10,
     maxItems: 30,
+    minPerSub: 1,
     displayRatio: 0.1,
     elbowDropRatio: 0.4,
     minCutoffScore: 500,
@@ -203,6 +204,7 @@ export function validateConfig(value: unknown): ConfigValidation {
       ['ttlMinutes', 1, Number.POSITIVE_INFINITY],
       ['minItems', 1, Number.POSITIVE_INFINITY],
       ['maxItems', 1, Number.POSITIVE_INFINITY],
+      ['minPerSub', 0, Number.POSITIVE_INFINITY],
       ['minCutoffScore', 0, Number.POSITIVE_INFINITY],
     ]
     for (const [name, min, max] of numFields) {

@@ -16,11 +16,12 @@ import {
 } from '../../../src/dashboard/reddit/source'
 import { validateConfig } from '../../../src/dashboard/config'
 import type { Runtime, RequestDetails } from '../../../src/runtime'
-import { createRuntime } from '../../runtime'
+import { createRuntime, type TestRuntime } from '../../runtime'
 
 const DEFAULT_COUNT_OPTS: RedditCountOptions = {
   minItems: 10,
   maxItems: 30,
+  minPerSub: 1,
   displayRatio: 0.1,
   elbowDropRatio: 0.4,
   minCutoffScore: 500,
@@ -265,6 +266,49 @@ describe('mergeRedditPosts', () => {
   })
   test('handles empty perSub array', () => {
     expect(mergeRedditPosts([], { ...LOW_FLOOR_OPTS, maxItems: 30 })).toEqual([])
+  })
+  test('quota ensures each sub gets representation even with score disparity', () => {
+    const bigPosts = Array.from({ length: 20 }, (_, i) =>
+      post({ id: `big${i}`, score: 50000 - i * 1000 }),
+    )
+    const smallPosts = Array.from({ length: 10 }, (_, i) =>
+      post({ id: `small${i}`, score: 3000 - i * 100 }),
+    )
+    const result = mergeRedditPosts(
+      [
+        { sub: 'funny', posts: bigPosts },
+        { sub: 'programming', posts: smallPosts },
+      ],
+      { ...LOW_FLOOR_OPTS, maxItems: 10, minPerSub: 0 },
+    )
+    const smallCount = result.filter((p) => p.id.startsWith('small')).length
+    expect(smallCount).toBeGreaterThanOrEqual(5)
+  })
+  test('minPerSub forces minimum representation per sub', () => {
+    const bigPosts = Array.from({ length: 20 }, (_, i) =>
+      post({ id: `big${i}`, score: 50000 - i * 1000 }),
+    )
+    const smallPosts = [post({ id: 'solo', score: 100 })]
+    const result = mergeRedditPosts(
+      [
+        { sub: 'funny', posts: bigPosts },
+        { sub: 'niche', posts: smallPosts },
+      ],
+      { ...LOW_FLOOR_OPTS, maxItems: 20, minPerSub: 3 },
+    )
+    expect(result.find((p) => p.id === 'solo')).toBeDefined()
+  })
+  test('remainder slots go to highest-scoring leftover posts', () => {
+    const postsA = [post({ id: 'a1', score: 100 }), post({ id: 'a2', score: 90 })]
+    const postsB = [post({ id: 'b1', score: 95 })]
+    const result = mergeRedditPosts(
+      [
+        { sub: 'a', posts: postsA },
+        { sub: 'b', posts: postsB },
+      ],
+      { ...LOW_FLOOR_OPTS, maxItems: 3, minPerSub: 0 },
+    )
+    expect(result.map((p) => p.id)).toEqual(['a1', 'b1', 'a2'])
   })
 })
 
@@ -607,6 +651,42 @@ describe('createRedditSource.render', () => {
     expect(source.order).toBe(2)
     expect(source.ttlMs).toBe(30 * 60_000)
     expect(typeof source.createEditor).toBe('function')
+  })
+})
+
+describe('createRedditSource.fetch reads fresh config', () => {
+  beforeEach(() => {
+    clearRedditTopicState()
+  })
+
+  test('fetch uses subreddits from CONFIG_KEY, not stale closure options', async () => {
+    const dom = makeDom()
+    const json = loadFixture()
+    const fetchedUrls: string[] = []
+    const runtime = makeRuntime(dom, (d) => {
+      fetchedUrls.push(d.url)
+      d.onload({ responseText: JSON.stringify(json) })
+    })
+    const source = createRedditSource(defaultRedditOpts({ subreddits: ['popular'] }))
+    ;(runtime as TestRuntime).stores['dashboard:v1:config'] = {
+      reddit: { subreddits: ['funny'] },
+    }
+    await source.fetch(runtime, undefined)
+    expect(fetchedUrls.every((u) => u.includes('/r/funny/'))).toBe(true)
+    expect(fetchedUrls.some((u) => u.includes('/r/popular/'))).toBe(false)
+  })
+
+  test('fetch falls back to closure options when CONFIG_KEY has no reddit config', async () => {
+    const dom = makeDom()
+    const json = loadFixture()
+    const fetchedUrls: string[] = []
+    const runtime = makeRuntime(dom, (d) => {
+      fetchedUrls.push(d.url)
+      d.onload({ responseText: JSON.stringify(json) })
+    })
+    const source = createRedditSource(defaultRedditOpts({ subreddits: ['popular'] }))
+    await source.fetch(runtime, undefined)
+    expect(fetchedUrls.every((u) => u.includes('/r/popular/'))).toBe(true)
   })
 })
 

@@ -31,6 +31,7 @@ export type RedditConfig = {
   subreddits: string[]
   minItems: number
   maxItems: number
+  minPerSub: number
   displayRatio: number
   elbowDropRatio: number
   minCutoffScore: number

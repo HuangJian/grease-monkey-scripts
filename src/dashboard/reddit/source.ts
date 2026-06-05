@@ -1,6 +1,7 @@
 import type { Runtime } from '../../runtime'
 import { htmlToElement } from '../../utils'
 import type { Source } from '../types'
+import { CONFIG_KEY } from '../types'
 import { createRedditEditor } from './editor'
 
 export type RedditPost = {
@@ -16,6 +17,7 @@ export type RedditPost = {
 export type RedditCountOptions = {
   minItems: number
   maxItems: number
+  minPerSub: number
   displayRatio: number
   elbowDropRatio: number
   minCutoffScore: number
@@ -233,13 +235,52 @@ export function mergeRedditPosts(
       }
     }
   }
-  const sorted = Array.from(merged.values())
-    .filter((p) => p.score >= options.minCutoffScore)
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score
-      return b.numComments - a.numComments
-    })
-  return sorted.slice(0, options.maxItems)
+
+  const bySub = new Map<string, RedditPost[]>()
+  for (const post of merged.values()) {
+    for (const sub of post.subreddits) {
+      const arr = bySub.get(sub) ?? []
+      arr.push(post)
+      bySub.set(sub, arr)
+    }
+  }
+  for (const arr of bySub.values()) {
+    arr.sort((a, b) => (b.score !== a.score ? b.score - a.score : b.numComments - a.numComments))
+  }
+
+  const numSubs = bySub.size
+  if (numSubs === 0) return []
+
+  const minPerSub = Math.max(0, options.minPerSub)
+  const quota = Math.max(minPerSub, Math.floor(options.maxItems / numSubs))
+
+  const selected = new Set<string>()
+  const remainder: RedditPost[] = []
+
+  for (const posts of bySub.values()) {
+    let count = 0
+    for (const post of posts) {
+      if (count < quota) {
+        selected.add(post.id)
+        count++
+      } else {
+        remainder.push(post)
+      }
+    }
+  }
+
+  remainder.sort((a, b) =>
+    b.score !== a.score ? b.score - a.score : b.numComments - a.numComments,
+  )
+
+  const remaining = options.maxItems - selected.size
+  for (let i = 0; i < Math.min(remaining, remainder.length); i++) {
+    selected.add(remainder[i]!.id)
+  }
+
+  return Array.from(merged.values())
+    .filter((p) => selected.has(p.id) && p.score >= options.minCutoffScore)
+    .sort((a, b) => (b.score !== a.score ? b.score - a.score : b.numComments - a.numComments))
 }
 
 export type RedditFetchResult = {
@@ -332,6 +373,45 @@ async function saveTopicState(runtime: Runtime): Promise<void> {
   await runtime.setValue(TOPIC_STATE_KEY, obj)
 }
 
+export async function loadFreshRedditOptions(
+  runtime: Runtime,
+  fallback: RedditSourceOptions,
+): Promise<RedditSourceOptions> {
+  try {
+    const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
+    const r = stored?.reddit as
+      | {
+          ttlMinutes?: number
+          subreddits?: string[]
+          minItems?: number
+          maxItems?: number
+          minPerSub?: number
+          displayRatio?: number
+          elbowDropRatio?: number
+          minCutoffScore?: number
+        }
+      | undefined
+    if (r) {
+      return {
+        ttlMinutes: typeof r.ttlMinutes === 'number' ? r.ttlMinutes : fallback.ttlMinutes,
+        subreddits:
+          Array.isArray(r.subreddits) && r.subreddits.length > 0
+            ? r.subreddits.map((s) => String(s)).filter((s) => s.length > 0)
+            : fallback.subreddits,
+        minItems: typeof r.minItems === 'number' ? r.minItems : fallback.minItems,
+        maxItems: typeof r.maxItems === 'number' ? r.maxItems : fallback.maxItems,
+        minPerSub: typeof r.minPerSub === 'number' ? r.minPerSub : fallback.minPerSub,
+        displayRatio: typeof r.displayRatio === 'number' ? r.displayRatio : fallback.displayRatio,
+        elbowDropRatio:
+          typeof r.elbowDropRatio === 'number' ? r.elbowDropRatio : fallback.elbowDropRatio,
+        minCutoffScore:
+          typeof r.minCutoffScore === 'number' ? r.minCutoffScore : fallback.minCutoffScore,
+      }
+    }
+  } catch {}
+  return fallback
+}
+
 export function createRedditSource(options: RedditSourceOptions): Source<RedditPost[]> {
   return {
     id: 'reddit',
@@ -340,9 +420,10 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditP
     groupId: 'browse',
     order: 2,
     async fetch(runtime, _prevData) {
-      console.debug('[gm-dashboard] reddit.fetch start subs=', options.subreddits)
+      const fresh = await loadFreshRedditOptions(runtime, options)
+      console.debug('[gm-dashboard] reddit.fetch start subs=', fresh.subreddits)
       await loadTopicState(runtime)
-      const result = await fetchReddit(runtime, options)
+      const result = await fetchReddit(runtime, fresh)
       console.debug(
         '[gm-dashboard] reddit.fetch ok posts=',
         result.posts.length,

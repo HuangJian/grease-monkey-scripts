@@ -161,6 +161,10 @@ Shared types (`Runtime`, `RequestDetails`) live in `src/runtime.ts`.
 
 - Add or update tests for behavior changes before relying on manual browser
   checks.
+- **Every bug fix must include a regression test.** Write a minimal unit test
+  that reproduces the bug scenario and verifies the fix. The test should fail
+  without the fix and pass with it. Keep it focused on the exact broken behavior.
+  Feature changes and refactors do not require tests unless behavior risk justifies it.
 - Put pure logic in small functions and cover it with unit tests.
 - Use jsdom integration tests for DOM transformations.
 - Mock Tampermonkey APIs through injected runtime objects.
