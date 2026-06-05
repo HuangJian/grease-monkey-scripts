@@ -94,6 +94,37 @@ describe('cross-tab broadcast', () => {
     expect(v2exPanel.querySelector('.gm-sp-v2ex-title')!.textContent).toBe('from-other-tab')
   })
 
+  test('remote change to reddit cache re-renders the open card', async () => {
+    const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
+    dashboard.start()
+    await dashboard.open()
+    const newCache: CachedSource<unknown> = {
+      schemaVersion: CACHE_SCHEMA_VERSION,
+      data: [
+        {
+          id: 'remote1',
+          title: 'reddit-remote-update',
+          url: 'https://www.reddit.com/r/popular/comments/remote1/x',
+          score: 1234,
+          numComments: 56,
+          subreddits: ['popular'],
+          author: 'u',
+        },
+      ],
+      fetchedAt: Date.now(),
+      byteSize: 200,
+    }
+    runtime.simulateRemoteChange(CACHE_KEY('reddit'), newCache)
+    await new Promise((r) => setTimeout(r, 0))
+    const shadow = shadowOf(dom)
+    const redditPanel = shadow.querySelector(
+      '[data-source="browse"] .gm-sp-tab-panel[data-tab-id="reddit"]',
+    ) as HTMLElement
+    expect(redditPanel.querySelector('.gm-sp-reddit-title')!.textContent).toBe(
+      'reddit-remote-update',
+    )
+  })
+
   test('remote change while overlay closed is a no-op (no crash)', () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()

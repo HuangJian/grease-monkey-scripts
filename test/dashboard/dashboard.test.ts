@@ -79,6 +79,37 @@ describe('createDashboard', () => {
     expect(v2exPanel.querySelector('.gm-sp-v2ex-title')!.textContent).toBe('cached')
   })
 
+  test('open() renders cached reddit data into the browse card reddit panel', async () => {
+    const redditCache: CachedSource<unknown> = {
+      schemaVersion: CACHE_SCHEMA_VERSION,
+      data: [
+        {
+          id: 'r1',
+          title: 'cached-reddit',
+          url: 'https://www.reddit.com/r/popular/comments/r1/x',
+          score: 999,
+          numComments: 42,
+          subreddits: ['popular'],
+          author: 'u',
+        },
+      ],
+      fetchedAt: Date.now() - 60_000,
+      byteSize: 100,
+    }
+    runtime.stores[CACHE_KEY('reddit')] = redditCache
+    const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
+    dashboard.start()
+    await dashboard.open()
+    const shadow = shadowOf(dom)
+    const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
+    const redditPanel = browseCard.querySelector(
+      '.gm-sp-tab-panel[data-tab-id="reddit"]',
+    ) as HTMLElement
+    expect(redditPanel).not.toBeNull()
+    expect(redditPanel.querySelector('.gm-sp-reddit-title')!.textContent).toBe('cached-reddit')
+    expect(redditPanel.querySelector('.gm-sp-reddit-count')!.textContent).toBe('999')
+  })
+
   test('browse card defaults to v2ex tab and shows a badge on novels tab when books have updates', async () => {
     const novelsCache: CachedSource<unknown> = {
       schemaVersion: CACHE_SCHEMA_VERSION,

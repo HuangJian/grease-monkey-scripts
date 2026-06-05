@@ -221,6 +221,22 @@ test suite depend on live network availability.
   for all DOM construction. `createElement` is only used in `htmlToElement`'s
   own implementation.
 
+#### Logging
+
+- **Use `console.debug` for ad-hoc troubleshooting.** Stripped from the prod
+  build (`dist/<script>.user.js`), kept in the debug build
+  (`dist/<script>.debug.js`). To verify a fix in a real browser, install the
+  `.debug.js` variant — not the `.user.js` one.
+- **Do not use `console.log` in committed code.** Same stripping rules apply
+  (it's a general-purpose log, not a debug hook). If something is worth saying
+  in prod, use `console.warn` or `console.error`.
+- **`console.warn` / `console.error` ship in both variants.** Reserve them for
+  actual user-visible problems (failed fetch, validation error, etc.), not for
+  step-by-step tracing. They are not stripped.
+- **Prefix debug output** with a stable tag like `[gm-dashboard]` (or
+  `[gm-<script>]`) so it can be filtered in DevTools and so a leftover line is
+  easy to attribute.
+
 #### Dependency Direction
 
 - **Orchestrator imports from feature modules, not the reverse.** Feature

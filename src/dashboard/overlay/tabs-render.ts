@@ -81,14 +81,17 @@ export function renderTabsCard(container: HTMLElement, options: TabsCardOptions)
 
   const refresh = header.querySelector('.gm-sp-refresh') as HTMLButtonElement
   refresh.addEventListener('click', () => {
+    console.debug('[gm-dashboard] tabs.refresh click activeTab=', activeTab.id)
     refresh.disabled = true
     refresh.classList.add('gm-sp-refresh-loading')
     onRefresh(activeTab.id).then(
       () => {
+        console.debug('[gm-dashboard] tabs.refresh resolved activeTab=', activeTab.id)
         refresh.disabled = false
         refresh.classList.remove('gm-sp-refresh-loading')
       },
-      () => {
+      (e) => {
+        console.debug('[gm-dashboard] tabs.refresh rejected activeTab=', activeTab.id, e)
         refresh.disabled = false
         refresh.classList.remove('gm-sp-refresh-loading')
       },

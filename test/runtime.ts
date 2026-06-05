@@ -11,9 +11,9 @@ export type TestRuntime = Runtime & {
   stores: Record<string, unknown>
   listeners: Map<string, ValueChangeListener[]>
   menuCommands: MenuCommand[]
-  responses: Map<string, { text: string; status?: number }>
+  responses: Map<string, { text: string; status?: number; responseHeaders?: string }>
   lastRequest: { url: string; method: string; headers?: Record<string, string> } | null
-  queueResponse(url: string, text: string, status?: number): void
+  queueResponse(url: string, text: string, status?: number, responseHeaders?: string): void
   simulateRemoteChange(key: string, newValue: unknown): void
   runMenuCommand(name: string): boolean
 }
@@ -31,7 +31,8 @@ export function createRuntime(dom: JSDOM): TestRuntime {
   const stores: Record<string, unknown> = {}
   const listeners: Map<string, ValueChangeListener[]> = new Map()
   const menuCommands: MenuCommand[] = []
-  const responses: Map<string, { text: string; status?: number }> = new Map()
+  const responses: Map<string, { text: string; status?: number; responseHeaders?: string }> =
+    new Map()
   let lastRequest: TestRuntime['lastRequest'] = null
   let nextId = 1
   const runtime: TestRuntime = {
@@ -60,7 +61,11 @@ export function createRuntime(dom: JSDOM): TestRuntime {
       }
       const r = responses.get(details.url)
       if (r) {
-        details.onload({ responseText: r.text, status: r.status ?? 200 })
+        details.onload({
+          responseText: r.text,
+          status: r.status ?? 200,
+          responseHeaders: r.responseHeaders,
+        })
       } else {
         details.onerror?.()
       }
@@ -86,8 +91,8 @@ export function createRuntime(dom: JSDOM): TestRuntime {
       menuCommands.push({ id, name, fn })
       return id
     },
-    queueResponse(url, text, status) {
-      responses.set(url, { text, status })
+    queueResponse(url, text, status, responseHeaders) {
+      responses.set(url, { text, status, responseHeaders })
     },
     simulateRemoteChange(key, newValue) {
       const oldValue = stores[key]

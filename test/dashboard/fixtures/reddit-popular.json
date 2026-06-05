@@ -1,0 +1,139 @@
+{
+  "kind": "Listing",
+  "data": {
+    "after": "t3_abc123",
+    "dist": 8,
+    "modhash": "",
+    "geo_filter": "",
+    "children": [
+      {
+        "kind": "t3",
+        "data": {
+          "id": "pop001",
+          "title": "Cat photobombs every family photo",
+          "permalink": "/r/aww/comments/pop001/cat_photobombs_every_family_photo/",
+          "url": "https://i.redd.it/pop001.jpg",
+          "score": 28000,
+          "num_comments": 1842,
+          "subreddit": "aww",
+          "author": "cat_lover_99",
+          "over_18": false,
+          "distinguished": null
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "pop002",
+          "title": "TIL the Eiffel Tower can grow up to 6 inches in summer",
+          "permalink": "/r/todayilearned/comments/pop002/eiffel_tower_grow_summer/",
+          "url": "https://example.com/article",
+          "score": 21500,
+          "num_comments": 612,
+          "subreddit": "todayilearned",
+          "author": "fact_bot",
+          "over_18": false,
+          "distinguished": null
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "pop003",
+          "title": "I drew my dog in MS Paint",
+          "permalink": "/r/gaming/comments/pop003/i_drew_my_dog_in_ms_paint/",
+          "url": "https://i.redd.it/pop003.png",
+          "score": 12300,
+          "num_comments": 421,
+          "subreddit": "gaming",
+          "author": "ms_painter",
+          "over_18": false,
+          "distinguished": null
+        }
+      },
+      {
+        "kind": "t1",
+        "data": {
+          "id": "comment001",
+          "body": "this should not be parsed",
+          "subreddit": "aww"
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "pop004",
+          "title": "NSFW after dark content",
+          "permalink": "/r/popular/comments/pop004/nsfw/",
+          "url": "https://example.com",
+          "score": 9000,
+          "num_comments": 200,
+          "subreddit": "popular",
+          "author": "nsfw_user",
+          "over_18": true,
+          "distinguished": null
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "pop005",
+          "title": "",
+          "permalink": "/r/aww/comments/pop005/empty_title/",
+          "url": "https://example.com",
+          "score": 8000,
+          "num_comments": 50,
+          "subreddit": "aww",
+          "author": "user",
+          "over_18": false,
+          "distinguished": null
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "pop006",
+          "title": "[Promoted] Buy this VPN!",
+          "permalink": "/r/popular/comments/pop006/promo/",
+          "url": "https://vpn.example.com",
+          "score": 5000,
+          "num_comments": 0,
+          "subreddit": "popular",
+          "author": "vpn_brand",
+          "over_18": false,
+          "distinguished": "promoted"
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "pop007",
+          "title": "Genuinely helpful coding tip",
+          "permalink": "/r/programming/comments/pop007/useful_tip/",
+          "url": "https://example.com",
+          "score": 7000,
+          "num_comments": 320,
+          "subreddit": "programming",
+          "author": "dev_tip",
+          "over_18": false,
+          "distinguished": null
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "pop008",
+          "title": "Long-tail low-score post",
+          "permalink": "/r/aww/comments/pop008/long_tail/",
+          "url": "https://example.com",
+          "score": 50,
+          "num_comments": 3,
+          "subreddit": "aww",
+          "author": "tail_user",
+          "over_18": false,
+          "distinguished": null
+        }
+      }
+    ]
+  }
+}

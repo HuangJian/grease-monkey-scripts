@@ -4,7 +4,7 @@ export type RequestDetails = {
   timeout?: number
   anonymous?: boolean
   headers?: Record<string, string>
-  onload(response: { responseText: string; status?: number }): void
+  onload(response: { responseText: string; status?: number; responseHeaders?: string }): void
   onerror?: () => void
   ontimeout?: () => void
 }
@@ -54,7 +54,7 @@ declare function GM_xmlhttpRequest(details: {
   timeout?: number
   anonymous?: boolean
   headers?: Record<string, string>
-  onload(response: { responseText: string; status?: number }): void
+  onload(response: { responseText: string; status?: number; responseHeaders?: string }): void
   onerror?: () => void
   ontimeout?: () => void
 }): void

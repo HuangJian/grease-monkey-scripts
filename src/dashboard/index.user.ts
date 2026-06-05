@@ -18,6 +18,8 @@
 // @connect      weather.cma.cn
 // @connect      www.v2ex.com
 // @connect      www.sudugu.org
+// @connect      www.reddit.com
+// @connect      old.reddit.com
 // ==/UserScript==
 // ==build.meta==
 // css: src/dashboard/overlay/overlay.css

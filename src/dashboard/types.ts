@@ -26,6 +26,16 @@ export type CachedSource<T> = {
 import type { WeatherCity } from './weather/types'
 import type { NovelEntry } from './novels/types'
 
+export type RedditConfig = {
+  ttlMinutes: number
+  subreddits: string[]
+  minItems: number
+  maxItems: number
+  displayRatio: number
+  elbowDropRatio: number
+  minCutoffScore: number
+}
+
 export type Config = {
   weather: {
     cities: WeatherCity[]
@@ -39,6 +49,7 @@ export type Config = {
     elbowDropRatio: number
     minCutoffReplies: number
   }
+  reddit: RedditConfig
   novels: {
     entries: NovelEntry[]
     ttlMinutes: number

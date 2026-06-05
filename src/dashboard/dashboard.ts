@@ -8,6 +8,7 @@ import { createDoubleShiftHandler, isEditableTarget } from './shortcut'
 import { createV2exSource } from './v2ex/source'
 import { createWeatherSource } from './weather'
 import { createNovelsSource } from './novels'
+import { createRedditSource } from './reddit/source'
 import type { Source } from './types'
 import { buildCardGroups, type CardGroup } from './card-group'
 import { CACHE_KEY, type CachedSource, type Config } from './types'
@@ -37,6 +38,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     createV2exSource(options.config.v2ex),
     createWeatherSource(options.config.weather),
     createNovelsSource(options.config.novels, runtime),
+    createRedditSource(options.config.reddit),
   ]
   const cardGroups = buildCardGroups(sources)
   const groupById = new Map<string, CardGroup>()
@@ -135,10 +137,18 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
   }
 
   async function refreshSource(sourceId: string): Promise<void> {
+    console.debug('[gm-dashboard] refreshSource enter sourceId=', sourceId)
     const source = findSource(sourceId)
-    if (!source) return
+    if (!source) {
+      console.debug('[gm-dashboard] refreshSource source-not-found sourceId=', sourceId)
+      return
+    }
     const acquired = await tryAcquireLock(runtime, sourceId)
-    if (!acquired) return
+    if (!acquired) {
+      console.debug('[gm-dashboard] refreshSource lock-not-acquired sourceId=', sourceId)
+      return
+    }
+    console.debug('[gm-dashboard] refreshSource lock-acquired sourceId=', sourceId)
     const oldCache = await loadCache<unknown>(runtime, sourceId)
     let next: Omit<CachedSource<unknown>, 'schemaVersion' | 'byteSize'> | null = null
     try {
@@ -146,6 +156,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
       next = { data, fetchedAt: Date.now() }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
+      console.debug('[gm-dashboard] refreshSource fetch-threw sourceId=', sourceId, 'msg=', message)
       next = {
         data: oldCache?.data,
         fetchedAt: oldCache?.fetchedAt ?? Date.now(),
@@ -338,6 +349,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
 }
 
 export async function startDashboard(runtime: Runtime): Promise<void> {
+  console.debug('[gm-dashboard] script loaded (debug build)')
   const config = await loadConfig(runtime)
   const dashboard = createDashboard(runtime, { config })
   dashboard.start()

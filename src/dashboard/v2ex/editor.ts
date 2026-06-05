@@ -152,7 +152,11 @@ async function renderV2exEditor(
       showError(validation.error)
       return
     }
-    const result = ctx.runtime.setValue(CONFIG_KEY, { v2ex })
+    const result = ctx.runtime
+      .getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
+      .then((existing) => {
+        return ctx.runtime.setValue(CONFIG_KEY, { ...(existing ?? {}), v2ex })
+      })
     Promise.resolve(result).then(() => {
       ctx.close()
     })

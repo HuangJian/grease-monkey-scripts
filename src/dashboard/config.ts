@@ -14,6 +14,15 @@ export const DEFAULT_CONFIG: Config = {
     elbowDropRatio: 0.4,
     minCutoffReplies: 5,
   },
+  reddit: {
+    ttlMinutes: 30,
+    subreddits: ['popular'],
+    minItems: 10,
+    maxItems: 30,
+    displayRatio: 0.1,
+    elbowDropRatio: 0.4,
+    minCutoffScore: 500,
+  },
   novels: {
     entries: [],
     ttlMinutes: 60,
@@ -170,6 +179,53 @@ export function validateConfig(value: unknown): ConfigValidation {
       const maxI = v['maxItems']
       if (typeof minI === 'number' && typeof maxI === 'number' && minI > maxI) {
         return { ok: false, error: 'v2ex.minItems 不能大于 v2ex.maxItems' }
+      }
+    }
+  }
+  if ('reddit' in value) {
+    const r = value['reddit']
+    if (!isPlainObject(r)) {
+      return { ok: false, error: 'reddit 必须是对象' }
+    }
+    if ('subreddits' in r) {
+      const list = r['subreddits']
+      if (!Array.isArray(list) || list.length === 0) {
+        return { ok: false, error: 'reddit.subreddits 必须是非空数组' }
+      }
+      for (let i = 0; i < list.length; i++) {
+        const s = list[i]
+        if (typeof s !== 'string' || !s.trim()) {
+          return { ok: false, error: `reddit.subreddits[${i}] 必须是非空字符串` }
+        }
+      }
+    }
+    const numFields: Array<[string, number, number]> = [
+      ['ttlMinutes', 1, Number.POSITIVE_INFINITY],
+      ['minItems', 1, Number.POSITIVE_INFINITY],
+      ['maxItems', 1, Number.POSITIVE_INFINITY],
+      ['minCutoffScore', 0, Number.POSITIVE_INFINITY],
+    ]
+    for (const [name, min, max] of numFields) {
+      if (name in r) {
+        const n = r[name]
+        if (typeof n !== 'number' || !Number.isFinite(n) || n < min || n > max) {
+          return { ok: false, error: `reddit.${name} 必须是 ${min}–${max} 之间的有限数` }
+        }
+      }
+    }
+    for (const name of ['displayRatio', 'elbowDropRatio']) {
+      if (name in r) {
+        const n = r[name]
+        if (typeof n !== 'number' || !Number.isFinite(n) || n < 0 || n > 1) {
+          return { ok: false, error: `reddit.${name} 必须是 0–1 之间的有限数` }
+        }
+      }
+    }
+    if ('minItems' in r && 'maxItems' in r) {
+      const minI = r['minItems']
+      const maxI = r['maxItems']
+      if (typeof minI === 'number' && typeof maxI === 'number' && minI > maxI) {
+        return { ok: false, error: 'reddit.minItems 不能大于 reddit.maxItems' }
       }
     }
   }
