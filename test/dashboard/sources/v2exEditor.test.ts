@@ -11,7 +11,7 @@ const DEFAULTS: V2exSourceOptions = {
   maxItems: 30,
   displayRatio: 0.1,
   elbowDropRatio: 0.4,
-  minCutoffReplies: 5,
+  minReplies: 5,
 }
 
 function makeDom(): JSDOM {

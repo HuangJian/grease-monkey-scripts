@@ -57,7 +57,7 @@ const DEFAULT_COUNT_OPTS: V2exCountOptions = {
   maxItems: 30,
   displayRatio: 0.1,
   elbowDropRatio: 0.4,
-  minCutoffReplies: 5,
+  minReplies: 5,
 }
 
 function defaultV2exOpts(over: Partial<V2exSourceOptions> = {}): V2exSourceOptions {
@@ -200,7 +200,15 @@ describe('mergeV2exTopics', () => {
     const api = [topic({ id: 1, replies: 5 }), topic({ id: 2, replies: 100 })]
     const page = [topic({ id: 3, replies: 30 })]
     const merged = mergeV2exTopics(api, page, 10)
-    expect(merged.map((t) => t.id)).toEqual([2, 3, 1])
+    expect(merged.map((t) => t.id)).toEqual([3])
+  })
+  test('retains api-only topics when dropApiOnly is false', () => {
+    const api = [topic({ id: 1, replies: 100 })]
+    const page: V2exTopic[] = []
+    const merged = mergeV2exTopics(api, page, 10, false)
+    expect(merged).toHaveLength(1)
+    expect(merged[0].id).toBe(1)
+    expect(merged[0].sources).toEqual(['api'])
   })
   test('cross-source items win ties at same reply count', () => {
     const api = [topic({ id: 1, replies: 10 })]
@@ -209,13 +217,12 @@ describe('mergeV2exTopics', () => {
     expect(merged[0].id).toBe(1)
     expect(merged[0].sources).toEqual(['api', 'page'])
   })
-  test('api-only ranks above page-only at same reply count', () => {
+  test('api-only topics are filtered out', () => {
     const api = [topic({ id: 1, replies: 10 })]
     const page = [topic({ id: 2, replies: 10 })]
     const merged = mergeV2exTopics(api, page, 10)
-    expect(merged.map((t) => t.id)).toEqual([1, 2])
-    expect(merged[0].sources).toEqual(['api'])
-    expect(merged[1].sources).toEqual(['page'])
+    expect(merged.map((t) => t.id)).toEqual([2])
+    expect(merged[0].sources).toEqual(['page'])
   })
   test('api index breaks page-only ties', () => {
     const api: V2exTopic[] = []
@@ -225,17 +232,34 @@ describe('mergeV2exTopics', () => {
   })
   test('skips invalid ids', () => {
     const api = [topic({ id: 0 }), topic({ id: -1 }), topic({ id: 1, replies: 5 })]
-    expect(mergeV2exTopics(api, [], 10).map((t) => t.id)).toEqual([1])
+    const page = [topic({ id: 2, replies: 5 })]
+    expect(mergeV2exTopics(api, page, 10).map((t) => t.id)).toEqual([2])
   })
   test('limits to maxItems', () => {
     const api = [topic({ id: 1, replies: 1 }), topic({ id: 2, replies: 2 })]
     const page = [topic({ id: 3, replies: 3 })]
-    expect(mergeV2exTopics(api, page, 2)).toHaveLength(2)
+    expect(mergeV2exTopics(api, page, 1)).toHaveLength(1)
   })
   test('handles empty inputs', () => {
     expect(mergeV2exTopics([], [], 10)).toEqual([])
     const page = [topic({ id: 1, replies: 5 })]
     expect(mergeV2exTopics([], page, 10)).toEqual([{ ...page[0], sources: ['page'] }])
+  })
+  test('filters out API-only topics', () => {
+    const api = [topic({ id: 1, replies: 100 })]
+    const page = [topic({ id: 2, replies: 10 })]
+    const merged = mergeV2exTopics(api, page, 10)
+    expect(merged).toHaveLength(1)
+    expect(merged[0].id).toBe(2)
+    expect(merged[0].sources).toEqual(['page'])
+  })
+  test('keeps cross-source topics', () => {
+    const api = [topic({ id: 1, replies: 100 })]
+    const page = [topic({ id: 1, replies: 50 })]
+    const merged = mergeV2exTopics(api, page, 10)
+    expect(merged).toHaveLength(1)
+    expect(merged[0].id).toBe(1)
+    expect(merged[0].sources).toEqual(['api', 'page'])
   })
   test('page-only items carry page index in tiebreaker', () => {
     const api: V2exTopic[] = []
@@ -300,6 +324,9 @@ describe('dynamicV2exCount', () => {
 })
 
 describe('fetchV2ex', () => {
+  beforeEach(() => {
+    clearV2exTopicState()
+  })
   test('resolves with merged topics from both sources', async () => {
     const dom = makeDom()
     const html = loadPageFixture()
@@ -313,7 +340,6 @@ describe('fetchV2ex', () => {
     const topics = await fetchV2ex(runtime, 50, DEFAULT_COUNT_OPTS, new dom.window.DOMParser())
     expect(topics.length).toBeGreaterThan(0)
     const ids = topics.map((t) => t.id)
-    expect(ids).toContain(1)
     expect(ids).toContain(1217291)
   })
   test('uses anonymous: true on both calls', async () => {
@@ -399,6 +425,32 @@ describe('fetchV2ex', () => {
     )
     expect(topics.length).toBe(2)
   })
+  test('filters out topics with replies below minReplies', async () => {
+    const dom = makeDom()
+    const lowReplyTopic = {
+      id: 999,
+      title: 'Low reply',
+      url: 'https://www.v2ex.com/t/999',
+      replies: 2,
+      member: { username: 'u' },
+      node: { title: 'n' },
+      sources: [] as const,
+    }
+    const runtime = makeRuntime(dom, (d) => {
+      if (d.url.includes('hot.json')) {
+        d.onload({ responseText: JSON.stringify([FIXTURE[0], lowReplyTopic]) })
+      } else {
+        d.onload({ responseText: JSON.stringify([FIXTURE[0], lowReplyTopic]) })
+      }
+    })
+    const topics = await fetchV2ex(
+      runtime,
+      50,
+      { ...DEFAULT_COUNT_OPTS, minReplies: 5 },
+      new dom.window.DOMParser(),
+    )
+    expect(topics.every((t) => t.replies >= 5)).toBe(true)
+  })
 })
 
 describe('createV2exSource.render', () => {
@@ -439,6 +491,16 @@ describe('createV2exSource.render', () => {
     const badge = container.querySelector('.gm-sp-v2ex-source')!
     expect(badge.textContent).toBe('⏳')
     expect(badge.getAttribute('title')).toBe('API 抓取（24小时内热帖）')
+  })
+  test('shows badge for page-only topic', () => {
+    const dom = makeDom()
+    const container = dom.window.document.createElement('div')
+    const source = createV2exSource(defaultV2exOpts())
+    const topic = { ...FIXTURE[0], sources: ['page'] as const }
+    source.render(container, [topic] as never)
+    const badge = container.querySelector('.gm-sp-v2ex-source')!
+    expect(badge.textContent).toBe('🌅')
+    expect(badge.getAttribute('title')).toBe('今天发布的热帖')
   })
   test('renders empty state when no topics', () => {
     const dom = makeDom()

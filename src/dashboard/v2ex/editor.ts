@@ -25,10 +25,7 @@ async function loadFreshV2exOptions(
           typeof v2ex.displayRatio === 'number' ? v2ex.displayRatio : fallback.displayRatio,
         elbowDropRatio:
           typeof v2ex.elbowDropRatio === 'number' ? v2ex.elbowDropRatio : fallback.elbowDropRatio,
-        minCutoffReplies:
-          typeof v2ex.minCutoffReplies === 'number'
-            ? v2ex.minCutoffReplies
-            : fallback.minCutoffReplies,
+        minReplies: typeof v2ex.minReplies === 'number' ? v2ex.minReplies : fallback.minReplies,
       }
     }
   } catch {}
@@ -68,8 +65,8 @@ async function renderV2exEditor(
           <input type="number" min="0" max="1" step="0.01" class="gm-sp-v2e-elbow" />
         </label>
         <label class="gm-sp-v2ex-editor-row">
-          <span>最低回复</span>
-          <input type="number" min="0" step="1" class="gm-sp-v2e-cutoff" />
+          <span>回复阈值</span>
+          <input type="number" min="0" step="1" class="gm-sp-v2e-min-replies" />
         </label>
       </div>
       <div class="gm-sp-v2e-error" hidden></div>
@@ -85,7 +82,7 @@ async function renderV2exEditor(
   const maxInput = form.querySelector('.gm-sp-v2e-max') as HTMLInputElement
   const ratioInput = form.querySelector('.gm-sp-v2e-ratio') as HTMLInputElement
   const elbowInput = form.querySelector('.gm-sp-v2e-elbow') as HTMLInputElement
-  const cutoffInput = form.querySelector('.gm-sp-v2e-cutoff') as HTMLInputElement
+  const minRepliesInput = form.querySelector('.gm-sp-v2e-min-replies') as HTMLInputElement
   const errorEl = form.querySelector('.gm-sp-v2e-error') as HTMLDivElement
   const saveBtn = form.querySelector('.gm-sp-v2e-save') as HTMLButtonElement
   const cancelBtn = form.querySelector('.gm-sp-v2e-cancel') as HTMLButtonElement
@@ -95,7 +92,7 @@ async function renderV2exEditor(
   maxInput.value = String(fresh.maxItems)
   ratioInput.value = String(fresh.displayRatio)
   elbowInput.value = String(fresh.elbowDropRatio)
-  cutoffInput.value = String(fresh.minCutoffReplies)
+  minRepliesInput.value = String(fresh.minReplies)
 
   function showError(message: string): void {
     errorEl.textContent = message
@@ -114,7 +111,7 @@ async function renderV2exEditor(
     const max = Number(maxInput.value)
     const ratio = Number(ratioInput.value)
     const elbow = Number(elbowInput.value)
-    const cutoff = Number(cutoffInput.value)
+    const minReplies = Number(minRepliesInput.value)
     if (!Number.isFinite(ttl) || ttl < 1) {
       showError('TTL 必须是 ≥1 的整数')
       return
@@ -135,8 +132,8 @@ async function renderV2exEditor(
       showError('拐点跌幅必须是 0~1 之间')
       return
     }
-    if (!Number.isFinite(cutoff) || cutoff < 0) {
-      showError('最低回复必须 ≥0')
+    if (!Number.isFinite(minReplies) || minReplies < 0) {
+      showError('回复阈值必须 ≥0')
       return
     }
     const v2ex = {
@@ -145,7 +142,7 @@ async function renderV2exEditor(
       maxItems: Math.round(max),
       displayRatio: ratio,
       elbowDropRatio: elbow,
-      minCutoffReplies: Math.round(cutoff),
+      minReplies: Math.round(minReplies),
     }
     const validation = validateConfig({ v2ex })
     if (!validation.ok) {

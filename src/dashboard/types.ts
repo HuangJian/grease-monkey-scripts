@@ -48,7 +48,7 @@ export type Config = {
     maxItems: number
     displayRatio: number
     elbowDropRatio: number
-    minCutoffReplies: number
+    minReplies: number
   }
   reddit: RedditConfig
   novels: {
