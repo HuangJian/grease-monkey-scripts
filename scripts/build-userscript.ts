@@ -77,12 +77,13 @@ const BUILD_MODES = [
   { suffix: '.user.js', debug: false },
 ] as const
 
-async function buildUserScript(entrypoint: string): Promise<void> {
+type BuildMode = (typeof BUILD_MODES)[number]
+
+async function buildUserScript(entrypoint: string, mode: BuildMode): Promise<void> {
   const name = dirname(entrypoint).split('/').pop()!
 
   const entrypointSource = await readFile(entrypoint, 'utf8')
 
-  // Extract userscript metadata
   const metadataMatch = entrypointSource.match(
     /^\/\/ ==UserScript==\n[\s\S]*?^\/\/ ==\/UserScript==/m,
   )
@@ -92,7 +93,6 @@ async function buildUserScript(entrypoint: string): Promise<void> {
     throw new Error(`Missing userscript metadata block in ${entrypoint}`)
   }
 
-  // Extract build.meta block
   const buildMetaMatch = entrypointSource.match(
     /^\/\/ ==build.meta==\n[\s\S]*?^\/\/ ==\/build.meta==/m,
   )
@@ -104,9 +104,7 @@ async function buildUserScript(entrypoint: string): Promise<void> {
       if (lineTrimmed.startsWith('// ')) {
         const content = lineTrimmed.slice(3)
         const [key, value] = content.split(':').map((s) => s.trim())
-        if (key && value) {
-          buildMeta[key] = value
-        }
+        if (key && value) buildMeta[key] = value
       }
     }
   }
@@ -114,40 +112,38 @@ async function buildUserScript(entrypoint: string): Promise<void> {
 
   await mkdir('dist', { recursive: true })
 
-  for (const mode of BUILD_MODES) {
-    const outfile = `dist/${name}${mode.suffix}`
-    const temporaryOutfile = `dist/.${name}${mode.debug ? '.debug' : '.prod'}.bundle.js`
-    const temporarySourceFile = join(
-      dirname(entrypoint),
-      `.index${mode.debug ? '' : '.prod'}.user.ts`,
-    )
+  const outfile = `dist/${name}${mode.suffix}`
+  const temporaryOutfile = `dist/.${name}${mode.debug ? '.debug' : '.prod'}.bundle.js`
+  const temporarySourceFile = join(
+    dirname(entrypoint),
+    `.index${mode.debug ? '' : '.prod'}.user.ts`,
+  )
 
-    await writeFile(temporarySourceFile, baseSource, 'utf8')
+  await writeFile(temporarySourceFile, baseSource, 'utf8')
 
-    let bundle = ''
-    try {
-      const buildCmd = mode.debug
-        ? $`bun build ${temporarySourceFile} --target=browser --format=iife --outfile=${temporaryOutfile} --sourcemap=none`
-        : $`bun build ${temporarySourceFile} --target=browser --format=iife --outfile=${temporaryOutfile} --sourcemap=none --minify`
-      await buildCmd
+  let bundle = ''
+  try {
+    const buildCmd = mode.debug
+      ? $`bun build ${temporarySourceFile} --target=browser --format=iife --outfile=${temporaryOutfile} --sourcemap=none`
+      : $`bun build ${temporarySourceFile} --target=browser --format=iife --outfile=${temporaryOutfile} --sourcemap=none --minify`
+    await buildCmd
 
-      bundle = await readFile(temporaryOutfile, 'utf8')
+    bundle = await readFile(temporaryOutfile, 'utf8')
 
-      if (buildMeta.css && buildMeta.placeholder) {
-        const css = await readFile(buildMeta.css, 'utf8')
-        const processedCss = mode.debug ? css.trim() : minifyCss(css)
-        const escapedCss = processedCss.replace(/`/g, '\\`').replace(/\$/g, '\\$')
-        bundle = bundle.replace(buildMeta.placeholder, escapedCss)
-      }
-
-      bundle = bundle.replace(/^\/\/ ==build.meta==\n[\s\S]*?^\/\/ ==\/build.meta==\n/m, '')
-
-      await writeFile(outfile, `${metadata}\n\n${bundle}`)
-      console.log(`  ✓ ${outfile}`)
-    } finally {
-      await unlink(temporaryOutfile).catch(() => {})
-      await unlink(temporarySourceFile).catch(() => {})
+    if (buildMeta.css && buildMeta.placeholder) {
+      const css = await readFile(buildMeta.css, 'utf8')
+      const processedCss = mode.debug ? css.trim() : minifyCss(css)
+      const escapedCss = processedCss.replace(/`/g, '\\`').replace(/\$/g, '\\$')
+      bundle = bundle.replace(buildMeta.placeholder, escapedCss)
     }
+
+    bundle = bundle.replace(/^\/\/ ==build.meta==\n[\s\S]*?^\/\/ ==\/build.meta==\n/m, '')
+
+    await writeFile(outfile, `${metadata}\n\n${bundle}`)
+    console.log(`  ✓ ${outfile}`)
+  } finally {
+    await unlink(temporaryOutfile).catch(() => {})
+    await unlink(temporarySourceFile).catch(() => {})
   }
 }
 
@@ -174,10 +170,23 @@ async function main() {
     return
   }
 
-  // Strip console.log/debug from all source files before bundling,
-  // then restore originals afterwards. This avoids regex issues with
-  // minified output (comma expressions, else-body, etc.).
-  console.log('Stripping console.log/debug from source...')
+  // Pass 1: build the .debug.js variants with console.debug/log kept
+  // intact. Stripping happens in pass 2 so the debug bundles can be
+  // installed for ad-hoc troubleshooting without re-editing sources.
+  console.log(`Building ${entries.length} script(s) (debug):`)
+  for (const entrypoint of entries) {
+    console.log(`\n${dirname(entrypoint).split('/').pop()}:`)
+    try {
+      await buildUserScript(entrypoint, BUILD_MODES[0])
+    } catch (error) {
+      console.error(`  ✗ Failed:`, error)
+    }
+  }
+
+  // Strip console.log/debug from source files before the prod build.
+  // We rewrite source in place and restore afterwards. The build script
+  // is the only thing that ever sees the stripped form.
+  console.log('\nStripping console.log/debug from source for prod build...')
   const originals = await collectSourceFiles(srcDir)
   for (const [path, content] of originals) {
     const stripped = stripConsoleFromSource(content)
@@ -187,17 +196,18 @@ async function main() {
   }
 
   try {
-    console.log(`Building ${entries.length} script(s):`)
+    // Pass 2: build the .user.js variants (minified, no debug/log).
+    console.log(`\nBuilding ${entries.length} script(s) (prod):`)
     for (const entrypoint of entries) {
       console.log(`\n${dirname(entrypoint).split('/').pop()}:`)
       try {
-        await buildUserScript(entrypoint)
+        await buildUserScript(entrypoint, BUILD_MODES[1])
       } catch (error) {
         console.error(`  ✗ Failed:`, error)
       }
     }
   } finally {
-    console.log('Restoring source files...')
+    console.log('\nRestoring source files...')
     await restoreSourceFiles(originals)
   }
 }
