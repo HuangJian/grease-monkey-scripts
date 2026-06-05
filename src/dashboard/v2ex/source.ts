@@ -162,7 +162,7 @@ export async function fetchV2ex(
         created: t.created,
       }))
     if (historicalAsV2ex.length > 0) {
-      full = mergeV2exTopics(full, historicalAsV2ex, fetchCap + historicalAsV2ex.length, false)
+      full = mergeV2exTopics(historicalAsV2ex, full, fetchCap + historicalAsV2ex.length, false)
     }
   }
 

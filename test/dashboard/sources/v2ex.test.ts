@@ -267,6 +267,17 @@ describe('mergeV2exTopics', () => {
     const merged = mergeV2exTopics(api, page, 10)
     expect(merged.map((t) => t.id)).toEqual([2, 1])
   })
+  test('historical api topics retain api source when merged as first arg', () => {
+    const historical = [topic({ id: 100, replies: 30, sources: ['api'] as const })]
+    const current = [
+      topic({ id: 1, replies: 50, sources: ['page'] as const }),
+      topic({ id: 100, replies: 40, sources: ['api', 'page'] as const }),
+    ]
+    const merged = mergeV2exTopics(historical, current, 10, false)
+    const t100 = merged.find((t) => t.id === 100)!
+    expect(t100.sources).toEqual(['api', 'page'])
+    expect(t100.replies).toBe(40)
+  })
 })
 
 describe('dynamicV2exCount', () => {
@@ -313,10 +324,10 @@ describe('dynamicV2exCount', () => {
     expect(result).toBeGreaterThanOrEqual(3)
     expect(result).toBeLessThanOrEqual(5)
   })
-  test('minCutoffReplies raises the threshold floor', () => {
-    // leader 50, ratio 0.1 → 5; both 5, but minCutoffReplies=20 means cutoff=20
+  test('minReplies raises the threshold floor', () => {
+    // leader 50, ratio 0.1 → 5; but minReplies=20 means cutoff=20
     const replies = [50, 20, 10, 8, 5, 5, 5]
-    const opts = { ...DEFAULT_COUNT_OPTS, minCutoffReplies: 20, displayRatio: 0.1 }
+    const opts = { ...DEFAULT_COUNT_OPTS, minReplies: 20, displayRatio: 0.1 }
     const result = dynamicV2exCount(replies, opts)
     // threshold count: 2 (50, 20)
     expect(result).toBeLessThanOrEqual(15)
