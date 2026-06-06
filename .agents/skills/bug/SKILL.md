@@ -1,4 +1,9 @@
-# Skill: bug
+---
+name: bug
+description: Methodology for investigating and fixing bugs with behavior preservation and test-driven validation
+license: MIT
+compatibility: opencode
+---
 
 ## What I do
 
