@@ -16,6 +16,19 @@ export function isAbsoluteUrl(url: string): boolean {
   return /^https?:\/\//i.test(url)
 }
 
+export function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+export function escapeUrl(s: string): string {
+  return isAbsoluteUrl(s) ? s : ''
+}
+
 export function toAbsoluteUrl(url: string | null, base: string): string {
   if (!url) return ''
   return isAbsoluteUrl(url) ? url : new URL(url, base).href

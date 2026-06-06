@@ -1,5 +1,4 @@
 import type { Runtime } from '../runtime'
-import { htmlToElement } from '../utils'
 import { getCommentNumber } from './comment-helpers'
 
 export const collapseIconSvg = `
@@ -24,9 +23,12 @@ export function createCollapseExpandButtons(
   discussionCount: number,
   onclick: (evt: Event) => void,
 ): [HTMLButtonElement, HTMLButtonElement] {
-  const [collapseBtn, expandBtn] = [collapseIconSvg, expandIconSvg].map((iconStr) =>
-    htmlToElement<HTMLButtonElement>(runtime.document, iconStr),
-  ) as [HTMLButtonElement, HTMLButtonElement]
+  const temp = runtime.document.createElement('div')
+  temp.insertAdjacentHTML('beforeend', collapseIconSvg)
+  const collapseBtn = temp.firstElementChild as HTMLButtonElement
+  temp.innerHTML = ''
+  temp.insertAdjacentHTML('beforeend', expandIconSvg)
+  const expandBtn = temp.firstElementChild as HTMLButtonElement
 
   collapseBtn.onclick = onclick
   expandBtn.onclick = onclick
@@ -45,10 +47,12 @@ export function createReferenceHint(
   referencedCommentNumber: string,
   onclick: () => void,
 ): HTMLButtonElement {
-  const button = htmlToElement<HTMLButtonElement>(
-    runtime.document,
+  const temp = runtime.document.createElement('div')
+  temp.insertAdjacentHTML(
+    'beforeend',
     `<button type="button" class="gm-reference-hint">↪ #${commentNumber} 也回复了 #${referencedCommentNumber}</button>`,
   )
+  const button = temp.firstElementChild as HTMLButtonElement
   button.addEventListener('click', onclick)
   return button
 }
@@ -59,12 +63,13 @@ export function getOrCreateReferenceHintContainer(runtime: Runtime, host: Elemen
     return existing as HTMLElement
   }
 
-  const container = htmlToElement<HTMLElement>(
-    runtime.document,
-    '<div class="gm-reference-hints"></div>',
-  )
-  host.querySelector(':scope > table')?.insertAdjacentElement('afterend', container)
-  return container
+  const table = host.querySelector(':scope > table')
+  if (table) {
+    table.insertAdjacentHTML('afterend', '<div class="gm-reference-hints"></div>')
+    return table.nextElementSibling as HTMLElement
+  }
+  host.insertAdjacentHTML('beforeend', '<div class="gm-reference-hints"></div>')
+  return host.lastElementChild as HTMLElement
 }
 
 export function createReferenceDialog(
@@ -77,8 +82,8 @@ export function createReferenceDialog(
     existingDialog.remove()
   }
 
-  const dialog = htmlToElement<HTMLDivElement>(
-    runtime.document,
+  runtime.document.body.insertAdjacentHTML(
+    'beforeend',
     `<div class="gm-reference-dialog" role="dialog" aria-modal="true">
       <div class="gm-reference-dialog-panel">
         <div class="gm-reference-dialog-header">引用回复 #${getCommentNumber(comment)}<button type="button" class="gm-reference-dialog-close">关闭</button></div>
@@ -94,6 +99,7 @@ export function createReferenceDialog(
       </div>
     </div>`,
   )
+  const dialog = runtime.document.body.lastElementChild as HTMLDivElement
 
   const content = dialog.querySelector('.gm-reference-dialog-content')!
 
@@ -130,6 +136,4 @@ export function createReferenceDialog(
     }
   })
   runtime.document.addEventListener('keydown', onKeydown)
-
-  runtime.document.body.appendChild(dialog)
 }

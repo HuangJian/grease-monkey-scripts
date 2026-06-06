@@ -14,7 +14,6 @@ import {
   type TagPanelCallbacks,
   type QuickLabels,
 } from '../shared/tag-panel'
-import { htmlToElement } from '../utils'
 
 const STORAGE_KEY = 'reddit_author_tags'
 const BTN_CLASS = 'gm-tag-btn'
@@ -99,10 +98,8 @@ export async function createRedditApp(runtime: Runtime) {
     }
 
     authorLink.classList.add(PROCESSED_CLASS)
-    const btn = htmlToElement<HTMLElement>(
-      runtime.document,
-      `<a class="${BTN_CLASS}" href="#;">🏷</a>`,
-    )
+    authorLink.insertAdjacentHTML('afterend', `<a class="${BTN_CLASS}" href="#;">🏷</a>`)
+    const btn = authorLink.nextElementSibling as HTMLElement
     btn.addEventListener('click', (e) => {
       e.preventDefault()
       const callbacks: TagPanelCallbacks = {
@@ -172,13 +169,13 @@ export async function createRedditApp(runtime: Runtime) {
       const total = getTotalScore(tags)
 
       for (const [tagName, record] of Object.entries(tags)) {
-        const tagEl = htmlToElement<HTMLElement>(
-          runtime.document,
-          `<a class="gm-author-tag" href="${new URL(record.url, runtime.location.origin).href}" target="_blank"></a>`,
+        const tagUrl = new URL(record.url, runtime.location.origin).href
+        authorLink.insertAdjacentHTML(
+          'afterend',
+          `<a class="gm-author-tag" href="${tagUrl}" target="_blank">${tagName}</a>`,
         )
-        tagEl.textContent = tagName
+        const tagEl = authorLink.nextElementSibling as HTMLElement
         tagEl.style.color = tagColor(record.score)
-        authorLink.insertAdjacentElement('afterend', tagEl)
       }
 
       const content = findCommentContent(authorLink)

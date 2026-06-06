@@ -1,5 +1,4 @@
 import type { Runtime } from '../../runtime'
-import { htmlToElement } from '../../utils'
 import { loadConfigSection, validateConfig } from '../config'
 import { CONFIG_KEY } from '../types'
 import type { SourceEditor } from '../types'
@@ -47,11 +46,10 @@ async function renderV2exEditor(
   options: V2exSourceOptions,
   ctx: { runtime: Runtime; onRevert: () => void; close: () => void },
 ): Promise<void> {
-  const document = container.ownerDocument
   const fresh = await loadFreshV2exOptions(ctx.runtime, options)
 
-  const form = htmlToElement<HTMLDivElement>(
-    document,
+  container.insertAdjacentHTML(
+    'beforeend',
     `<div class="gm-sp-v2ex-editor">
       <div class="gm-sp-v2ex-editor-form">
         <label class="gm-sp-v2ex-editor-row">
@@ -80,7 +78,8 @@ async function renderV2exEditor(
         </label>
         <label class="gm-sp-v2ex-editor-row">
           <span>衰减半衰期（天）</span>
-          <input type="number" min="0.1" max="30" step="0.1" class="gm-sp-v2e-half-life" placeholder="0.1–30" />
+          <input type="number" min="0.1" max="30" step="0.1"
+                 class="gm-sp-v2e-half-life" placeholder="0.1–30" />
         </label>
       </div>
       <div class="gm-sp-v2e-error" hidden></div>
@@ -91,16 +90,16 @@ async function renderV2exEditor(
     </div>`,
   )
 
-  const ttlInput = form.querySelector('.gm-sp-v2e-ttl') as HTMLInputElement
-  const minInput = form.querySelector('.gm-sp-v2e-min') as HTMLInputElement
-  const maxInput = form.querySelector('.gm-sp-v2e-max') as HTMLInputElement
-  const ratioInput = form.querySelector('.gm-sp-v2e-ratio') as HTMLInputElement
-  const elbowInput = form.querySelector('.gm-sp-v2e-elbow') as HTMLInputElement
-  const minRepliesInput = form.querySelector('.gm-sp-v2e-min-replies') as HTMLInputElement
-  const halfLifeInput = form.querySelector('.gm-sp-v2e-half-life') as HTMLInputElement
-  const errorEl = form.querySelector('.gm-sp-v2e-error') as HTMLDivElement
-  const saveBtn = form.querySelector('.gm-sp-v2e-save') as HTMLButtonElement
-  const cancelBtn = form.querySelector('.gm-sp-v2e-cancel') as HTMLButtonElement
+  const ttlInput = container.querySelector('.gm-sp-v2e-ttl') as HTMLInputElement
+  const minInput = container.querySelector('.gm-sp-v2e-min') as HTMLInputElement
+  const maxInput = container.querySelector('.gm-sp-v2e-max') as HTMLInputElement
+  const ratioInput = container.querySelector('.gm-sp-v2e-ratio') as HTMLInputElement
+  const elbowInput = container.querySelector('.gm-sp-v2e-elbow') as HTMLInputElement
+  const minRepliesInput = container.querySelector('.gm-sp-v2e-min-replies') as HTMLInputElement
+  const halfLifeInput = container.querySelector('.gm-sp-v2e-half-life') as HTMLInputElement
+  const errorEl = container.querySelector('.gm-sp-v2e-error') as HTMLDivElement
+  const saveBtn = container.querySelector('.gm-sp-v2e-save') as HTMLButtonElement
+  const cancelBtn = container.querySelector('.gm-sp-v2e-cancel') as HTMLButtonElement
 
   ttlInput.value = String(fresh.ttlMinutes)
   minInput.value = String(fresh.minItems)
@@ -180,6 +179,4 @@ async function renderV2exEditor(
       ctx.close()
     })
   })
-
-  container.appendChild(form)
 }

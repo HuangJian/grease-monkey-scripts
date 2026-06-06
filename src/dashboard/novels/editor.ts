@@ -1,5 +1,5 @@
 import type { Runtime } from '../../runtime'
-import { htmlToElement } from '../../utils'
+import { escapeHtml } from '../../utils'
 import { validateConfig } from '../config'
 import { CONFIG_KEY } from '../types'
 import type { SourceEditor } from '../types'
@@ -62,13 +62,12 @@ async function renderNovelsEditor(
   options: NovelsEditorOptions,
   ctx: { runtime: Runtime; onRevert: () => void; close: () => void },
 ): Promise<void> {
-  const document = container.ownerDocument
   const fresh = await loadFreshNovelsOptions(ctx.runtime, options)
   const titleMap = await fresh.getCachedTitles()
   const entries: NovelEntry[] = fresh.entries.map((e) => ({ ...e }))
 
-  const form = htmlToElement<HTMLDivElement>(
-    document,
+  container.insertAdjacentHTML(
+    'beforeend',
     `<div class="gm-sp-novels-editor">
       <div class="gm-sp-novels-editor-list"></div>
       <div class="gm-sp-novels-editor-form">
@@ -108,17 +107,17 @@ async function renderNovelsEditor(
     </div>`,
   )
 
-  const listEl = form.querySelector('.gm-sp-novels-editor-list') as HTMLDivElement
-  const urlInput = form.querySelector('.gm-sp-ne-url') as HTMLInputElement
-  const aliasInput = form.querySelector('.gm-sp-ne-alias') as HTMLInputElement
-  const addBtn = form.querySelector('.gm-sp-ne-add') as HTMLButtonElement
-  const ttlInput = form.querySelector('.gm-sp-ne-ttl') as HTMLInputElement
-  const initialInput = form.querySelector('.gm-sp-ne-initial') as HTMLInputElement
-  const foldInput = form.querySelector('.gm-sp-ne-fold') as HTMLInputElement
-  const windowInput = form.querySelector('.gm-sp-ne-window') as HTMLInputElement
-  const errorEl = form.querySelector('.gm-sp-ne-error') as HTMLDivElement
-  const saveBtn = form.querySelector('.gm-sp-ne-save') as HTMLButtonElement
-  const cancelBtn = form.querySelector('.gm-sp-ne-cancel') as HTMLButtonElement
+  const listEl = container.querySelector('.gm-sp-novels-editor-list') as HTMLDivElement
+  const urlInput = container.querySelector('.gm-sp-ne-url') as HTMLInputElement
+  const aliasInput = container.querySelector('.gm-sp-ne-alias') as HTMLInputElement
+  const addBtn = container.querySelector('.gm-sp-ne-add') as HTMLButtonElement
+  const ttlInput = container.querySelector('.gm-sp-ne-ttl') as HTMLInputElement
+  const initialInput = container.querySelector('.gm-sp-ne-initial') as HTMLInputElement
+  const foldInput = container.querySelector('.gm-sp-ne-fold') as HTMLInputElement
+  const windowInput = container.querySelector('.gm-sp-ne-window') as HTMLInputElement
+  const errorEl = container.querySelector('.gm-sp-ne-error') as HTMLDivElement
+  const saveBtn = container.querySelector('.gm-sp-ne-save') as HTMLButtonElement
+  const cancelBtn = container.querySelector('.gm-sp-ne-cancel') as HTMLButtonElement
 
   ttlInput.value = String(fresh.ttlMinutes)
   initialInput.value = String(fresh.initialNewChapters)
@@ -151,41 +150,36 @@ async function renderNovelsEditor(
   function renderList(): void {
     listEl.replaceChildren()
     if (entries.length === 0) {
-      const empty = htmlToElement<HTMLDivElement>(
-        document,
-        '<div class="gm-sp-ne-empty">尚未添加书库</div>',
-      )
-      listEl.appendChild(empty)
+      listEl.insertAdjacentHTML('beforeend', '<div class="gm-sp-ne-empty">尚未添加书库</div>')
       return
     }
-    for (let i = 0; i < entries.length; i++) {
-      const entry = entries[i]!
-      const unknown = isUnknown(entry.url)
-      const title = titleMap.get(entry.url)
-      const display = entry.alias || title || entry.url
-      const row = htmlToElement<HTMLDivElement>(
-        document,
-        `<div class="gm-sp-ne-item">
-          <span class="gm-sp-ne-item-label"></span>
-          <span class="gm-sp-ne-item-url"></span>
-          <span class="gm-sp-ne-item-warn" hidden>未知站点</span>
+    listEl.insertAdjacentHTML(
+      'beforeend',
+      entries
+        .map((entry, i) => {
+          const unknown = isUnknown(entry.url)
+          const title = titleMap.get(entry.url)
+          const display = entry.alias || title || entry.url
+          const warnHtml = unknown
+            ? '<span class="gm-sp-ne-item-warn">未知站点</span>'
+            : '<span class="gm-sp-ne-item-warn" hidden>未知站点</span>'
+          return `<div class="gm-sp-ne-item" data-index="${i}">
+          <span class="gm-sp-ne-item-label">${escapeHtml(display)}</span>
+          <span class="gm-sp-ne-item-url">${escapeHtml(entry.url)}</span>
+          ${warnHtml}
           <button type="button" class="gm-sp-ne-remove" aria-label="remove">×</button>
-        </div>`,
-      )
-      row.querySelector('.gm-sp-ne-item-label')!.textContent = display
-      const urlEl = row.querySelector('.gm-sp-ne-item-url') as HTMLSpanElement
-      urlEl.textContent = entry.url
-      if (unknown) {
-        const warn = row.querySelector('.gm-sp-ne-item-warn') as HTMLSpanElement
-        warn.hidden = false
-      }
+        </div>`
+        })
+        .join(''),
+    )
+    listEl.querySelectorAll<HTMLElement>('.gm-sp-ne-item').forEach((row) => {
+      const idx = Number(row.dataset['index']!)
       const remove = row.querySelector('.gm-sp-ne-remove') as HTMLButtonElement
       remove.addEventListener('click', () => {
-        entries.splice(i, 1)
+        entries.splice(idx, 1)
         renderList()
       })
-      listEl.appendChild(row)
-    }
+    })
   }
 
   function tryAdd(): void {
@@ -272,5 +266,4 @@ async function renderNovelsEditor(
   })
 
   renderList()
-  container.appendChild(form)
 }

@@ -14,7 +14,7 @@ import {
   type TagPanelCallbacks,
   type QuickLabels,
 } from '../shared/tag-panel'
-import { htmlToElement, htmlToDocument } from '../utils'
+import { htmlToDocument } from '../utils'
 import {
   buildPageUrl,
   extractEuid,
@@ -95,13 +95,13 @@ export async function createHupuApp(runtime: Runtime) {
 
       const total = getTotalScore(tags)
       for (const [tagName, record] of Object.entries(tags)) {
-        const tagEl = htmlToElement(
-          runtime.document,
-          `<a class="gm-author-tag" href="${new URL(record.url, runtime.location.origin).href}" target="_blank"></a>`,
+        const tagUrl = new URL(record.url, runtime.location.origin).href
+        authorLink.insertAdjacentHTML(
+          'afterend',
+          `<a class="gm-author-tag" href="${tagUrl}" target="_blank">${tagName}</a>`,
         )
-        tagEl.textContent = tagName
-        ;(tagEl as HTMLElement).style.color = tagColor(record.score)
-        authorLink.insertAdjacentElement('afterend', tagEl)
+        const tagEl = authorLink.nextElementSibling as HTMLElement
+        tagEl.style.color = tagColor(record.score)
       }
 
       const replyContent = authorLink
@@ -118,7 +118,8 @@ export async function createHupuApp(runtime: Runtime) {
 
   function attachTagButton(authorLink: Element, authorPuid: string, euid: string): void {
     authorLink.classList.add(PROCESSED_CLASS)
-    const btn = htmlToElement(runtime.document, `<a class="${BTN_CLASS}" href="#;">🏷</a>`)
+    authorLink.insertAdjacentHTML('afterend', `<a class="${BTN_CLASS}" href="#;">🏷</a>`)
+    const btn = authorLink.nextElementSibling as HTMLElement
     btn.addEventListener('click', (e) => {
       e.preventDefault()
       const callbacks: TagPanelCallbacks = {

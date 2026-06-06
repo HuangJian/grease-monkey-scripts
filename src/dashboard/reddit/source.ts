@@ -1,5 +1,5 @@
 import type { Runtime } from '../../runtime'
-import { htmlToElement } from '../../utils'
+import { escapeHtml, escapeUrl } from '../../utils'
 import { loadConfigSection } from '../config'
 import type { Source } from '../types'
 import { createRedditEditor } from './editor'
@@ -446,56 +446,42 @@ function renderReddit(
   data: RedditPost[] | null,
   hiddenAtMap: ReadonlyMap<string, number>,
 ): void {
-  const document = container.ownerDocument
   container.replaceChildren()
   if (!data || data.length === 0) {
-    const empty = htmlToElement<HTMLDivElement>(document, '<div class="gm-sp-empty">暂无数据</div>')
-    container.appendChild(empty)
+    container.insertAdjacentHTML('beforeend', '<div class="gm-sp-empty">暂无数据</div>')
     return
   }
-  const list = htmlToElement<HTMLOListElement>(document, '<ol class="gm-sp-reddit-list"></ol>')
-  for (const post of data) {
-    const item = htmlToElement<HTMLLIElement>(
-      document,
-      `<li class="gm-sp-reddit-item">
-        <span class="gm-sp-reddit-count" title="得分"></span>
-        <a class="gm-sp-reddit-title" target="_blank" rel="noopener noreferrer"></a>
+  const listHtml = data
+    .map((post) => {
+      const readClass = readAt.has(post.id) ? ' gm-sp-reddit-read' : ''
+      const hiddenClass = hiddenAtMap.has(post.id) ? ' gm-sp-reddit-hidden-marker' : ''
+      const titleHtml = `<a class="gm-sp-reddit-title" href="${escapeUrl(post.url)}" target="_blank"
+        rel="noopener noreferrer">${escapeHtml(post.title)}</a>`
+      const subText = escapeHtml(post.subreddits.map((s) => `r/${s}`).join(', '))
+      return `<li class="gm-sp-reddit-item${readClass}${hiddenClass}" data-post-id="${post.id}">
+        <span class="gm-sp-reddit-count" title="得分">${post.score}</span>
+        ${titleHtml}
         <span class="gm-sp-reddit-meta">
-          <span class="gm-sp-reddit-sub"></span>
-          <span class="gm-sp-reddit-comments" title="评论数"></span>
+          <span class="gm-sp-reddit-sub">${subText}</span>
+          <span class="gm-sp-reddit-comments" title="评论数">💬 ${post.numComments}</span>
         </span>
-      </li>`,
-    )
-    const countEl = item.querySelector('.gm-sp-reddit-count') as HTMLSpanElement
-    countEl.textContent = String(post.score)
+        <button class="gm-sp-reddit-hide" title="隐藏该主题">×</button>
+      </li>`
+    })
+    .join('')
+  container.insertAdjacentHTML('beforeend', `<ol class="gm-sp-reddit-list">${listHtml}</ol>`)
+  container.querySelectorAll<HTMLElement>('.gm-sp-reddit-item').forEach((item) => {
+    const postId = item.dataset['postId']!
     const link = item.querySelector('.gm-sp-reddit-title') as HTMLAnchorElement
-    link.href = post.url
-    link.textContent = post.title
-    item.querySelector('.gm-sp-reddit-sub')!.textContent = post.subreddits
-      .map((s) => `r/${s}`)
-      .join(', ')
-    item.querySelector('.gm-sp-reddit-comments')!.textContent = `💬 ${post.numComments}`
-    if (readAt.has(post.id)) {
-      item.classList.add('gm-sp-reddit-read')
-    }
-    if (hiddenAtMap.has(post.id)) {
-      item.classList.add('gm-sp-reddit-hidden-marker')
-    }
     link.addEventListener('click', () => {
-      readAt.set(post.id, Date.now())
+      readAt.set(postId, Date.now())
       item.classList.add('gm-sp-reddit-read')
     })
-    const hideBtn = htmlToElement<HTMLButtonElement>(
-      document,
-      '<button class="gm-sp-reddit-hide" title="隐藏该主题">×</button>',
-    )
+    const hideBtn = item.querySelector('.gm-sp-reddit-hide') as HTMLButtonElement
     hideBtn.addEventListener('click', (e) => {
       e.preventDefault()
-      hiddenAt.set(post.id, Date.now())
+      hiddenAt.set(postId, Date.now())
       item.remove()
     })
-    item.appendChild(hideBtn)
-    list.appendChild(item)
-  }
-  container.appendChild(list)
+  })
 }

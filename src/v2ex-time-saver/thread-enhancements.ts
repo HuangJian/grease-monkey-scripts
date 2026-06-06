@@ -1,7 +1,7 @@
 import type { Runtime } from '../runtime'
 import type { AuthorTagMap } from '../shared/author-labels'
 import { getTotalScore, tagColor } from '../shared/author-labels'
-import { htmlToElement } from '../utils'
+
 import { findCommentCells, findFirstCommentCell } from './comment-helpers'
 
 const SCORE_CLASS_MIN = -3
@@ -57,11 +57,12 @@ export function highlightCommentsAndTopics(runtime: Runtime, authorTagMap: Autho
       const fullUrl = new URL(tag.url, origin).href
       const [pathPart] = tag.url.split('#')
       const isSamePage = pathPart === runtime.location.pathname.replace(/^\//, '')
-      const tagLink = htmlToElement<HTMLElement>(
-        runtime.document,
-        `<a class="gm-author-tag" href="${fullUrl}" style="color:${tagColor(tag.score)}"${isSamePage ? '' : ' target="_blank"'}>x</a>`,
+      const targetAttr = isSamePage ? '' : ' target="_blank"'
+      authorLink.insertAdjacentHTML(
+        'beforeend',
+        `<a class="gm-author-tag" href="${fullUrl}" style="color:${tagColor(tag.score)}"${targetAttr}>${tagName}</a>`,
       )
-      tagLink.textContent = tagName
+      const tagLink = authorLink.lastElementChild as HTMLElement
       if (isSamePage) {
         tagLink.addEventListener('click', (e) => {
           e.preventDefault()
@@ -69,7 +70,6 @@ export function highlightCommentsAndTopics(runtime: Runtime, authorTagMap: Autho
           scrollToComment(num, runtime)
         })
       }
-      authorLink.insertAdjacentElement('beforeend', tagLink)
     }
   })
 }

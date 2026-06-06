@@ -14,7 +14,7 @@ import {
   type TagPanelCallbacks,
   type QuickLabels,
 } from '../shared/tag-panel'
-import { htmlToElement } from '../utils'
+
 import { addCollapseExpandButtons, embedDiscussions } from './discussion-embedder'
 import {
   findCommentBox,
@@ -116,19 +116,17 @@ export async function createV2exApp(runtime: Runtime) {
     ref: Element | null,
   ): void {
     if (container.querySelector(`.${btnClass}`)) return
-    const btn = htmlToElement<HTMLElement>(
-      runtime.document,
-      `<a class="${btnClass}" href="#;">🏷</a>`,
-    )
+    const btnHtml = `<a class="${btnClass}" href="#;">🏷</a>`
+    if (ref) {
+      ref.insertAdjacentHTML('afterend', btnHtml)
+    } else {
+      container.insertAdjacentHTML('beforeend', btnHtml)
+    }
+    const btn = (ref?.nextElementSibling ?? container.lastElementChild) as HTMLElement
     btn.addEventListener('click', (e) => {
       e.preventDefault()
       buildTagPanel(runtime, authorTagMap, id, commentNumber, btn, callbacks, quickLabels)
     })
-    if (ref) {
-      ref.insertAdjacentElement('afterend', btn)
-    } else {
-      container.appendChild(btn)
-    }
   }
 
   function addTagPanel(): void {

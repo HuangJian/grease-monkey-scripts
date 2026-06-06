@@ -1,5 +1,5 @@
 import type { Runtime } from '../../runtime'
-import { htmlToElement } from '../../utils'
+import { escapeHtml, escapeUrl } from '../../utils'
 import type { V2exState } from './state'
 import type { V2exTopic } from './types'
 
@@ -19,61 +19,22 @@ function sourceBadge(topic: V2exTopic): { icon: string; title: string } | null {
   return null
 }
 
-function buildTopicItem(
-  document: Document,
-  topic: V2exTopic,
-  state: V2exState,
-  runtime: Runtime | null,
-): HTMLLIElement {
-  const item = htmlToElement<HTMLLIElement>(
-    document,
-    `<li class="gm-sp-v2ex-item">
-      <span class="gm-sp-v2ex-source"></span>
-      <span class="gm-sp-v2ex-count" title="回复数"></span>
-      <a class="gm-sp-v2ex-title" target="_blank" rel="noopener noreferrer"></a>
-      <span class="gm-sp-v2ex-meta">
-        <span class="gm-sp-v2ex-node"></span>
-        <span class="gm-sp-v2ex-author"></span>
-      </span>
-    </li>`,
-  )
-  const countEl = item.querySelector('.gm-sp-v2ex-count') as HTMLSpanElement
-  countEl.textContent = String(topic.replies)
-  const link = item.querySelector('.gm-sp-v2ex-title') as HTMLAnchorElement
-  link.href = topic.url
-  link.textContent = topic.title
-  item.querySelector('.gm-sp-v2ex-node')!.textContent = topic.node.title
-  item.querySelector('.gm-sp-v2ex-author')!.textContent = topic.member.username
-    ? `@${topic.member.username}`
-    : ''
-  const sourceEl = item.querySelector('.gm-sp-v2ex-source') as HTMLSpanElement
+function buildTopicItemHtml(topic: V2exTopic, state: V2exState): string {
   const badge = sourceBadge(topic)
-  if (badge) {
-    sourceEl.textContent = badge.icon
-    sourceEl.title = badge.title
-  }
-  if (state.isRead(topic.id)) {
-    item.classList.add('gm-sp-v2ex-read')
-  }
-  link.addEventListener('click', () => {
-    state.markRead(topic.id)
-    item.classList.add('gm-sp-v2ex-read')
-  })
-  const hideBtn = htmlToElement<HTMLButtonElement>(
-    document,
-    '<button class="gm-sp-v2ex-hide" title="隐藏该主题">×</button>',
-  )
-  hideBtn.addEventListener('click', (e) => {
-    e.preventDefault()
-    state.markHidden(topic.id)
-    item.remove()
-    if (runtime) {
-      void state.saveToStorage(runtime)
-      void state.removeFromCache(runtime, topic.id)
-    }
-  })
-  item.appendChild(hideBtn)
-  return item
+  const sourceAttrs = badge ? ` title="${badge.title}"` : ''
+  const readClass = state.isRead(topic.id) ? ' gm-sp-v2ex-read' : ''
+  const titleHtml = `<a class="gm-sp-v2ex-title" href="${escapeUrl(topic.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(topic.title)}</a>`
+  const authorText = topic.member.username ? `@${escapeHtml(topic.member.username)}` : ''
+  return `<li class="gm-sp-v2ex-item${readClass}" data-topic-id="${topic.id}">
+      <span class="gm-sp-v2ex-source"${sourceAttrs}>${badge?.icon ?? ''}</span>
+      <span class="gm-sp-v2ex-count" title="回复数">${topic.replies}</span>
+      ${titleHtml}
+      <span class="gm-sp-v2ex-meta">
+        <span class="gm-sp-v2ex-node">${escapeHtml(topic.node.title)}</span>
+        <span class="gm-sp-v2ex-author">${authorText}</span>
+      </span>
+      <button class="gm-sp-v2ex-hide" title="隐藏该主题">×</button>
+    </li>`
 }
 
 export function renderV2ex(
@@ -82,17 +43,30 @@ export function renderV2ex(
   state: V2exState,
   runtime: Runtime | null,
 ): void {
-  const document = container.ownerDocument
   container.replaceChildren()
   const visible = data ? state.filterVisible(data) : null
   if (!visible || visible.length === 0) {
-    const empty = htmlToElement<HTMLDivElement>(document, '<div class="gm-sp-empty">暂无数据</div>')
-    container.appendChild(empty)
+    container.insertAdjacentHTML('beforeend', '<div class="gm-sp-empty">暂无数据</div>')
     return
   }
-  const list = htmlToElement<HTMLOListElement>(document, '<ol class="gm-sp-v2ex-list"></ol>')
-  for (const topic of visible) {
-    list.appendChild(buildTopicItem(document, topic, state, runtime))
-  }
-  container.appendChild(list)
+  const listHtml = visible.map((t) => buildTopicItemHtml(t, state)).join('')
+  container.insertAdjacentHTML('beforeend', `<ol class="gm-sp-v2ex-list">${listHtml}</ol>`)
+  container.querySelectorAll<HTMLElement>('.gm-sp-v2ex-item').forEach((item) => {
+    const topicId = Number(item.dataset['topicId']!)
+    const link = item.querySelector('.gm-sp-v2ex-title') as HTMLAnchorElement
+    link.addEventListener('click', () => {
+      state.markRead(topicId)
+      item.classList.add('gm-sp-v2ex-read')
+    })
+    const hideBtn = item.querySelector('.gm-sp-v2ex-hide') as HTMLButtonElement
+    hideBtn.addEventListener('click', (e) => {
+      e.preventDefault()
+      state.markHidden(topicId)
+      item.remove()
+      if (runtime) {
+        void state.saveToStorage(runtime)
+        void state.removeFromCache(runtime, topicId)
+      }
+    })
+  })
 }

@@ -1,5 +1,5 @@
 import type { Runtime } from '../../runtime'
-import { htmlToElement } from '../../utils'
+import { escapeHtml } from '../../utils'
 import { validateConfig } from '../config'
 import { CONFIG_KEY } from '../types'
 import type { SourceEditor } from '../types'
@@ -14,12 +14,11 @@ async function renderRedditEditor(
   options: RedditSourceOptions,
   ctx: { runtime: Runtime; onRevert: () => void; close: () => void },
 ): Promise<void> {
-  const document = container.ownerDocument
   const fresh = await loadFreshRedditOptions(ctx.runtime, options)
   const subs: string[] = fresh.subreddits.map(normalizeSubredditName).filter((s) => s.length > 0)
 
-  const form = htmlToElement<HTMLDivElement>(
-    document,
+  container.insertAdjacentHTML(
+    'beforeend',
     `<div class="gm-sp-reddit-editor">
       <div class="gm-sp-reddit-editor-section">
         <div class="gm-sp-reddit-editor-label">Subreddit 列表</div>
@@ -67,19 +66,19 @@ async function renderRedditEditor(
     </div>`,
   )
 
-  const listEl = form.querySelector('.gm-sp-re-list') as HTMLDivElement
-  const inputEl = form.querySelector('.gm-sp-re-input') as HTMLInputElement
-  const addBtn = form.querySelector('.gm-sp-re-add') as HTMLButtonElement
-  const ttlInput = form.querySelector('.gm-sp-re-ttl') as HTMLInputElement
-  const minInput = form.querySelector('.gm-sp-re-min') as HTMLInputElement
-  const maxInput = form.querySelector('.gm-sp-re-max') as HTMLInputElement
-  const minPerSubInput = form.querySelector('.gm-sp-re-minpersub') as HTMLInputElement
-  const ratioInput = form.querySelector('.gm-sp-re-ratio') as HTMLInputElement
-  const elbowInput = form.querySelector('.gm-sp-re-elbow') as HTMLInputElement
-  const cutoffInput = form.querySelector('.gm-sp-re-cutoff') as HTMLInputElement
-  const errorEl = form.querySelector('.gm-sp-re-error') as HTMLDivElement
-  const saveBtn = form.querySelector('.gm-sp-re-save') as HTMLButtonElement
-  const cancelBtn = form.querySelector('.gm-sp-re-cancel') as HTMLButtonElement
+  const listEl = container.querySelector('.gm-sp-re-list') as HTMLDivElement
+  const inputEl = container.querySelector('.gm-sp-re-input') as HTMLInputElement
+  const addBtn = container.querySelector('.gm-sp-re-add') as HTMLButtonElement
+  const ttlInput = container.querySelector('.gm-sp-re-ttl') as HTMLInputElement
+  const minInput = container.querySelector('.gm-sp-re-min') as HTMLInputElement
+  const maxInput = container.querySelector('.gm-sp-re-max') as HTMLInputElement
+  const minPerSubInput = container.querySelector('.gm-sp-re-minpersub') as HTMLInputElement
+  const ratioInput = container.querySelector('.gm-sp-re-ratio') as HTMLInputElement
+  const elbowInput = container.querySelector('.gm-sp-re-elbow') as HTMLInputElement
+  const cutoffInput = container.querySelector('.gm-sp-re-cutoff') as HTMLInputElement
+  const errorEl = container.querySelector('.gm-sp-re-error') as HTMLDivElement
+  const saveBtn = container.querySelector('.gm-sp-re-save') as HTMLButtonElement
+  const cancelBtn = container.querySelector('.gm-sp-re-cancel') as HTMLButtonElement
 
   ttlInput.value = String(fresh.ttlMinutes)
   minInput.value = String(fresh.minItems)
@@ -101,29 +100,28 @@ async function renderRedditEditor(
   function renderChips(): void {
     listEl.replaceChildren()
     if (subs.length === 0) {
-      const empty = htmlToElement<HTMLDivElement>(
-        document,
-        '<div class="gm-sp-re-empty">尚未添加 subreddit</div>',
-      )
-      listEl.appendChild(empty)
+      listEl.insertAdjacentHTML('beforeend', '<div class="gm-sp-re-empty">尚未添加 subreddit</div>')
       return
     }
-    for (let i = 0; i < subs.length; i++) {
-      const name = subs[i]!
-      const chip = htmlToElement<HTMLDivElement>(
-        document,
-        `<div class="gm-sp-re-chip">
-          <span class="gm-sp-re-chip-label"></span>
+    listEl.insertAdjacentHTML(
+      'beforeend',
+      subs
+        .map(
+          (name, i) =>
+            `<div class="gm-sp-re-chip" data-index="${i}">
+          <span class="gm-sp-re-chip-label">r/${escapeHtml(name)}</span>
           <button type="button" class="gm-sp-re-chip-remove" aria-label="remove">×</button>
         </div>`,
-      )
-      chip.querySelector('.gm-sp-re-chip-label')!.textContent = `r/${name}`
+        )
+        .join(''),
+    )
+    listEl.querySelectorAll<HTMLElement>('.gm-sp-re-chip').forEach((chip) => {
+      const idx = Number(chip.dataset['index']!)
       chip.querySelector('.gm-sp-re-chip-remove')!.addEventListener('click', () => {
-        subs.splice(i, 1)
+        subs.splice(idx, 1)
         renderChips()
       })
-      listEl.appendChild(chip)
-    }
+    })
   }
 
   function tryAdd(): void {
@@ -222,5 +220,4 @@ async function renderRedditEditor(
   })
 
   renderChips()
-  container.appendChild(form)
 }

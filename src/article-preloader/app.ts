@@ -1,5 +1,5 @@
 import type { Runtime } from '../runtime'
-import { htmlToElement, htmlToDocument, getLinkText, toAbsoluteUrl } from '../utils'
+import { htmlToDocument, getLinkText, toAbsoluteUrl } from '../utils'
 import type { Selectors } from './selectors'
 import { findChapterLink, selectorsFactory } from './selectors'
 
@@ -272,11 +272,10 @@ export function startArticlePreloader(runtime: Runtime) {
       ({ html, url }) => {
         nextChapterContent = html
         nextChapterUrl = url
-        const newLink = htmlToElement(runtime.document, '<a style="cursor: pointer">下一章</a>')
-        if (newLink) {
-          newLink.addEventListener('click', () => displayNextChapter())
-          nextChapterLink.replaceWith(newLink)
-        }
+        nextChapterLink.insertAdjacentHTML('afterend', '<a style="cursor: pointer">下一章</a>')
+        const newLink = nextChapterLink.nextElementSibling as HTMLElement
+        newLink.addEventListener('click', () => displayNextChapter())
+        nextChapterLink.replaceWith(newLink)
         runtime.document.onkeydown = (evt) => {
           if (evt.key === 'ArrowLeft') {
             const prev = selectors.previousChapterLinkSelector()

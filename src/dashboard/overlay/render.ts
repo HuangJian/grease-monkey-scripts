@@ -27,7 +27,7 @@ export function showEditorDialog(
     `<div class="gm-sp-editor-dialog">
       <div class="gm-sp-editor-dialog-panel">
         <div class="gm-sp-editor-dialog-header">
-          <span class="gm-sp-editor-dialog-title"></span>
+          <span class="gm-sp-editor-dialog-title">${title}</span>
           <button type="button" class="gm-sp-editor-dialog-close" aria-label="close">×</button>
         </div>
         <div class="gm-sp-editor-dialog-body"></div>
@@ -36,11 +36,8 @@ export function showEditorDialog(
   )
 
   const panel = backdrop.querySelector('.gm-sp-editor-dialog-panel') as HTMLDivElement
-  const titleEl = backdrop.querySelector('.gm-sp-editor-dialog-title') as HTMLSpanElement
   const closeBtn = backdrop.querySelector('.gm-sp-editor-dialog-close') as HTMLButtonElement
   const body = backdrop.querySelector('.gm-sp-editor-dialog-body') as HTMLDivElement
-
-  titleEl.textContent = title
 
   function close(): void {
     backdrop.remove()
@@ -71,16 +68,14 @@ export function showEditorDialog(
 }
 
 export function renderHeader(modal: HTMLElement, options: { onClose: () => void }): void {
-  const document = modal.ownerDocument
-  const header = htmlToElement<HTMLDivElement>(
-    document,
+  modal.insertAdjacentHTML(
+    'beforeend',
     `<div class="gm-sp-header">
       <div class="gm-sp-title">个人仪表盘</div>
       <button type="button" class="gm-sp-close" aria-label="close">×</button>
     </div>`,
   )
-  header.querySelector('.gm-sp-close')!.addEventListener('click', options.onClose)
-  modal.appendChild(header)
+  modal.querySelector('.gm-sp-close')!.addEventListener('click', options.onClose)
 }
 
 export function renderCard<T>(container: HTMLElement, options: CardOptions<T>): void {
@@ -93,29 +88,30 @@ export function renderCard<T>(container: HTMLElement, options: CardOptions<T>): 
   const editButtonHtml = source.createEditor
     ? '<button type="button" class="gm-sp-edit" aria-label="edit">⚙</button>'
     : ''
-  const header = htmlToElement<HTMLDivElement>(
-    document,
+  const staleHtml = veryStale ? '<span class="gm-sp-card-stale">数据陈旧</span>' : ''
+  const errorText = cached?.error ?? ''
+  const errorClasses = `gm-sp-card-error${cached?.error ? ' gm-sp-error' : ''}`
+  container.insertAdjacentHTML(
+    'beforeend',
     `<div class="gm-sp-card-header">
       <div class="gm-sp-card-title">
-        <span class="gm-sp-card-title-text"></span>
+        <span class="gm-sp-card-title-text">${source.title}</span>
       </div>
+      ${staleHtml}
       <div class="gm-sp-card-actions">
-        <span class="gm-sp-card-updated"></span>
-        <button type="button" class="gm-sp-refresh" aria-label="refresh"><span class="gm-sp-refresh-icon">↻</span></button>
+        <span class="gm-sp-card-updated">
+          ${formatRelativeTime(cached?.fetchedAt ?? null, now)}
+        </span>
+        <button type="button" class="gm-sp-refresh" aria-label="refresh">
+          <span class="gm-sp-refresh-icon">↻</span>
+        </button>
         ${editButtonHtml}
       </div>
-    </div>`,
+    </div>
+    <div class="${errorClasses}">${errorText}</div>
+    <div class="gm-sp-card-body"></div>`,
   )
-  header.querySelector('.gm-sp-card-title-text')!.textContent = source.title
-  if (veryStale) {
-    const badge = htmlToElement<HTMLSpanElement>(
-      document,
-      '<span class="gm-sp-card-stale">数据陈旧</span>',
-    )
-    header.insertBefore(badge, header.querySelector('.gm-sp-card-actions')!)
-  }
-  const updated = header.querySelector('.gm-sp-card-updated')!
-  updated.textContent = formatRelativeTime(cached?.fetchedAt ?? null, now)
+  const header = container.querySelector('.gm-sp-card-header')!
   const refresh = header.querySelector('.gm-sp-refresh') as HTMLButtonElement
   refresh.addEventListener('click', () => {
     refresh.disabled = true
@@ -146,19 +142,7 @@ export function renderCard<T>(container: HTMLElement, options: CardOptions<T>): 
       )
     })
   }
-  container.appendChild(header)
-
-  const errorEl = document.createElement('div')
-  errorEl.className = 'gm-sp-card-error'
-  if (cached?.error) {
-    errorEl.classList.add('gm-sp-error')
-    errorEl.textContent = cached.error
-  }
-  container.appendChild(errorEl)
-
-  const body = document.createElement('div')
-  body.className = 'gm-sp-card-body'
-  container.appendChild(body)
+  const body = container.querySelector('.gm-sp-card-body')! as HTMLElement
   const data = (cached?.data ?? null) as T | null
   source.render(body, data)
   if (source.customizeHeader) {

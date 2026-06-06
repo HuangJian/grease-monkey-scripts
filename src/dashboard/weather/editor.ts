@@ -1,5 +1,5 @@
 import type { Runtime } from '../../runtime'
-import { htmlToElement } from '../../utils'
+import { escapeHtml } from '../../utils'
 import { validateConfig } from '../config'
 import { CONFIG_KEY } from '../types'
 import type { SourceEditor } from '../types'
@@ -37,13 +37,12 @@ async function renderWeatherEditor(
   options: WeatherEditorOptions,
   ctx: { runtime: Runtime; onRevert: () => void; close: () => void },
 ): Promise<void> {
-  const document = container.ownerDocument
   const fresh = await loadFreshWeatherOptions(ctx.runtime, options)
 
   const cities: WeatherCity[] = fresh.cities.map((c) => ({ ...c }))
 
-  const form = htmlToElement<HTMLDivElement>(
-    document,
+  container.insertAdjacentHTML(
+    'beforeend',
     `<div class="gm-sp-weather-editor">
       <div class="gm-sp-weather-editor-list"></div>
       <div class="gm-sp-weather-editor-form">
@@ -61,7 +60,8 @@ async function renderWeatherEditor(
         </label>
         <label class="gm-sp-weather-editor-row">
           <span>CMA 站点 ID</span>
-          <input type="text" inputmode="numeric" pattern="\\d{5}" class="gm-sp-we-cma" placeholder="54511（可选）" />
+          <input type="text" inputmode="numeric" pattern="\\d{5}"
+                 class="gm-sp-we-cma" placeholder="54511（可选）" />
         </label>
         <button type="button" class="gm-sp-we-add">添加城市</button>
       </div>
@@ -73,53 +73,45 @@ async function renderWeatherEditor(
     </div>`,
   )
 
-  const listEl = form.querySelector('.gm-sp-weather-editor-list') as HTMLDivElement
-  const labelInput = form.querySelector('.gm-sp-we-city-label') as HTMLInputElement
-  const latInput = form.querySelector('.gm-sp-we-lat') as HTMLInputElement
-  const lonInput = form.querySelector('.gm-sp-we-lon') as HTMLInputElement
-  const cmaInput = form.querySelector('.gm-sp-we-cma') as HTMLInputElement
-  const addBtn = form.querySelector('.gm-sp-we-add') as HTMLButtonElement
-  const saveBtn = form.querySelector('.gm-sp-we-save') as HTMLButtonElement
-  const cancelBtn = form.querySelector('.gm-sp-we-cancel') as HTMLButtonElement
-  const errorEl = form.querySelector('.gm-sp-we-error') as HTMLDivElement
+  const listEl = container.querySelector('.gm-sp-weather-editor-list') as HTMLDivElement
+  const labelInput = container.querySelector('.gm-sp-we-city-label') as HTMLInputElement
+  const latInput = container.querySelector('.gm-sp-we-lat') as HTMLInputElement
+  const lonInput = container.querySelector('.gm-sp-we-lon') as HTMLInputElement
+  const cmaInput = container.querySelector('.gm-sp-we-cma') as HTMLInputElement
+  const addBtn = container.querySelector('.gm-sp-we-add') as HTMLButtonElement
+  const saveBtn = container.querySelector('.gm-sp-we-save') as HTMLButtonElement
+  const cancelBtn = container.querySelector('.gm-sp-we-cancel') as HTMLButtonElement
+  const errorEl = container.querySelector('.gm-sp-we-error') as HTMLDivElement
 
   function renderList(): void {
     listEl.replaceChildren()
     if (cities.length === 0) {
-      const empty = htmlToElement<HTMLDivElement>(
-        document,
-        '<div class="gm-sp-we-empty">尚未添加城市</div>',
-      )
-      listEl.appendChild(empty)
+      listEl.insertAdjacentHTML('beforeend', '<div class="gm-sp-we-empty">尚未添加城市</div>')
       return
     }
-    for (let i = 0; i < cities.length; i++) {
-      const city = cities[i]
-      const row = htmlToElement<HTMLDivElement>(
-        document,
-        `<div class="gm-sp-we-item">
-          <span class="gm-sp-we-item-label"></span>
-          <span class="gm-sp-we-item-coord"></span>
-          <span class="gm-sp-we-item-cma"></span>
+    listEl.insertAdjacentHTML(
+      'beforeend',
+      cities
+        .map((city, i) => {
+          const coord = `${city.latitude.toFixed(4)}, ${city.longitude.toFixed(4)}`
+          const cma = city.cmaStationId ? `CMA ${escapeHtml(city.cmaStationId)}` : ''
+          return `<div class="gm-sp-we-item" data-index="${i}">
+          <span class="gm-sp-we-item-label">${escapeHtml(city.cityLabel)}</span>
+          <span class="gm-sp-we-item-coord">${coord}</span>
+          <span class="gm-sp-we-item-cma">${cma}</span>
           <button type="button" class="gm-sp-we-remove" aria-label="remove">×</button>
-        </div>`,
-      )
-      row.querySelector('.gm-sp-we-item-label')!.textContent = city.cityLabel
-      row.querySelector('.gm-sp-we-item-coord')!.textContent =
-        `${city.latitude.toFixed(4)}, ${city.longitude.toFixed(4)}`
-      const cmaEl = row.querySelector('.gm-sp-we-item-cma') as HTMLSpanElement
-      if (city.cmaStationId) {
-        cmaEl.textContent = `CMA ${city.cmaStationId}`
-      } else {
-        cmaEl.textContent = ''
-      }
+        </div>`
+        })
+        .join(''),
+    )
+    listEl.querySelectorAll<HTMLElement>('.gm-sp-we-item').forEach((row) => {
+      const idx = Number(row.dataset['index']!)
       const remove = row.querySelector('.gm-sp-we-remove') as HTMLButtonElement
       remove.addEventListener('click', () => {
-        cities.splice(i, 1)
+        cities.splice(idx, 1)
         renderList()
       })
-      listEl.appendChild(row)
-    }
+    })
   }
 
   function showError(message: string): void {
@@ -200,5 +192,4 @@ async function renderWeatherEditor(
   })
 
   renderList()
-  container.appendChild(form)
 }

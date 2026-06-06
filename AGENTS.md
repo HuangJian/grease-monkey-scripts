@@ -125,7 +125,7 @@ bun run check
 ```text
 src/
   runtime.ts        Shared Runtime type and browser/Tampermonkey adapter.
-  utils.ts          Shared pure helpers (htmlToElement, URL utils, etc.).
+  utils.ts          Shared pure helpers (escapeHtml, URL utils, etc.).
 
 test/
   runtime.ts        Shared test mock runtime (createDom, createRuntime).
@@ -221,9 +221,16 @@ test suite depend on live network availability.
 - **Use modern array methods.** `.every()` over `.reduce()` for boolean checks.
   Combine chained `.filter()` into one.
 - **Replace deprecated HTML** (e.g., `<font>` → `<span style="...">`).
-- **`htmlToElement` over `createElement`.** Prefer the template literal helper
-  for all DOM construction. `createElement` is only used in `htmlToElement`'s
-  own implementation.
+- **`insertAdjacentHTML` over `htmlToElement`.** Prefer `insertAdjacentHTML` for
+  all DOM construction. Query elements from the container after insertion via
+  `querySelector`/`querySelectorAll` for event listeners and conditional
+  modifications.
+- **Loop DOM creation → `map().join()`.** Replace `for` + `createElement`/`htmlToElement`
+  - `appendChild` loops with `entries.map(it => toHtml(it)).join('')` +
+    `insertAdjacentHTML`, then wire event listeners via `querySelectorAll().forEach()`.
+- **Extract long expressions into variables.** When an inline element exceeds
+  ~100 chars, extract the dynamic content into a named variable before the
+  template: `const content = longExpression(); html = \`<span>${content}</span>\``.
 
 #### Logging
 

@@ -1,6 +1,6 @@
 import type { Runtime } from '../runtime'
 import type { AuthorTagMap } from './author-labels'
-import { htmlToElement } from '../utils'
+import { escapeHtml } from '../utils'
 
 export const tagPanelCss = `.gm-tag-btn {
   cursor: pointer;
@@ -189,11 +189,11 @@ export function buildTagPanel(
 
   const btnClass = 'gm-tag-btn'
 
-  const panel = htmlToElement<HTMLElement>(
-    runtime.document,
+  runtime.document.body.insertAdjacentHTML(
+    'beforeend',
     `<div class="gm-tag-panel">
       <div class="gm-tag-panel-header">
-        <span class="gm-tag-panel-title"></span>
+        <span class="gm-tag-panel-title">${authorId}</span>
         <button class="gm-tag-panel-close">✕</button>
       </div>
       <div class="gm-tag-list"></div>
@@ -208,8 +208,7 @@ export function buildTagPanel(
       </div>
     </div>`,
   )
-
-  panel.querySelector('.gm-tag-panel-title')!.textContent = authorId
+  const panel = runtime.document.body.querySelector('.gm-tag-panel') as HTMLElement
 
   const list = panel.querySelector('.gm-tag-list')!
 
@@ -218,24 +217,26 @@ export function buildTagPanel(
     const entries = Object.entries(currentTags)
     list.innerHTML = ''
     if (entries.length === 0) {
-      list.appendChild(htmlToElement(runtime.document, '<div class="gm-tag-empty">暂无标签</div>'))
+      list.insertAdjacentHTML('beforeend', '<div class="gm-tag-empty">暂无标签</div>')
       return
     }
-    for (const [tagName, record] of entries) {
-      const scoreText = record.score > 0 ? `+${record.score}` : String(record.score)
-      const row = htmlToElement<HTMLElement>(
-        runtime.document,
-        `<div class="gm-tag-row">
-          <span class="gm-tag-name"></span>
-          <span class="gm-tag-score">${scoreText}</span>
+    list.insertAdjacentHTML(
+      'beforeend',
+      entries
+        .map(([tagName, record]) => {
+          const scoreText = record.score > 0 ? `+${record.score}` : String(record.score)
+          return `<div class="gm-tag-row" data-tag-name="${escapeHtml(tagName)}">
+          <span class="gm-tag-name">${escapeHtml(tagName)}</span>
+          <span class="gm-tag-score">${escapeHtml(scoreText)}</span>
           <button class="gm-tag-inc">+1</button>
           <button class="gm-tag-dec">-1</button>
           <button class="gm-tag-del">删除</button>
-        </div>`,
-      )
-
-      row.querySelector('.gm-tag-name')!.textContent = tagName
-
+        </div>`
+        })
+        .join(''),
+    )
+    list.querySelectorAll<HTMLElement>('.gm-tag-row').forEach((row) => {
+      const tagName = row.dataset['tagName']!
       const [incBtn, decBtn, delBtn] = row.querySelectorAll('button')
       incBtn.addEventListener('click', () => {
         callbacks.onTagAuthor(authorId, commentNumber, tagName, 1)
@@ -249,9 +250,7 @@ export function buildTagPanel(
         callbacks.onUnsetTag(authorId, tagName)
         renderTags()
       })
-
-      list.appendChild(row)
-    }
+    })
   }
 
   const addNameInput = panel.querySelector('.gm-tag-input-name')! as HTMLInputElement
@@ -286,8 +285,6 @@ export function buildTagPanel(
   panel.style.position = 'fixed'
   panel.style.top = `${rect.bottom + 4}px`
   panel.style.left = `${Math.min(rect.left, (runtime.document.defaultView?.innerWidth ?? 320) - 320)}px`
-
-  runtime.document.body.appendChild(panel)
 
   const handler = (e: MouseEvent) => {
     if ((e.target as Element).closest(`.${btnClass}`)) return
