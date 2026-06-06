@@ -1,7 +1,7 @@
 import type { Runtime } from '../../runtime'
 import { htmlToElement } from '../../utils'
+import { loadConfigSection } from '../config'
 import type { Source } from '../types'
-import { CONFIG_KEY } from '../types'
 import { createRedditEditor } from './editor'
 
 export type RedditPost = {
@@ -373,43 +373,41 @@ async function saveTopicState(runtime: Runtime): Promise<void> {
   await runtime.setValue(TOPIC_STATE_KEY, obj)
 }
 
+function coerceRedditOptions(
+  raw: Record<string, unknown>,
+  fallback: RedditSourceOptions,
+): RedditSourceOptions {
+  return {
+    ttlMinutes:
+      typeof raw['ttlMinutes'] === 'number' ? (raw['ttlMinutes'] as number) : fallback.ttlMinutes,
+    subreddits:
+      Array.isArray(raw['subreddits']) && (raw['subreddits'] as unknown[]).length > 0
+        ? (raw['subreddits'] as unknown[]).map((s) => String(s)).filter((s) => s.length > 0)
+        : fallback.subreddits,
+    minItems: typeof raw['minItems'] === 'number' ? (raw['minItems'] as number) : fallback.minItems,
+    maxItems: typeof raw['maxItems'] === 'number' ? (raw['maxItems'] as number) : fallback.maxItems,
+    minPerSub:
+      typeof raw['minPerSub'] === 'number' ? (raw['minPerSub'] as number) : fallback.minPerSub,
+    displayRatio:
+      typeof raw['displayRatio'] === 'number'
+        ? (raw['displayRatio'] as number)
+        : fallback.displayRatio,
+    elbowDropRatio:
+      typeof raw['elbowDropRatio'] === 'number'
+        ? (raw['elbowDropRatio'] as number)
+        : fallback.elbowDropRatio,
+    minCutoffScore:
+      typeof raw['minCutoffScore'] === 'number'
+        ? (raw['minCutoffScore'] as number)
+        : fallback.minCutoffScore,
+  }
+}
+
 export async function loadFreshRedditOptions(
   runtime: Runtime,
   fallback: RedditSourceOptions,
 ): Promise<RedditSourceOptions> {
-  try {
-    const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
-    const r = stored?.reddit as
-      | {
-          ttlMinutes?: number
-          subreddits?: string[]
-          minItems?: number
-          maxItems?: number
-          minPerSub?: number
-          displayRatio?: number
-          elbowDropRatio?: number
-          minCutoffScore?: number
-        }
-      | undefined
-    if (r) {
-      return {
-        ttlMinutes: typeof r.ttlMinutes === 'number' ? r.ttlMinutes : fallback.ttlMinutes,
-        subreddits:
-          Array.isArray(r.subreddits) && r.subreddits.length > 0
-            ? r.subreddits.map((s) => String(s)).filter((s) => s.length > 0)
-            : fallback.subreddits,
-        minItems: typeof r.minItems === 'number' ? r.minItems : fallback.minItems,
-        maxItems: typeof r.maxItems === 'number' ? r.maxItems : fallback.maxItems,
-        minPerSub: typeof r.minPerSub === 'number' ? r.minPerSub : fallback.minPerSub,
-        displayRatio: typeof r.displayRatio === 'number' ? r.displayRatio : fallback.displayRatio,
-        elbowDropRatio:
-          typeof r.elbowDropRatio === 'number' ? r.elbowDropRatio : fallback.elbowDropRatio,
-        minCutoffScore:
-          typeof r.minCutoffScore === 'number' ? r.minCutoffScore : fallback.minCutoffScore,
-      }
-    }
-  } catch {}
-  return fallback
+  return loadConfigSection(runtime, 'reddit', fallback, (raw) => coerceRedditOptions(raw, fallback))
 }
 
 export function createRedditSource(options: RedditSourceOptions): Source<RedditPost[]> {

@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 import { JSDOM } from 'jsdom'
-import { DEFAULT_CONFIG, deepMerge, isPlainObject, loadConfig } from '../../src/dashboard/config'
+import {
+  DEFAULT_CONFIG,
+  deepMerge,
+  isPlainObject,
+  loadConfig,
+  loadConfigSection,
+} from '../../src/dashboard/config'
 import {
   CACHE_KEY,
   CONFIG_KEY,
@@ -71,6 +77,50 @@ describe('loadConfig', () => {
     expect(cfg.weather.cities[0].cityLabel).toBe('SH')
     expect(cfg.weather.cities[0].latitude).toBe(31.2)
     expect(cfg.v2ex.ttlMinutes).toBe(DEFAULT_CONFIG.v2ex.ttlMinutes)
+  })
+})
+
+describe('loadConfigSection', () => {
+  type Opts = { minItems: number; maxItems: number }
+  const fallback: Opts = { minItems: 10, maxItems: 30 }
+  const coerce = (raw: Record<string, unknown>): Opts => ({
+    minItems: typeof raw['minItems'] === 'number' ? (raw['minItems'] as number) : fallback.minItems,
+    maxItems: typeof raw['maxItems'] === 'number' ? (raw['maxItems'] as number) : fallback.maxItems,
+  })
+
+  test('returns fallback when nothing stored', async () => {
+    const dom = new JSDOM('<html></html>')
+    const runtime = createRuntime(dom)
+    const out = await loadConfigSection(runtime, 'v2ex', fallback, coerce)
+    expect(out).toEqual(fallback)
+  })
+  test('returns fallback when section key is missing', async () => {
+    const dom = new JSDOM('<html></html>')
+    const runtime = createRuntime(dom)
+    runtime.stores[CONFIG_KEY] = { weather: {} }
+    const out = await loadConfigSection(runtime, 'v2ex', fallback, coerce)
+    expect(out).toEqual(fallback)
+  })
+  test('returns fallback when section is not a plain object', async () => {
+    const dom = new JSDOM('<html></html>')
+    const runtime = createRuntime(dom)
+    runtime.stores[CONFIG_KEY] = { v2ex: [1, 2, 3] }
+    const out = await loadConfigSection(runtime, 'v2ex', fallback, coerce)
+    expect(out).toEqual(fallback)
+  })
+  test('passes section through coerce and returns coerced result', async () => {
+    const dom = new JSDOM('<html></html>')
+    const runtime = createRuntime(dom)
+    runtime.stores[CONFIG_KEY] = { v2ex: { minItems: 5, maxItems: 50, extra: 'ignored' } }
+    const out = await loadConfigSection(runtime, 'v2ex', fallback, coerce)
+    expect(out).toEqual({ minItems: 5, maxItems: 50 })
+  })
+  test('returns fallback when runtime.getValue throws', async () => {
+    const dom = new JSDOM('<html></html>')
+    const base = createRuntime(dom)
+    const failingRuntime = { ...base, getValue: () => Promise.reject(new Error('boom')) }
+    const out = await loadConfigSection(failingRuntime as never, 'v2ex', fallback, coerce)
+    expect(out).toEqual(fallback)
   })
 })
 

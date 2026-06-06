@@ -1,0 +1,293 @@
+import { beforeEach, describe, expect, test } from 'bun:test'
+import { JSDOM } from 'jsdom'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { fetchV2ex } from '../../../../src/dashboard/v2ex/fetcher'
+import { createV2exState } from '../../../../src/dashboard/v2ex/state'
+import type { V2exCountOptions } from '../../../../src/dashboard/v2ex/types'
+import type { Runtime, RequestDetails } from '../../../../src/runtime'
+import { createRuntime, type TestRuntime } from '../../../runtime'
+
+const FIXTURE = [
+  {
+    id: 1,
+    title: 'A',
+    url: 'https://www.v2ex.com/t/1',
+    replies: 10,
+    member: { username: 'alice' },
+    node: { title: 'node-a' },
+    sources: [] as const,
+  },
+  {
+    id: 2,
+    title: 'B',
+    url: 'https://www.v2ex.com/t/2',
+    replies: 20,
+    member: { username: 'bob' },
+    node: { title: 'node-b' },
+    sources: [] as const,
+  },
+  {
+    id: 3,
+    title: 'C',
+    url: 'https://www.v2ex.com/t/3',
+    replies: 30,
+    member: { username: 'carol' },
+    node: { title: 'node-c' },
+    sources: [] as const,
+  },
+]
+
+const DEFAULT_COUNT_OPTS: V2exCountOptions = {
+  minItems: 10,
+  maxItems: 30,
+  displayRatio: 0.1,
+  elbowDropRatio: 0.4,
+  minReplies: 5,
+}
+
+function makeRuntime(dom: JSDOM, handler: (d: RequestDetails) => void): Runtime {
+  const base = createRuntime(dom)
+  return { ...base, request: (d: RequestDetails) => handler(d) }
+}
+
+function loadPageFixture(): string {
+  return readFileSync(join(import.meta.dir, '..', '..', 'fixtures', 'v2ex-hot-page.html'), 'utf8')
+}
+
+function makeDom(): JSDOM {
+  return new JSDOM('<!doctype html><html><body></body></html>', {
+    url: 'https://www.v2ex.com/',
+  })
+}
+
+describe('fetchV2ex', () => {
+  beforeEach(() => {
+    /* fresh state per test */
+  })
+
+  test('resolves with merged topics from both sources', async () => {
+    const dom = makeDom()
+    const html = loadPageFixture()
+    const runtime = makeRuntime(dom, (d) => {
+      if (d.url.includes('hot.json')) {
+        d.onload({ responseText: JSON.stringify(FIXTURE) })
+      } else {
+        d.onload({ responseText: html })
+      }
+    })
+    const state = createV2exState()
+    const topics = await fetchV2ex(
+      runtime,
+      50,
+      DEFAULT_COUNT_OPTS,
+      new dom.window.DOMParser(),
+      state,
+    )
+    expect(topics.length).toBeGreaterThan(0)
+    const ids = topics.map((t) => t.id)
+    expect(ids).toContain(1217291)
+  })
+
+  test('uses anonymous: true on both calls', async () => {
+    const dom = makeDom()
+    const captured: RequestDetails[] = []
+    const runtime = makeRuntime(dom, (d) => {
+      captured.push(d)
+      d.onload({ responseText: '[]' })
+    })
+    const state = createV2exState()
+    await fetchV2ex(runtime, 50, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
+    expect(captured).toHaveLength(2)
+    for (const c of captured) expect(c.anonymous).toBe(true)
+  })
+
+  test('rejects with combined error when both sources fail', async () => {
+    const dom = makeDom()
+    const runtime = makeRuntime(dom, (d) => d.onerror?.())
+    const state = createV2exState()
+    await expect(
+      fetchV2ex(runtime, 50, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state),
+    ).rejects.toThrow(/v2ex api/)
+  })
+
+  test('falls back to page when api fails', async () => {
+    const dom = makeDom()
+    const html = loadPageFixture()
+    const runtime = makeRuntime(dom, (d) => {
+      if (d.url.includes('hot.json')) d.onerror?.()
+      else d.onload({ responseText: html })
+    })
+    const state = createV2exState()
+    const topics = await fetchV2ex(
+      runtime,
+      50,
+      DEFAULT_COUNT_OPTS,
+      new dom.window.DOMParser(),
+      state,
+    )
+    const pageTopic = topics.find((t) => t.id === 1217291)
+    expect(pageTopic).toBeDefined()
+    expect(pageTopic!.sources).toEqual(['page'])
+  })
+
+  test('falls back to api when page fails', async () => {
+    const dom = makeDom()
+    const runtime = makeRuntime(dom, (d) => {
+      if (d.url.includes('hot.json')) {
+        d.onload({ responseText: JSON.stringify(FIXTURE) })
+      } else {
+        d.onerror?.()
+      }
+    })
+    const state = createV2exState()
+    const topics = await fetchV2ex(
+      runtime,
+      50,
+      DEFAULT_COUNT_OPTS,
+      new dom.window.DOMParser(),
+      state,
+    )
+    const apiTopic = topics.find((t) => t.id === 1)
+    expect(apiTopic).toBeDefined()
+    expect(apiTopic!.sources).toEqual(['api'])
+  })
+
+  test('marks cross-source topics when both have the same id', async () => {
+    const dom = makeDom()
+    const html = loadPageFixture()
+    const sharedTopic = {
+      id: 1217291,
+      title: 'shared',
+      url: 'https://www.v2ex.com/t/1217291',
+      replies: 5,
+      member: { username: 'u' },
+      node: { title: 'n' },
+      sources: [],
+    }
+    const runtime = makeRuntime(dom, (d) => {
+      if (d.url.includes('hot.json')) {
+        d.onload({ responseText: JSON.stringify([sharedTopic]) })
+      } else {
+        d.onload({ responseText: html })
+      }
+    })
+    const state = createV2exState()
+    const topics = await fetchV2ex(
+      runtime,
+      50,
+      DEFAULT_COUNT_OPTS,
+      new dom.window.DOMParser(),
+      state,
+    )
+    const shared = topics.find((t) => t.id === 1217291)
+    expect(shared).toBeDefined()
+    expect(shared!.sources).toEqual(['api', 'page'])
+  })
+
+  test('respects maxItems in the count options', async () => {
+    const dom = makeDom()
+    const html = loadPageFixture()
+    const runtime = makeRuntime(dom, (d) => {
+      if (d.url.includes('hot.json')) d.onload({ responseText: JSON.stringify(FIXTURE) })
+      else d.onload({ responseText: html })
+    })
+    const state = createV2exState()
+    const topics = await fetchV2ex(
+      runtime,
+      50,
+      { ...DEFAULT_COUNT_OPTS, minItems: 2, maxItems: 2 },
+      new dom.window.DOMParser(),
+      state,
+    )
+    expect(topics.length).toBe(2)
+  })
+
+  test('filters out topics with replies below minReplies', async () => {
+    const dom = makeDom()
+    const lowReplyTopic = {
+      id: 999,
+      title: 'Low reply',
+      url: 'https://www.v2ex.com/t/999',
+      replies: 2,
+      member: { username: 'u' },
+      node: { title: 'n' },
+      sources: [] as const,
+    }
+    const runtime = makeRuntime(dom, (d) => {
+      if (d.url.includes('hot.json')) {
+        d.onload({ responseText: JSON.stringify([FIXTURE[0], lowReplyTopic]) })
+      } else {
+        d.onload({ responseText: JSON.stringify([FIXTURE[0], lowReplyTopic]) })
+      }
+    })
+    const state = createV2exState()
+    const topics = await fetchV2ex(
+      runtime,
+      50,
+      { ...DEFAULT_COUNT_OPTS, minReplies: 5 },
+      new dom.window.DOMParser(),
+      state,
+    )
+    expect(topics.every((t) => t.replies >= 5)).toBe(true)
+  })
+
+  test('saves api history when api succeeds', async () => {
+    const dom = makeDom()
+    const runtime = makeRuntime(dom, (d) => {
+      if (d.url.includes('hot.json')) {
+        d.onload({ responseText: JSON.stringify(FIXTURE) })
+      } else {
+        d.onload({ responseText: '[]' })
+      }
+    })
+    const state = createV2exState()
+    await fetchV2ex(runtime, 50, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
+    const history = await state.loadApiHistory(runtime)
+    expect(history).toHaveLength(3)
+    expect(history.map((t) => t.id).sort()).toEqual([1, 2, 3])
+  })
+
+  test('does not save api history when api fails', async () => {
+    const dom = makeDom()
+    const runtime = makeRuntime(dom, (d) => {
+      if (d.url.includes('hot.json')) d.onerror?.()
+      else d.onload({ responseText: '[]' })
+    })
+    const state = createV2exState()
+    await fetchV2ex(runtime, 50, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
+    const history = await state.loadApiHistory(runtime)
+    expect(history).toEqual([])
+  })
+
+  test('merges historical api topics not present in current sources', async () => {
+    const dom = makeDom()
+    const runtime = makeRuntime(dom, (d) => {
+      if (d.url.includes('hot.json')) d.onload({ responseText: JSON.stringify(FIXTURE) })
+      else d.onload({ responseText: '[]' })
+    })
+    const KEY = 'gm:v2ex:api-topics'
+    ;(runtime as TestRuntime).stores[KEY] = [
+      {
+        id: 500,
+        title: 'historical',
+        url: 'https://www.v2ex.com/t/500',
+        replies: 5,
+        member: { username: 'h' },
+        node: { title: 'hn' },
+        fetchedAt: Date.now(),
+      },
+    ]
+    const state = createV2exState()
+    const topics = await fetchV2ex(
+      runtime,
+      50,
+      DEFAULT_COUNT_OPTS,
+      new dom.window.DOMParser(),
+      state,
+    )
+    const historical = topics.find((t) => t.id === 500)
+    expect(historical).toBeDefined()
+    expect(historical!.sources).toEqual(['api'])
+  })
+})

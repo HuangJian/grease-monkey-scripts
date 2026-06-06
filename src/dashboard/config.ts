@@ -68,6 +68,22 @@ export async function loadConfig(runtime: Runtime): Promise<Config> {
   return deepMerge(DEFAULT_CONFIG, userOverride)
 }
 
+export async function loadConfigSection<T>(
+  runtime: Runtime,
+  sectionKey: string,
+  fallback: T,
+  coerce: (raw: Record<string, unknown>) => T,
+): Promise<T> {
+  try {
+    const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
+    const section = stored?.[sectionKey]
+    if (isPlainObject(section)) {
+      return coerce(section as Record<string, unknown>)
+    }
+  } catch {}
+  return fallback
+}
+
 export function defaultConfigExample(): string {
   return JSON.stringify(
     {

@@ -1,35 +1,41 @@
 import type { Runtime } from '../../runtime'
 import { htmlToElement } from '../../utils'
-import { validateConfig } from '../config'
+import { loadConfigSection, validateConfig } from '../config'
 import { CONFIG_KEY } from '../types'
 import type { SourceEditor } from '../types'
-import type { V2exSourceOptions } from './source'
+import type { V2exSourceOptions } from './types'
 
 export function createV2exEditor(options: V2exSourceOptions): SourceEditor {
   return (container, ctx) => renderV2exEditor(container, options, ctx)
+}
+
+function coerceV2exOptions(
+  raw: Record<string, unknown>,
+  fallback: V2exSourceOptions,
+): V2exSourceOptions {
+  return {
+    ttlMinutes:
+      typeof raw['ttlMinutes'] === 'number' ? (raw['ttlMinutes'] as number) : fallback.ttlMinutes,
+    minItems: typeof raw['minItems'] === 'number' ? (raw['minItems'] as number) : fallback.minItems,
+    maxItems: typeof raw['maxItems'] === 'number' ? (raw['maxItems'] as number) : fallback.maxItems,
+    displayRatio:
+      typeof raw['displayRatio'] === 'number'
+        ? (raw['displayRatio'] as number)
+        : fallback.displayRatio,
+    elbowDropRatio:
+      typeof raw['elbowDropRatio'] === 'number'
+        ? (raw['elbowDropRatio'] as number)
+        : fallback.elbowDropRatio,
+    minReplies:
+      typeof raw['minReplies'] === 'number' ? (raw['minReplies'] as number) : fallback.minReplies,
+  }
 }
 
 async function loadFreshV2exOptions(
   runtime: Runtime,
   fallback: V2exSourceOptions,
 ): Promise<V2exSourceOptions> {
-  try {
-    const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
-    const v2ex = stored?.v2ex as V2exSourceOptions | undefined
-    if (v2ex) {
-      return {
-        ttlMinutes: typeof v2ex.ttlMinutes === 'number' ? v2ex.ttlMinutes : fallback.ttlMinutes,
-        minItems: typeof v2ex.minItems === 'number' ? v2ex.minItems : fallback.minItems,
-        maxItems: typeof v2ex.maxItems === 'number' ? v2ex.maxItems : fallback.maxItems,
-        displayRatio:
-          typeof v2ex.displayRatio === 'number' ? v2ex.displayRatio : fallback.displayRatio,
-        elbowDropRatio:
-          typeof v2ex.elbowDropRatio === 'number' ? v2ex.elbowDropRatio : fallback.elbowDropRatio,
-        minReplies: typeof v2ex.minReplies === 'number' ? v2ex.minReplies : fallback.minReplies,
-      }
-    }
-  } catch {}
-  return fallback
+  return loadConfigSection(runtime, 'v2ex', fallback, (raw) => coerceV2exOptions(raw, fallback))
 }
 
 async function renderV2exEditor(

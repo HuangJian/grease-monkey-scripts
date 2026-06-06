@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { JSDOM } from 'jsdom'
-import { createV2exEditor } from '../../../src/dashboard/v2ex/editor'
-import type { V2exSourceOptions } from '../../../src/dashboard/v2ex/source'
-import { CONFIG_KEY } from '../../../src/dashboard/types'
-import { createRuntime, type TestRuntime } from '../../runtime'
+import { createV2exEditor } from '../../../../src/dashboard/v2ex/editor'
+import type { V2exSourceOptions } from '../../../../src/dashboard/v2ex/types'
+import { CONFIG_KEY } from '../../../../src/dashboard/types'
+import { createRuntime, type TestRuntime } from '../../../runtime'
 
 const DEFAULTS: V2exSourceOptions = {
   ttlMinutes: 30,

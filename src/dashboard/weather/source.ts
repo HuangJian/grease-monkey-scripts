@@ -1,6 +1,6 @@
 import type { Runtime } from '../../runtime'
+import { loadConfigSection } from '../config'
 import type { Source } from '../types'
-import { CONFIG_KEY } from '../types'
 import { createWeatherEditor } from './editor'
 import { fetchWeatherAll } from './api'
 import { renderWeather, customizeWeatherHeader } from './render'
@@ -10,12 +10,10 @@ async function loadFreshWeatherCities(
   runtime: Runtime,
   fallback: WeatherCity[],
 ): Promise<WeatherCity[]> {
-  try {
-    const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
-    const cities = (stored?.weather as { cities?: WeatherCity[] } | undefined)?.cities
-    if (Array.isArray(cities) && cities.length > 0) return cities
-  } catch {}
-  return fallback
+  return loadConfigSection(runtime, 'weather', fallback, (raw) => {
+    const cities = raw['cities']
+    return Array.isArray(cities) && cities.length > 0 ? (cities as WeatherCity[]) : fallback
+  })
 }
 
 export function createWeatherSource(options: WeatherSourceOptions): Source<WeatherData> {
