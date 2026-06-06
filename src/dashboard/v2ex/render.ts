@@ -6,7 +6,7 @@ import type { V2exTopic } from './types'
 const SOURCE_BADGES = {
   cross: { icon: '🔥', title: '双源确认热帖' },
   page: { icon: '🌅', title: '今天发布的热帖' },
-  api: { icon: '⏳', title: 'API 抓取（24小时内热帖）' },
+  api: { icon: '⏳', title: 'API 抓取或历史热帖' },
 } as const
 
 function sourceBadge(topic: V2exTopic): { icon: string; title: string } | null {

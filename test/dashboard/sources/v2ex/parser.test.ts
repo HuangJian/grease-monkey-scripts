@@ -3,10 +3,13 @@ import { JSDOM } from 'jsdom'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
+  computeSortScore,
   dynamicV2exCount,
   mergeV2exTopics,
+  parseCreatedFromTitle,
   parseV2ex,
   parseV2exHotPage,
+  sortByDecayedScore,
 } from '../../../../src/dashboard/v2ex/parser'
 import type { V2exCountOptions, V2exTopic } from '../../../../src/dashboard/v2ex/types'
 
@@ -46,6 +49,7 @@ const DEFAULT_COUNT_OPTS: V2exCountOptions = {
   displayRatio: 0.1,
   elbowDropRatio: 0.4,
   minReplies: 5,
+  ageHalfLifeDays: 2,
 }
 
 function loadPageFixture(): string {
@@ -109,6 +113,7 @@ describe('parseV2exHotPage', () => {
     expect(topic.node.title).toBe('生活')
     expect(topic.replies).toBe(210)
     expect(topic.sources).toEqual([])
+    expect(topic.created).toBeDefined()
   })
   test('handles missing node gracefully', () => {
     const dom = makeDom()
@@ -307,5 +312,129 @@ describe('dynamicV2exCount', () => {
     const opts = { ...DEFAULT_COUNT_OPTS, minReplies: 20, displayRatio: 0.1 }
     const result = dynamicV2exCount(replies, opts)
     expect(result).toBeLessThanOrEqual(15)
+  })
+})
+
+describe('computeSortScore', () => {
+  test('returns 0 for invalid replies', () => {
+    const now = Date.now()
+    expect(
+      computeSortScore(
+        { id: 1, replies: 0, title: '', url: '', member: { username: '' }, node: { title: '' } },
+        now,
+        2,
+      ),
+    ).toBe(0)
+    expect(
+      computeSortScore(
+        { id: 1, replies: NaN, title: '', url: '', member: { username: '' }, node: { title: '' } },
+        now,
+        2,
+      ),
+    ).toBe(0)
+  })
+  test('does not decay topics without created time', () => {
+    const now = Date.now()
+    const score = computeSortScore(
+      { id: 1, replies: 100, title: '', url: '', member: { username: '' }, node: { title: '' } },
+      now,
+      2,
+    )
+    expect(score).toBe(100)
+  })
+  test('applies half-life decay for old topics', () => {
+    const now = Date.now()
+    const oneDayAgo = now - 24 * 60 * 60 * 1000
+    const score = computeSortScore(
+      {
+        id: 1,
+        replies: 100,
+        title: '',
+        url: '',
+        member: { username: '' },
+        node: { title: '' },
+        created: oneDayAgo,
+      },
+      now,
+      2,
+    )
+    const expected = 100 * Math.pow(0.5, 1 / 2)
+    expect(score).toBeCloseTo(expected, 1)
+  })
+  test('applies full half-life decay at halfLifeDays', () => {
+    const now = Date.now()
+    const twoDaysAgo = now - 48 * 60 * 60 * 1000
+    const score = computeSortScore(
+      {
+        id: 1,
+        replies: 100,
+        title: '',
+        url: '',
+        member: { username: '' },
+        node: { title: '' },
+        created: twoDaysAgo,
+      },
+      now,
+      2,
+    )
+    expect(score).toBeCloseTo(50, 0)
+  })
+})
+
+describe('sortByDecayedScore', () => {
+  test('sorts by decayed score descending', () => {
+    const now = Date.now()
+    const yesterday = now - 24 * 60 * 60 * 1000
+    const topics = [
+      { id: 1, replies: 30, title: '', url: '', member: { username: '' }, node: { title: '' } },
+      {
+        id: 2,
+        replies: 100,
+        title: '',
+        url: '',
+        member: { username: '' },
+        node: { title: '' },
+        created: yesterday,
+      },
+    ]
+    const sorted = sortByDecayedScore(topics, now, 2)
+    expect(sorted[0].id).toBe(2)
+  })
+  test('cross-source topics win ties', () => {
+    const now = Date.now()
+    const topics = [
+      {
+        id: 1,
+        replies: 100,
+        title: '',
+        url: '',
+        member: { username: '' },
+        node: { title: '' },
+        sources: ['api'] as const,
+      },
+      {
+        id: 2,
+        replies: 100,
+        title: '',
+        url: '',
+        member: { username: '' },
+        node: { title: '' },
+        sources: ['api', 'page'] as const,
+      },
+    ]
+    const sorted = sortByDecayedScore(topics, now, 2)
+    expect(sorted[0].id).toBe(2)
+  })
+})
+
+describe('parseCreatedFromTitle', () => {
+  test('parses valid datetime with timezone', () => {
+    const result = parseCreatedFromTitle('2026-06-02 20:41:31 +08:00')
+    expect(result).toBeDefined()
+    expect(result).toBeGreaterThan(0)
+  })
+  test('returns undefined for invalid format', () => {
+    expect(parseCreatedFromTitle('')).toBeUndefined()
+    expect(parseCreatedFromTitle('not a date')).toBeUndefined()
   })
 })

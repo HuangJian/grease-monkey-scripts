@@ -17,6 +17,7 @@ export type V2exCountOptions = {
   displayRatio: number
   elbowDropRatio: number
   minReplies: number
+  ageHalfLifeDays: number
 }
 
 export type V2exSourceOptions = {

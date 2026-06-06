@@ -49,6 +49,7 @@ export type Config = {
     displayRatio: number
     elbowDropRatio: number
     minReplies: number
+    ageHalfLifeDays: number
   }
   reddit: RedditConfig
   novels: {

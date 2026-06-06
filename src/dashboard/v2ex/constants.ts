@@ -5,3 +5,5 @@ export const TOPIC_PATH_RE = /^\/t\/(\d+)/
 export const MEMBER_PATH_RE = /^\/member\/([A-Za-z0-9_-]+)/
 
 export const FETCH_CAP_FLOOR = 50
+
+export const TOPICS_HISTORY_TTL = 72 * 60 * 60 * 1000

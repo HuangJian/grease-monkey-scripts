@@ -28,6 +28,10 @@ function coerceV2exOptions(
         : fallback.elbowDropRatio,
     minReplies:
       typeof raw['minReplies'] === 'number' ? (raw['minReplies'] as number) : fallback.minReplies,
+    ageHalfLifeDays:
+      typeof raw['ageHalfLifeDays'] === 'number'
+        ? (raw['ageHalfLifeDays'] as number)
+        : fallback.ageHalfLifeDays,
   }
 }
 
@@ -74,6 +78,10 @@ async function renderV2exEditor(
           <span>回复阈值</span>
           <input type="number" min="0" step="1" class="gm-sp-v2e-min-replies" />
         </label>
+        <label class="gm-sp-v2ex-editor-row">
+          <span>衰减半衰期（天）</span>
+          <input type="number" min="0.1" max="30" step="0.1" class="gm-sp-v2e-half-life" placeholder="0.1–30" />
+        </label>
       </div>
       <div class="gm-sp-v2e-error" hidden></div>
       <div class="gm-sp-v2ex-editor-actions">
@@ -89,6 +97,7 @@ async function renderV2exEditor(
   const ratioInput = form.querySelector('.gm-sp-v2e-ratio') as HTMLInputElement
   const elbowInput = form.querySelector('.gm-sp-v2e-elbow') as HTMLInputElement
   const minRepliesInput = form.querySelector('.gm-sp-v2e-min-replies') as HTMLInputElement
+  const halfLifeInput = form.querySelector('.gm-sp-v2e-half-life') as HTMLInputElement
   const errorEl = form.querySelector('.gm-sp-v2e-error') as HTMLDivElement
   const saveBtn = form.querySelector('.gm-sp-v2e-save') as HTMLButtonElement
   const cancelBtn = form.querySelector('.gm-sp-v2e-cancel') as HTMLButtonElement
@@ -99,6 +108,7 @@ async function renderV2exEditor(
   ratioInput.value = String(fresh.displayRatio)
   elbowInput.value = String(fresh.elbowDropRatio)
   minRepliesInput.value = String(fresh.minReplies)
+  halfLifeInput.value = String(fresh.ageHalfLifeDays)
 
   function showError(message: string): void {
     errorEl.textContent = message
@@ -142,6 +152,11 @@ async function renderV2exEditor(
       showError('回复阈值必须 ≥0')
       return
     }
+    const halfLife = Number(halfLifeInput.value)
+    if (!Number.isFinite(halfLife) || halfLife < 0.1 || halfLife > 30) {
+      showError('衰减半衰期必须是 0.1~30 之间')
+      return
+    }
     const v2ex = {
       ttlMinutes: Math.round(ttl),
       minItems: Math.round(min),
@@ -149,6 +164,7 @@ async function renderV2exEditor(
       displayRatio: ratio,
       elbowDropRatio: elbow,
       minReplies: Math.round(minReplies),
+      ageHalfLifeDays: halfLife,
     }
     const validation = validateConfig({ v2ex })
     if (!validation.ok) {

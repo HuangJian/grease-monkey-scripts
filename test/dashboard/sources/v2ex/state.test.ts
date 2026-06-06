@@ -3,14 +3,14 @@ import { JSDOM } from 'jsdom'
 import { CACHE_KEY, CACHE_SCHEMA_VERSION, type CachedSource } from '../../../../src/dashboard/types'
 import {
   createV2exState,
-  type StoredApiTopic,
+  type StoredHistoryTopic,
   type V2exState,
 } from '../../../../src/dashboard/v2ex/state'
 import type { V2exTopic } from '../../../../src/dashboard/v2ex/types'
 import { createRuntime, type TestRuntime } from '../../../runtime'
 
 const TOPIC_STATE_TTL_MS = 72 * 60 * 60 * 1000
-const API_TOPICS_TTL_MS = 48 * 60 * 60 * 1000
+const TOPICS_HISTORY_TTL_MS = 72 * 60 * 60 * 1000
 
 function makeDom(): JSDOM {
   return new JSDOM('<!doctype html><html><body></body></html>')
@@ -29,7 +29,7 @@ function makeTopic(over: Partial<V2exTopic>): V2exTopic {
   }
 }
 
-function makeStoredTopic(over: Partial<StoredApiTopic>): StoredApiTopic {
+function makeStoredTopic(over: Partial<StoredHistoryTopic>): StoredHistoryTopic {
   return {
     id: 0,
     title: '',
@@ -37,7 +37,7 @@ function makeStoredTopic(over: Partial<StoredApiTopic>): StoredApiTopic {
     replies: 0,
     member: { username: '' },
     node: { title: '' },
-    fetchedAt: Date.now(),
+    created: Date.now(),
     ...over,
   }
 }
@@ -90,10 +90,10 @@ describe('createV2exState', () => {
   })
 
   describe('clear', () => {
-    test('resets in-memory read/hidden/api history', async () => {
+    test('resets in-memory read/hidden/history', async () => {
       state.markRead(1)
       state.markHidden(2)
-      await state.saveApiHistory(runtime, [makeTopic({ id: 99 })])
+      await state.saveHistory(runtime, [makeTopic({ id: 99, created: Date.now() })])
       state.clear()
       expect(state.isRead(1)).toBe(false)
       expect(state.isHidden(2)).toBe(false)
@@ -148,46 +148,47 @@ describe('createV2exState', () => {
     })
   })
 
-  describe('loadApiHistory / saveApiHistory', () => {
+  describe('loadHistory / saveHistory', () => {
     test('returns empty when nothing stored', async () => {
-      const result = await state.loadApiHistory(runtime)
+      const result = await state.loadHistory(runtime)
       expect(result).toEqual([])
     })
     test('round-trip preserves stored topics', async () => {
-      const topic = makeTopic({ id: 5, title: 'foo' })
-      await state.saveApiHistory(runtime, [topic])
+      const topic = makeTopic({ id: 5, title: 'foo', created: Date.now() })
+      await state.saveHistory(runtime, [topic])
       const restored = createV2exState()
-      const result = await restored.loadApiHistory(runtime)
+      const result = await restored.loadHistory(runtime)
       expect(result).toHaveLength(1)
       expect(result[0].id).toBe(5)
       expect(result[0].title).toBe('foo')
     })
-    test('saveApiHistory dedupes by id', async () => {
-      const a = makeTopic({ id: 1, title: 'first' })
-      const b = makeTopic({ id: 1, title: 'second' })
-      await state.saveApiHistory(runtime, [a])
-      await state.saveApiHistory(runtime, [b])
-      const result = await state.loadApiHistory(runtime)
+    test('saveHistory dedupes by id (keeps latest)', async () => {
+      const a = makeTopic({ id: 1, title: 'first', replies: 10, created: Date.now() })
+      const b = makeTopic({ id: 1, title: 'second', replies: 20, created: Date.now() })
+      await state.saveHistory(runtime, [a])
+      await state.saveHistory(runtime, [b])
+      const result = await state.loadHistory(runtime)
       expect(result).toHaveLength(1)
-      expect(result[0].title).toBe('first')
+      expect(result[0].title).toBe('second')
+      expect(result[0].replies).toBe(20)
     })
-    test('saveApiHistory merges across calls', async () => {
-      await state.saveApiHistory(runtime, [makeTopic({ id: 1 })])
-      await state.saveApiHistory(runtime, [makeTopic({ id: 2 })])
-      const result = await state.loadApiHistory(runtime)
+    test('saveHistory merges across calls', async () => {
+      await state.saveHistory(runtime, [makeTopic({ id: 1, created: Date.now() })])
+      await state.saveHistory(runtime, [makeTopic({ id: 2, created: Date.now() })])
+      const result = await state.loadHistory(runtime)
       expect(result.map((t) => t.id).sort()).toEqual([1, 2])
     })
     test('expired entries are not loaded', async () => {
-      const KEY = 'gm:v2ex:api-topics'
-      const oldFetchedAt = Date.now() - API_TOPICS_TTL_MS - 1000
-      runtime.stores[KEY] = [makeStoredTopic({ id: 1, fetchedAt: oldFetchedAt })]
-      const result = await state.loadApiHistory(runtime)
+      const KEY = 'gm:v2ex:topics-history'
+      const oldCreated = Date.now() - TOPICS_HISTORY_TTL_MS - 1000
+      runtime.stores[KEY] = [makeStoredTopic({ id: 1, created: oldCreated })]
+      const result = await state.loadHistory(runtime)
       expect(result).toEqual([])
     })
     test('handles malformed storage', async () => {
-      const KEY = 'gm:v2ex:api-topics'
+      const KEY = 'gm:v2ex:topics-history'
       runtime.stores[KEY] = { not: 'an array' }
-      const result = await state.loadApiHistory(runtime)
+      const result = await state.loadHistory(runtime)
       expect(result).toEqual([])
     })
   })

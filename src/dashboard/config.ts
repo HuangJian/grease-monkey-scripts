@@ -13,6 +13,7 @@ export const DEFAULT_CONFIG: Config = {
     displayRatio: 0.1,
     elbowDropRatio: 0.4,
     minReplies: 5,
+    ageHalfLifeDays: 2,
   },
   reddit: {
     ttlMinutes: 30,
@@ -174,6 +175,7 @@ export function validateConfig(value: unknown): ConfigValidation {
       ['minItems', 0, Number.POSITIVE_INFINITY],
       ['maxItems', 0, Number.POSITIVE_INFINITY],
       ['minReplies', 0, Number.POSITIVE_INFINITY],
+      ['ageHalfLifeDays', 0.1, 30],
     ]
     for (const [name, min, max] of numFields) {
       if (name in v) {

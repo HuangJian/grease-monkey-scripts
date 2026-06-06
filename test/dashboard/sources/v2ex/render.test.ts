@@ -86,7 +86,7 @@ describe('renderV2ex', () => {
     renderV2ex(container, fixtureWithSources(['api']), state, null)
     const badge = container.querySelector('.gm-sp-v2ex-source')!
     expect(badge.textContent).toBe('⏳')
-    expect(badge.getAttribute('title')).toBe('API 抓取（24小时内热帖）')
+    expect(badge.getAttribute('title')).toBe('API 抓取或历史热帖')
   })
 
   test('shows badge for page-only topic', () => {

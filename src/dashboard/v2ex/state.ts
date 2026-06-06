@@ -1,13 +1,24 @@
 import type { Runtime } from '../../runtime'
 import { CACHE_KEY, type CachedSource } from '../types'
+import { TOPICS_HISTORY_TTL } from './constants'
 import type { V2exTopic } from './types'
 
 const TOPIC_STATE_KEY = 'gm:v2ex:topic-state'
 const TOPIC_STATE_TTL = 72 * 60 * 60 * 1000
-const API_TOPICS_KEY = 'gm:v2ex:api-topics'
-const API_TOPICS_TTL = 48 * 60 * 60 * 1000
+const TOPICS_HISTORY_KEY = 'gm:v2ex:topics-history'
+const OLD_API_TOPICS_KEY = 'gm:v2ex:api-topics'
 
-export type StoredApiTopic = {
+export type StoredHistoryTopic = {
+  id: number
+  title: string
+  url: string
+  replies: number
+  member: { username: string }
+  node: { title: string }
+  created?: number
+}
+
+type OldStoredApiTopic = {
   id: number
   title: string
   url: string
@@ -26,8 +37,8 @@ export type V2exState = {
   filterVisible(topics: ReadonlyArray<V2exTopic>): V2exTopic[]
   loadFromStorage(runtime: Runtime): Promise<void>
   saveToStorage(runtime: Runtime): Promise<void>
-  loadApiHistory(runtime: Runtime): Promise<StoredApiTopic[]>
-  saveApiHistory(runtime: Runtime, topics: ReadonlyArray<V2exTopic>): Promise<void>
+  loadHistory(runtime: Runtime): Promise<StoredHistoryTopic[]>
+  saveHistory(runtime: Runtime, topics: ReadonlyArray<V2exTopic>): Promise<void>
   removeFromCache(runtime: Runtime, topicId: number): Promise<void>
   clear(): void
 }
@@ -35,7 +46,8 @@ export type V2exState = {
 export function createV2exState(): V2exState {
   const readAt = new Map<number, number>()
   const hiddenAt = new Map<number, number>()
-  let cachedApiTopics: StoredApiTopic[] | null = null
+  let cachedHistory: StoredHistoryTopic[] | null = null
+  let migrationDone = false
 
   return {
     isRead(id) {
@@ -93,45 +105,82 @@ export function createV2exState(): V2exState {
       }
       await runtime.setValue(TOPIC_STATE_KEY, obj)
     },
-    async loadApiHistory(runtime) {
-      if (cachedApiTopics) return cachedApiTopics
+    async loadHistory(runtime) {
+      if (cachedHistory) return cachedHistory
+      if (!migrationDone) {
+        migrationDone = true
+        try {
+          const old = await runtime.getValue<OldStoredApiTopic[] | null>(OLD_API_TOPICS_KEY, null)
+          if (old && Array.isArray(old) && old.length > 0) {
+            const now = Date.now()
+            const migrated = old
+              .filter((t) => {
+                const created = t.created ?? t.fetchedAt
+                return created && now - created < TOPICS_HISTORY_TTL
+              })
+              .map((t) => ({
+                id: t.id,
+                title: t.title,
+                url: t.url,
+                replies: t.replies,
+                member: t.member,
+                node: t.node,
+                created: t.created ?? t.fetchedAt,
+              }))
+            const existing = await runtime.getValue<StoredHistoryTopic[] | null>(
+              TOPICS_HISTORY_KEY,
+              null,
+            )
+            const merged = existing ? [...existing, ...migrated] : migrated
+            await runtime.setValue(TOPICS_HISTORY_KEY, merged)
+          }
+          await runtime.setValue(OLD_API_TOPICS_KEY, null)
+        } catch {
+          /* ignore migration errors */
+        }
+      }
       try {
-        const stored = await runtime.getValue<StoredApiTopic[] | null>(API_TOPICS_KEY, null)
+        const stored = await runtime.getValue<StoredHistoryTopic[] | null>(TOPICS_HISTORY_KEY, null)
         if (!stored || !Array.isArray(stored)) {
-          cachedApiTopics = []
-          return cachedApiTopics
+          cachedHistory = []
+          return cachedHistory
         }
         const now = Date.now()
-        cachedApiTopics = stored.filter((t) => now - t.fetchedAt < API_TOPICS_TTL)
-        return cachedApiTopics
+        cachedHistory = stored.filter((t) => {
+          if (t.created === undefined) return false
+          return now - t.created < TOPICS_HISTORY_TTL
+        })
+        return cachedHistory
       } catch {
-        cachedApiTopics = []
-        return cachedApiTopics
+        cachedHistory = []
+        return cachedHistory
       }
     },
-    async saveApiHistory(runtime, topics) {
+    async saveHistory(runtime, topics) {
       const now = Date.now()
-      const existing = await this.loadApiHistory(runtime)
-      const byId = new Map<number, StoredApiTopic>()
+      const existing = await this.loadHistory(runtime)
+      const byId = new Map<number, StoredHistoryTopic>()
       for (const t of existing) {
         byId.set(t.id, t)
       }
       for (const t of topics) {
-        if (byId.has(t.id)) continue
+        if (!t.created || !Number.isFinite(t.created) || t.created <= 0) continue
+        const existingEntry = byId.get(t.id)
         byId.set(t.id, {
           id: t.id,
           title: t.title,
           url: t.url,
-          replies: t.replies,
+          replies: Math.max(existingEntry?.replies ?? 0, t.replies),
           member: t.member,
           node: t.node,
-          fetchedAt: now,
           created: t.created,
         })
       }
-      const result = Array.from(byId.values()).filter((t) => now - t.fetchedAt < API_TOPICS_TTL)
-      cachedApiTopics = result
-      await runtime.setValue(API_TOPICS_KEY, result)
+      const result = Array.from(byId.values()).filter(
+        (t) => t.created !== undefined && now - t.created < TOPICS_HISTORY_TTL,
+      )
+      cachedHistory = result
+      await runtime.setValue(TOPICS_HISTORY_KEY, result)
     },
     async removeFromCache(runtime, topicId) {
       try {
@@ -149,7 +198,7 @@ export function createV2exState(): V2exState {
     clear() {
       readAt.clear()
       hiddenAt.clear()
-      cachedApiTopics = null
+      cachedHistory = null
     },
   }
 }

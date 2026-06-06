@@ -1,6 +1,12 @@
 import type { Runtime } from '../../runtime'
 import { HOT_API_BASE, HOT_PAGE_URL } from './constants'
-import { dynamicV2exCount, mergeV2exTopics, parseV2ex, parseV2exHotPage } from './parser'
+import {
+  dynamicV2exCount,
+  mergeV2exTopics,
+  parseV2ex,
+  parseV2exHotPage,
+  sortByDecayedScore,
+} from './parser'
 import type { V2exState } from './state'
 import type { V2exCountOptions, V2exTopic } from './types'
 
@@ -43,7 +49,7 @@ export async function fetchV2ex(
   domParser: DOMParser,
   state: V2exState,
 ): Promise<V2exTopic[]> {
-  const [apiResult, pageResult, historicalApiTopics] = await Promise.all([
+  const [apiResult, pageResult, historicalTopics] = await Promise.all([
     fetchFromEndpoint(runtime, `${HOT_API_BASE}?_t=${Date.now()}`, (body) => {
       const json: unknown = JSON.parse(body)
       return parseV2ex(json, Number.POSITIVE_INFINITY)
@@ -51,7 +57,7 @@ export async function fetchV2ex(
     fetchFromEndpoint(runtime, HOT_PAGE_URL, (body) =>
       parseV2exHotPage(body, Number.POSITIVE_INFINITY, domParser),
     ),
-    state.loadApiHistory(runtime),
+    state.loadHistory(runtime),
   ])
 
   const apiIds = apiResult.topics.map((t) => t.id)
@@ -67,7 +73,7 @@ export async function fetchV2ex(
         .slice(0, 5)
         .map((t) => `${t.id}(${t.replies})`)
         .join(',')}]` +
-      ` | historical: ${historicalApiTopics.length} topics`,
+      ` | historical: ${historicalTopics.length} topics`,
   )
   console.debug(`[v2ex-fetch] all api IDs: [${apiIds.join(',')}]`)
   console.debug(`[v2ex-fetch] all page IDs: [${pageIds.join(',')}]`)
@@ -78,9 +84,9 @@ export async function fetchV2ex(
 
   let full = mergeV2exTopics(apiResult.topics, pageResult.topics, fetchCap, false)
 
-  if (historicalApiTopics.length > 0) {
+  if (historicalTopics.length > 0) {
     const currentIds = new Set(full.map((t) => t.id))
-    const historicalAsV2ex: V2exTopic[] = historicalApiTopics
+    const historicalAsV2ex: V2exTopic[] = historicalTopics
       .filter((t) => !currentIds.has(t.id))
       .map((t) => ({
         id: t.id,
@@ -97,8 +103,11 @@ export async function fetchV2ex(
     }
   }
 
+  const now = Date.now()
+  full = sortByDecayedScore(full, now, countOptions.ageHalfLifeDays ?? 2)
+
   if (!apiResult.error) {
-    void state.saveApiHistory(runtime, apiResult.topics)
+    void state.saveHistory(runtime, apiResult.topics)
   }
 
   console.debug(

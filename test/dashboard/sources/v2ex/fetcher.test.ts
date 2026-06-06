@@ -17,6 +17,7 @@ const FIXTURE = [
     member: { username: 'alice' },
     node: { title: 'node-a' },
     sources: [] as const,
+    created: Date.now() - 24 * 60 * 60 * 1000,
   },
   {
     id: 2,
@@ -26,6 +27,7 @@ const FIXTURE = [
     member: { username: 'bob' },
     node: { title: 'node-b' },
     sources: [] as const,
+    created: Date.now() - 24 * 60 * 60 * 1000,
   },
   {
     id: 3,
@@ -35,6 +37,7 @@ const FIXTURE = [
     member: { username: 'carol' },
     node: { title: 'node-c' },
     sources: [] as const,
+    created: Date.now() - 24 * 60 * 60 * 1000,
   },
 ]
 
@@ -44,6 +47,7 @@ const DEFAULT_COUNT_OPTS: V2exCountOptions = {
   displayRatio: 0.1,
   elbowDropRatio: 0.4,
   minReplies: 5,
+  ageHalfLifeDays: 2,
 }
 
 function makeRuntime(dom: JSDOM, handler: (d: RequestDetails) => void): Runtime {
@@ -128,7 +132,67 @@ describe('fetchV2ex', () => {
     )
     const pageTopic = topics.find((t) => t.id === 1217291)
     expect(pageTopic).toBeDefined()
-    expect(pageTopic!.sources).toEqual(['page'])
+    // Fixture topic created 2026-06-02 → auto-promoted to 'api' (today > 2026-06-02)
+    expect(pageTopic!.sources).toEqual(['api'])
+  })
+
+  test('auto-promotes page-only topics from previous days to api source', async () => {
+    const dom = makeDom()
+    const yesterday = new Date()
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1)
+    yesterday.setUTCHours(12, 0, 0, 0)
+
+    const yesterdayStr = yesterday
+      .toISOString()
+      .replace('T', ' ')
+      .replace('Z', ' +00:00')
+      .replace(/\.\d+/, '')
+    const html = `<html><body><div class="cell item"><a class="topic-link" href="/t/9999">Yesterday topic</a><span class="topic_info"><span title="${yesterdayStr}">1 day ago</span></span><span class="count_orange">50</span></div></body></html>`
+
+    const runtime = makeRuntime(dom, (d) => {
+      if (d.url.includes('hot.json')) d.onload({ responseText: '[]' })
+      else d.onload({ responseText: html })
+    })
+    const state = createV2exState()
+    const topics = await fetchV2ex(
+      runtime,
+      50,
+      DEFAULT_COUNT_OPTS,
+      new dom.window.DOMParser(),
+      state,
+    )
+    const promoted = topics.find((t) => t.id === 9999)
+    expect(promoted).toBeDefined()
+    expect(promoted!.sources).toEqual(['api'])
+  })
+
+  test('does not promote today page-only topics', async () => {
+    const dom = makeDom()
+    const today = new Date()
+    today.setUTCHours(12, 0, 0, 0)
+
+    const todayStr = today
+      .toISOString()
+      .replace('T', ' ')
+      .replace('Z', ' +00:00')
+      .replace(/\.\d+/, '')
+    const html = `<html><body><div class="cell item"><a class="topic-link" href="/t/8888">Today topic</a><span class="topic_info"><span title="${todayStr}">1 hour ago</span></span><span class="count_orange">10</span></div></body></html>`
+
+    const runtime = makeRuntime(dom, (d) => {
+      if (d.url.includes('hot.json')) d.onload({ responseText: '[]' })
+      else d.onload({ responseText: html })
+    })
+    const state = createV2exState()
+    const topics = await fetchV2ex(
+      runtime,
+      50,
+      DEFAULT_COUNT_OPTS,
+      new dom.window.DOMParser(),
+      state,
+    )
+    const notPromoted = topics.find((t) => t.id === 8888)
+    expect(notPromoted).toBeDefined()
+    expect(notPromoted!.sources).toEqual(['page'])
   })
 
   test('falls back to api when page fails', async () => {
@@ -232,7 +296,7 @@ describe('fetchV2ex', () => {
     expect(topics.every((t) => t.replies >= 5)).toBe(true)
   })
 
-  test('saves api history when api succeeds', async () => {
+  test('saves history when api succeeds', async () => {
     const dom = makeDom()
     const runtime = makeRuntime(dom, (d) => {
       if (d.url.includes('hot.json')) {
@@ -243,12 +307,12 @@ describe('fetchV2ex', () => {
     })
     const state = createV2exState()
     await fetchV2ex(runtime, 50, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
-    const history = await state.loadApiHistory(runtime)
+    const history = await state.loadHistory(runtime)
     expect(history).toHaveLength(3)
     expect(history.map((t) => t.id).sort()).toEqual([1, 2, 3])
   })
 
-  test('does not save api history when api fails', async () => {
+  test('does not save history when api fails', async () => {
     const dom = makeDom()
     const runtime = makeRuntime(dom, (d) => {
       if (d.url.includes('hot.json')) d.onerror?.()
@@ -256,17 +320,17 @@ describe('fetchV2ex', () => {
     })
     const state = createV2exState()
     await fetchV2ex(runtime, 50, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
-    const history = await state.loadApiHistory(runtime)
+    const history = await state.loadHistory(runtime)
     expect(history).toEqual([])
   })
 
-  test('merges historical api topics not present in current sources', async () => {
+  test('merges historical topics not present in current sources', async () => {
     const dom = makeDom()
     const runtime = makeRuntime(dom, (d) => {
       if (d.url.includes('hot.json')) d.onload({ responseText: JSON.stringify(FIXTURE) })
       else d.onload({ responseText: '[]' })
     })
-    const KEY = 'gm:v2ex:api-topics'
+    const KEY = 'gm:v2ex:topics-history'
     ;(runtime as TestRuntime).stores[KEY] = [
       {
         id: 500,
@@ -275,7 +339,7 @@ describe('fetchV2ex', () => {
         replies: 5,
         member: { username: 'h' },
         node: { title: 'hn' },
-        fetchedAt: Date.now(),
+        created: Date.now() - 24 * 60 * 60 * 1000,
       },
     ]
     const state = createV2exState()

@@ -12,6 +12,7 @@ const DEFAULTS: V2exSourceOptions = {
   displayRatio: 0.1,
   elbowDropRatio: 0.4,
   minReplies: 5,
+  ageHalfLifeDays: 2,
 }
 
 function makeDom(): JSDOM {
