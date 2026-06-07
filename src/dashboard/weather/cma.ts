@@ -108,7 +108,12 @@ export function parseCmaPage(html: string, DOMParserCtor: typeof DOMParser): Cma
   const parser = new DOMParserCtor()
   const doc = parser.parseFromString(html, 'text/html') as Document
   const dayNodes = doc.querySelectorAll('#dayList .pull-left.day')
-  console.log('[cma] parseCmaPage: html length', html.length, 'dayNodes', dayNodes.length)
+  console.debug(
+    '[gm-dashboard] cma.parseCmaPage: html length',
+    html.length,
+    'dayNodes',
+    dayNodes.length,
+  )
   if (dayNodes.length === 0) return null
 
   const dailyDates: string[] = []
@@ -148,12 +153,12 @@ export function parseCmaPage(html: string, DOMParserCtor: typeof DOMParser): Cma
 
   const hourly = parseCmaHourTable(doc, dailyDates)
   if (!hourly) {
-    console.log('[cma] parseCmaPage: parseCmaHourTable returned null')
+    console.debug('[gm-dashboard] cma.parseCmaPage: parseCmaHourTable returned null')
     return null
   }
 
-  console.log(
-    '[cma] parseCmaPage: ok daily',
+  console.debug(
+    '[gm-dashboard] cma.parseCmaPage: ok daily',
     dailyDates.length,
     'hourly',
     hourly.hourly.time.length,
@@ -169,18 +174,18 @@ function parseCmaHourTable(
 ): { hourly: WeatherHourly; dayDates: string[] } | null {
   const table = doc.querySelector('#hourTable_0 tbody')
   if (!table) {
-    console.log('[cma] parseCmaHourTable: no #hourTable_0 tbody')
+    console.debug('[gm-dashboard] cma.parseCmaHourTable: no #hourTable_0 tbody')
     return null
   }
   const rows = table.querySelectorAll('tr')
   if (rows.length < 7) {
-    console.log('[cma] parseCmaHourTable: rows.length', rows.length, '< 7')
+    console.debug('[gm-dashboard] cma.parseCmaHourTable: rows.length', rows.length, '< 7')
     return null
   }
 
   const timeRow = rows[0]!.querySelectorAll('td')
   if (timeRow.length < 2) {
-    console.log('[cma] parseCmaHourTable: timeRow tds', timeRow.length, '< 2')
+    console.debug('[gm-dashboard] cma.parseCmaHourTable: timeRow tds', timeRow.length, '< 2')
     return null
   }
   const hours: number[] = []
@@ -188,7 +193,7 @@ function parseCmaHourTable(
     const t = (timeRow[i]?.textContent ?? '').trim()
     const m = t.match(/^(\d{1,2}):\d{2}$/)
     if (!m) {
-      console.log('[cma] parseCmaHourTable: bad time cell', JSON.stringify(t))
+      console.debug('[gm-dashboard] cma.parseCmaHourTable: bad time cell', JSON.stringify(t))
       return null
     }
     hours.push(parseInt(m[1]!, 10))
@@ -215,7 +220,14 @@ function parseCmaHourTable(
   const humiditys = extractNumberCells(rows[7]!, /%$/)
   const cloudCovers = rows.length > 8 ? extractNumberCells(rows[8]!, /%$/) : []
 
-  console.log('[cma] parseCmaHourTable: hours', hours, 'wrapIdx', wrapIdx, 'isoTimes', isoTimes)
+  console.debug(
+    '[gm-dashboard] cma.parseCmaHourTable: hours',
+    hours,
+    'wrapIdx',
+    wrapIdx,
+    'isoTimes',
+    isoTimes,
+  )
 
   return {
     hourly: {
@@ -309,22 +321,22 @@ export type CmaNow = {
 
 export function parseCmaNow(json: unknown): CmaNow | null {
   if (!json || typeof json !== 'object') {
-    console.log('[cma] parseCmaNow: json is not an object')
+    console.debug('[gm-dashboard] cma.parseCmaNow: json is not an object')
     return null
   }
   const obj = json as Record<string, unknown>
   if (obj['code'] !== 0) {
-    console.log('[cma] parseCmaNow: code is not 0:', obj['code'])
+    console.debug('[gm-dashboard] cma.parseCmaNow: code is not 0:', obj['code'])
     return null
   }
   const data = obj['data'] as Record<string, unknown> | undefined
   if (!data) {
-    console.log('[cma] parseCmaNow: no data field')
+    console.debug('[gm-dashboard] cma.parseCmaNow: no data field')
     return null
   }
   const now = data['now'] as Record<string, unknown> | undefined
   if (!now) {
-    console.log('[cma] parseCmaNow: no data.now field')
+    console.debug('[gm-dashboard] cma.parseCmaNow: no data.now field')
     return null
   }
 
@@ -352,7 +364,7 @@ export function parseCmaNow(json: unknown): CmaNow | null {
     source: 'cma',
   }
 
-  console.log('[cma] parseCmaNow: ok', {
+  console.debug('[gm-dashboard] cma.parseCmaNow: ok', {
     time: current.time,
     temp: current.temperature_2m,
     dirText,

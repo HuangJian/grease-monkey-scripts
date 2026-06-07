@@ -65,3 +65,95 @@ export function validateNumberInput(raw: string, rule: NumericRule): NumericVali
   if (rule.max !== undefined && n > rule.max) return { ok: false, error: rule.errorMessage }
   return { ok: true, value: n }
 }
+
+export type NumberFieldRule = {
+  input: HTMLInputElement
+  min: number
+  max?: number
+  integer?: boolean
+  errorMessage: string
+}
+
+export function readNumberFields(
+  fields: ReadonlyArray<NumberFieldRule>,
+  onError: (message: string) => void,
+): number[] | null {
+  const out: number[] = []
+  for (const f of fields) {
+    const r = validateNumberInput(f.input.value, f)
+    if (!r.ok) {
+      onError(r.error)
+      return null
+    }
+    out.push(r.value)
+  }
+  return out
+}
+
+export type ChipListArgs<T> = {
+  listEl: HTMLElement
+  addBtn: HTMLButtonElement
+  inputs: ReadonlyArray<HTMLInputElement>
+  getItems: () => ReadonlyArray<T>
+  setItems: (items: T[]) => void
+  renderChip: (item: T, index: number) => string
+  removeSelector: string
+  tryAdd: () => { ok: true; item: T } | { ok: false; error: string }
+  showError: (message: string) => void
+  clearError: () => void
+  emptyText: string
+  emptyClass: string
+}
+
+export type ChipListHandle = {
+  render(): void
+}
+
+export function bindChipList<T>(args: ChipListArgs<T>): ChipListHandle {
+  function renderList(): void {
+    args.listEl.replaceChildren()
+    const items = args.getItems()
+    if (items.length === 0) {
+      args.listEl.insertAdjacentHTML(
+        'beforeend',
+        `<div class="${args.emptyClass}">${args.emptyText}</div>`,
+      )
+      return
+    }
+    args.listEl.insertAdjacentHTML(
+      'beforeend',
+      items.map((item, i) => args.renderChip(item, i)).join(''),
+    )
+    args.listEl.querySelectorAll<HTMLElement>(args.removeSelector).forEach((el, i) => {
+      el.addEventListener('click', () => {
+        const next = args.getItems().filter((_, idx) => idx !== i)
+        args.setItems(next)
+        renderList()
+      })
+    })
+  }
+
+  function handleAdd(): void {
+    args.clearError()
+    const r = args.tryAdd()
+    if (!r.ok) {
+      args.showError(r.error)
+      return
+    }
+    args.setItems([...args.getItems(), r.item])
+    for (const input of args.inputs) input.value = ''
+    renderList()
+  }
+
+  args.addBtn.addEventListener('click', handleAdd)
+  for (const input of args.inputs) {
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        handleAdd()
+      }
+    })
+  }
+
+  return { render: renderList }
+}

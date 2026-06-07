@@ -15,8 +15,8 @@ export function remainingHours(
     out.push(i)
     if (cmaMode && out.length >= 8) break
   }
-  console.log(
-    '[cma] remainingHours: cmaMode',
+  console.debug(
+    '[gm-dashboard] weather.remainingHours: cmaMode',
     cmaMode,
     'currentTime',
     currentTime,

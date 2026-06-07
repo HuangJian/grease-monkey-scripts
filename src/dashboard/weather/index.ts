@@ -13,14 +13,9 @@ export type {
 } from './types'
 export { FORECAST_DAYS } from './constants'
 export { weatherCodeIcon, aqiLevel, windDirectionArrow, formatHourLabel } from './helpers'
-export {
-  buildWeatherUrl,
-  buildAirQualityUrl,
-  parseAirQuality,
-  fetchAirQuality,
-  fetchWeather,
-  fetchWeatherAll,
-  parseWeather,
-} from './api'
+export { buildAirQualityUrl, parseAirQuality, fetchAirQuality } from './air-quality'
+export { parseWeather } from './parser'
+export { buildWeatherUrl, fetchWeather, fetchWeatherAll } from './api'
+export { requestJson, requestText } from './http'
 export { renderWeather, customizeWeatherHeader, remainingHours } from './render'
 export { createWeatherEditor } from './editor'

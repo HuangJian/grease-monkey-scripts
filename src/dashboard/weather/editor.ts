@@ -1,41 +1,39 @@
 import type { Runtime } from '../../runtime'
 import { escapeHtml } from '../../utils'
-import { validateConfig } from '../config'
-import { bindErrorBox, saveConfigSection } from '../editor-helpers'
-import { CONFIG_KEY } from '../types'
+import { loadConfigSection, validateConfig } from '../config'
+import { bindChipList, bindErrorBox, saveConfigSection } from '../editor-helpers'
 import type { SourceEditor } from '../types'
-import type { WeatherCity } from './types'
+import type { WeatherCity, WeatherSourceOptions } from './types'
 
-export type WeatherEditorOptions = {
-  cities: WeatherCity[]
-  ttlMinutes: number
+export function createWeatherEditor(options: WeatherSourceOptions): SourceEditor {
+  return (container, ctx) => renderWeatherEditor(container, options, ctx)
 }
 
-export function createWeatherEditor(options: WeatherEditorOptions): SourceEditor {
-  return (container, ctx) => renderWeatherEditor(container, options, ctx)
+function coerceWeatherOptions(
+  raw: Record<string, unknown>,
+  fallback: WeatherSourceOptions,
+): WeatherSourceOptions {
+  const cities = raw['cities']
+  return {
+    cities:
+      Array.isArray(cities) && cities.length > 0 ? (cities as WeatherCity[]) : fallback.cities,
+    ttlMinutes:
+      typeof raw['ttlMinutes'] === 'number' ? (raw['ttlMinutes'] as number) : fallback.ttlMinutes,
+  }
 }
 
 async function loadFreshWeatherOptions(
   runtime: Runtime,
-  fallback: WeatherEditorOptions,
-): Promise<WeatherEditorOptions> {
-  try {
-    const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
-    const weather = stored?.weather as { cities?: WeatherCity[]; ttlMinutes?: number } | undefined
-    if (weather?.cities && Array.isArray(weather.cities) && weather.cities.length > 0) {
-      return {
-        cities: weather.cities,
-        ttlMinutes:
-          typeof weather.ttlMinutes === 'number' ? weather.ttlMinutes : fallback.ttlMinutes,
-      }
-    }
-  } catch {}
-  return fallback
+  fallback: WeatherSourceOptions,
+): Promise<WeatherSourceOptions> {
+  return loadConfigSection(runtime, 'weather', fallback, (raw) =>
+    coerceWeatherOptions(raw, fallback),
+  )
 }
 
 async function renderWeatherEditor(
   container: HTMLElement,
-  options: WeatherEditorOptions,
+  options: WeatherSourceOptions,
   ctx: { runtime: Runtime; onRevert: () => void; close: () => void },
 ): Promise<void> {
   const fresh = await loadFreshWeatherOptions(ctx.runtime, options)
@@ -84,80 +82,49 @@ async function renderWeatherEditor(
   const cancelBtn = container.querySelector('.gm-sp-we-cancel') as HTMLButtonElement
   const errorEl = container.querySelector('.gm-sp-we-error') as HTMLDivElement
 
-  function renderList(): void {
-    listEl.replaceChildren()
-    if (cities.length === 0) {
-      listEl.insertAdjacentHTML('beforeend', '<div class="gm-sp-we-empty">尚未添加城市</div>')
-      return
-    }
-    listEl.insertAdjacentHTML(
-      'beforeend',
-      cities
-        .map((city, i) => {
-          const coord = `${city.latitude.toFixed(4)}, ${city.longitude.toFixed(4)}`
-          const cma = city.cmaStationId ? `CMA ${escapeHtml(city.cmaStationId)}` : ''
-          return `<div class="gm-sp-we-item" data-index="${i}">
+  const error = bindErrorBox(errorEl)
+
+  const chipList = bindChipList<WeatherCity>({
+    listEl,
+    addBtn,
+    inputs: [labelInput, cmaInput],
+    getItems: () => cities,
+    setItems: (next) => {
+      cities.length = 0
+      cities.push(...next)
+    },
+    renderChip: (city, i) => {
+      const coord = `${city.latitude.toFixed(4)}, ${city.longitude.toFixed(4)}`
+      const cma = city.cmaStationId ? `CMA ${escapeHtml(city.cmaStationId)}` : ''
+      return `<div class="gm-sp-we-item" data-index="${i}">
           <span class="gm-sp-we-item-label">${escapeHtml(city.cityLabel)}</span>
           <span class="gm-sp-we-item-coord">${coord}</span>
           <span class="gm-sp-we-item-cma">${cma}</span>
           <button type="button" class="gm-sp-we-remove" aria-label="remove">×</button>
         </div>`
-        })
-        .join(''),
-    )
-    listEl.querySelectorAll<HTMLElement>('.gm-sp-we-item').forEach((row) => {
-      const idx = Number(row.dataset['index']!)
-      const remove = row.querySelector('.gm-sp-we-remove') as HTMLButtonElement
-      remove.addEventListener('click', () => {
-        cities.splice(idx, 1)
-        renderList()
-      })
-    })
-  }
-
-  const error = bindErrorBox(errorEl)
-
-  function tryAdd(): void {
-    error.clear()
-    const cityLabel = labelInput.value.trim()
-    const lat = Number(latInput.value)
-    const lon = Number(lonInput.value)
-    const cmaStationId = cmaInput.value.trim()
-    if (!cityLabel) {
-      error.show('请输入城市名')
-      return
-    }
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-      error.show('经纬度必须是有限数字')
-      return
-    }
-    if (cmaStationId && !/^\d{5}$/.test(cmaStationId)) {
-      error.show('CMA 站点 ID 必须是 5 位数字')
-      return
-    }
-    const city: WeatherCity = cmaStationId
-      ? { cityLabel, latitude: lat, longitude: lon, cmaStationId }
-      : { cityLabel, latitude: lat, longitude: lon }
-    cities.push(city)
-    labelInput.value = ''
-    latInput.value = ''
-    lonInput.value = ''
-    cmaInput.value = ''
-    renderList()
-  }
-
-  addBtn.addEventListener('click', tryAdd)
-  labelInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      tryAdd()
-    }
-  })
-  cmaInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      tryAdd()
-    }
+    },
+    removeSelector: '.gm-sp-we-remove',
+    tryAdd: () => {
+      const cityLabel = labelInput.value.trim()
+      const lat = Number(latInput.value)
+      const lon = Number(lonInput.value)
+      const cmaStationId = cmaInput.value.trim()
+      if (!cityLabel) return { ok: false, error: '请输入城市名' }
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        return { ok: false, error: '经纬度必须是有限数字' }
+      }
+      if (cmaStationId && !/^\d{5}$/.test(cmaStationId)) {
+        return { ok: false, error: 'CMA 站点 ID 必须是 5 位数字' }
+      }
+      const city: WeatherCity = cmaStationId
+        ? { cityLabel, latitude: lat, longitude: lon, cmaStationId }
+        : { cityLabel, latitude: lat, longitude: lon }
+      return { ok: true, item: city }
+    },
+    showError: (msg) => error.show(msg),
+    clearError: () => error.clear(),
+    emptyText: '尚未添加城市',
+    emptyClass: 'gm-sp-we-empty',
   })
 
   cancelBtn.addEventListener('click', () => {
@@ -180,5 +147,5 @@ async function renderWeatherEditor(
     })
   })
 
-  renderList()
+  chipList.render()
 }

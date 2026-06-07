@@ -1,6 +1,6 @@
 import type { Runtime } from '../../runtime'
 import { loadConfigSection, validateConfig } from '../config'
-import { bindErrorBox, saveConfigSection, validateNumberInput } from '../editor-helpers'
+import { bindErrorBox, readNumberFields, saveConfigSection } from '../editor-helpers'
 import type { SourceEditor } from '../types'
 import type { V2exSourceOptions } from './types'
 
@@ -117,70 +117,32 @@ async function renderV2exEditor(
 
   saveBtn.addEventListener('click', () => {
     error.clear()
-    const ttl = validateNumberInput(ttlInput.value, {
-      min: 1,
-      errorMessage: 'TTL 必须是 ≥1 的整数',
-    })
-    if (!ttl.ok) {
-      error.show(ttl.error)
-      return
-    }
-    const min = validateNumberInput(minInput.value, {
-      min: 1,
-      errorMessage: '最少条数必须是 ≥1 的整数',
-    })
-    if (!min.ok) {
-      error.show(min.error)
-      return
-    }
-    const max = Number(maxInput.value)
-    if (!Number.isFinite(max) || max < min.value) {
+    const nums = readNumberFields(
+      [
+        { input: ttlInput, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' },
+        { input: minInput, min: 1, errorMessage: '最少条数必须是 ≥1 的整数' },
+        { input: maxInput, min: 1, errorMessage: '最多条数必须 ≥ 最少条数' },
+        { input: ratioInput, min: 0, max: 1, errorMessage: '显示比例必须是 0~1 之间' },
+        { input: elbowInput, min: 0, max: 1, errorMessage: '拐点跌幅必须是 0~1 之间' },
+        { input: minRepliesInput, min: 0, errorMessage: '回复阈值必须 ≥0' },
+        { input: halfLifeInput, min: 0.1, max: 30, errorMessage: '衰减半衰期必须是 0.1~30 之间' },
+      ],
+      (msg) => error.show(msg),
+    )
+    if (nums === null) return
+    const [ttl, min, max, ratio, elbow, minReplies, halfLife] = nums
+    if (max < min) {
       error.show('最多条数必须 ≥ 最少条数')
       return
     }
-    const ratio = validateNumberInput(ratioInput.value, {
-      min: 0,
-      max: 1,
-      errorMessage: '显示比例必须是 0~1 之间',
-    })
-    if (!ratio.ok) {
-      error.show(ratio.error)
-      return
-    }
-    const elbow = validateNumberInput(elbowInput.value, {
-      min: 0,
-      max: 1,
-      errorMessage: '拐点跌幅必须是 0~1 之间',
-    })
-    if (!elbow.ok) {
-      error.show(elbow.error)
-      return
-    }
-    const minReplies = validateNumberInput(minRepliesInput.value, {
-      min: 0,
-      errorMessage: '回复阈值必须 ≥0',
-    })
-    if (!minReplies.ok) {
-      error.show(minReplies.error)
-      return
-    }
-    const halfLife = validateNumberInput(halfLifeInput.value, {
-      min: 0.1,
-      max: 30,
-      errorMessage: '衰减半衰期必须是 0.1~30 之间',
-    })
-    if (!halfLife.ok) {
-      error.show(halfLife.error)
-      return
-    }
     const v2ex = {
-      ttlMinutes: Math.round(ttl.value),
-      minItems: Math.round(min.value),
+      ttlMinutes: Math.round(ttl),
+      minItems: Math.round(min),
       maxItems: Math.round(max),
-      displayRatio: ratio.value,
-      elbowDropRatio: elbow.value,
-      minReplies: Math.round(minReplies.value),
-      ageHalfLifeDays: halfLife.value,
+      displayRatio: ratio,
+      elbowDropRatio: elbow,
+      minReplies: Math.round(minReplies),
+      ageHalfLifeDays: halfLife,
     }
     void saveConfigSection({
       runtime: ctx.runtime,

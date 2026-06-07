@@ -1,8 +1,14 @@
 import type { Runtime } from '../../runtime'
-import type { WeatherCity } from './types'
-import type { WeatherAirQuality, WeatherCityData } from './types'
+import { fetchAirQuality } from './air-quality'
+import { requestJson, requestText } from './http'
+import { parseWeather } from './parser'
 import { parseCmaNow, parseCmaPage } from './cma'
 import { FORECAST_DAYS } from './constants'
+import type { WeatherCity, WeatherCityData, WeatherCityEntry } from './types'
+
+export { buildAirQualityUrl, fetchAirQuality, parseAirQuality } from './air-quality'
+export { parseWeather } from './parser'
+export { requestJson, requestText } from './http'
 
 export function buildWeatherUrl(latitude: number, longitude: number): string {
   const params = new URLSearchParams({
@@ -15,80 +21,6 @@ export function buildWeatherUrl(latitude: number, longitude: number): string {
     forecast_days: FORECAST_DAYS.toString(),
   })
   return `https://api.open-meteo.com/v1/forecast?${params.toString()}`
-}
-
-export function buildAirQualityUrl(latitude: number, longitude: number): string {
-  const params = new URLSearchParams({
-    latitude: latitude.toString(),
-    longitude: longitude.toString(),
-    current: 'us_aqi,pm2_5,pm10',
-    timezone: 'auto',
-  })
-  return `https://air-quality-api.open-meteo.com/v1/air-quality?${params.toString()}`
-}
-
-function requestJson(runtime: Runtime, url: string): Promise<unknown> {
-  return new Promise<unknown>((resolve, reject) => {
-    runtime.request({
-      url,
-      method: 'GET',
-      timeout: 15000,
-      onload(response) {
-        try {
-          resolve(JSON.parse(response.responseText) as unknown)
-        } catch (e) {
-          reject(e instanceof Error ? e : new Error(String(e)))
-        }
-      },
-      onerror: () => reject(new Error('network error')),
-      ontimeout: () => reject(new Error('timeout')),
-    })
-  })
-}
-
-function requestText(
-  runtime: Runtime,
-  url: string,
-  headers?: Record<string, string>,
-): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
-    runtime.request({
-      url,
-      method: 'GET',
-      timeout: 15000,
-      headers,
-      onload(response) {
-        resolve(response.responseText)
-      },
-      onerror: () => reject(new Error('network error')),
-      ontimeout: () => reject(new Error('timeout')),
-    })
-  })
-}
-
-export function parseAirQuality(json: unknown): WeatherAirQuality | null {
-  if (!json || typeof json !== 'object') return null
-  const obj = json as Record<string, unknown>
-  const current = obj.current as Record<string, unknown> | undefined
-  if (!current) return null
-  if (typeof current.us_aqi !== 'number') return null
-  return {
-    us_aqi: current.us_aqi,
-    pm2_5: typeof current.pm2_5 === 'number' ? current.pm2_5 : 0,
-    pm10: typeof current.pm10 === 'number' ? current.pm10 : 0,
-  }
-}
-
-export function fetchAirQuality(
-  runtime: Runtime,
-  latitude: number,
-  longitude: number,
-): Promise<WeatherAirQuality> {
-  return requestJson(runtime, buildAirQualityUrl(latitude, longitude)).then((json) => {
-    const aq = parseAirQuality(json)
-    if (!aq) throw new Error('invalid air quality response')
-    return aq
-  })
 }
 
 export function fetchWeather(
@@ -124,7 +56,7 @@ async function fetchCmaPageHtml(runtime: Runtime, stationId: string): Promise<st
 async function fetchCmaNowJson(runtime: Runtime, stationId: string): Promise<unknown> {
   const url = `https://weather.cma.cn/api/now/${stationId}`
   const text = await requestText(runtime, url, {
-    Referer: `https://weather.cma.cn/web/weather/${stationId}.html`,
+    headers: { Referer: `https://weather.cma.cn/web/weather/${stationId}.html` },
   })
   try {
     return JSON.parse(text) as unknown
@@ -135,23 +67,33 @@ async function fetchCmaNowJson(runtime: Runtime, stationId: string): Promise<unk
 
 async function fetchCmaCity(runtime: Runtime, city: WeatherCity): Promise<WeatherCityData> {
   const stationId = city.cmaStationId!
-  console.log('[cma] fetchCmaCity: station', stationId, 'city', city.cityLabel)
+  console.debug('[gm-dashboard] cma.fetchCmaCity: station', stationId, 'city', city.cityLabel)
   const [om, pageHtml, nowJson] = await Promise.allSettled([
     fetchOpenMeteoBase(runtime, city.latitude, city.longitude),
     fetchCmaPageHtml(runtime, stationId),
     fetchCmaNowJson(runtime, stationId),
   ])
 
-  console.log('[cma] fetchCmaCity: om', om.status, 'page', pageHtml.status, 'now', nowJson.status)
+  console.debug(
+    '[gm-dashboard] cma.fetchCmaCity: om',
+    om.status,
+    'page',
+    pageHtml.status,
+    'now',
+    nowJson.status,
+  )
   if (pageHtml.status === 'fulfilled') {
-    console.log('[cma] fetchCmaCity: page length', pageHtml.value.length)
+    console.debug('[gm-dashboard] cma.fetchCmaCity: page length', pageHtml.value.length)
   } else {
-    console.log('[cma] fetchCmaCity: page error', pageHtml.reason)
+    console.debug('[gm-dashboard] cma.fetchCmaCity: page error', pageHtml.reason)
   }
   if (nowJson.status === 'fulfilled') {
-    console.log('[cma] fetchCmaCity: now body sample', JSON.stringify(nowJson.value).slice(0, 200))
+    console.debug(
+      '[gm-dashboard] cma.fetchCmaCity: now body sample',
+      JSON.stringify(nowJson.value).slice(0, 200),
+    )
   } else {
-    console.log('[cma] fetchCmaCity: now error', nowJson.reason)
+    console.debug('[gm-dashboard] cma.fetchCmaCity: now error', nowJson.reason)
   }
 
   if (om.status !== 'fulfilled') {
@@ -185,7 +127,7 @@ async function fetchCmaCity(runtime: Runtime, city: WeatherCity): Promise<Weathe
         precipitation_amount: parsed.hourly.precipitation_amount,
       }
     } else {
-      console.log('[cma] fetchCmaCity: page parse returned null, keeping OM hourly')
+      console.debug('[gm-dashboard] cma.fetchCmaCity: page parse returned null, keeping OM hourly')
     }
   }
 
@@ -206,8 +148,8 @@ async function fetchCmaCity(runtime: Runtime, city: WeatherCity): Promise<Weathe
     }
   }
 
-  console.log(
-    '[cma] fetchCmaCity: merged current.source',
+  console.debug(
+    '[gm-dashboard] cma.fetchCmaCity: merged current.source',
     data.current.source,
     'current.time',
     data.current.time,
@@ -220,7 +162,7 @@ async function fetchCmaCity(runtime: Runtime, city: WeatherCity): Promise<Weathe
 export async function fetchWeatherAll(
   runtime: Runtime,
   cities: WeatherCity[],
-): Promise<{ entries: import('./types').WeatherCityEntry[] }> {
+): Promise<{ entries: WeatherCityEntry[] }> {
   if (cities.length === 0) {
     throw new Error('weather: no cities configured')
   }
@@ -243,65 +185,4 @@ export async function fetchWeatherAll(
     }
   })
   return { entries }
-}
-
-export function parseWeather(json: unknown): WeatherCityData | null {
-  if (!json || typeof json !== 'object') return null
-  const obj = json as Record<string, unknown>
-  const current = obj.current as Record<string, unknown> | undefined
-  const daily = obj.daily as Record<string, unknown> | undefined
-  const hourly = obj.hourly as Record<string, unknown> | undefined
-  if (!current || !daily || !hourly) return null
-  if (
-    typeof current.temperature_2m !== 'number' ||
-    typeof current.apparent_temperature !== 'number' ||
-    typeof current.weather_code !== 'number' ||
-    typeof current.wind_speed_10m !== 'number' ||
-    typeof current.wind_direction_10m !== 'number' ||
-    typeof current.time !== 'string'
-  ) {
-    return null
-  }
-  if (
-    !Array.isArray(daily.time) ||
-    !Array.isArray(daily.temperature_2m_max) ||
-    !Array.isArray(daily.temperature_2m_min) ||
-    !Array.isArray(daily.weather_code) ||
-    !Array.isArray(daily.precipitation_probability_max)
-  ) {
-    return null
-  }
-  if (
-    !Array.isArray(hourly.time) ||
-    !Array.isArray(hourly.temperature_2m) ||
-    !Array.isArray(hourly.weather_code) ||
-    !Array.isArray(hourly.precipitation_probability)
-  ) {
-    return null
-  }
-  return {
-    current: {
-      time: current.time,
-      temperature_2m: current.temperature_2m,
-      apparent_temperature: current.apparent_temperature,
-      weather_code: current.weather_code,
-      wind_speed_10m: current.wind_speed_10m,
-      wind_direction_10m: current.wind_direction_10m,
-      air_quality: null,
-      source: 'open-meteo',
-    },
-    hourly: {
-      time: hourly.time as string[],
-      temperature_2m: hourly.temperature_2m as number[],
-      weather_code: hourly.weather_code as number[],
-      precipitation_probability: hourly.precipitation_probability as number[],
-    },
-    daily: {
-      time: daily.time as string[],
-      temperature_2m_max: daily.temperature_2m_max as number[],
-      temperature_2m_min: daily.temperature_2m_min as number[],
-      weather_code: daily.weather_code as number[],
-      precipitation_probability_max: daily.precipitation_probability_max as number[],
-    },
-  }
 }

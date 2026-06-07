@@ -1,9 +1,11 @@
 import type { Runtime } from '../../runtime'
 import { escapeHtml } from '../../utils'
 import { validateConfig } from '../config'
-import { CONFIG_KEY } from '../types'
+import { bindChipList, bindErrorBox, readNumberFields, saveConfigSection } from '../editor-helpers'
 import type { SourceEditor } from '../types'
-import { loadFreshRedditOptions, normalizeSubredditName, type RedditSourceOptions } from './source'
+import { normalizeSubredditName } from './parser'
+import type { RedditSourceOptions } from './types'
+import { loadFreshRedditOptions } from './source'
 
 export function createRedditEditor(options: RedditSourceOptions): SourceEditor {
   return (container, ctx) => renderRedditEditor(container, options, ctx)
@@ -88,65 +90,33 @@ async function renderRedditEditor(
   elbowInput.value = String(fresh.elbowDropRatio)
   cutoffInput.value = String(fresh.minCutoffScore)
 
-  function showError(message: string): void {
-    errorEl.textContent = message
-    errorEl.hidden = false
-  }
-  function clearError(): void {
-    errorEl.textContent = ''
-    errorEl.hidden = true
-  }
+  const error = bindErrorBox(errorEl)
 
-  function renderChips(): void {
-    listEl.replaceChildren()
-    if (subs.length === 0) {
-      listEl.insertAdjacentHTML('beforeend', '<div class="gm-sp-re-empty">尚未添加 subreddit</div>')
-      return
-    }
-    listEl.insertAdjacentHTML(
-      'beforeend',
-      subs
-        .map(
-          (name, i) =>
-            `<div class="gm-sp-re-chip" data-index="${i}">
+  const chipList = bindChipList<string>({
+    listEl,
+    addBtn,
+    inputs: [inputEl],
+    getItems: () => subs,
+    setItems: (next) => {
+      subs.length = 0
+      subs.push(...next)
+    },
+    renderChip: (name, i) =>
+      `<div class="gm-sp-re-chip" data-index="${i}">
           <span class="gm-sp-re-chip-label">r/${escapeHtml(name)}</span>
           <button type="button" class="gm-sp-re-chip-remove" aria-label="remove">×</button>
         </div>`,
-        )
-        .join(''),
-    )
-    listEl.querySelectorAll<HTMLElement>('.gm-sp-re-chip').forEach((chip) => {
-      const idx = Number(chip.dataset['index']!)
-      chip.querySelector('.gm-sp-re-chip-remove')!.addEventListener('click', () => {
-        subs.splice(idx, 1)
-        renderChips()
-      })
-    })
-  }
-
-  function tryAdd(): void {
-    clearError()
-    const raw = inputEl.value
-    const normalized = normalizeSubredditName(raw)
-    if (!normalized) {
-      showError('请输入有效的 subreddit 名称')
-      return
-    }
-    if (subs.includes(normalized)) {
-      showError(`r/${normalized} 已在列表中`)
-      return
-    }
-    subs.push(normalized)
-    inputEl.value = ''
-    renderChips()
-  }
-
-  addBtn.addEventListener('click', tryAdd)
-  inputEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      tryAdd()
-    }
+    removeSelector: '.gm-sp-re-chip-remove',
+    tryAdd: () => {
+      const normalized = normalizeSubredditName(inputEl.value)
+      if (!normalized) return { ok: false, error: '请输入有效的 subreddit 名称' }
+      if (subs.includes(normalized)) return { ok: false, error: `r/${normalized} 已在列表中` }
+      return { ok: true, item: normalized }
+    },
+    showError: (msg) => error.show(msg),
+    clearError: () => error.clear(),
+    emptyText: '尚未添加 subreddit',
+    emptyClass: 'gm-sp-re-empty',
   })
 
   cancelBtn.addEventListener('click', () => {
@@ -154,44 +124,27 @@ async function renderRedditEditor(
   })
 
   saveBtn.addEventListener('click', () => {
-    clearError()
+    error.clear()
     if (subs.length === 0) {
-      showError('至少添加一个 subreddit')
+      error.show('至少添加一个 subreddit')
       return
     }
-    const ttl = Number(ttlInput.value)
-    const min = Number(minInput.value)
-    const max = Number(maxInput.value)
-    const minPerSub = Number(minPerSubInput.value)
-    const ratio = Number(ratioInput.value)
-    const elbow = Number(elbowInput.value)
-    const cutoff = Number(cutoffInput.value)
-    if (!Number.isFinite(ttl) || ttl < 1) {
-      showError('TTL 必须是 ≥1 的整数')
-      return
-    }
-    if (!Number.isFinite(min) || min < 1) {
-      showError('最少条数必须是 ≥1 的整数')
-      return
-    }
-    if (!Number.isFinite(max) || max < min) {
-      showError('最多条数必须 ≥ 最少条数')
-      return
-    }
-    if (!Number.isFinite(minPerSub) || minPerSub < 0) {
-      showError('每板块保底必须 ≥0')
-      return
-    }
-    if (!Number.isFinite(ratio) || ratio < 0 || ratio > 1) {
-      showError('显示比例必须是 0~1 之间')
-      return
-    }
-    if (!Number.isFinite(elbow) || elbow < 0 || elbow > 1) {
-      showError('拐点跌幅必须是 0~1 之间')
-      return
-    }
-    if (!Number.isFinite(cutoff) || cutoff < 0) {
-      showError('最低分数必须 ≥0')
+    const nums = readNumberFields(
+      [
+        { input: ttlInput, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' },
+        { input: minInput, min: 1, errorMessage: '最少条数必须是 ≥1 的整数' },
+        { input: maxInput, min: 1, errorMessage: '最多条数必须 ≥ 最少条数' },
+        { input: minPerSubInput, min: 0, errorMessage: '每板块保底必须 ≥0' },
+        { input: ratioInput, min: 0, max: 1, errorMessage: '显示比例必须是 0~1 之间' },
+        { input: elbowInput, min: 0, max: 1, errorMessage: '拐点跌幅必须是 0~1 之间' },
+        { input: cutoffInput, min: 0, errorMessage: '最低分数必须 ≥0' },
+      ],
+      (msg) => error.show(msg),
+    )
+    if (nums === null) return
+    const [ttl, min, max, minPerSub, ratio, elbow, cutoff] = nums
+    if (max < min) {
+      error.show('最多条数必须 ≥ 最少条数')
       return
     }
     const reddit = {
@@ -204,20 +157,15 @@ async function renderRedditEditor(
       elbowDropRatio: elbow,
       minCutoffScore: Math.round(cutoff),
     }
-    const validation = validateConfig({ reddit })
-    if (!validation.ok) {
-      showError(validation.error)
-      return
-    }
-    const result = ctx.runtime
-      .getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
-      .then((existing) => {
-        return ctx.runtime.setValue(CONFIG_KEY, { ...(existing ?? {}), reddit })
-      })
-    Promise.resolve(result).then(() => {
-      ctx.close()
+    void saveConfigSection({
+      runtime: ctx.runtime,
+      sectionKey: 'reddit',
+      section: reddit,
+      validate: validateConfig,
+      onError: (msg) => error.show(msg),
+      onSuccess: () => ctx.close(),
     })
   })
 
-  renderChips()
+  chipList.render()
 }

@@ -1,17 +1,12 @@
 import type { Runtime } from '../../runtime'
 import { escapeHtml } from '../../utils'
-import { validateConfig } from '../config'
-import { CONFIG_KEY } from '../types'
+import { loadConfigSection, validateConfig } from '../config'
+import { bindChipList, bindErrorBox, readNumberFields, saveConfigSection } from '../editor-helpers'
 import type { SourceEditor } from '../types'
 import { adapterByHostname } from './adapters/registry'
-import type { NovelEntry } from './types'
+import type { NovelEntry, NovelSourceOptions } from './types'
 
-export type NovelsEditorOptions = {
-  entries: NovelEntry[]
-  ttlMinutes: number
-  maxNewChaptersPerBook: number
-  initialNewChapters: number
-  maxLatestWindow: number
+export type NovelsEditorOptions = NovelSourceOptions & {
   getCachedTitles: () => Promise<Map<string, string>>
 }
 
@@ -19,42 +14,49 @@ export function createNovelsEditor(options: NovelsEditorOptions): SourceEditor {
   return (container, ctx) => renderNovelsEditor(container, options, ctx)
 }
 
+function coerceNovelsOptions(
+  raw: Record<string, unknown>,
+  fallback: NovelSourceOptions,
+): NovelSourceOptions {
+  const entries = raw['entries']
+  return {
+    entries: Array.isArray(entries) ? (entries as NovelEntry[]) : fallback.entries,
+    ttlMinutes:
+      typeof raw['ttlMinutes'] === 'number' ? (raw['ttlMinutes'] as number) : fallback.ttlMinutes,
+    maxNewChaptersPerBook:
+      typeof raw['maxNewChaptersPerBook'] === 'number'
+        ? (raw['maxNewChaptersPerBook'] as number)
+        : fallback.maxNewChaptersPerBook,
+    initialNewChapters:
+      typeof raw['initialNewChapters'] === 'number'
+        ? (raw['initialNewChapters'] as number)
+        : fallback.initialNewChapters,
+    maxLatestWindow:
+      typeof raw['maxLatestWindow'] === 'number'
+        ? (raw['maxLatestWindow'] as number)
+        : fallback.maxLatestWindow,
+  }
+}
+
 async function loadFreshNovelsOptions(
   runtime: Runtime,
-  fallback: NovelsEditorOptions,
-): Promise<NovelsEditorOptions> {
+  fallback: NovelSourceOptions,
+): Promise<NovelSourceOptions> {
+  return loadConfigSection(runtime, 'novels', fallback, (raw) => coerceNovelsOptions(raw, fallback))
+}
+
+function hostnameFor(url: string): string | null {
   try {
-    const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
-    const novels = stored?.novels as
-      | {
-          entries?: NovelEntry[]
-          ttlMinutes?: number
-          maxNewChaptersPerBook?: number
-          initialNewChapters?: number
-          maxLatestWindow?: number
-        }
-      | undefined
-    if (novels) {
-      return {
-        entries: Array.isArray(novels.entries) ? novels.entries : fallback.entries,
-        ttlMinutes: typeof novels.ttlMinutes === 'number' ? novels.ttlMinutes : fallback.ttlMinutes,
-        maxNewChaptersPerBook:
-          typeof novels.maxNewChaptersPerBook === 'number'
-            ? novels.maxNewChaptersPerBook
-            : fallback.maxNewChaptersPerBook,
-        initialNewChapters:
-          typeof novels.initialNewChapters === 'number'
-            ? novels.initialNewChapters
-            : fallback.initialNewChapters,
-        maxLatestWindow:
-          typeof novels.maxLatestWindow === 'number'
-            ? novels.maxLatestWindow
-            : fallback.maxLatestWindow,
-        getCachedTitles: fallback.getCachedTitles,
-      }
-    }
-  } catch {}
-  return fallback
+    return new URL(url).hostname
+  } catch {
+    return null
+  }
+}
+
+function isUnknownHost(url: string): boolean {
+  const host = hostnameFor(url)
+  if (!host) return true
+  return !adapterByHostname(host)
 }
 
 async function renderNovelsEditor(
@@ -63,7 +65,7 @@ async function renderNovelsEditor(
   ctx: { runtime: Runtime; onRevert: () => void; close: () => void },
 ): Promise<void> {
   const fresh = await loadFreshNovelsOptions(ctx.runtime, options)
-  const titleMap = await fresh.getCachedTitles()
+  const titleMap = await options.getCachedTitles()
   const entries: NovelEntry[] = fresh.entries.map((e) => ({ ...e }))
 
   container.insertAdjacentHTML(
@@ -124,99 +126,47 @@ async function renderNovelsEditor(
   foldInput.value = String(fresh.maxNewChaptersPerBook)
   windowInput.value = String(fresh.maxLatestWindow)
 
-  function showError(message: string): void {
-    errorEl.textContent = message
-    errorEl.hidden = false
-  }
-  function clearError(): void {
-    errorEl.textContent = ''
-    errorEl.hidden = true
-  }
+  const error = bindErrorBox(errorEl)
 
-  function hostnameFor(url: string): string | null {
-    try {
-      return new URL(url).hostname
-    } catch {
-      return null
-    }
-  }
-
-  function isUnknown(url: string): boolean {
-    const host = hostnameFor(url)
-    if (!host) return true
-    return !adapterByHostname(host)
-  }
-
-  function renderList(): void {
-    listEl.replaceChildren()
-    if (entries.length === 0) {
-      listEl.insertAdjacentHTML('beforeend', '<div class="gm-sp-ne-empty">尚未添加书库</div>')
-      return
-    }
-    listEl.insertAdjacentHTML(
-      'beforeend',
-      entries
-        .map((entry, i) => {
-          const unknown = isUnknown(entry.url)
-          const title = titleMap.get(entry.url)
-          const display = entry.alias || title || entry.url
-          const warnHtml = unknown
-            ? '<span class="gm-sp-ne-item-warn">未知站点</span>'
-            : '<span class="gm-sp-ne-item-warn" hidden>未知站点</span>'
-          return `<div class="gm-sp-ne-item" data-index="${i}">
+  const chipList = bindChipList<NovelEntry>({
+    listEl,
+    addBtn,
+    inputs: [urlInput, aliasInput],
+    getItems: () => entries,
+    setItems: (next) => {
+      entries.length = 0
+      entries.push(...next)
+    },
+    renderChip: (entry, i) => {
+      const unknown = isUnknownHost(entry.url)
+      const title = titleMap.get(entry.url)
+      const display = entry.alias || title || entry.url
+      const warnHtml = unknown
+        ? '<span class="gm-sp-ne-item-warn">未知站点</span>'
+        : '<span class="gm-sp-ne-item-warn" hidden>未知站点</span>'
+      return `<div class="gm-sp-ne-item" data-index="${i}">
           <span class="gm-sp-ne-item-label">${escapeHtml(display)}</span>
           <span class="gm-sp-ne-item-url">${escapeHtml(entry.url)}</span>
           ${warnHtml}
           <button type="button" class="gm-sp-ne-remove" aria-label="remove">×</button>
         </div>`
-        })
-        .join(''),
-    )
-    listEl.querySelectorAll<HTMLElement>('.gm-sp-ne-item').forEach((row) => {
-      const idx = Number(row.dataset['index']!)
-      const remove = row.querySelector('.gm-sp-ne-remove') as HTMLButtonElement
-      remove.addEventListener('click', () => {
-        entries.splice(idx, 1)
-        renderList()
-      })
-    })
-  }
-
-  function tryAdd(): void {
-    clearError()
-    const url = urlInput.value.trim()
-    const alias = aliasInput.value.trim()
-    if (!url) {
-      showError('请输入书库 URL')
-      return
-    }
-    if (!hostnameFor(url)) {
-      showError('URL 格式无效')
-      return
-    }
-    if (entries.some((e) => e.url === url)) {
-      showError('该书库已在列表中')
-      return
-    }
-    const entry: NovelEntry = alias ? { url, alias } : { url }
-    entries.push(entry)
-    urlInput.value = ''
-    aliasInput.value = ''
-    renderList()
-  }
-
-  addBtn.addEventListener('click', tryAdd)
-  urlInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      tryAdd()
-    }
-  })
-  aliasInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      tryAdd()
-    }
+    },
+    removeSelector: '.gm-sp-ne-remove',
+    tryAdd: () => {
+      const url = urlInput.value.trim()
+      const alias = aliasInput.value.trim()
+      if (!url) return { ok: false, error: '请输入书库 URL' }
+      if (!hostnameFor(url)) return { ok: false, error: 'URL 格式无效' }
+      if (entries.some((e) => e.url === url)) {
+        return { ok: false, error: '该书库已在列表中' }
+      }
+      const entry: NovelEntry = alias ? { url, alias } : { url }
+      return { ok: true, item: entry }
+    },
+    showError: (msg) => error.show(msg),
+    clearError: () => error.clear(),
+    emptyText: '尚未添加书库',
+    emptyClass: 'gm-sp-ne-empty',
   })
 
   cancelBtn.addEventListener('click', () => {
@@ -224,27 +174,18 @@ async function renderNovelsEditor(
   })
 
   saveBtn.addEventListener('click', () => {
-    clearError()
-    const ttl = Number(ttlInput.value)
-    const initial = Number(initialInput.value)
-    const fold = Number(foldInput.value)
-    const window = Number(windowInput.value)
-    if (!Number.isFinite(ttl) || ttl < 1) {
-      showError('TTL 必须是 ≥1 的整数')
-      return
-    }
-    if (!Number.isFinite(initial) || initial < 0) {
-      showError('初始新章数必须是 ≥0 的整数')
-      return
-    }
-    if (!Number.isFinite(fold) || fold < 1) {
-      showError('折叠阈值必须是 ≥1 的整数')
-      return
-    }
-    if (!Number.isFinite(window) || window < 1) {
-      showError('章节窗口必须是 ≥1 的整数')
-      return
-    }
+    error.clear()
+    const nums = readNumberFields(
+      [
+        { input: ttlInput, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' },
+        { input: initialInput, min: 0, errorMessage: '初始新章数必须是 ≥0 的整数' },
+        { input: foldInput, min: 1, errorMessage: '折叠阈值必须是 ≥1 的整数' },
+        { input: windowInput, min: 1, errorMessage: '章节窗口必须是 ≥1 的整数' },
+      ],
+      (msg) => error.show(msg),
+    )
+    if (nums === null) return
+    const [ttl, initial, fold, window] = nums
     const novels = {
       entries,
       ttlMinutes: Math.round(ttl),
@@ -252,18 +193,15 @@ async function renderNovelsEditor(
       maxNewChaptersPerBook: Math.round(fold),
       maxLatestWindow: Math.round(window),
     }
-    const validation = validateConfig({ novels })
-    if (!validation.ok) {
-      showError(validation.error)
-      return
-    }
-    const result = ctx.runtime.getValue(CONFIG_KEY, null).then((existing) => {
-      return ctx.runtime.setValue(CONFIG_KEY, { ...(existing ?? {}), novels })
-    })
-    Promise.resolve(result).then(() => {
-      ctx.close()
+    void saveConfigSection({
+      runtime: ctx.runtime,
+      sectionKey: 'novels',
+      section: novels,
+      validate: validateConfig,
+      onError: (msg) => error.show(msg),
+      onSuccess: () => ctx.close(),
     })
   })
 
-  renderList()
+  chipList.render()
 }
