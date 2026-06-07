@@ -20,11 +20,18 @@
 // @connect      www.sudugu.org
 // @connect      www.reddit.com
 // @connect      old.reddit.com
+// @connect      rsshub.app
+// @connect      rsshub.rssforever.com
 // ==/UserScript==
 // ==build.meta==
 // css: src/dashboard/overlay/overlay.css
 // placeholder: /*{{DASHBOARD_CSS}}*/
 // ==/build.meta==
+
+// tnews 镜像 fallback：仅对 rsshub.app 域名生效。
+// 如需使用其它公共/私有 RSSHub 镜像，请同时：
+//   1. 在上方 @connect 区添加对应 hostname
+//   2. 在「编辑仪表盘配置」中把镜像 hostname 加到 tnews.mirrors 数组
 
 import { startDashboard } from './dashboard'
 import { createBrowserRuntime } from '../runtime'

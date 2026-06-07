@@ -9,6 +9,7 @@ import { createV2exSource } from './v2ex'
 import { createWeatherSource } from './weather'
 import { createNovelsSource } from './novels'
 import { createRedditSource } from './reddit'
+import { createTnewsSource } from './tnews'
 import type { Source } from './types'
 import { buildCardGroups, type CardGroup } from './card-group'
 import { CACHE_KEY, type CachedSource, type Config } from './types'
@@ -34,11 +35,13 @@ export type Dashboard = {
 }
 
 export function createDashboard(runtime: Runtime, options: DashboardOptions): Dashboard {
+  const tnews = createTnewsSource(options.config.tnews)
   const sources: Source<unknown>[] = [
     createV2exSource(options.config.v2ex),
     createWeatherSource(options.config.weather),
     createNovelsSource(options.config.novels, runtime),
     createRedditSource(options.config.reddit),
+    tnews.source,
   ]
   const cardGroups = buildCardGroups(sources)
   const groupById = new Map<string, CardGroup>()
@@ -164,15 +167,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
       }
     }
     if (!next) return
-    const result = await saveCache(runtime, sourceId, next)
-    if (result === 'quota_exceeded') {
-      next = {
-        data: oldCache?.data,
-        fetchedAt: oldCache?.fetchedAt ?? Date.now(),
-        error: 'quota_exceeded',
-      }
-      await saveCache(runtime, sourceId, next)
-    }
+    await saveCache(runtime, sourceId, next)
     const group = groupForSource.get(sourceId)
     if (group) {
       await renderGroupById(group.id)
@@ -262,6 +257,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     mountedUnmount?.()
     handle = null
     mountedUnmount = null
+    tnews.state.clear()
   }
 
   function toggle(): void {

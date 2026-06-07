@@ -1,13 +1,7 @@
 import type { Runtime } from '../runtime'
-import {
-  CACHE_KEY,
-  CACHE_QUOTA_BYTES,
-  CACHE_SCHEMA_VERSION,
-  VERY_STALE_MULTIPLIER,
-  type CachedSource,
-} from './types'
+import { CACHE_KEY, CACHE_SCHEMA_VERSION, VERY_STALE_MULTIPLIER, type CachedSource } from './types'
 
-export type SaveResult = 'ok' | 'quota_exceeded'
+export type SaveResult = 'ok'
 
 export function estimateByteSize(payload: unknown): number {
   try {
@@ -33,9 +27,6 @@ export async function saveCache<T>(
   cached: Omit<CachedSource<T>, 'schemaVersion' | 'byteSize'>,
 ): Promise<SaveResult> {
   const byteSize = estimateByteSize(cached)
-  if (byteSize > CACHE_QUOTA_BYTES) {
-    return 'quota_exceeded'
-  }
   const full: CachedSource<T> = {
     ...cached,
     schemaVersion: CACHE_SCHEMA_VERSION,

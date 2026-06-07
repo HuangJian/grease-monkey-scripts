@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>竹新社</title>
+    <link>https://t.me/tnews365</link>
+    <description>Telegram channel</description>
+    <item>
+      <title>First news headline</title>
+      <link>https://t.me/tnews365/100</link>
+      <guid>https://t.me/tnews365/100</guid>
+      <pubDate>Mon, 06 Jan 2025 10:00:00 GMT</pubDate>
+      <description><![CDATA[<p>Body of the first news item.</p><p>With a second paragraph.</p>]]></description>
+    </item>
+    <item>
+      <link>https://t.me/tnews365/99</link>
+      <guid>https://t.me/tnews365/99</guid>
+      <pubDate>Mon, 06 Jan 2025 09:00:00 GMT</pubDate>
+      <description><![CDATA[<p>Body of the second news item without a title.</p>]]></description>
+    </item>
+    <item>
+      <title>Third news with dangerous content</title>
+      <link>https://t.me/tnews365/98</link>
+      <guid>https://t.me/tnews365/98</guid>
+      <pubDate>Mon, 06 Jan 2025 08:00:00 GMT</pubDate>
+      <description><![CDATA[<p>Hello</p><script>alert('xss')</script><p><a href="javascript:alert(1)">bad</a><a href="https://example.com">good</a></p><img src="https://cdn.example.com/img.jpg" width="500" height="300" style="border:1px solid red" alt="demo"/>]]></description>
+    </item>
+    <item>
+      <title>Old item past 72h</title>
+      <link>https://t.me/tnews365/50</link>
+      <pubDate>Sat, 04 Jan 2025 00:00:00 GMT</pubDate>
+      <description><![CDATA[<p>Old content</p>]]></description>
+    </item>
+  </channel>
+</rss>

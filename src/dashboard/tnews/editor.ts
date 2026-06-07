@@ -1,0 +1,227 @@
+import { escapeHtml } from '../../utils'
+import type { SourceEditor } from '../types'
+import { bindErrorBox, readNumberFields, saveConfigSection } from '../editor-helpers'
+import { bindChipList } from '../editor-helpers'
+import { validateConfig } from '../config'
+import { loadConfigSection } from '../config'
+import type { Runtime } from '../../runtime'
+import type { TnewsSourceOptions } from './types'
+
+const URL_RE = /^https?:\/\//i
+const HOSTNAME_RE = /^[a-z0-9.-]+$/i
+
+function coerceTnewsOptions(
+  raw: Record<string, unknown>,
+  fallback: TnewsSourceOptions,
+): TnewsSourceOptions {
+  const feeds = Array.isArray(raw['feeds'])
+    ? (raw['feeds'] as unknown[]).map((u) => String(u)).filter((u) => u.length > 0)
+    : fallback.feeds
+  const mirrors = Array.isArray(raw['mirrors'])
+    ? (raw['mirrors'] as unknown[]).map((m) => String(m)).filter((m) => m.length > 0)
+    : fallback.mirrors
+  return {
+    feeds: feeds.length > 0 ? feeds : fallback.feeds,
+    mirrors,
+    ttlMinutes:
+      typeof raw['ttlMinutes'] === 'number' && Number.isFinite(raw['ttlMinutes'])
+        ? (raw['ttlMinutes'] as number)
+        : fallback.ttlMinutes,
+    maxItems:
+      typeof raw['maxItems'] === 'number' && Number.isFinite(raw['maxItems'])
+        ? (raw['maxItems'] as number)
+        : fallback.maxItems,
+  }
+}
+
+async function loadFreshTnewsOptions(
+  runtime: Runtime,
+  fallback: TnewsSourceOptions,
+): Promise<TnewsSourceOptions> {
+  return loadConfigSection(runtime, 'tnews', fallback, (raw) => coerceTnewsOptions(raw, fallback))
+}
+
+function isValidFeedUrl(raw: string): { ok: true; url: string } | { ok: false; error: string } {
+  const trimmed = raw.trim()
+  if (!trimmed) return { ok: false, error: '请输入 feed URL' }
+  if (!URL_RE.test(trimmed)) {
+    return { ok: false, error: 'feed URL 必须以 http:// 或 https:// 开头' }
+  }
+  try {
+    void new URL(trimmed)
+  } catch {
+    return { ok: false, error: 'feed URL 不是合法 URL' }
+  }
+  return { ok: true, url: trimmed }
+}
+
+function isValidMirrorHost(raw: string): { ok: true; host: string } | { ok: false; error: string } {
+  const trimmed = raw.trim().toLowerCase()
+  if (!trimmed) return { ok: false, error: '请输入镜像 hostname' }
+  if (!HOSTNAME_RE.test(trimmed)) {
+    return { ok: false, error: '镜像 hostname 只能包含字母、数字、点和中横线' }
+  }
+  return { ok: true, host: trimmed }
+}
+
+async function renderTnewsEditor(
+  container: HTMLElement,
+  options: TnewsSourceOptions,
+  ctx: { runtime: Runtime; onRevert: () => void; close: () => void },
+): Promise<void> {
+  const fresh = await loadFreshTnewsOptions(ctx.runtime, options)
+  const feeds: string[] = [...fresh.feeds]
+  const mirrors: string[] = [...fresh.mirrors]
+
+  container.insertAdjacentHTML(
+    'beforeend',
+    `<div class="gm-sp-tnews-editor">
+      <div class="gm-sp-tnews-editor-section">
+        <div class="gm-sp-tnews-editor-label">Feed URL 列表</div>
+        <div class="gm-sp-tne-feeds"></div>
+        <div class="gm-sp-tne-add-row">
+          <input type="text" class="gm-sp-tne-feed-input" placeholder="https://rsshub.app/telegram/channel/<name>" />
+          <button type="button" class="gm-sp-tne-feed-add">添加</button>
+        </div>
+      </div>
+      <div class="gm-sp-tnews-editor-section">
+        <div class="gm-sp-tnews-editor-label">RSSHub 镜像 hostname</div>
+        <div class="gm-sp-tne-mirrors"></div>
+        <div class="gm-sp-tne-add-row">
+          <input type="text" class="gm-sp-tne-mirror-input" placeholder="rsshub.example.com" />
+          <button type="button" class="gm-sp-tne-mirror-add">添加</button>
+        </div>
+      </div>
+      <div class="gm-sp-tnews-editor-form">
+        <label class="gm-sp-tnews-editor-row">
+          <span>TTL（分钟）</span>
+          <input type="number" min="1" step="1" class="gm-sp-tne-ttl" />
+        </label>
+        <label class="gm-sp-tnews-editor-row">
+          <span>maxItems</span>
+          <input type="number" min="1" step="1" class="gm-sp-tne-max" />
+        </label>
+      </div>
+      <div class="gm-sp-tne-error" hidden></div>
+      <div class="gm-sp-tnews-editor-actions">
+        <button type="button" class="gm-sp-tne-save gm-sp-primary">保存</button>
+        <button type="button" class="gm-sp-tne-cancel">取消</button>
+      </div>
+    </div>`,
+  )
+
+  const feedsEl = container.querySelector('.gm-sp-tne-feeds') as HTMLDivElement
+  const feedInputEl = container.querySelector('.gm-sp-tne-feed-input') as HTMLInputElement
+  const feedAddBtn = container.querySelector('.gm-sp-tne-feed-add') as HTMLButtonElement
+  const mirrorsEl = container.querySelector('.gm-sp-tne-mirrors') as HTMLDivElement
+  const mirrorInputEl = container.querySelector('.gm-sp-tne-mirror-input') as HTMLInputElement
+  const mirrorAddBtn = container.querySelector('.gm-sp-tne-mirror-add') as HTMLButtonElement
+  const ttlInput = container.querySelector('.gm-sp-tne-ttl') as HTMLInputElement
+  const maxInput = container.querySelector('.gm-sp-tne-max') as HTMLInputElement
+  const errorEl = container.querySelector('.gm-sp-tne-error') as HTMLDivElement
+  const saveBtn = container.querySelector('.gm-sp-tne-save') as HTMLButtonElement
+  const cancelBtn = container.querySelector('.gm-sp-tne-cancel') as HTMLButtonElement
+
+  ttlInput.value = String(fresh.ttlMinutes)
+  maxInput.value = String(fresh.maxItems)
+
+  const error = bindErrorBox(errorEl)
+
+  const feedChips = bindChipList<string>({
+    listEl: feedsEl,
+    addBtn: feedAddBtn,
+    inputs: [feedInputEl],
+    getItems: () => feeds,
+    setItems: (next) => {
+      feeds.length = 0
+      feeds.push(...next)
+    },
+    renderChip: (url, i) =>
+      `<div class="gm-sp-tne-chip" data-index="${i}">
+        <span class="gm-sp-tne-chip-label">${escapeHtml(url)}</span>
+        <button type="button" class="gm-sp-tne-chip-remove" aria-label="remove">×</button>
+      </div>`,
+    removeSelector: '.gm-sp-tne-chip-remove',
+    tryAdd: () => {
+      const r = isValidFeedUrl(feedInputEl.value)
+      if (!r.ok) return { ok: false, error: r.error }
+      if (feeds.includes(r.url)) return { ok: false, error: '该 URL 已在列表中' }
+      return { ok: true, item: r.url }
+    },
+    showError: (msg) => error.show(msg),
+    clearError: () => error.clear(),
+    emptyText: '尚未添加 feed',
+    emptyClass: 'gm-sp-tne-empty',
+  })
+
+  const mirrorChips = bindChipList<string>({
+    listEl: mirrorsEl,
+    addBtn: mirrorAddBtn,
+    inputs: [mirrorInputEl],
+    getItems: () => mirrors,
+    setItems: (next) => {
+      mirrors.length = 0
+      mirrors.push(...next)
+    },
+    renderChip: (host, i) =>
+      `<div class="gm-sp-tne-chip" data-index="${i}">
+        <span class="gm-sp-tne-chip-label">${escapeHtml(host)}</span>
+        <button type="button" class="gm-sp-tne-chip-remove" aria-label="remove">×</button>
+      </div>`,
+    removeSelector: '.gm-sp-tne-chip-remove',
+    tryAdd: () => {
+      const r = isValidMirrorHost(mirrorInputEl.value)
+      if (!r.ok) return { ok: false, error: r.error }
+      if (mirrors.includes(r.host)) return { ok: false, error: '该镜像已在列表中' }
+      return { ok: true, item: r.host }
+    },
+    showError: (msg) => error.show(msg),
+    clearError: () => error.clear(),
+    emptyText: '尚未添加镜像（仅对 rsshub.app 域名生效）',
+    emptyClass: 'gm-sp-tne-empty',
+  })
+
+  cancelBtn.addEventListener('click', () => {
+    ctx.close()
+  })
+
+  saveBtn.addEventListener('click', () => {
+    error.clear()
+    if (feeds.length === 0) {
+      error.show('至少添加一个 feed URL')
+      return
+    }
+    const nums = readNumberFields(
+      [
+        { input: ttlInput, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' },
+        { input: maxInput, min: 1, errorMessage: 'maxItems 必须是 ≥1 的整数' },
+      ],
+      (msg) => error.show(msg),
+    )
+    if (nums === null) return
+    const [ttl, max] = nums
+    const tnews = {
+      feeds: [...feeds],
+      mirrors: [...mirrors],
+      ttlMinutes: Math.round(ttl),
+      maxItems: Math.round(max),
+    }
+    void saveConfigSection({
+      runtime: ctx.runtime,
+      sectionKey: 'tnews',
+      section: tnews,
+      validate: validateConfig,
+      onError: (msg) => error.show(msg),
+      onSuccess: () => ctx.close(),
+    })
+  })
+
+  feedChips.render()
+  mirrorChips.render()
+}
+
+export function createTnewsEditor(options: TnewsSourceOptions): SourceEditor {
+  return (container, ctx) => renderTnewsEditor(container, options, ctx)
+}
+
+export { loadFreshTnewsOptions }

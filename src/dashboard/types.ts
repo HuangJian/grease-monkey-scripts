@@ -11,7 +11,6 @@ export const LOCK_VERIFY_DELAY_MS = 50
 
 export const VERY_STALE_MULTIPLIER = 3
 export const CACHE_SCHEMA_VERSION = 2
-export const CACHE_QUOTA_BYTES = 50 * 1024
 
 export type Lock = { owner: string; expiresAt: number }
 
@@ -25,9 +24,11 @@ export type CachedSource<T> = {
 
 import type { WeatherCity } from './weather/types'
 import type { NovelEntry } from './novels/types'
+import type { TnewsConfig } from './tnews/types'
 
 export type RedditConfig = {
   ttlMinutes: number
+  ageHalfLifeDays: number
   subreddits: string[]
   minItems: number
   maxItems: number
@@ -59,6 +60,7 @@ export type Config = {
     maxNewChaptersPerBook: number
     maxLatestWindow: number
   }
+  tnews: TnewsConfig
   shortcut: {
     doublePressWindowMs: number
     enabled: boolean

@@ -6,6 +6,7 @@ import {
   isPlainObject,
   loadConfig,
   loadConfigSection,
+  validateConfig,
 } from '../../src/dashboard/config'
 import {
   CACHE_KEY,
@@ -162,7 +163,7 @@ describe('cache load/save', () => {
     expect(loaded!.data).toEqual({ a: 1 })
     expect(loaded!.fetchedAt).toBe(1234)
   })
-  test('saveCache returns quota_exceeded and skips write when payload > 50KB', async () => {
+  test('saveCache writes payloads of any size', async () => {
     const dom = new JSDOM('<html></html>')
     const runtime = createRuntime(dom)
     const big = 'x'.repeat(60 * 1024)
@@ -170,8 +171,9 @@ describe('cache load/save', () => {
       data: { s: big },
       fetchedAt: Date.now(),
     })
-    expect(result).toBe('quota_exceeded')
-    expect(runtime.stores[CACHE_KEY('v2ex')]).toBeUndefined()
+    expect(result).toBe('ok')
+    const stored = runtime.stores[CACHE_KEY('v2ex')] as CachedSource<{ s: string }>
+    expect(stored.data?.s.length).toBe(60 * 1024)
   })
   test('estimateByteSize returns JSON size', () => {
     expect(estimateByteSize({ a: 1 })).toBe(7)
@@ -202,5 +204,66 @@ describe('staleness', () => {
   })
   test('isVeryStale: just under 3x TTL does not trigger', () => {
     expect(isVeryStale(v(1_000_000 - 179_000), ttlMs, 1_000_000)).toBe(false)
+  })
+})
+
+describe('validateConfig.tnews', () => {
+  test('default tnews config is valid', () => {
+    expect(validateConfig({ tnews: DEFAULT_CONFIG.tnews })).toEqual({ ok: true })
+  })
+  test('rejects non-object tnews', () => {
+    expect(validateConfig({ tnews: 'no' }).ok).toBe(false)
+  })
+  test('rejects empty feeds', () => {
+    expect(
+      validateConfig({ tnews: { feeds: [], mirrors: [], ttlMinutes: 30, maxItems: 30 } }).ok,
+    ).toBe(false)
+  })
+  test('rejects invalid feed URL', () => {
+    expect(
+      validateConfig({
+        tnews: { feeds: ['not a url'], mirrors: [], ttlMinutes: 30, maxItems: 30 },
+      }).ok,
+    ).toBe(false)
+  })
+  test('rejects blank feed entry', () => {
+    expect(
+      validateConfig({
+        tnews: { feeds: ['  '], mirrors: [], ttlMinutes: 30, maxItems: 30 },
+      }).ok,
+    ).toBe(false)
+  })
+  test('rejects invalid mirror hostname', () => {
+    expect(
+      validateConfig({
+        tnews: {
+          feeds: ['https://x.com'],
+          mirrors: ['bad host!'],
+          ttlMinutes: 30,
+          maxItems: 30,
+        },
+      }).ok,
+    ).toBe(false)
+  })
+  test('rejects non-array mirrors', () => {
+    expect(
+      validateConfig({
+        tnews: { feeds: ['https://x.com'], mirrors: 'nope', ttlMinutes: 30, maxItems: 30 },
+      }).ok,
+    ).toBe(false)
+  })
+  test('rejects ttlMinutes = 0', () => {
+    expect(
+      validateConfig({
+        tnews: { feeds: ['https://x.com'], mirrors: [], ttlMinutes: 0, maxItems: 30 },
+      }).ok,
+    ).toBe(false)
+  })
+  test('rejects maxItems = 0', () => {
+    expect(
+      validateConfig({
+        tnews: { feeds: ['https://x.com'], mirrors: [], ttlMinutes: 30, maxItems: 0 },
+      }).ok,
+    ).toBe(false)
   })
 })
