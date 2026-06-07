@@ -1,5 +1,5 @@
 import { mkdir, readFile, unlink, writeFile, opendir, stat } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { $ } from 'bun'
 
 function stripConsoleFromSource(source: string): string {
@@ -80,7 +80,7 @@ const BUILD_MODES = [
 type BuildMode = (typeof BUILD_MODES)[number]
 
 async function buildUserScript(entrypoint: string, mode: BuildMode): Promise<void> {
-  const name = dirname(entrypoint).split('/').pop()!
+  const name = basename(dirname(entrypoint))
 
   const entrypointSource = await readFile(entrypoint, 'utf8')
 
@@ -175,7 +175,7 @@ async function main() {
   // installed for ad-hoc troubleshooting without re-editing sources.
   console.log(`Building ${entries.length} script(s) (debug):`)
   for (const entrypoint of entries) {
-    console.log(`\n${dirname(entrypoint).split('/').pop()}:`)
+    console.log(`\n${basename(dirname(entrypoint))}:`)
     try {
       await buildUserScript(entrypoint, BUILD_MODES[0])
     } catch (error) {
@@ -199,7 +199,7 @@ async function main() {
     // Pass 2: build the .user.js variants (minified, no debug/log).
     console.log(`\nBuilding ${entries.length} script(s) (prod):`)
     for (const entrypoint of entries) {
-      console.log(`\n${dirname(entrypoint).split('/').pop()}:`)
+      console.log(`\n${basename(dirname(entrypoint))}:`)
       try {
         await buildUserScript(entrypoint, BUILD_MODES[1])
       } catch (error) {
