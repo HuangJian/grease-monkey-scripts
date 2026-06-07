@@ -1,6 +1,6 @@
 import type { Runtime } from '../../runtime'
 import { loadConfigSection, validateConfig } from '../config'
-import { CONFIG_KEY } from '../types'
+import { bindErrorBox, saveConfigSection, validateNumberInput } from '../editor-helpers'
 import type { SourceEditor } from '../types'
 import type { V2exSourceOptions } from './types'
 
@@ -109,74 +109,86 @@ async function renderV2exEditor(
   minRepliesInput.value = String(fresh.minReplies)
   halfLifeInput.value = String(fresh.ageHalfLifeDays)
 
-  function showError(message: string): void {
-    errorEl.textContent = message
-    errorEl.hidden = false
-  }
+  const error = bindErrorBox(errorEl)
 
   cancelBtn.addEventListener('click', () => {
     ctx.close()
   })
 
   saveBtn.addEventListener('click', () => {
-    errorEl.hidden = true
-    errorEl.textContent = ''
-    const ttl = Number(ttlInput.value)
-    const min = Number(minInput.value)
+    error.clear()
+    const ttl = validateNumberInput(ttlInput.value, {
+      min: 1,
+      errorMessage: 'TTL 必须是 ≥1 的整数',
+    })
+    if (!ttl.ok) {
+      error.show(ttl.error)
+      return
+    }
+    const min = validateNumberInput(minInput.value, {
+      min: 1,
+      errorMessage: '最少条数必须是 ≥1 的整数',
+    })
+    if (!min.ok) {
+      error.show(min.error)
+      return
+    }
     const max = Number(maxInput.value)
-    const ratio = Number(ratioInput.value)
-    const elbow = Number(elbowInput.value)
-    const minReplies = Number(minRepliesInput.value)
-    if (!Number.isFinite(ttl) || ttl < 1) {
-      showError('TTL 必须是 ≥1 的整数')
+    if (!Number.isFinite(max) || max < min.value) {
+      error.show('最多条数必须 ≥ 最少条数')
       return
     }
-    if (!Number.isFinite(min) || min < 1) {
-      showError('最少条数必须是 ≥1 的整数')
+    const ratio = validateNumberInput(ratioInput.value, {
+      min: 0,
+      max: 1,
+      errorMessage: '显示比例必须是 0~1 之间',
+    })
+    if (!ratio.ok) {
+      error.show(ratio.error)
       return
     }
-    if (!Number.isFinite(max) || max < min) {
-      showError('最多条数必须 ≥ 最少条数')
+    const elbow = validateNumberInput(elbowInput.value, {
+      min: 0,
+      max: 1,
+      errorMessage: '拐点跌幅必须是 0~1 之间',
+    })
+    if (!elbow.ok) {
+      error.show(elbow.error)
       return
     }
-    if (!Number.isFinite(ratio) || ratio < 0 || ratio > 1) {
-      showError('显示比例必须是 0~1 之间')
+    const minReplies = validateNumberInput(minRepliesInput.value, {
+      min: 0,
+      errorMessage: '回复阈值必须 ≥0',
+    })
+    if (!minReplies.ok) {
+      error.show(minReplies.error)
       return
     }
-    if (!Number.isFinite(elbow) || elbow < 0 || elbow > 1) {
-      showError('拐点跌幅必须是 0~1 之间')
-      return
-    }
-    if (!Number.isFinite(minReplies) || minReplies < 0) {
-      showError('回复阈值必须 ≥0')
-      return
-    }
-    const halfLife = Number(halfLifeInput.value)
-    if (!Number.isFinite(halfLife) || halfLife < 0.1 || halfLife > 30) {
-      showError('衰减半衰期必须是 0.1~30 之间')
+    const halfLife = validateNumberInput(halfLifeInput.value, {
+      min: 0.1,
+      max: 30,
+      errorMessage: '衰减半衰期必须是 0.1~30 之间',
+    })
+    if (!halfLife.ok) {
+      error.show(halfLife.error)
       return
     }
     const v2ex = {
-      ttlMinutes: Math.round(ttl),
-      minItems: Math.round(min),
+      ttlMinutes: Math.round(ttl.value),
+      minItems: Math.round(min.value),
       maxItems: Math.round(max),
-      displayRatio: ratio,
-      elbowDropRatio: elbow,
-      minReplies: Math.round(minReplies),
-      ageHalfLifeDays: halfLife,
+      displayRatio: ratio.value,
+      elbowDropRatio: elbow.value,
+      minReplies: Math.round(minReplies.value),
+      ageHalfLifeDays: halfLife.value,
     }
-    const validation = validateConfig({ v2ex })
-    if (!validation.ok) {
-      showError(validation.error)
-      return
-    }
-    const result = ctx.runtime
-      .getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
-      .then((existing) => {
-        return ctx.runtime.setValue(CONFIG_KEY, { ...(existing ?? {}), v2ex })
-      })
-    Promise.resolve(result).then(() => {
-      ctx.close()
+    void saveConfigSection({
+      runtime: ctx.runtime,
+      sectionKey: 'v2ex',
+      section: v2ex,
+      validate: validateConfig,
+      onError: (msg) => error.show(msg),
+      onSuccess: () => ctx.close(),
     })
   })
 }

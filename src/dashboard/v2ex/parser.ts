@@ -1,3 +1,4 @@
+import { dynamicCount } from '../dynamic-count'
 import { htmlToDocument, toAbsoluteUrl } from '../../utils'
 import { HOT_PAGE_URL, MEMBER_PATH_RE, TOPIC_PATH_RE } from './constants'
 import type { V2exCountOptions, V2exTopic } from './types'
@@ -266,29 +267,11 @@ export function dynamicV2exCount(
   replies: ReadonlyArray<number>,
   options: V2exCountOptions,
 ): number {
-  if (replies.length === 0) return 0
-  const leader = replies[0]
-  if (!Number.isFinite(leader) || leader <= 0) {
-    return options.minItems
-  }
-
-  const cutoff = Math.max(leader * options.displayRatio, options.minReplies)
-  let thresholdCount = 0
-  for (const r of replies) {
-    if (r >= cutoff) thresholdCount++
-    else break
-  }
-
-  let elbowCount = replies.length
-  for (let i = 1; i < replies.length; i++) {
-    const prev = replies[i - 1]
-    const drop = (prev - replies[i]) / leader
-    if (drop > options.elbowDropRatio) {
-      elbowCount = i
-      break
-    }
-  }
-
-  const count = Math.max(thresholdCount, elbowCount)
-  return Math.max(options.minItems, Math.min(options.maxItems, count))
+  return dynamicCount(replies, {
+    minItems: options.minItems,
+    maxItems: options.maxItems,
+    displayRatio: options.displayRatio,
+    elbowDropRatio: options.elbowDropRatio,
+    cutoffFloor: options.minReplies,
+  })
 }

@@ -1,6 +1,7 @@
 import type { Runtime } from '../../runtime'
 import { escapeHtml } from '../../utils'
 import { validateConfig } from '../config'
+import { bindErrorBox, saveConfigSection } from '../editor-helpers'
 import { CONFIG_KEY } from '../types'
 import type { SourceEditor } from '../types'
 import type { WeatherCity } from './types'
@@ -114,32 +115,24 @@ async function renderWeatherEditor(
     })
   }
 
-  function showError(message: string): void {
-    errorEl.textContent = message
-    errorEl.hidden = false
-  }
-
-  function clearError(): void {
-    errorEl.textContent = ''
-    errorEl.hidden = true
-  }
+  const error = bindErrorBox(errorEl)
 
   function tryAdd(): void {
-    clearError()
+    error.clear()
     const cityLabel = labelInput.value.trim()
     const lat = Number(latInput.value)
     const lon = Number(lonInput.value)
     const cmaStationId = cmaInput.value.trim()
     if (!cityLabel) {
-      showError('请输入城市名')
+      error.show('请输入城市名')
       return
     }
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-      showError('经纬度必须是有限数字')
+      error.show('经纬度必须是有限数字')
       return
     }
     if (cmaStationId && !/^\d{5}$/.test(cmaStationId)) {
-      showError('CMA 站点 ID 必须是 5 位数字')
+      error.show('CMA 站点 ID 必须是 5 位数字')
       return
     }
     const city: WeatherCity = cmaStationId
@@ -172,22 +165,18 @@ async function renderWeatherEditor(
   })
 
   saveBtn.addEventListener('click', () => {
-    clearError()
+    error.clear()
     if (cities.length === 0) {
-      showError('至少保留一个城市')
+      error.show('至少保留一个城市')
       return
     }
-    const patch = { weather: { cities, ttlMinutes: fresh.ttlMinutes } }
-    const validation = validateConfig(patch)
-    if (!validation.ok) {
-      showError(validation.error)
-      return
-    }
-    const result = ctx.runtime.getValue(CONFIG_KEY, null).then((existing) => {
-      return ctx.runtime.setValue(CONFIG_KEY, { ...(existing ?? {}), ...patch })
-    })
-    Promise.resolve(result).then(() => {
-      ctx.close()
+    void saveConfigSection({
+      runtime: ctx.runtime,
+      sectionKey: 'weather',
+      section: { cities, ttlMinutes: fresh.ttlMinutes },
+      validate: validateConfig,
+      onError: (msg) => error.show(msg),
+      onSuccess: () => ctx.close(),
     })
   })
 
