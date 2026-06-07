@@ -34,6 +34,8 @@ export type WeatherHourly = {
   humidity?: number[]
   cloud_cover?: number[]
   precipitation_amount?: (number | null)[]
+  wind_speed_10m?: number[]
+  wind_direction_10m?: number[]
 }
 
 export type WeatherDaily = {

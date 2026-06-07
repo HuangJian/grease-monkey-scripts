@@ -216,6 +216,9 @@ function parseCmaHourTable(
   const weathers = icons.map((src) => codeFromIconSrc(src) ?? WMO_OVERCAST)
   const temps = extractNumberCells(rows[2]!, /℃$/)
   const precips = extractPrecipCells(rows[3]!)
+  const windSpeedsMs = rows.length > 4 ? extractNumberCells(rows[4]!, /m\/s$/) : []
+  const windDirsText = rows.length > 5 ? extractTextCells(rows[5]!) : []
+  const windDirs = windDirsText.map((t) => CMA_WIND_DIR_TO_DEG[t] ?? Number.NaN)
   const pressures = extractNumberCells(rows[6]!, /hPa$/)
   const humiditys = extractNumberCells(rows[7]!, /%$/)
   const cloudCovers = rows.length > 8 ? extractNumberCells(rows[8]!, /%$/) : []
@@ -239,6 +242,9 @@ function parseCmaHourTable(
       humidity: humiditys.length === hours.length ? humiditys : undefined,
       cloud_cover: cloudCovers.length === hours.length ? cloudCovers : undefined,
       precipitation_amount: precips.length === hours.length ? precips : undefined,
+      wind_speed_10m: windSpeedsMs.length === hours.length ? windSpeedsMs : undefined,
+      wind_direction_10m:
+        windDirs.length === hours.length && windDirs.every(Number.isFinite) ? windDirs : undefined,
     },
     dayDates,
   }
@@ -256,6 +262,15 @@ function extractNumberCells(row: Element, suffix: RegExp): number[] {
     const t = (cells[i]?.textContent ?? '').trim().replace(suffix, '')
     const n = parseFloat(t)
     if (Number.isFinite(n)) out.push(n)
+  }
+  return out
+}
+
+function extractTextCells(row: Element): string[] {
+  const cells = row.querySelectorAll('td')
+  const out: string[] = []
+  for (let i = 1; i < cells.length; i++) {
+    out.push((cells[i]?.textContent ?? '').trim())
   }
   return out
 }

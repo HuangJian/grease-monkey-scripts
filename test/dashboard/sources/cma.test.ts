@@ -69,6 +69,12 @@ describe('parseCmaPage', () => {
     expect(result.hourly.precipitation_amount?.[3]).toBe(0.5)
   })
 
+  test('parses hourly wind speed (m/s) and direction (deg) from the page table', () => {
+    const result = parseCmaPage(FIXTURE_HTML, makeDOMParser())!
+    expect(result.hourly.wind_speed_10m).toEqual([2.5, 3.3, 1.9, 2.1, 2.8, 2.9, 2.6, 3.3])
+    expect(result.hourly.wind_direction_10m).toEqual([45, 45, 45, 45, 135, 135, 315, 315])
+  })
+
   test('returns null when no #dayList is present', () => {
     const html = '<html><body><p>not a cma page</p></body></html>'
     expect(parseCmaPage(html, makeDOMParser())).toBeNull()

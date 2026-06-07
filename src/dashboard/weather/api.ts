@@ -125,6 +125,8 @@ async function fetchCmaCity(runtime: Runtime, city: WeatherCity): Promise<Weathe
         humidity: parsed.hourly.humidity,
         cloud_cover: parsed.hourly.cloud_cover,
         precipitation_amount: parsed.hourly.precipitation_amount,
+        wind_speed_10m: parsed.hourly.wind_speed_10m,
+        wind_direction_10m: parsed.hourly.wind_direction_10m,
       }
     } else {
       console.debug('[gm-dashboard] cma.fetchCmaCity: page parse returned null, keeping OM hourly')
@@ -138,14 +140,21 @@ async function fetchCmaCity(runtime: Runtime, city: WeatherCity): Promise<Weathe
         ...data.current,
         time: nowParsed.current.time,
         temperature_2m: nowParsed.current.temperature_2m,
-        wind_speed_10m: nowParsed.current.wind_speed_10m,
-        wind_direction_10m: nowParsed.current.wind_direction_10m,
         humidity: nowParsed.current.humidity,
         pressure: nowParsed.current.pressure,
         precipitation: nowParsed.current.precipitation,
         source: 'cma',
       }
     }
+  }
+
+  const pageWindMs = data.hourly.wind_speed_10m?.[0]
+  if (typeof pageWindMs === 'number' && Number.isFinite(pageWindMs)) {
+    data.current.wind_speed_10m = pageWindMs * 3.6
+  }
+  const pageWindDir = data.hourly.wind_direction_10m?.[0]
+  if (typeof pageWindDir === 'number' && Number.isFinite(pageWindDir)) {
+    data.current.wind_direction_10m = pageWindDir
   }
 
   console.debug(

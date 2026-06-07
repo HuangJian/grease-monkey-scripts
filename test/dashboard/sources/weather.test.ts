@@ -262,10 +262,53 @@ describe('fetchWeatherAll', () => {
     expect(data.current.humidity).toBe(62)
     expect(data.current.pressure).toBe(998)
     expect(data.current.wind_direction_10m).toBe(45)
+    expect(data.current.wind_speed_10m).toBeCloseTo(9.0, 1)
+    expect(data.hourly.wind_speed_10m?.[0]).toBe(2.5)
+    expect(data.hourly.wind_direction_10m?.[0]).toBe(45)
     expect(data.current.air_quality?.us_aqi).toBe(42)
     expect(data.daily.time.length).toBeGreaterThanOrEqual(2)
     expect(data.daily.temperature_2m_max[0]).toBe(28)
     expect(data.hourly.temperature_2m[0]).toBe(28.3)
+  })
+
+  test('uses CMA page wind speed (m/s) instead of JSON windScale Beaufort midpoints', async () => {
+    const dom = new JSDOM('<html></html>')
+    const cmaPageHtml = readFileSync(
+      join(import.meta.dir, '..', 'fixtures', 'cma-beijing.html'),
+      'utf8',
+    )
+    const cmaNowCalm = JSON.stringify({
+      code: 0,
+      data: {
+        lastUpdate: '2024-06-03 11:30',
+        now: {
+          temperature: 27.5,
+          pressure: 998,
+          humidity: 62,
+          precipitation: 0,
+          windDirection: '东北风',
+          windScale: '0级',
+        },
+        alarm: [],
+      },
+    })
+    const runtime = makeRuntime(dom, (d) => {
+      if (d.url.includes('weather.cma.cn/web/weather/')) {
+        d.onload({ responseText: cmaPageHtml })
+      } else if (d.url.includes('weather.cma.cn/api/now/')) {
+        d.onload({ responseText: cmaNowCalm })
+      } else if (d.url.includes('air-quality-api')) {
+        d.onload({ responseText: JSON.stringify(AIR_QUALITY) })
+      } else {
+        d.onload({ responseText: JSON.stringify(FIXTURE) })
+      }
+    })
+    const result = await fetchWeatherAll(runtime, [
+      { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ', cmaStationId: '54511' },
+    ])
+    if (result.entries[0]?.status !== 'ok') throw new Error('expected ok')
+    const data = result.entries[0].data
+    expect(data.current.wind_speed_10m).toBeCloseTo(9.0, 1)
   })
 
   test('falls back to Open-Meteo when CMA page HTML fails', async () => {
