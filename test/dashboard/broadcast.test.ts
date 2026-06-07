@@ -100,17 +100,20 @@ describe('cross-tab broadcast', () => {
     await dashboard.open()
     const newCache: CachedSource<unknown> = {
       schemaVersion: CACHE_SCHEMA_VERSION,
-      data: [
-        {
-          id: 'remote1',
-          title: 'reddit-remote-update',
-          url: 'https://www.reddit.com/r/popular/comments/remote1/x',
-          score: 1234,
-          numComments: 56,
-          subreddits: ['popular'],
-          author: 'u',
-        },
-      ],
+      data: {
+        popular: [
+          {
+            id: 'remote1',
+            title: 'reddit-remote-update',
+            url: 'https://www.reddit.com/r/popular/comments/remote1/x',
+            score: 1234,
+            numComments: 56,
+            subreddits: ['popular'],
+            author: 'u',
+            created: Date.now(),
+          },
+        ],
+      },
       fetchedAt: Date.now(),
       byteSize: 200,
     }

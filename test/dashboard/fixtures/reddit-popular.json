@@ -18,7 +18,8 @@
           "subreddit": "aww",
           "author": "cat_lover_99",
           "over_18": false,
-          "distinguished": null
+          "distinguished": null,
+          "created_utc": 1700000000
         }
       },
       {
@@ -33,7 +34,8 @@
           "subreddit": "todayilearned",
           "author": "fact_bot",
           "over_18": false,
-          "distinguished": null
+          "distinguished": null,
+          "created_utc": 1700000000
         }
       },
       {
@@ -48,7 +50,8 @@
           "subreddit": "gaming",
           "author": "ms_painter",
           "over_18": false,
-          "distinguished": null
+          "distinguished": null,
+          "created_utc": 1700000000
         }
       },
       {
@@ -71,7 +74,8 @@
           "subreddit": "popular",
           "author": "nsfw_user",
           "over_18": true,
-          "distinguished": null
+          "distinguished": null,
+          "created_utc": 1700000000
         }
       },
       {
@@ -86,7 +90,8 @@
           "subreddit": "aww",
           "author": "user",
           "over_18": false,
-          "distinguished": null
+          "distinguished": null,
+          "created_utc": 1700000000
         }
       },
       {
@@ -101,7 +106,8 @@
           "subreddit": "popular",
           "author": "vpn_brand",
           "over_18": false,
-          "distinguished": "promoted"
+          "distinguished": "promoted",
+          "created_utc": 1700000000
         }
       },
       {
@@ -116,7 +122,8 @@
           "subreddit": "programming",
           "author": "dev_tip",
           "over_18": false,
-          "distinguished": null
+          "distinguished": null,
+          "created_utc": 1700000000
         }
       },
       {
@@ -131,7 +138,8 @@
           "subreddit": "aww",
           "author": "tail_user",
           "over_18": false,
-          "distinguished": null
+          "distinguished": null,
+          "created_utc": 1700000000
         }
       }
     ]

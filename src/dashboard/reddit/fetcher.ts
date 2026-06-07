@@ -1,7 +1,6 @@
 import type { Runtime } from '../../runtime'
 import { MAX_RETRIES_ON_429, REDDIT_API_URL, REDDIT_HOSTS, REDDIT_USER_AGENT } from './constants'
 import { normalizeSubredditName, parseRedditListing } from './parser'
-import { dynamicRedditCount, mergeRedditPosts } from './scoring'
 import type { RedditFetchResult, RedditPost, RedditSourceOptions } from './types'
 
 function parseRetryAfter(headers: string | undefined): number {
@@ -119,9 +118,7 @@ export async function fetchReddit(
     uniqueSubs.map(async (sub) => {
       const outcome = await fetchOneSub(runtime, sub)
       if (!outcome.ok) return { sub, posts: [] as RedditPost[], error: outcome.error }
-      const scores = outcome.posts.map((p) => p.score)
-      const n = dynamicRedditCount(scores, options)
-      return { sub, posts: outcome.posts.slice(0, n), error: null as string | null }
+      return { sub, posts: outcome.posts, error: null as string | null }
     }),
   )
 
@@ -136,6 +133,5 @@ export async function fetchReddit(
     throw new Error(`reddit: all subs failed: ${errors.join('; ')}`)
   }
 
-  const posts = mergeRedditPosts(perSub, { ...options, maxItems: options.maxItems })
-  return { posts, partialErrors: errors }
+  return { posts: perSub, partialErrors: errors }
 }

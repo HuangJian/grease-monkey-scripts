@@ -1,25 +1,22 @@
 import { escapeHtml, escapeUrl } from '../../utils'
+import { COLLAPSE_THRESHOLD, type ExpandCollapse } from './expand-collapse'
 import type { RedditState } from './state'
 import type { RedditPost } from './types'
+import type { RedditRenderData } from './source'
+import type { Runtime } from '../../runtime'
 
-export function renderReddit(
-  container: HTMLElement,
-  data: RedditPost[] | null,
-  state: RedditState,
-): void {
-  container.replaceChildren()
-  if (!data || data.length === 0) {
-    container.insertAdjacentHTML('beforeend', '<div class="gm-sp-empty">暂无数据</div>')
-    return
-  }
-  const listHtml = data
-    .map((post) => {
-      const readClass = state.isRead(post.id) ? ' gm-sp-reddit-read' : ''
-      const hiddenClass = state.isHidden(post.id) ? ' gm-sp-reddit-hidden-marker' : ''
-      const titleHtml = `<a class="gm-sp-reddit-title" href="${escapeUrl(post.url)}" target="_blank"
-        rel="noopener noreferrer">${escapeHtml(post.title)}</a>`
-      const subText = escapeHtml(post.subreddits.map((s) => `r/${s}`).join(', '))
-      return `<li class="gm-sp-reddit-item${readClass}${hiddenClass}" data-post-id="${post.id}">
+const TITLE_MAX_CHARS = 100
+
+function truncateTitle(title: string, max = TITLE_MAX_CHARS): string {
+  if (title.length <= max) return title
+  return title.slice(0, max) + '…'
+}
+
+function buildItemHtml(post: RedditPost, state: RedditState): string {
+  const readClass = state.isRead(post.id) ? ' gm-sp-reddit-read' : ''
+  const titleHtml = `<a class="gm-sp-reddit-title" href="${escapeUrl(post.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(truncateTitle(post.title))}</a>`
+  const subText = escapeHtml(post.subreddits.map((s) => `r/${s}`).join(', '))
+  return `<li class="gm-sp-reddit-item${readClass}" data-post-id="${post.id}">
         <span class="gm-sp-reddit-count" title="得分">${post.score}</span>
         ${titleHtml}
         <span class="gm-sp-reddit-meta">
@@ -28,21 +25,76 @@ export function renderReddit(
         </span>
         <button class="gm-sp-reddit-hide" title="隐藏该主题">×</button>
       </li>`
+}
+
+export function renderReddit(
+  container: HTMLElement,
+  data: RedditRenderData | null,
+  state: RedditState,
+  runtime: Runtime | null,
+  expandCollapse: ExpandCollapse,
+): void {
+  container.replaceChildren()
+  if (!data || Object.keys(data).length === 0) {
+    container.insertAdjacentHTML('beforeend', '<div class="gm-sp-empty">暂无数据</div>')
+    return
+  }
+  const allSubs = Object.keys(data)
+  let totalPosts = 0
+  for (const posts of Object.values(data)) totalPosts += posts.length
+  const active = expandCollapse.activeSubs(allSubs, totalPosts)
+  const showCaret = totalPosts > COLLAPSE_THRESHOLD
+
+  const sectionsHtml = allSubs
+    .map((sub) => {
+      const visiblePosts = state.filterVisible(data[sub] ?? [])
+      if (visiblePosts.length === 0) return ''
+      const isActive = active.has(sub)
+      const collapsedClass = isActive ? '' : ' gm-sp-reddit-section-collapsed'
+      const caretClass = showCaret ? ' gm-sp-reddit-caret-visible' : ''
+      const listHtml = visiblePosts.map((p) => buildItemHtml(p, state)).join('')
+      return `<section class="gm-sp-reddit-section${collapsedClass}" data-sub="${escapeHtml(sub)}">
+        <h3 class="gm-sp-reddit-sub-title" data-sub="${escapeHtml(sub)}">
+          <span class="gm-sp-reddit-caret${caretClass}">▾</span>
+          r/${escapeHtml(sub)}
+        </h3>
+        <ol class="gm-sp-reddit-list">${listHtml}</ol>
+      </section>`
     })
     .join('')
-  container.insertAdjacentHTML('beforeend', `<ol class="gm-sp-reddit-list">${listHtml}</ol>`)
-  container.querySelectorAll<HTMLElement>('.gm-sp-reddit-item').forEach((item) => {
-    const postId = item.dataset['postId']!
-    const link = item.querySelector('.gm-sp-reddit-title') as HTMLAnchorElement
-    link.addEventListener('click', () => {
-      state.markRead(postId)
-      item.classList.add('gm-sp-reddit-read')
+  container.insertAdjacentHTML('beforeend', sectionsHtml)
+
+  container.querySelectorAll<HTMLElement>('.gm-sp-reddit-section').forEach((section) => {
+    const sub = section.dataset['sub']!
+    section.querySelectorAll<HTMLElement>('.gm-sp-reddit-item').forEach((item) => {
+      const postId = item.dataset['postId']!
+      const link = item.querySelector('.gm-sp-reddit-title') as HTMLAnchorElement
+      link.addEventListener('click', () => {
+        state.markRead(postId)
+        item.classList.add('gm-sp-reddit-read')
+      })
+      const hideBtn = item.querySelector('.gm-sp-reddit-hide') as HTMLButtonElement
+      hideBtn.addEventListener('click', (e) => {
+        e.preventDefault()
+        state.markHidden(postId)
+        item.remove()
+        if (runtime) {
+          void state.saveToStorage(runtime)
+          void state.removeFromCache(runtime, postId)
+          void state.removeFromHistory(runtime, postId)
+        }
+      })
     })
-    const hideBtn = item.querySelector('.gm-sp-reddit-hide') as HTMLButtonElement
-    hideBtn.addEventListener('click', (e) => {
-      e.preventDefault()
-      state.markHidden(postId)
-      item.remove()
-    })
+    if (showCaret) {
+      const titleEl = section.querySelector('.gm-sp-reddit-sub-title') as HTMLElement
+      titleEl.addEventListener('click', () => {
+        expandCollapse.toggleSub(sub, totalPosts)
+        const newActive = expandCollapse.activeSubs(allSubs, totalPosts)
+        container.querySelectorAll<HTMLElement>('.gm-sp-reddit-section').forEach((s) => {
+          const ds = s.dataset['sub']!
+          s.classList.toggle('gm-sp-reddit-section-collapsed', !newActive.has(ds))
+        })
+      })
+    }
   })
 }

@@ -6,6 +6,18 @@ export type RedditPost = {
   numComments: number
   subreddits: string[]
   author: string
+  created: number
+}
+
+export type StoredHistoryPost = {
+  id: string
+  title: string
+  url: string
+  score: number
+  numComments: number
+  subreddits: string[]
+  author: string
+  created: number
 }
 
 export type RedditCountOptions = {
@@ -19,10 +31,11 @@ export type RedditCountOptions = {
 
 export type RedditSourceOptions = {
   ttlMinutes: number
+  ageHalfLifeDays: number
   subreddits: string[]
 } & RedditCountOptions
 
 export type RedditFetchResult = {
-  posts: RedditPost[]
+  posts: ReadonlyArray<{ sub: string; posts: RedditPost[] }>
   partialErrors: string[]
 }

@@ -1,117 +1,324 @@
-import { describe, expect, test } from 'bun:test'
+import { beforeEach, describe, expect, test } from 'bun:test'
 import { JSDOM } from 'jsdom'
-import { createRedditSource } from '../../../../src/dashboard/reddit/source'
-import type { RedditPost, RedditSourceOptions } from '../../../../src/dashboard/reddit/types'
+import { CACHE_KEY, CACHE_SCHEMA_VERSION, type CachedSource } from '../../../../src/dashboard/types'
+import { createExpandCollapse } from '../../../../src/dashboard/reddit/expand-collapse'
+import { renderReddit } from '../../../../src/dashboard/reddit/render'
+import { createRedditState, type RedditState } from '../../../../src/dashboard/reddit/state'
+import type { RedditPost } from '../../../../src/dashboard/reddit/types'
+import { createRuntime, type TestRuntime } from '../../../runtime'
 
-const DEFAULT_COUNT_OPTS = {
-  minItems: 10,
-  maxItems: 30,
-  minPerSub: 1,
-  displayRatio: 0.1,
-  elbowDropRatio: 0.4,
-  minCutoffScore: 500,
-}
+const NOW = Date.now() - 60_000
 
-function defaultRedditOpts(over: Partial<RedditSourceOptions> = {}): RedditSourceOptions {
+function makePost(over: Partial<RedditPost>): RedditPost {
   return {
-    ttlMinutes: 30,
-    subreddits: ['popular'],
-    ...DEFAULT_COUNT_OPTS,
+    id: 'x',
+    title: 'hello',
+    url: 'https://www.reddit.com/r/x/comments/x/t',
+    score: 100,
+    numComments: 10,
+    subreddits: ['x'],
+    author: 'u',
+    created: NOW,
     ...over,
   }
 }
 
 function makeDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><body></body></html>', {
-    url: 'https://www.v2ex.com/',
-  })
+  return new JSDOM('<!doctype html><html><body></body></html>')
 }
 
-describe('createRedditSource.render', () => {
-  test('renders posts with score, sub list, and comments', () => {
-    const dom = makeDom()
-    const container = dom.window.document.createElement('div')
-    const source = createRedditSource(defaultRedditOpts())
-    const posts: RedditPost[] = [
-      {
-        id: 'a',
-        title: 'Hello',
-        url: 'https://www.reddit.com/r/popular/comments/a/hello',
-        score: 1234,
-        numComments: 56,
-        subreddits: ['popular', 'funny'],
-        author: 'u',
-      },
-    ]
-    source.render(container, posts)
+describe('renderReddit', () => {
+  let dom: JSDOM
+  let container: HTMLElement
+  let state: RedditState
+
+  beforeEach(() => {
+    dom = makeDom()
+    container = dom.window.document.createElement('div')
+    state = createRedditState()
+  })
+
+  test('renders one section per sub with title, list, and items', () => {
+    const data: Record<string, RedditPost[]> = {
+      aww: [makePost({ id: 'a1', title: 'cat' })],
+      funny: [makePost({ id: 'f1', title: 'joke', subreddits: ['funny'] })],
+    }
+    renderReddit(container, data, state, null, createExpandCollapse())
+    const sections = container.querySelectorAll('.gm-sp-reddit-section')
+    expect(sections).toHaveLength(2)
+    expect((sections[0]! as HTMLElement).dataset['sub']).toBe('aww')
+    expect(sections[0]!.querySelector('.gm-sp-reddit-sub-title')!.textContent).toContain('r/aww')
+    expect(sections[0]!.querySelector('.gm-sp-reddit-title')!.textContent).toBe('cat')
+    expect((sections[1]! as HTMLElement).dataset['sub']).toBe('funny')
+  })
+
+  test('renders section order matching data insertion order', () => {
+    const data: Record<string, RedditPost[]> = {
+      zeta: [makePost({ id: 'z1', title: 'z', subreddits: ['zeta'] })],
+      alpha: [makePost({ id: 'a1', title: 'a', subreddits: ['alpha'] })],
+      mu: [makePost({ id: 'm1', title: 'm', subreddits: ['mu'] })],
+    }
+    renderReddit(container, data, state, null, createExpandCollapse())
+    const subs = Array.from(container.querySelectorAll<HTMLElement>('.gm-sp-reddit-section')).map(
+      (s) => s.dataset['sub'],
+    )
+    expect(subs).toEqual(['zeta', 'alpha', 'mu'])
+  })
+
+  test('skips empty subs in rendering', () => {
+    const data: Record<string, RedditPost[]> = {
+      aww: [makePost({ id: 'a1' })],
+      funny: [],
+    }
+    renderReddit(container, data, state, null, createExpandCollapse())
+    expect(container.querySelectorAll('.gm-sp-reddit-section')).toHaveLength(1)
+  })
+
+  test('renders empty state when data is null or empty', () => {
+    renderReddit(container, null, state, null, createExpandCollapse())
+    expect(container.querySelector('.gm-sp-empty')!.textContent).toBe('暂无数据')
+
+    container.replaceChildren()
+    renderReddit(container, {}, state, null, createExpandCollapse())
+    expect(container.querySelector('.gm-sp-empty')!.textContent).toBe('暂无数据')
+  })
+
+  test('renders score, comment count, and sub list in items', () => {
+    const data: Record<string, RedditPost[]> = {
+      aww: [
+        makePost({
+          id: 'a1',
+          score: 1234,
+          numComments: 56,
+          title: 'hi',
+          subreddits: ['aww', 'funny'],
+        }),
+      ],
+    }
+    renderReddit(container, data, state, null, createExpandCollapse())
     const item = container.querySelector('.gm-sp-reddit-item')!
     expect(item.querySelector('.gm-sp-reddit-count')!.textContent).toBe('1234')
-    expect(item.querySelector('.gm-sp-reddit-title')!.textContent).toBe('Hello')
-    expect(item.querySelector('.gm-sp-reddit-sub')!.textContent).toBe('r/popular, r/funny')
+    expect(item.querySelector('.gm-sp-reddit-sub')!.textContent).toBe('r/aww, r/funny')
     expect(item.querySelector('.gm-sp-reddit-comments')!.textContent).toBe('💬 56')
   })
-  test('renders empty state when no posts', () => {
-    const dom = makeDom()
-    const container = dom.window.document.createElement('div')
-    const source = createRedditSource(defaultRedditOpts())
-    source.render(container, [])
-    expect(container.querySelector('.gm-sp-empty')!.textContent).toBe('暂无数据')
+
+  test('truncates title longer than 100 chars', () => {
+    const longTitle = 'a'.repeat(150)
+    const data: Record<string, RedditPost[]> = {
+      aww: [makePost({ id: 'a1', title: longTitle })],
+    }
+    renderReddit(container, data, state, null, createExpandCollapse())
+    const text = container.querySelector('.gm-sp-reddit-title')!.textContent
+    expect(text!.length).toBe(101)
+    expect(text!.endsWith('…')).toBe(true)
   })
-  test('renders empty state when data is null', () => {
-    const dom = makeDom()
-    const container = dom.window.document.createElement('div')
-    const source = createRedditSource(defaultRedditOpts())
-    source.render(container, null)
-    expect(container.querySelector('.gm-sp-empty')!.textContent).toBe('暂无数据')
+
+  test('keeps short titles unchanged', () => {
+    const data: Record<string, RedditPost[]> = {
+      aww: [makePost({ id: 'a1', title: 'short' })],
+    }
+    renderReddit(container, data, state, null, createExpandCollapse())
+    expect(container.querySelector('.gm-sp-reddit-title')!.textContent).toBe('short')
   })
-  test('clicking title adds read class', () => {
-    const dom = makeDom()
-    const container = dom.window.document.createElement('div')
-    const source = createRedditSource(defaultRedditOpts())
-    source.render(container, [
-      {
-        id: 'r1',
-        title: 't',
-        url: 'https://www.reddit.com/r/x/comments/r1/t',
-        score: 1,
-        numComments: 0,
-        subreddits: ['x'],
-        author: 'u',
-      },
-    ])
+
+  test('clicking title marks the post as read', () => {
+    const data: Record<string, RedditPost[]> = {
+      aww: [makePost({ id: 'a1' })],
+    }
+    renderReddit(container, data, state, null, createExpandCollapse())
     const link = container.querySelector('.gm-sp-reddit-title') as HTMLAnchorElement
     link.click()
+    expect(state.isRead('a1')).toBe(true)
     expect(
       container.querySelector('.gm-sp-reddit-item')!.classList.contains('gm-sp-reddit-read'),
     ).toBe(true)
   })
-  test('hide button removes item from list', () => {
-    const dom = makeDom()
-    const container = dom.window.document.createElement('div')
-    const source = createRedditSource(defaultRedditOpts())
-    source.render(container, [
-      {
-        id: 'r1',
-        title: 't',
-        url: 'https://www.reddit.com/r/x/comments/r1/t',
-        score: 1,
-        numComments: 0,
-        subreddits: ['x'],
-        author: 'u',
+
+  test('applies read class for previously-read posts', () => {
+    state.markRead('a1')
+    const data: Record<string, RedditPost[]> = {
+      aww: [makePost({ id: 'a1' })],
+    }
+    renderReddit(container, data, state, null, createExpandCollapse())
+    expect(
+      container.querySelector('.gm-sp-reddit-item')!.classList.contains('gm-sp-reddit-read'),
+    ).toBe(true)
+  })
+
+  test('filters out hidden posts from rendering', () => {
+    state.markHidden('a1')
+    const data: Record<string, RedditPost[]> = {
+      aww: [makePost({ id: 'a1' }), makePost({ id: 'a2' })],
+    }
+    renderReddit(container, data, state, null, createExpandCollapse())
+    expect(container.querySelectorAll('.gm-sp-reddit-item')).toHaveLength(1)
+  })
+})
+
+describe('renderReddit hide button', () => {
+  let dom: JSDOM
+  let container: HTMLElement
+  let state: RedditState
+  let runtime: TestRuntime
+
+  beforeEach(() => {
+    dom = makeDom()
+    container = dom.window.document.createElement('div')
+    state = createRedditState()
+    runtime = createRuntime(dom)
+  })
+
+  test('removes item from DOM, marks hidden, saves state, removes from cache and history', async () => {
+    runtime.stores[CACHE_KEY('reddit')] = {
+      schemaVersion: CACHE_SCHEMA_VERSION,
+      data: {
+        aww: [
+          makePost({ id: 'a1', subreddits: ['aww'] }),
+          makePost({ id: 'a2', subreddits: ['aww'] }),
+        ],
       },
+      fetchedAt: Date.now(),
+      byteSize: 0,
+    } as CachedSource<unknown>
+    runtime.stores['gm:reddit:topics-history'] = [
       {
-        id: 'r2',
-        title: 't2',
-        url: 'https://www.reddit.com/r/x/comments/r2/t2',
-        score: 1,
-        numComments: 0,
-        subreddits: ['x'],
+        id: 'a1',
+        title: 'hi',
+        url: 'https://www.reddit.com/r/aww/comments/a1/t',
+        score: 100,
+        numComments: 1,
+        subreddits: ['aww'],
         author: 'u',
+        created: NOW,
       },
-    ])
+    ]
+    const data: Record<string, RedditPost[]> = {
+      aww: [makePost({ id: 'a1' }), makePost({ id: 'a2' })],
+    }
+    renderReddit(container, data, state, runtime, createExpandCollapse())
     expect(container.querySelectorAll('.gm-sp-reddit-item')).toHaveLength(2)
     const hideBtn = container.querySelector('.gm-sp-reddit-hide') as HTMLButtonElement
     hideBtn.click()
     expect(container.querySelectorAll('.gm-sp-reddit-item')).toHaveLength(1)
+    expect(state.isHidden('a1')).toBe(true)
+    await new Promise<void>((r) => setTimeout(r, 0))
+    const stored = runtime.stores['gm:reddit:topic-state'] as Record<string, { h?: number }>
+    expect(stored['a1']?.h).toBeGreaterThan(0)
+    const cache = runtime.stores[CACHE_KEY('reddit')] as CachedSource<Record<string, RedditPost[]>>
+    const aww = cache.data!['aww']!
+    expect(aww.map((p) => p.id)).toEqual(['a2'])
+    const history = runtime.stores['gm:reddit:topics-history'] as Array<{ id: string }>
+    expect(history.map((h) => h.id)).toEqual([])
+  })
+
+  test('does not write to storage when runtime is null', () => {
+    const data: Record<string, RedditPost[]> = {
+      aww: [makePost({ id: 'a1' })],
+    }
+    renderReddit(container, data, state, null, createExpandCollapse())
+    const hideBtn = container.querySelector('.gm-sp-reddit-hide') as HTMLButtonElement
+    hideBtn.click()
+    expect(state.isHidden('a1')).toBe(true)
+  })
+})
+
+describe('renderReddit sub collapse', () => {
+  let dom: JSDOM
+  let container: HTMLElement
+  let state: RedditState
+
+  beforeEach(() => {
+    dom = makeDom()
+    container = dom.window.document.createElement('div')
+    state = createRedditState()
+  })
+
+  function makeDataWithSubs(subCount: number, perSub: number): Record<string, RedditPost[]> {
+    const data: Record<string, RedditPost[]> = {}
+    for (let i = 0; i < subCount; i++) {
+      const sub = `sub${i}`
+      const posts: RedditPost[] = []
+      for (let j = 0; j < perSub; j++) {
+        posts.push(makePost({ id: `${sub}${j}`, title: `${sub}-${j}`, subreddits: [sub] }))
+      }
+      data[sub] = posts
+    }
+    return data
+  }
+
+  test('shows all sections expanded when total <= 20', () => {
+    const data = makeDataWithSubs(3, 3)
+    renderReddit(container, data, state, null, createExpandCollapse())
+    const sections = container.querySelectorAll<HTMLElement>('.gm-sp-reddit-section')
+    expect(sections).toHaveLength(3)
+    for (const s of sections) {
+      expect(s.classList.contains('gm-sp-reddit-section-collapsed')).toBe(false)
+    }
+    expect(container.querySelectorAll('.gm-sp-reddit-caret-visible')).toHaveLength(0)
+  })
+
+  test('expands only first 2 subs by default when total > 20', () => {
+    const data = makeDataWithSubs(5, 5)
+    renderReddit(container, data, state, null, createExpandCollapse())
+    const sections = Array.from(container.querySelectorAll<HTMLElement>('.gm-sp-reddit-section'))
+    const collapsedSubs = sections
+      .filter((s) => s.classList.contains('gm-sp-reddit-section-collapsed'))
+      .map((s) => s.dataset['sub'])
+    expect(collapsedSubs).toEqual(['sub2', 'sub3', 'sub4'])
+    expect(container.querySelectorAll('.gm-sp-reddit-caret-visible')).toHaveLength(5)
+  })
+
+  test('clicking a collapsed sub title expands it and collapses another (LRU)', () => {
+    const data = makeDataWithSubs(5, 5)
+    const ec = createExpandCollapse()
+    renderReddit(container, data, state, null, ec)
+    const sub3 = container.querySelector<HTMLElement>('[data-sub="sub3"]')!
+    const sub3Title = sub3.querySelector('.gm-sp-reddit-sub-title') as HTMLElement
+    sub3Title.click()
+    const sub3Collapsed = sub3.classList.contains('gm-sp-reddit-section-collapsed')
+    const sub0 = container.querySelector<HTMLElement>('[data-sub="sub0"]')!
+    const sub0Collapsed = sub0.classList.contains('gm-sp-reddit-section-collapsed')
+    expect(sub3Collapsed).toBe(false)
+    expect(sub0Collapsed).toBe(true)
+  })
+
+  test('expanding a 3rd sub evicts the oldest (LRU cap = 2)', () => {
+    const data = makeDataWithSubs(5, 5)
+    const ec = createExpandCollapse()
+    renderReddit(container, data, state, null, ec)
+    const titles = container.querySelectorAll<HTMLElement>('.gm-sp-reddit-sub-title')
+    const sub2Title = Array.from(titles).find((t) => t.dataset['sub'] === 'sub2')!
+    sub2Title.click()
+    const sub3Title = Array.from(titles).find((t) => t.dataset['sub'] === 'sub3')!
+    sub3Title.click()
+    const sub0 = container.querySelector<HTMLElement>('[data-sub="sub0"]')!
+    const sub1 = container.querySelector<HTMLElement>('[data-sub="sub1"]')!
+    const sub2 = container.querySelector<HTMLElement>('[data-sub="sub2"]')!
+    const sub3 = container.querySelector<HTMLElement>('[data-sub="sub3"]')!
+    expect(sub0.classList.contains('gm-sp-reddit-section-collapsed')).toBe(true)
+    expect(sub1.classList.contains('gm-sp-reddit-section-collapsed')).toBe(true)
+    expect(sub2.classList.contains('gm-sp-reddit-section-collapsed')).toBe(false)
+    expect(sub3.classList.contains('gm-sp-reddit-section-collapsed')).toBe(false)
+  })
+
+  test('clicking a sub that is in the LRU removes it from active (collapses it)', () => {
+    const data = makeDataWithSubs(5, 5)
+    const ec = createExpandCollapse()
+    renderReddit(container, data, state, null, ec)
+    const sub0 = container.querySelector<HTMLElement>('[data-sub="sub0"]')!
+    const sub0Title = sub0.querySelector('.gm-sp-reddit-sub-title') as HTMLElement
+    sub0Title.click()
+    sub0Title.click()
+    expect(sub0.classList.contains('gm-sp-reddit-section-collapsed')).toBe(true)
+  })
+
+  test('clicking title is a no-op when total <= 20', () => {
+    const data = makeDataWithSubs(3, 3)
+    const ec = createExpandCollapse()
+    renderReddit(container, data, state, null, ec)
+    const sub0 = container.querySelector<HTMLElement>('[data-sub="sub0"]')!
+    const sub0Title = sub0.querySelector('.gm-sp-reddit-sub-title') as HTMLElement
+    sub0Title.click()
+    expect(sub0.classList.contains('gm-sp-reddit-section-collapsed')).toBe(false)
   })
 })

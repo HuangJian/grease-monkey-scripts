@@ -44,7 +44,7 @@ async function renderRedditEditor(
           <input type="number" min="1" step="1" class="gm-sp-re-max" />
         </label>
         <label class="gm-sp-reddit-editor-row">
-          <span>每板块保底</span>
+          <span>每 sub 至少 N 条</span>
           <input type="number" min="0" step="1" class="gm-sp-re-minpersub" />
         </label>
         <label class="gm-sp-reddit-editor-row">
@@ -58,6 +58,10 @@ async function renderRedditEditor(
         <label class="gm-sp-reddit-editor-row">
           <span>最低分数</span>
           <input type="number" min="0" step="1" class="gm-sp-re-cutoff" />
+        </label>
+        <label class="gm-sp-reddit-editor-row">
+          <span>衰减半衰期（天）</span>
+          <input type="number" min="0.1" max="30" step="0.1" class="gm-sp-re-half-life" />
         </label>
       </div>
       <div class="gm-sp-re-error" hidden></div>
@@ -78,6 +82,7 @@ async function renderRedditEditor(
   const ratioInput = container.querySelector('.gm-sp-re-ratio') as HTMLInputElement
   const elbowInput = container.querySelector('.gm-sp-re-elbow') as HTMLInputElement
   const cutoffInput = container.querySelector('.gm-sp-re-cutoff') as HTMLInputElement
+  const halfLifeInput = container.querySelector('.gm-sp-re-half-life') as HTMLInputElement
   const errorEl = container.querySelector('.gm-sp-re-error') as HTMLDivElement
   const saveBtn = container.querySelector('.gm-sp-re-save') as HTMLButtonElement
   const cancelBtn = container.querySelector('.gm-sp-re-cancel') as HTMLButtonElement
@@ -89,6 +94,7 @@ async function renderRedditEditor(
   ratioInput.value = String(fresh.displayRatio)
   elbowInput.value = String(fresh.elbowDropRatio)
   cutoffInput.value = String(fresh.minCutoffScore)
+  halfLifeInput.value = String(fresh.ageHalfLifeDays)
 
   const error = bindErrorBox(errorEl)
 
@@ -103,6 +109,7 @@ async function renderRedditEditor(
     },
     renderChip: (name, i) =>
       `<div class="gm-sp-re-chip" data-index="${i}">
+          <span class="gm-sp-re-chip-drag" title="拖动重排">⋮⋮</span>
           <span class="gm-sp-re-chip-label">r/${escapeHtml(name)}</span>
           <button type="button" class="gm-sp-re-chip-remove" aria-label="remove">×</button>
         </div>`,
@@ -117,6 +124,10 @@ async function renderRedditEditor(
     clearError: () => error.clear(),
     emptyText: '尚未添加 subreddit',
     emptyClass: 'gm-sp-re-empty',
+    draggable: true,
+    dragHandleSelector: '.gm-sp-re-chip-drag',
+    chipSelector: '.gm-sp-re-chip',
+    draggingClass: 'gm-sp-re-chip-dragging',
   })
 
   cancelBtn.addEventListener('click', () => {
@@ -134,21 +145,23 @@ async function renderRedditEditor(
         { input: ttlInput, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' },
         { input: minInput, min: 1, errorMessage: '最少条数必须是 ≥1 的整数' },
         { input: maxInput, min: 1, errorMessage: '最多条数必须 ≥ 最少条数' },
-        { input: minPerSubInput, min: 0, errorMessage: '每板块保底必须 ≥0' },
+        { input: minPerSubInput, min: 0, errorMessage: '每 sub 至少 N 条必须 ≥0' },
         { input: ratioInput, min: 0, max: 1, errorMessage: '显示比例必须是 0~1 之间' },
         { input: elbowInput, min: 0, max: 1, errorMessage: '拐点跌幅必须是 0~1 之间' },
         { input: cutoffInput, min: 0, errorMessage: '最低分数必须 ≥0' },
+        { input: halfLifeInput, min: 0.1, max: 30, errorMessage: '衰减半衰期必须是 0.1~30 之间' },
       ],
       (msg) => error.show(msg),
     )
     if (nums === null) return
-    const [ttl, min, max, minPerSub, ratio, elbow, cutoff] = nums
+    const [ttl, min, max, minPerSub, ratio, elbow, cutoff, halfLife] = nums
     if (max < min) {
       error.show('最多条数必须 ≥ 最少条数')
       return
     }
     const reddit = {
       ttlMinutes: Math.round(ttl),
+      ageHalfLifeDays: halfLife,
       subreddits: [...subs],
       minItems: Math.round(min),
       maxItems: Math.round(max),

@@ -15,6 +15,7 @@ const DEFAULT_COUNT_OPTS = {
   displayRatio: 0.1,
   elbowDropRatio: 0.4,
   minCutoffScore: 500,
+  ageHalfLifeDays: 2,
 }
 
 function defaultRedditOpts(over: Partial<RedditSourceOptions> = {}): RedditSourceOptions {
@@ -70,9 +71,11 @@ describe('createRedditSource.fetch reads fresh config', () => {
     runtime.stores['dashboard:v1:config'] = {
       reddit: { subreddits: ['funny'] },
     }
-    await source.fetch(runtime, undefined)
+    const data = await source.fetch(runtime, undefined)
     expect(fetchedUrls.every((u) => u.includes('/r/funny/'))).toBe(true)
     expect(fetchedUrls.some((u) => u.includes('/r/popular/'))).toBe(false)
+    expect(typeof data).toBe('object')
+    expect(data).not.toBeInstanceOf(Array)
   })
 
   test('fetch falls back to closure options when CONFIG_KEY has no reddit config', async () => {
@@ -87,6 +90,34 @@ describe('createRedditSource.fetch reads fresh config', () => {
     await source.fetch(runtime, undefined)
     expect(fetchedUrls.every((u) => u.includes('/r/popular/'))).toBe(true)
   })
+
+  test('fetch returns a Map keyed by sub', async () => {
+    const dom = makeDom()
+    const json = loadFixture()
+    const runtime = makeRuntime(dom, (d) => {
+      d.onload({ responseText: JSON.stringify(json) })
+    })
+    const source = createRedditSource(defaultRedditOpts({ subreddits: ['funny', 'aww'] }))
+    runtime.stores['dashboard:v1:config'] = {
+      reddit: {
+        ttlMinutes: 30,
+        ageHalfLifeDays: 2,
+        subreddits: ['funny', 'aww'],
+        minItems: 10,
+        maxItems: 30,
+        minPerSub: 1,
+        displayRatio: 0.1,
+        elbowDropRatio: 0.4,
+        minCutoffScore: 0,
+      },
+    }
+    const data = await source.fetch(runtime, undefined)
+    expect(data).not.toBeNull()
+    expect(typeof data).toBe('object')
+    expect(
+      (data as Record<string, unknown>)['funny'] || (data as Record<string, unknown>)['aww'],
+    ).toBeTruthy()
+  })
 })
 
 describe('validateConfig.reddit', () => {
@@ -95,6 +126,7 @@ describe('validateConfig.reddit', () => {
       validateConfig({
         reddit: {
           ttlMinutes: 30,
+          ageHalfLifeDays: 2,
           subreddits: ['popular'],
           minItems: 10,
           maxItems: 30,
@@ -178,6 +210,36 @@ describe('validateConfig.reddit', () => {
           displayRatio: 0.1,
           elbowDropRatio: 0.4,
           minCutoffScore: -1,
+        },
+      }).ok,
+    ).toBe(false)
+  })
+  test('rejects ageHalfLifeDays out of range', () => {
+    expect(
+      validateConfig({
+        reddit: {
+          subreddits: ['a'],
+          minItems: 1,
+          maxItems: 1,
+          ttlMinutes: 30,
+          displayRatio: 0.1,
+          elbowDropRatio: 0.4,
+          minCutoffScore: 0,
+          ageHalfLifeDays: 0,
+        },
+      }).ok,
+    ).toBe(false)
+    expect(
+      validateConfig({
+        reddit: {
+          subreddits: ['a'],
+          minItems: 1,
+          maxItems: 1,
+          ttlMinutes: 30,
+          displayRatio: 0.1,
+          elbowDropRatio: 0.4,
+          minCutoffScore: 0,
+          ageHalfLifeDays: 31,
         },
       }).ok,
     ).toBe(false)

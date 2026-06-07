@@ -92,6 +92,7 @@ describe('parseRedditListing', () => {
               score: 10,
               num_comments: 1,
               subreddit: 'r/Sub',
+              created_utc: 1700000000,
             },
           },
         ],
@@ -99,5 +100,50 @@ describe('parseRedditListing', () => {
     }
     const [post] = parseRedditListing(json, 10)
     expect(post.subreddits).toEqual(['sub'])
+  })
+  test('parses created_utc to milliseconds', () => {
+    const json = loadFixture()
+    const posts = parseRedditListing(json, 100)
+    const post = posts.find((p) => p.id === 'pop001')!
+    expect(post.created).toBe(1_700_000_000_000)
+  })
+  test('falls back to current time when created_utc is missing or invalid', () => {
+    const before = Date.now()
+    const json = {
+      data: {
+        children: [
+          {
+            kind: 't3',
+            data: {
+              id: 'a',
+              title: 'no-time',
+              permalink: '/r/x/comments/a/',
+              score: 10,
+              num_comments: 1,
+              subreddit: 'x',
+            },
+          },
+          {
+            kind: 't3',
+            data: {
+              id: 'b',
+              title: 'bad-time',
+              permalink: '/r/x/comments/b/',
+              score: 10,
+              num_comments: 1,
+              subreddit: 'x',
+              created_utc: -1,
+            },
+          },
+        ],
+      },
+    }
+    const after = Date.now()
+    const posts = parseRedditListing(json, 10)
+    expect(posts).toHaveLength(2)
+    for (const p of posts) {
+      expect(p.created).toBeGreaterThanOrEqual(before)
+      expect(p.created).toBeLessThanOrEqual(after)
+    }
   })
 })

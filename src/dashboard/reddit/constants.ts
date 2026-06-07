@@ -10,3 +10,5 @@ export const MAX_RETRIES_ON_429 = 1
 
 export const TOPIC_STATE_KEY = 'gm:reddit:topic-state'
 export const TOPIC_STATE_TTL = 72 * 60 * 60 * 1000
+
+export const HISTORY_KEY = 'gm:reddit:topics-history'

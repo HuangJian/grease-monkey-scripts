@@ -1,14 +1,21 @@
 import type { Runtime } from '../../runtime'
 import { loadConfigSection } from '../config'
 import type { Source } from '../types'
+import { createExpandCollapse } from './expand-collapse'
 import { createRedditEditor } from './editor'
 import { fetchReddit } from './fetcher'
 import { renderReddit } from './render'
+import { mergeSubPosts, selectPostsPerSub } from './scoring'
 import { createRedditState } from './state'
 import type { RedditPost, RedditSourceOptions } from './types'
 
-export function createRedditSource(options: RedditSourceOptions): Source<RedditPost[]> {
+export type RedditRenderData = Record<string, RedditPost[]>
+
+export function createRedditSource(options: RedditSourceOptions): Source<RedditRenderData> {
   const state = createRedditState()
+  const expandCollapse = createExpandCollapse()
+  let runtimeRef: Runtime | null = null
+
   return {
     id: 'reddit',
     title: 'Reddit 热帖',
@@ -16,22 +23,37 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditP
     groupId: 'browse',
     order: 2,
     async fetch(runtime, _prevData) {
+      runtimeRef = runtime
       const fresh = await loadFreshRedditOptions(runtime, options)
       console.debug('[gm-dashboard] reddit.fetch start subs=', fresh.subreddits)
       await state.loadFromStorage(runtime)
-      const result = await fetchReddit(runtime, fresh)
+      const [fetchResult, history] = await Promise.all([
+        fetchReddit(runtime, fresh),
+        state.loadHistory(runtime),
+      ])
       console.debug(
-        '[gm-dashboard] reddit.fetch ok posts=',
-        result.posts.length,
+        '[gm-dashboard] reddit.fetch ok subs=',
+        fetchResult.posts.map((p) => p.sub),
+        'history=',
+        history.length,
         'partial=',
-        result.partialErrors,
+        fetchResult.partialErrors,
       )
-      const visible = state.filterVisible(result.posts)
+      const merged = mergeSubPosts(fetchResult.posts, history)
+      const now = Date.now()
+      const selected = selectPostsPerSub(merged, { ...fresh, now })
+      const visible: RedditRenderData = {}
+      for (const [sub, posts] of selected) {
+        visible[sub] = state.filterVisible(posts)
+      }
+      const allFetched: RedditPost[] = []
+      for (const { posts } of fetchResult.posts) allFetched.push(...posts)
+      await state.saveHistory(runtime, allFetched)
       await state.saveToStorage(runtime)
       return visible
     },
     render(container, data) {
-      renderReddit(container, data, state)
+      renderReddit(container, data, state, runtimeRef, expandCollapse)
     },
     createEditor() {
       return createRedditEditor(options)
@@ -46,6 +68,10 @@ function coerceRedditOptions(
   return {
     ttlMinutes:
       typeof raw['ttlMinutes'] === 'number' ? (raw['ttlMinutes'] as number) : fallback.ttlMinutes,
+    ageHalfLifeDays:
+      typeof raw['ageHalfLifeDays'] === 'number'
+        ? (raw['ageHalfLifeDays'] as number)
+        : fallback.ageHalfLifeDays,
     subreddits:
       Array.isArray(raw['subreddits']) && (raw['subreddits'] as unknown[]).length > 0
         ? (raw['subreddits'] as unknown[]).map((s) => String(s)).filter((s) => s.length > 0)
@@ -75,14 +101,3 @@ export async function loadFreshRedditOptions(
 ): Promise<RedditSourceOptions> {
   return loadConfigSection(runtime, 'reddit', fallback, (raw) => coerceRedditOptions(raw, fallback))
 }
-
-export { clearRedditTopicState } from './state'
-export { normalizeSubredditName, parseRedditListing } from './parser'
-export { dynamicRedditCount, mergeRedditPosts } from './scoring'
-export { fetchReddit } from './fetcher'
-export type {
-  RedditCountOptions,
-  RedditFetchResult,
-  RedditPost,
-  RedditSourceOptions,
-} from './types'

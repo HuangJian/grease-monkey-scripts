@@ -16,6 +16,7 @@ export function parseRedditListing(json: unknown, maxItems: number): RedditPost[
   const children = (data as { children?: unknown }).children
   if (!Array.isArray(children)) return []
   const out: RedditPost[] = []
+  const now = Date.now()
   for (const child of children) {
     if (!child || typeof child !== 'object') continue
     const c = child as { kind?: unknown; data?: unknown }
@@ -31,6 +32,7 @@ export function parseRedditListing(json: unknown, maxItems: number): RedditPost[
     const numComments = d['num_comments']
     const subreddit = d['subreddit']
     const author = d['author']
+    const createdUtc = d['created_utc']
     if (typeof id !== 'string' || !id) continue
     if (typeof title !== 'string' || !title) continue
     if (typeof permalink !== 'string' || !permalink) continue
@@ -40,6 +42,12 @@ export function parseRedditListing(json: unknown, maxItems: number): RedditPost[
     const authorText = typeof author === 'string' ? author : ''
     const normalizedSub = normalizeSubredditName(subreddit)
     if (!normalizedSub) continue
+    let created: number
+    if (typeof createdUtc === 'number' && Number.isFinite(createdUtc) && createdUtc > 0) {
+      created = Math.floor(createdUtc * 1000)
+    } else {
+      created = now
+    }
     out.push({
       id,
       title,
@@ -48,6 +56,7 @@ export function parseRedditListing(json: unknown, maxItems: number): RedditPost[
       numComments: Math.max(0, Math.floor(numComments)),
       subreddits: [normalizedSub],
       author: authorText,
+      created,
     })
     if (out.length >= maxItems) break
   }

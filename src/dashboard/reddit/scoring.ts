@@ -1,78 +1,134 @@
 import { dynamicCount } from '../dynamic-count'
-import type { RedditCountOptions, RedditPost } from './types'
+import type { RedditCountOptions, RedditPost, StoredHistoryPost } from './types'
 
-export function dynamicRedditCount(
-  scores: ReadonlyArray<number>,
-  options: RedditCountOptions,
+export function computeRedditDecayedScore(
+  post: RedditPost,
+  now: number,
+  halfLifeDays: number,
 ): number {
-  return dynamicCount(scores, {
-    minItems: options.minItems,
-    maxItems: options.maxItems,
-    displayRatio: options.displayRatio,
-    elbowDropRatio: options.elbowDropRatio,
-    cutoffFloor: options.minCutoffScore,
-  })
+  if (!Number.isFinite(post.score) || post.score <= 0) return 0
+  const days = Math.max(0, (now - post.created) / 86_400_000)
+  const lambda = Math.log(2) / halfLifeDays
+  return post.score * Math.exp(-days * lambda)
 }
 
-export function mergeRedditPosts(
-  perSubResults: ReadonlyArray<{ sub: string; posts: RedditPost[] }>,
-  options: RedditCountOptions & { maxItems: number },
-): RedditPost[] {
-  const merged = new Map<string, RedditPost>()
-  for (const { sub, posts } of perSubResults) {
-    for (const post of posts) {
-      const existing = merged.get(post.id)
-      if (existing) {
-        if (!existing.subreddits.includes(sub)) existing.subreddits.push(sub)
-      } else {
-        merged.set(post.id, { ...post, subreddits: [sub] })
-      }
+function unionUnique(a: ReadonlyArray<string>, b: ReadonlyArray<string>): string[] {
+  const out: string[] = []
+  for (const s of a) if (!out.includes(s)) out.push(s)
+  for (const s of b) if (!out.includes(s)) out.push(s)
+  return out
+}
+
+function mergePost(live: RedditPost | undefined, hist: StoredHistoryPost): RedditPost {
+  if (!live) {
+    return {
+      id: hist.id,
+      title: hist.title,
+      url: hist.url,
+      score: hist.score,
+      numComments: hist.numComments,
+      author: hist.author,
+      subreddits: [...hist.subreddits],
+      created: hist.created,
+    }
+  }
+  return {
+    id: live.id,
+    title: live.title,
+    url: live.url,
+    score: Math.max(live.score, hist.score),
+    numComments: Math.max(live.numComments, hist.numComments),
+    author: live.author || hist.author,
+    subreddits: unionUnique(live.subreddits, hist.subreddits),
+    created: Math.min(live.created, hist.created),
+  }
+}
+
+export function mergeSubPosts(
+  perSubLive: ReadonlyArray<{ sub: string; posts: RedditPost[] }>,
+  history: ReadonlyArray<StoredHistoryPost>,
+): Array<{ sub: string; posts: RedditPost[] }> {
+  const liveBySub = new Map<string, RedditPost[]>()
+  for (const { sub, posts } of perSubLive) {
+    if (posts.length === 0) continue
+    liveBySub.set(sub, [...(liveBySub.get(sub) ?? []), ...posts])
+  }
+
+  const out: Array<{ sub: string; posts: RedditPost[] }> = []
+  const seenIds = new Set<string>()
+
+  for (const [sub, livePosts] of liveBySub) {
+    const byId = new Map<string, RedditPost>()
+    for (const p of livePosts) {
+      if (!byId.has(p.id)) byId.set(p.id, p)
+    }
+    for (const h of history) {
+      if (!h.subreddits.includes(sub)) continue
+      if (seenIds.has(h.id)) continue
+      const existing = byId.get(h.id)
+      byId.set(h.id, mergePost(existing, h))
+    }
+    const posts = Array.from(byId.values())
+    for (const p of posts) seenIds.add(p.id)
+    out.push({ sub, posts })
+  }
+
+  for (const h of history) {
+    if (seenIds.has(h.id)) continue
+    const liveSubs = new Set(liveBySub.keys())
+    const matchingSubs = h.subreddits.filter((s) => liveSubs.has(s))
+    if (matchingSubs.length === 0) continue
+    const sub = matchingSubs[0]!
+    const existing = out.find((x) => x.sub === sub)
+    const post: RedditPost = {
+      id: h.id,
+      title: h.title,
+      url: h.url,
+      score: h.score,
+      numComments: h.numComments,
+      author: h.author,
+      subreddits: [...h.subreddits],
+      created: h.created,
+    }
+    seenIds.add(h.id)
+    if (existing) {
+      existing.posts.push(post)
+    } else {
+      out.push({ sub, posts: [post] })
     }
   }
 
-  const bySub = new Map<string, RedditPost[]>()
-  for (const post of merged.values()) {
-    for (const sub of post.subreddits) {
-      const arr = bySub.get(sub) ?? []
-      arr.push(post)
-      bySub.set(sub, arr)
-    }
+  return out
+}
+
+export type SelectOptions = RedditCountOptions & {
+  ageHalfLifeDays: number
+  now: number
+}
+
+export function selectPostsPerSub(
+  merged: ReadonlyArray<{ sub: string; posts: RedditPost[] }>,
+  options: SelectOptions,
+): Map<string, RedditPost[]> {
+  const result = new Map<string, RedditPost[]>()
+  for (const { sub, posts } of merged) {
+    const eligible = posts.filter((p) => p.score >= options.minCutoffScore)
+    const sorted = [...eligible].sort((a, b) => {
+      const da = computeRedditDecayedScore(a, options.now, options.ageHalfLifeDays)
+      const db = computeRedditDecayedScore(b, options.now, options.ageHalfLifeDays)
+      return db - da
+    })
+    const decayedScores = sorted.map((p) =>
+      computeRedditDecayedScore(p, options.now, options.ageHalfLifeDays),
+    )
+    const n = dynamicCount(decayedScores, {
+      minItems: options.minPerSub,
+      maxItems: options.maxItems,
+      displayRatio: options.displayRatio,
+      elbowDropRatio: options.elbowDropRatio,
+      cutoffFloor: 0,
+    })
+    result.set(sub, sorted.slice(0, n))
   }
-  for (const arr of bySub.values()) {
-    arr.sort((a, b) => (b.score !== a.score ? b.score - a.score : b.numComments - a.numComments))
-  }
-
-  const numSubs = bySub.size
-  if (numSubs === 0) return []
-
-  const minPerSub = Math.max(0, options.minPerSub)
-  const quota = Math.max(minPerSub, Math.floor(options.maxItems / numSubs))
-
-  const selected = new Set<string>()
-  const remainder: RedditPost[] = []
-
-  for (const posts of bySub.values()) {
-    let count = 0
-    for (const post of posts) {
-      if (count < quota) {
-        selected.add(post.id)
-        count++
-      } else {
-        remainder.push(post)
-      }
-    }
-  }
-
-  remainder.sort((a, b) =>
-    b.score !== a.score ? b.score - a.score : b.numComments - a.numComments,
-  )
-
-  const remaining = options.maxItems - selected.size
-  for (let i = 0; i < Math.min(remaining, remainder.length); i++) {
-    selected.add(remainder[i]!.id)
-  }
-
-  return Array.from(merged.values())
-    .filter((p) => selected.has(p.id) && p.score >= options.minCutoffScore)
-    .sort((a, b) => (b.score !== a.score ? b.score - a.score : b.numComments - a.numComments))
+  return result
 }

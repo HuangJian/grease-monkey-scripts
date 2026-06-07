@@ -1254,7 +1254,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
   color: #1f2328;
   margin: 0 0 4px;
@@ -1267,10 +1267,27 @@
 }
 
 .gm-sp-reddit-caret {
-  display: inline-block;
-  font-size: 10px;
-  color: #6b7280;
-  transition: transform 0.12s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-size: 28px;
+  line-height: 1;
+  color: #374151;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition:
+    background 0.12s,
+    transform 0.15s;
+}
+
+.gm-sp-reddit-caret-visible:hover {
+  background: #e5e7eb;
+}
+
+.gm-sp-reddit-section-collapsed > .gm-sp-reddit-sub-title .gm-sp-reddit-caret {
+  transform: rotate(-90deg);
 }
 
 .gm-sp-reddit-section-collapsed > .gm-sp-reddit-list {
@@ -1396,8 +1413,9 @@
 .gm-sp-re-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 20px;
   min-height: 24px;
+  padding: 4px 0;
 }
 
 .gm-sp-re-empty {
@@ -1460,6 +1478,14 @@
 
 .gm-sp-re-chip-dragging {
   opacity: 0.5;
+}
+
+.gm-sp-re-chip-drop-before {
+  box-shadow: -3px 0 0 0 #2563eb;
+}
+
+.gm-sp-re-chip-drop-after {
+  box-shadow: 3px 0 0 0 #2563eb;
 }
 
 .gm-sp-re-add-row {

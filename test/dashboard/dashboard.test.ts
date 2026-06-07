@@ -82,17 +82,20 @@ describe('createDashboard', () => {
   test('open() renders cached reddit data into the browse card reddit panel', async () => {
     const redditCache: CachedSource<unknown> = {
       schemaVersion: CACHE_SCHEMA_VERSION,
-      data: [
-        {
-          id: 'r1',
-          title: 'cached-reddit',
-          url: 'https://www.reddit.com/r/popular/comments/r1/x',
-          score: 999,
-          numComments: 42,
-          subreddits: ['popular'],
-          author: 'u',
-        },
-      ],
+      data: {
+        popular: [
+          {
+            id: 'r1',
+            title: 'cached-reddit',
+            url: 'https://www.reddit.com/r/popular/comments/r1/x',
+            score: 999,
+            numComments: 42,
+            subreddits: ['popular'],
+            author: 'u',
+            created: Date.now(),
+          },
+        ],
+      },
       fetchedAt: Date.now() - 60_000,
       byteSize: 100,
     }

@@ -14,6 +14,7 @@ const DEFAULT_COUNT_OPTS = {
   displayRatio: 0.1,
   elbowDropRatio: 0.4,
   minCutoffScore: 500,
+  ageHalfLifeDays: 2,
 }
 
 function defaultRedditOpts(over: Partial<RedditSourceOptions> = {}): RedditSourceOptions {
@@ -45,7 +46,7 @@ function makeRuntime(dom: JSDOM, handler: (d: RequestDetails) => void): Runtime 
 }
 
 describe('fetchReddit', () => {
-  test('fetches one sub, returns merged posts', async () => {
+  test('fetches one sub, returns per-sub result', async () => {
     const dom = makeDom()
     const json = loadFixture()
     const calls: RequestDetails[] = []
@@ -54,7 +55,9 @@ describe('fetchReddit', () => {
       d.onload({ responseText: JSON.stringify(json) })
     })
     const result = await fetchReddit(runtime, defaultRedditOpts())
-    expect(result.posts.length).toBeGreaterThan(0)
+    expect(result.posts).toHaveLength(1)
+    expect(result.posts[0]!.sub).toBe('popular')
+    expect(result.posts[0]!.posts.length).toBeGreaterThan(0)
     expect(calls).toHaveLength(1)
     expect(calls[0]!.url).toContain('/r/popular/hot.json')
   })
@@ -70,7 +73,7 @@ describe('fetchReddit', () => {
     expect(captured!.anonymous).toBe(false)
     expect(captured!.headers?.['User-Agent']).toMatch(/^web:grease-monkey-dashboard:/)
   })
-  test('fetches multiple subs in parallel and accumulates subreddits on dedupe', async () => {
+  test('fetches multiple subs in parallel and returns separate buckets per sub', async () => {
     const dom = makeDom()
     const popular = {
       data: {
@@ -78,12 +81,13 @@ describe('fetchReddit', () => {
           {
             kind: 't3',
             data: {
-              id: 'shared',
-              title: 'shared title',
-              permalink: '/r/popular/comments/shared/x/',
+              id: 'popular1',
+              title: 'p1',
+              permalink: '/r/popular/comments/popular1/x/',
               score: 5000,
               num_comments: 100,
               subreddit: 'popular',
+              created_utc: 1700000000,
             },
           },
         ],
@@ -95,12 +99,13 @@ describe('fetchReddit', () => {
           {
             kind: 't3',
             data: {
-              id: 'shared',
-              title: 'shared title',
-              permalink: '/r/funny/comments/shared/x/',
-              score: 5000,
-              num_comments: 100,
+              id: 'funny1',
+              title: 'f1',
+              permalink: '/r/funny/comments/funny1/x/',
+              score: 3000,
+              num_comments: 50,
               subreddit: 'funny',
+              created_utc: 1700000000,
             },
           },
         ],
@@ -117,64 +122,24 @@ describe('fetchReddit', () => {
       runtime,
       defaultRedditOpts({ subreddits: ['popular', 'funny'] }),
     )
-    const shared = result.posts.find((p) => p.id === 'shared')
-    expect(shared).toBeDefined()
-    expect(shared!.subreddits).toEqual(['popular', 'funny'])
+    expect(result.posts).toHaveLength(2)
+    const bySub = new Map(result.posts.map((p) => [p.sub, p.posts]))
+    expect(bySub.get('popular')![0]!.id).toBe('popular1')
+    expect(bySub.get('funny')![0]!.id).toBe('funny1')
   })
-  test('per-sub normalization preserves small sub hot posts when large sub yields fewer picks', async () => {
+  test('parser populates created field on parsed posts', async () => {
     const dom = makeDom()
-    const popularBig = {
-      data: {
-        children: Array.from({ length: 20 }, (_, i) => ({
-          kind: 't3',
-          data: {
-            id: `big${i}`,
-            title: `big ${i}`,
-            permalink: `/r/popular/comments/big${i}/x/`,
-            score: 30000 - i * 50,
-            num_comments: 100,
-            subreddit: 'popular',
-          },
-        })),
-      },
-    }
-    const nicheSmall = {
-      data: {
-        children: Array.from({ length: 10 }, (_, i) => ({
-          kind: 't3',
-          data: {
-            id: `niche${i}`,
-            title: `niche ${i}`,
-            permalink: `/r/askscience/comments/niche${i}/x/`,
-            score: 800 - i * 5,
-            num_comments: 30,
-            subreddit: 'askscience',
-          },
-        })),
-      },
-    }
+    const json = loadFixture()
     const runtime = makeRuntime(dom, (d) => {
-      if (d.url.includes('/r/askscience/')) {
-        d.onload({ responseText: JSON.stringify(nicheSmall) })
-      } else {
-        d.onload({ responseText: JSON.stringify(popularBig) })
-      }
+      d.onload({ responseText: JSON.stringify(json) })
     })
-    const result = await fetchReddit(
-      runtime,
-      defaultRedditOpts({
-        subreddits: ['popular', 'askscience'],
-        minItems: 5,
-        maxItems: 30,
-        minCutoffScore: 0,
-        displayRatio: 0.5,
-        elbowDropRatio: 0.2,
-      }),
-    )
-    const bigIds = result.posts.filter((p) => p.id.startsWith('big'))
-    const nicheIds = result.posts.filter((p) => p.id.startsWith('niche'))
-    expect(bigIds.length).toBe(20)
-    expect(nicheIds.length).toBe(10)
+    const result = await fetchReddit(runtime, defaultRedditOpts())
+    for (const { posts } of result.posts) {
+      for (const p of posts) {
+        expect(typeof p.created).toBe('number')
+        expect(p.created).toBeGreaterThan(0)
+      }
+    }
   })
   test('single sub failure: returns posts from successful sub, no throw', async () => {
     const dom = makeDom()
@@ -187,7 +152,8 @@ describe('fetchReddit', () => {
       runtime,
       defaultRedditOpts({ subreddits: ['popular', 'askscience'] }),
     )
-    expect(result.posts.length).toBeGreaterThan(0)
+    expect(result.posts).toHaveLength(1)
+    expect(result.posts[0]!.sub).toBe('popular')
     expect(result.partialErrors.some((e) => e.includes('askscience'))).toBe(true)
   })
   test('all subs fail: throws aggregate error', async () => {
@@ -211,7 +177,7 @@ describe('fetchReddit', () => {
     })
     const result = await fetchReddit(runtime, defaultRedditOpts())
     expect(calls).toBe(2)
-    expect(result.posts.length).toBeGreaterThan(0)
+    expect(result.posts[0]!.posts.length).toBeGreaterThan(0)
   })
   test('429 on both attempts on same host: throws http 429', async () => {
     const dom = makeDom()
@@ -270,7 +236,7 @@ describe('fetchReddit', () => {
       }
     })
     const result = await fetchReddit(runtime, defaultRedditOpts())
-    expect(result.posts.length).toBeGreaterThan(0)
+    expect(result.posts[0]!.posts.length).toBeGreaterThan(0)
     expect(result.partialErrors).toEqual([])
     expect(urls[0]).toContain('old.reddit.com')
     expect(urls[1]).toContain('www.reddit.com')

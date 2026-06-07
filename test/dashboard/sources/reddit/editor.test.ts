@@ -11,6 +11,7 @@ function makeDom(): JSDOM {
 
 const DEFAULTS: RedditSourceOptions = {
   ttlMinutes: 30,
+  ageHalfLifeDays: 2,
   subreddits: ['popular'],
   minItems: 10,
   maxItems: 30,
@@ -177,6 +178,7 @@ describe('createRedditEditor', () => {
       displayRatio: 0.2,
       elbowDropRatio: 0.5,
       minCutoffScore: 300,
+      ageHalfLifeDays: 3,
     })
     expect((container.querySelector('.gm-sp-re-ttl') as HTMLInputElement).value).toBe('45')
     expect((container.querySelector('.gm-sp-re-min') as HTMLInputElement).value).toBe('7')
@@ -185,5 +187,63 @@ describe('createRedditEditor', () => {
     expect((container.querySelector('.gm-sp-re-ratio') as HTMLInputElement).value).toBe('0.2')
     expect((container.querySelector('.gm-sp-re-elbow') as HTMLInputElement).value).toBe('0.5')
     expect((container.querySelector('.gm-sp-re-cutoff') as HTMLInputElement).value).toBe('300')
+    expect((container.querySelector('.gm-sp-re-half-life') as HTMLInputElement).value).toBe('3')
+  })
+
+  test('saves ageHalfLifeDays to config', async () => {
+    await mount(runtime, container)
+    const halfLife = container.querySelector('.gm-sp-re-half-life') as HTMLInputElement
+    halfLife.value = '5'
+    ;(container.querySelector('.gm-sp-re-save') as HTMLButtonElement).click()
+    await new Promise<void>((r) => setTimeout(r, 0))
+    const stored = runtime.stores[CONFIG_KEY] as Record<string, { ageHalfLifeDays: number }>
+    expect(stored['reddit']!.ageHalfLifeDays).toBe(5)
+  })
+
+  test('rejects ageHalfLifeDays out of range', async () => {
+    await mount(runtime, container)
+    const halfLife = container.querySelector('.gm-sp-re-half-life') as HTMLInputElement
+    halfLife.value = '50'
+    ;(container.querySelector('.gm-sp-re-save') as HTMLButtonElement).click()
+    const err = container.querySelector('.gm-sp-re-error') as HTMLElement
+    expect(err.textContent).toContain('衰减半衰期')
+    expect(runtime.stores[CONFIG_KEY]).toBeUndefined()
+  })
+
+  test('reorder chips via drag updates state and re-renders', async () => {
+    await mount(runtime, container, { ...DEFAULTS, subreddits: ['a', 'b', 'c'] })
+    const labelsBefore = Array.from(
+      container.querySelectorAll<HTMLElement>('.gm-sp-re-chip-label'),
+    ).map((el) => el.textContent)
+    expect(labelsBefore).toEqual(['r/a', 'r/b', 'r/c'])
+
+    const chips = container.querySelectorAll<HTMLElement>('.gm-sp-re-chip')
+    const sourceChip = chips[0]!
+    const targetChip = chips[2]!
+    const handle = sourceChip.querySelector('.gm-sp-re-chip-drag')!
+
+    const down = new dom.window.PointerEvent('pointerdown', {
+      bubbles: true,
+      button: 0,
+      clientX: 0,
+      clientY: 0,
+    })
+    handle.dispatchEvent(down)
+
+    const rect = targetChip.getBoundingClientRect()
+    const move = new dom.window.PointerEvent('pointermove', {
+      bubbles: true,
+      clientX: 0,
+      clientY: rect.bottom + 5,
+    })
+    dom.window.document.dispatchEvent(move)
+
+    const up = new dom.window.PointerEvent('pointerup', { bubbles: true })
+    dom.window.document.dispatchEvent(up)
+
+    const labelsAfter = Array.from(
+      container.querySelectorAll<HTMLElement>('.gm-sp-re-chip-label'),
+    ).map((el) => el.textContent)
+    expect(labelsAfter).toEqual(['r/b', 'r/c', 'r/a'])
   })
 })
