@@ -160,11 +160,15 @@ describe('sanitizeHtml', () => {
   })
   test('wraps img in anchor with src as href', () => {
     const out = sanitizeHtml('<img src="https://x/a.jpg"/>', parser)
-    expect(out).toBe('<a href="https://x/a.jpg" target="_blank" rel="noopener noreferrer"><img src="https://x/a.jpg"></a>')
+    expect(out).toBe(
+      '<a href="https://x/a.jpg" target="_blank" rel="noopener noreferrer"><img src="https://x/a.jpg"></a>',
+    )
   })
   test('does not wrap img that is already inside an anchor', () => {
     const out = sanitizeHtml('<a href="https://y"><img src="https://x/a.jpg"/></a>', parser)
-    expect(out).toBe('<a href="https://y" target="_blank" rel="noopener noreferrer"><img src="https://x/a.jpg"></a>')
+    expect(out).toBe(
+      '<a href="https://y" target="_blank" rel="noopener noreferrer"><img src="https://x/a.jpg"></a>',
+    )
   })
 
   test('keeps img width and height', () => {

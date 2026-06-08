@@ -50,17 +50,17 @@ async function renderWeatherEditor(
           <input type="text" class="gm-sp-we-city-label" placeholder="北京" />
         </label>
         <label class="gm-sp-weather-editor-row">
+          <span>CMA 站点 ID</span>
+          <input type="text" inputmode="numeric" pattern="\\d{5}"
+                 class="gm-sp-we-cma" placeholder="54511（可选）" />
+        </label>
+        <label class="gm-sp-weather-editor-row">
           <span>纬度</span>
           <input type="number" step="any" class="gm-sp-we-lat" placeholder="39.9042" />
         </label>
         <label class="gm-sp-weather-editor-row">
           <span>经度</span>
           <input type="number" step="any" class="gm-sp-we-lon" placeholder="116.4074" />
-        </label>
-        <label class="gm-sp-weather-editor-row">
-          <span>CMA 站点 ID</span>
-          <input type="text" inputmode="numeric" pattern="\\d{5}"
-                 class="gm-sp-we-cma" placeholder="54511（可选）" />
         </label>
         <button type="button" class="gm-sp-we-add">添加城市</button>
       </div>

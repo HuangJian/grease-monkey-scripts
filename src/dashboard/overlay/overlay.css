@@ -690,9 +690,9 @@
 }
 
 .gm-sp-weather-editor-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
   border-top: 1px solid #e5e7eb;
   padding-top: 12px;
 }
@@ -703,6 +703,7 @@
   align-items: center;
   gap: 10px;
   font-size: 13px;
+  min-width: 0;
 }
 
 .gm-sp-weather-editor-row input {
@@ -712,6 +713,7 @@
   border-radius: 6px;
   background: #ffffff;
   color: inherit;
+  min-width: 0;
 }
 
 .gm-sp-weather-editor-row input:focus {
@@ -733,7 +735,8 @@
 }
 
 .gm-sp-we-add {
-  align-self: flex-start;
+  grid-column: 1 / -1;
+  justify-self: start;
 }
 
 .gm-sp-we-add:hover,
@@ -836,9 +839,9 @@
 }
 
 .gm-sp-v2ex-editor-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
 }
 
 .gm-sp-v2ex-editor-row {
@@ -847,6 +850,7 @@
   align-items: center;
   gap: 10px;
   font-size: 13px;
+  min-width: 0;
 }
 
 .gm-sp-v2ex-editor-row input {
@@ -856,6 +860,7 @@
   border-radius: 6px;
   background: #ffffff;
   color: inherit;
+  min-width: 0;
 }
 
 .gm-sp-v2ex-editor-row input:focus {
@@ -1526,9 +1531,9 @@
 }
 
 .gm-sp-reddit-editor-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
   border-top: 1px solid #e5e7eb;
   padding-top: 12px;
 }
@@ -1539,6 +1544,7 @@
   align-items: center;
   gap: 10px;
   font-size: 13px;
+  min-width: 0;
 }
 
 .gm-sp-reddit-editor-row input {
@@ -1824,9 +1830,9 @@
 }
 
 .gm-sp-tnews-editor-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
   border-top: 1px solid #e5e7eb;
   padding-top: 12px;
 }
@@ -1837,6 +1843,7 @@
   align-items: center;
   gap: 10px;
   font-size: 13px;
+  min-width: 0;
 }
 
 .gm-sp-tnews-editor-row input {
