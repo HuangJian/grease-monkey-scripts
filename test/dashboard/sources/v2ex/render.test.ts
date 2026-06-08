@@ -65,19 +65,19 @@ describe('renderV2ex', () => {
 
   test('renders topic list with links and meta', () => {
     renderV2ex(container, FIXTURE, state, null)
-    const items = container.querySelectorAll('.gm-sp-v2ex-item')
+    const items = container.querySelectorAll('.gm-sp-list-item')
     expect(items).toHaveLength(3)
-    const firstLink = items[0].querySelector('.gm-sp-v2ex-title') as HTMLAnchorElement
+    const firstLink = items[0].querySelector('.gm-sp-item-title') as HTMLAnchorElement
     expect(firstLink.href).toContain('/t/1')
     expect(items[0].querySelector('.gm-sp-v2ex-author')!.textContent).toBe('@alice')
-    expect(items[0].querySelector('.gm-sp-v2ex-count')!.textContent).toBe('10')
-    expect(items[0].querySelector('.gm-sp-v2ex-count')!.getAttribute('title')).toBe('回复数')
+    expect(items[0].querySelector('.gm-sp-item-count')!.textContent).toBe('10')
+    expect(items[0].querySelector('.gm-sp-item-count')!.getAttribute('title')).toBe('回复数')
     expect(items[0].querySelector('.gm-sp-v2ex-source')!.textContent).toBe('')
   })
 
   test('shows badge for cross-source topics', () => {
     renderV2ex(container, fixtureWithSources(['api', 'page']), state, null)
-    const item = container.querySelector('.gm-sp-v2ex-item')!
+    const item = container.querySelector('.gm-sp-list-item')!
     const badge = item.querySelector('.gm-sp-v2ex-source')!
     expect(badge.textContent).toBe('🔥')
     expect(badge.getAttribute('title')).toBe('双源确认热帖')
@@ -110,37 +110,37 @@ describe('renderV2ex', () => {
   test('filters out hidden topics', () => {
     state.markHidden(2)
     renderV2ex(container, FIXTURE, state, null)
-    const items = container.querySelectorAll('.gm-sp-v2ex-item')
+    const items = container.querySelectorAll('.gm-sp-list-item')
     expect(items).toHaveLength(2)
     expect(
-      Array.from(items).every((i) => i.querySelector('.gm-sp-v2ex-title')!.textContent !== 'B'),
+      Array.from(items).every((i) => i.querySelector('.gm-sp-item-title')!.textContent !== 'B'),
     ).toBe(true)
   })
 
   test('applies read class for previously-read topic', () => {
     state.markRead(1)
     renderV2ex(container, FIXTURE, state, null)
-    const items = container.querySelectorAll('.gm-sp-v2ex-item')
+    const items = container.querySelectorAll('.gm-sp-list-item')
     const first = items[0] as HTMLElement
-    expect(first.classList.contains('gm-sp-v2ex-read')).toBe(true)
-    expect((items[1] as HTMLElement).classList.contains('gm-sp-v2ex-read')).toBe(false)
+    expect(first.classList.contains('gm-sp-item-read')).toBe(true)
+    expect((items[1] as HTMLElement).classList.contains('gm-sp-item-read')).toBe(false)
   })
 
   test('clicking topic link marks it as read', () => {
     renderV2ex(container, FIXTURE, state, null)
-    const link = container.querySelector('.gm-sp-v2ex-title') as HTMLAnchorElement
+    const link = container.querySelector('.gm-sp-item-title') as HTMLAnchorElement
     link.click()
     expect(state.isRead(1)).toBe(true)
-    const item = container.querySelector('.gm-sp-v2ex-item') as HTMLElement
-    expect(item.classList.contains('gm-sp-v2ex-read')).toBe(true)
+    const item = container.querySelector('.gm-sp-list-item') as HTMLElement
+    expect(item.classList.contains('gm-sp-item-read')).toBe(true)
   })
 
   test('hide button removes the topic item, marks hidden, and saves state', async () => {
     renderV2ex(container, FIXTURE, state, runtime as unknown as Runtime)
-    expect(container.querySelectorAll('.gm-sp-v2ex-item')).toHaveLength(3)
-    const hideBtn = container.querySelector('.gm-sp-v2ex-hide') as HTMLButtonElement
+    expect(container.querySelectorAll('.gm-sp-list-item')).toHaveLength(3)
+    const hideBtn = container.querySelector('.gm-sp-item-hide') as HTMLButtonElement
     hideBtn.click()
-    expect(container.querySelectorAll('.gm-sp-v2ex-item')).toHaveLength(2)
+    expect(container.querySelectorAll('.gm-sp-list-item')).toHaveLength(2)
     expect(state.isHidden(1)).toBe(true)
     await new Promise<void>((r) => setTimeout(r, 0))
     const stored = runtime.stores[STATE_KEY('v2ex')] as Record<string, { h?: number }>
@@ -149,7 +149,7 @@ describe('renderV2ex', () => {
 
   test('hide button is a no-op for cache mutation when runtime is null', () => {
     renderV2ex(container, FIXTURE, state, null)
-    const hideBtn = container.querySelector('.gm-sp-v2ex-hide') as HTMLButtonElement
+    const hideBtn = container.querySelector('.gm-sp-item-hide') as HTMLButtonElement
     hideBtn.click()
     expect(state.isHidden(1)).toBe(true)
   })

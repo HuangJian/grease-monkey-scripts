@@ -53,7 +53,7 @@ describe('renderReddit', () => {
     expect(sections).toHaveLength(2)
     expect((sections[0]! as HTMLElement).dataset['sub']).toBe('aww')
     expect(sections[0]!.querySelector('.gm-sp-reddit-sub-title')!.textContent).toContain('r/aww')
-    expect(sections[0]!.querySelector('.gm-sp-reddit-title')!.textContent).toBe('cat')
+    expect(sections[0]!.querySelector('.gm-sp-item-title')!.textContent).toBe('cat')
     expect((sections[1]! as HTMLElement).dataset['sub']).toBe('funny')
   })
 
@@ -101,8 +101,8 @@ describe('renderReddit', () => {
       ],
     }
     renderReddit(container, data, state, null, createExpandCollapse())
-    const item = container.querySelector('.gm-sp-reddit-item')!
-    expect(item.querySelector('.gm-sp-reddit-count')!.textContent).toBe('1234')
+    const item = container.querySelector('.gm-sp-list-item')!
+    expect(item.querySelector('.gm-sp-item-count')!.textContent).toBe('1234')
     expect(item.querySelector('.gm-sp-reddit-sub')!.textContent).toBe('r/aww, r/funny')
     expect(item.querySelector('.gm-sp-reddit-comments')!.textContent).toBe('💬 56')
   })
@@ -113,7 +113,7 @@ describe('renderReddit', () => {
       aww: [makePost({ id: 'a1', title: longTitle })],
     }
     renderReddit(container, data, state, null, createExpandCollapse())
-    const text = container.querySelector('.gm-sp-reddit-title')!.textContent
+    const text = container.querySelector('.gm-sp-item-title')!.textContent
     expect(text!.length).toBe(101)
     expect(text!.endsWith('…')).toBe(true)
   })
@@ -123,7 +123,7 @@ describe('renderReddit', () => {
       aww: [makePost({ id: 'a1', title: 'short' })],
     }
     renderReddit(container, data, state, null, createExpandCollapse())
-    expect(container.querySelector('.gm-sp-reddit-title')!.textContent).toBe('short')
+    expect(container.querySelector('.gm-sp-item-title')!.textContent).toBe('short')
   })
 
   test('clicking title marks the post as read', () => {
@@ -131,12 +131,12 @@ describe('renderReddit', () => {
       aww: [makePost({ id: 'a1' })],
     }
     renderReddit(container, data, state, null, createExpandCollapse())
-    const link = container.querySelector('.gm-sp-reddit-title') as HTMLAnchorElement
+    const link = container.querySelector('.gm-sp-item-title') as HTMLAnchorElement
     link.click()
     expect(state.isRead('a1')).toBe(true)
-    expect(
-      container.querySelector('.gm-sp-reddit-item')!.classList.contains('gm-sp-reddit-read'),
-    ).toBe(true)
+    expect(container.querySelector('.gm-sp-list-item')!.classList.contains('gm-sp-item-read')).toBe(
+      true,
+    )
   })
 
   test('applies read class for previously-read posts', () => {
@@ -145,9 +145,9 @@ describe('renderReddit', () => {
       aww: [makePost({ id: 'a1' })],
     }
     renderReddit(container, data, state, null, createExpandCollapse())
-    expect(
-      container.querySelector('.gm-sp-reddit-item')!.classList.contains('gm-sp-reddit-read'),
-    ).toBe(true)
+    expect(container.querySelector('.gm-sp-list-item')!.classList.contains('gm-sp-item-read')).toBe(
+      true,
+    )
   })
 
   test('filters out hidden posts from rendering', () => {
@@ -156,7 +156,7 @@ describe('renderReddit', () => {
       aww: [makePost({ id: 'a1' }), makePost({ id: 'a2' })],
     }
     renderReddit(container, data, state, null, createExpandCollapse())
-    expect(container.querySelectorAll('.gm-sp-reddit-item')).toHaveLength(1)
+    expect(container.querySelectorAll('.gm-sp-list-item')).toHaveLength(1)
   })
 })
 
@@ -201,10 +201,10 @@ describe('renderReddit hide button', () => {
       aww: [makePost({ id: 'a1' }), makePost({ id: 'a2' })],
     }
     renderReddit(container, data, state, runtime, createExpandCollapse())
-    expect(container.querySelectorAll('.gm-sp-reddit-item')).toHaveLength(2)
-    const hideBtn = container.querySelector('.gm-sp-reddit-hide') as HTMLButtonElement
+    expect(container.querySelectorAll('.gm-sp-list-item')).toHaveLength(2)
+    const hideBtn = container.querySelector('.gm-sp-item-hide') as HTMLButtonElement
     hideBtn.click()
-    expect(container.querySelectorAll('.gm-sp-reddit-item')).toHaveLength(1)
+    expect(container.querySelectorAll('.gm-sp-list-item')).toHaveLength(1)
     expect(state.isHidden('a1')).toBe(true)
     await new Promise<void>((r) => setTimeout(r, 0))
     const stored = runtime.stores[STATE_KEY('reddit')] as Record<string, { h?: number }>
@@ -221,7 +221,7 @@ describe('renderReddit hide button', () => {
       aww: [makePost({ id: 'a1' })],
     }
     renderReddit(container, data, state, null, createExpandCollapse())
-    const hideBtn = container.querySelector('.gm-sp-reddit-hide') as HTMLButtonElement
+    const hideBtn = container.querySelector('.gm-sp-item-hide') as HTMLButtonElement
     hideBtn.click()
     expect(state.isHidden('a1')).toBe(true)
   })

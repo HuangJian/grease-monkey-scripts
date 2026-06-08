@@ -50,56 +50,56 @@ describe('createRedditEditor', () => {
 
   test('renders initial subreddits as chips', async () => {
     await mount(runtime, container, { ...DEFAULTS, subreddits: ['funny', 'aww'] })
-    const chips = container.querySelectorAll('.gm-sp-re-chip')
+    const chips = container.querySelectorAll('.gm-sp-editor-chip')
     expect(chips.length).toBe(2)
-    expect(container.querySelectorAll('.gm-sp-re-chip-label')[0]!.textContent).toBe('r/funny')
-    expect(container.querySelectorAll('.gm-sp-re-chip-label')[1]!.textContent).toBe('r/aww')
+    expect(container.querySelectorAll('.gm-sp-editor-chip-label')[0]!.textContent).toBe('r/funny')
+    expect(container.querySelectorAll('.gm-sp-editor-chip-label')[1]!.textContent).toBe('r/aww')
   })
 
   test('adds a valid subreddit', async () => {
     await mount(runtime, container)
-    const input = container.querySelector('.gm-sp-re-input') as HTMLInputElement
+    const input = container.querySelector('.gm-sp-editor-input') as HTMLInputElement
     const addBtn = container.querySelector('.gm-sp-re-add') as HTMLButtonElement
     input.value = 'pics'
     addBtn.click()
-    expect(container.querySelectorAll('.gm-sp-re-chip').length).toBe(2)
-    expect(container.querySelectorAll('.gm-sp-re-chip-label')[1]!.textContent).toBe('r/pics')
+    expect(container.querySelectorAll('.gm-sp-editor-chip').length).toBe(2)
+    expect(container.querySelectorAll('.gm-sp-editor-chip-label')[1]!.textContent).toBe('r/pics')
     expect(input.value).toBe('')
   })
 
   test('Enter on input also adds the subreddit', async () => {
     await mount(runtime, container)
-    const input = container.querySelector('.gm-sp-re-input') as HTMLInputElement
+    const input = container.querySelector('.gm-sp-editor-input') as HTMLInputElement
     input.value = 'gifs'
     input.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', cancelable: true }))
-    expect(container.querySelectorAll('.gm-sp-re-chip').length).toBe(2)
+    expect(container.querySelectorAll('.gm-sp-editor-chip').length).toBe(2)
   })
 
   test('rejects empty subreddit name', async () => {
     await mount(runtime, container)
     ;(container.querySelector('.gm-sp-re-add') as HTMLButtonElement).click()
-    const err = container.querySelector('.gm-sp-re-error') as HTMLElement
+    const err = container.querySelector('.gm-sp-editor-error') as HTMLElement
     expect(err.hidden).toBe(false)
     expect(err.textContent).toContain('subreddit')
   })
 
   test('rejects duplicate subreddit', async () => {
     await mount(runtime, container, { ...DEFAULTS, subreddits: ['popular'] })
-    const input = container.querySelector('.gm-sp-re-input') as HTMLInputElement
+    const input = container.querySelector('.gm-sp-editor-input') as HTMLInputElement
     const addBtn = container.querySelector('.gm-sp-re-add') as HTMLButtonElement
     input.value = 'popular'
     addBtn.click()
-    const err = container.querySelector('.gm-sp-re-error') as HTMLElement
+    const err = container.querySelector('.gm-sp-editor-error') as HTMLElement
     expect(err.textContent).toContain('已在列表中')
   })
 
   test('removes a subreddit when the × button is clicked', async () => {
     await mount(runtime, container, { ...DEFAULTS, subreddits: ['a', 'b', 'c'] })
-    const removeBtns = container.querySelectorAll<HTMLButtonElement>('.gm-sp-re-chip-remove')
+    const removeBtns = container.querySelectorAll<HTMLButtonElement>('.gm-sp-editor-chip-remove')
     removeBtns[1]!.click()
-    expect(container.querySelectorAll('.gm-sp-re-chip').length).toBe(2)
-    expect(container.querySelectorAll('.gm-sp-re-chip-label')[0]!.textContent).toBe('r/a')
-    expect(container.querySelectorAll('.gm-sp-re-chip-label')[1]!.textContent).toBe('r/c')
+    expect(container.querySelectorAll('.gm-sp-editor-chip').length).toBe(2)
+    expect(container.querySelectorAll('.gm-sp-editor-chip-label')[0]!.textContent).toBe('r/a')
+    expect(container.querySelectorAll('.gm-sp-editor-chip-label')[1]!.textContent).toBe('r/c')
   })
 
   test('cancel calls close', async () => {
@@ -133,7 +133,7 @@ describe('createRedditEditor', () => {
   test('save rejects when subreddits list is empty', async () => {
     await mount(runtime, container, { ...DEFAULTS, subreddits: [] })
     ;(container.querySelector('.gm-sp-re-save') as HTMLButtonElement).click()
-    const err = container.querySelector('.gm-sp-re-error') as HTMLElement
+    const err = container.querySelector('.gm-sp-editor-error') as HTMLElement
     expect(err.hidden).toBe(false)
     expect(err.textContent).toContain('subreddit')
     expect(runtime.stores[CONFIG_KEY]).toBeUndefined()
@@ -144,7 +144,7 @@ describe('createRedditEditor', () => {
     const ttl = container.querySelector('.gm-sp-re-ttl') as HTMLInputElement
     ttl.value = '0'
     ;(container.querySelector('.gm-sp-re-save') as HTMLButtonElement).click()
-    const err = container.querySelector('.gm-sp-re-error') as HTMLElement
+    const err = container.querySelector('.gm-sp-editor-error') as HTMLElement
     expect(err.textContent).toContain('TTL')
     expect(runtime.stores[CONFIG_KEY]).toBeUndefined()
   })
@@ -156,7 +156,7 @@ describe('createRedditEditor', () => {
     min.value = '25'
     max.value = '10'
     ;(container.querySelector('.gm-sp-re-save') as HTMLButtonElement).click()
-    const err = container.querySelector('.gm-sp-re-error') as HTMLElement
+    const err = container.querySelector('.gm-sp-editor-error') as HTMLElement
     expect(err.textContent).toContain('最多条数')
   })
 
@@ -165,7 +165,9 @@ describe('createRedditEditor', () => {
       reddit: { ...DEFAULTS, subreddits: ['fromStorage'] },
     }
     await mount(runtime, container, { ...DEFAULTS, subreddits: ['fallback'] })
-    expect(container.querySelectorAll('.gm-sp-re-chip-label')[0]!.textContent).toBe('r/fromstorage')
+    expect(container.querySelectorAll('.gm-sp-editor-chip-label')[0]!.textContent).toBe(
+      'r/fromstorage',
+    )
   })
 
   test('prefills number fields with fresh options', async () => {
@@ -205,7 +207,7 @@ describe('createRedditEditor', () => {
     const halfLife = container.querySelector('.gm-sp-re-half-life') as HTMLInputElement
     halfLife.value = '50'
     ;(container.querySelector('.gm-sp-re-save') as HTMLButtonElement).click()
-    const err = container.querySelector('.gm-sp-re-error') as HTMLElement
+    const err = container.querySelector('.gm-sp-editor-error') as HTMLElement
     expect(err.textContent).toContain('衰减半衰期')
     expect(runtime.stores[CONFIG_KEY]).toBeUndefined()
   })
@@ -213,14 +215,14 @@ describe('createRedditEditor', () => {
   test('reorder chips via drag updates state and re-renders', async () => {
     await mount(runtime, container, { ...DEFAULTS, subreddits: ['a', 'b', 'c'] })
     const labelsBefore = Array.from(
-      container.querySelectorAll<HTMLElement>('.gm-sp-re-chip-label'),
+      container.querySelectorAll<HTMLElement>('.gm-sp-editor-chip-label'),
     ).map((el) => el.textContent)
     expect(labelsBefore).toEqual(['r/a', 'r/b', 'r/c'])
 
-    const chips = container.querySelectorAll<HTMLElement>('.gm-sp-re-chip')
+    const chips = container.querySelectorAll<HTMLElement>('.gm-sp-editor-chip')
     const sourceChip = chips[0]!
     const targetChip = chips[2]!
-    const handle = sourceChip.querySelector('.gm-sp-re-chip-drag')!
+    const handle = sourceChip.querySelector('.gm-sp-editor-chip-drag')!
 
     const down = new dom.window.PointerEvent('pointerdown', {
       bubbles: true,
@@ -242,7 +244,7 @@ describe('createRedditEditor', () => {
     dom.window.document.dispatchEvent(up)
 
     const labelsAfter = Array.from(
-      container.querySelectorAll<HTMLElement>('.gm-sp-re-chip-label'),
+      container.querySelectorAll<HTMLElement>('.gm-sp-editor-chip-label'),
     ).map((el) => el.textContent)
     expect(labelsAfter).toEqual(['r/b', 'r/c', 'r/a'])
   })

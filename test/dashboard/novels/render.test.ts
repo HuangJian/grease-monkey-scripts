@@ -124,7 +124,7 @@ describe('renderNovels', () => {
       ],
     }
     renderNovels(root, data, ctx())
-    const list = root.querySelector('.gm-sp-novels-chapters')!
+    const list = root.querySelector('.gm-sp-list')!
     expect(list.classList.contains('gm-sp-novels-chapters-folded')).toBe(true)
     const toggle = root.querySelector('.gm-sp-novels-book-toggle') as HTMLButtonElement
     expect(toggle.textContent).toContain('6')

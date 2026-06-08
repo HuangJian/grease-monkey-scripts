@@ -75,50 +75,50 @@ async function renderTnewsEditor(
 
   container.insertAdjacentHTML(
     'beforeend',
-    `<div class="gm-sp-tnews-editor">
-      <div class="gm-sp-tnews-editor-section">
-        <div class="gm-sp-tnews-editor-label">Feed URL 列表</div>
+    `<div class="gm-sp-editor">
+      <div class="gm-sp-editor-section">
+        <div class="gm-sp-editor-label">Feed URL 列表</div>
         <div class="gm-sp-tne-feeds"></div>
-        <div class="gm-sp-tne-add-row">
-          <input type="text" class="gm-sp-tne-feed-input" placeholder="https://rsshub.app/telegram/channel/<name>" />
-          <button type="button" class="gm-sp-tne-feed-add">添加</button>
+        <div class="gm-sp-editor-add-row">
+          <input type="text" class="gm-sp-editor-input" placeholder="https://rsshub.app/telegram/channel/<name>" />
+          <button type="button" class="gm-sp-editor-btn gm-sp-tne-feed-add">添加</button>
         </div>
       </div>
-      <div class="gm-sp-tnews-editor-section">
-        <div class="gm-sp-tnews-editor-label">RSSHub 镜像 hostname</div>
+      <div class="gm-sp-editor-section">
+        <div class="gm-sp-editor-label">RSSHub 镜像 hostname</div>
         <div class="gm-sp-tne-mirrors"></div>
-        <div class="gm-sp-tne-add-row">
-          <input type="text" class="gm-sp-tne-mirror-input" placeholder="rsshub.example.com" />
-          <button type="button" class="gm-sp-tne-mirror-add">添加</button>
+        <div class="gm-sp-editor-add-row">
+          <input type="text" class="gm-sp-editor-input" placeholder="rsshub.example.com" />
+          <button type="button" class="gm-sp-editor-btn gm-sp-tne-mirror-add">添加</button>
         </div>
       </div>
-      <div class="gm-sp-tnews-editor-form">
-        <label class="gm-sp-tnews-editor-row">
+      <div class="gm-sp-editor-form">
+        <label class="gm-sp-editor-row">
           <span>TTL（分钟）</span>
           <input type="number" min="1" step="1" class="gm-sp-tne-ttl" />
         </label>
-        <label class="gm-sp-tnews-editor-row">
+        <label class="gm-sp-editor-row">
           <span>maxItems</span>
           <input type="number" min="1" step="1" class="gm-sp-tne-max" />
         </label>
       </div>
-      <div class="gm-sp-tne-error" hidden></div>
-      <div class="gm-sp-tnews-editor-actions">
-        <button type="button" class="gm-sp-tne-save gm-sp-primary">保存</button>
-        <button type="button" class="gm-sp-tne-cancel">取消</button>
+      <div class="gm-sp-editor-error" hidden></div>
+      <div class="gm-sp-editor-actions">
+        <button type="button" class="gm-sp-editor-btn gm-sp-editor-btn-primary gm-sp-tne-save">保存</button>
+        <button type="button" class="gm-sp-editor-btn gm-sp-tne-cancel">取消</button>
       </div>
     </div>`,
   )
 
   const feedsEl = container.querySelector('.gm-sp-tne-feeds') as HTMLDivElement
-  const feedInputEl = container.querySelector('.gm-sp-tne-feed-input') as HTMLInputElement
+  const feedInputEl = container.querySelector('.gm-sp-editor-input') as HTMLInputElement
   const feedAddBtn = container.querySelector('.gm-sp-tne-feed-add') as HTMLButtonElement
   const mirrorsEl = container.querySelector('.gm-sp-tne-mirrors') as HTMLDivElement
-  const mirrorInputEl = container.querySelector('.gm-sp-tne-mirror-input') as HTMLInputElement
+  const mirrorInputEl = container.querySelector('.gm-sp-editor-input') as HTMLInputElement
   const mirrorAddBtn = container.querySelector('.gm-sp-tne-mirror-add') as HTMLButtonElement
   const ttlInput = container.querySelector('.gm-sp-tne-ttl') as HTMLInputElement
   const maxInput = container.querySelector('.gm-sp-tne-max') as HTMLInputElement
-  const errorEl = container.querySelector('.gm-sp-tne-error') as HTMLDivElement
+  const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
   const saveBtn = container.querySelector('.gm-sp-tne-save') as HTMLButtonElement
   const cancelBtn = container.querySelector('.gm-sp-tne-cancel') as HTMLButtonElement
 
@@ -137,11 +137,11 @@ async function renderTnewsEditor(
       feeds.push(...next)
     },
     renderChip: (url, i) =>
-      `<div class="gm-sp-tne-chip" data-index="${i}">
-        <span class="gm-sp-tne-chip-label">${escapeHtml(url)}</span>
-        <button type="button" class="gm-sp-tne-chip-remove" aria-label="remove">×</button>
+      `<div class="gm-sp-editor-chip" data-index="${i}">
+        <span class="gm-sp-editor-chip-label gm-sp-tne-chip-label">${escapeHtml(url)}</span>
+        <button type="button" class="gm-sp-editor-chip-remove" aria-label="remove">×</button>
       </div>`,
-    removeSelector: '.gm-sp-tne-chip-remove',
+    removeSelector: '.gm-sp-editor-chip-remove',
     tryAdd: () => {
       const r = isValidFeedUrl(feedInputEl.value)
       if (!r.ok) return { ok: false, error: r.error }
@@ -151,7 +151,7 @@ async function renderTnewsEditor(
     showError: (msg) => error.show(msg),
     clearError: () => error.clear(),
     emptyText: '尚未添加 feed',
-    emptyClass: 'gm-sp-tne-empty',
+    emptyClass: 'gm-sp-editor-empty',
   })
 
   const mirrorChips = bindChipList<string>({
@@ -164,11 +164,11 @@ async function renderTnewsEditor(
       mirrors.push(...next)
     },
     renderChip: (host, i) =>
-      `<div class="gm-sp-tne-chip" data-index="${i}">
-        <span class="gm-sp-tne-chip-label">${escapeHtml(host)}</span>
-        <button type="button" class="gm-sp-tne-chip-remove" aria-label="remove">×</button>
+      `<div class="gm-sp-editor-chip" data-index="${i}">
+        <span class="gm-sp-editor-chip-label gm-sp-tne-chip-label">${escapeHtml(host)}</span>
+        <button type="button" class="gm-sp-editor-chip-remove" aria-label="remove">×</button>
       </div>`,
-    removeSelector: '.gm-sp-tne-chip-remove',
+    removeSelector: '.gm-sp-editor-chip-remove',
     tryAdd: () => {
       const r = isValidMirrorHost(mirrorInputEl.value)
       if (!r.ok) return { ok: false, error: r.error }
@@ -178,7 +178,7 @@ async function renderTnewsEditor(
     showError: (msg) => error.show(msg),
     clearError: () => error.clear(),
     emptyText: '尚未添加镜像（仅对 rsshub.app 域名生效）',
-    emptyClass: 'gm-sp-tne-empty',
+    emptyClass: 'gm-sp-editor-empty',
   })
 
   cancelBtn.addEventListener('click', () => {

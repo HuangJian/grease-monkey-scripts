@@ -59,7 +59,7 @@ describe('createV2exSource', () => {
       },
     ]
     source.render(container, data)
-    expect(container.querySelectorAll('.gm-sp-v2ex-item')).toHaveLength(1)
+    expect(container.querySelectorAll('.gm-sp-list-item')).toHaveLength(1)
   })
 
   test('fetch wires fetcher + state and returns visible topics', async () => {

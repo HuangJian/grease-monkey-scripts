@@ -55,30 +55,32 @@ describe('createTnewsEditor', () => {
 
   test('rejects invalid feed URL on add', async () => {
     const { root } = await setup()
-    const input = root.querySelector<HTMLInputElement>('.gm-sp-tne-feed-input')!
+    const input = root.querySelector<HTMLInputElement>('.gm-sp-editor-input')!
     const addBtn = root.querySelector<HTMLButtonElement>('.gm-sp-tne-feed-add')!
     input.value = 'not a url'
     addBtn.click()
-    const err = root.querySelector<HTMLElement>('.gm-sp-tne-error')!
+    const err = root.querySelector<HTMLElement>('.gm-sp-editor-error')!
     expect(err.hidden).toBe(false)
     expect(err.textContent).toContain('http://')
   })
 
   test('rejects invalid mirror hostname on add', async () => {
     const { root } = await setup()
-    const input = root.querySelector<HTMLInputElement>('.gm-sp-tne-mirror-input')!
+    const input = root.querySelector<HTMLInputElement>('.gm-sp-editor-input')!
     const addBtn = root.querySelector<HTMLButtonElement>('.gm-sp-tne-mirror-add')!
     input.value = 'bad host!'
     addBtn.click()
-    expect(root.querySelector<HTMLElement>('.gm-sp-tne-error')!.hidden).toBe(false)
+    expect(root.querySelector<HTMLElement>('.gm-sp-editor-error')!.hidden).toBe(false)
   })
 
   test('rejects empty feeds on save', async () => {
     const { root } = await setup()
-    const removeButtons = Array.from(root.querySelectorAll<HTMLElement>('.gm-sp-tne-chip-remove'))
+    const removeButtons = Array.from(
+      root.querySelectorAll<HTMLElement>('.gm-sp-editor-chip-remove'),
+    )
     removeButtons.forEach((b) => b.click())
     root.querySelector<HTMLButtonElement>('.gm-sp-tne-save')!.click()
-    const err = root.querySelector<HTMLElement>('.gm-sp-tne-error')!
+    const err = root.querySelector<HTMLElement>('.gm-sp-editor-error')!
     expect(err.textContent).toContain('至少添加一个 feed')
   })
 
@@ -87,13 +89,13 @@ describe('createTnewsEditor', () => {
     const ttl = root.querySelector<HTMLInputElement>('.gm-sp-tne-ttl')!
     ttl.value = '0'
     root.querySelector<HTMLButtonElement>('.gm-sp-tne-save')!.click()
-    const err = root.querySelector<HTMLElement>('.gm-sp-tne-error')!
+    const err = root.querySelector<HTMLElement>('.gm-sp-editor-error')!
     expect(err.hidden).toBe(false)
   })
 
   test('saves valid section to CONFIG_KEY and closes', async () => {
     const { runtime, root } = await setup()
-    const input = root.querySelector<HTMLInputElement>('.gm-sp-tne-feed-input')!
+    const input = root.querySelector<HTMLInputElement>('.gm-sp-editor-input')!
     const addBtn = root.querySelector<HTMLButtonElement>('.gm-sp-tne-feed-add')!
     input.value = 'https://example.com/feed'
     addBtn.click()
@@ -105,11 +107,11 @@ describe('createTnewsEditor', () => {
 
   test('rejects duplicate feed URL', async () => {
     const { root } = await setup()
-    const input = root.querySelector<HTMLInputElement>('.gm-sp-tne-feed-input')!
+    const input = root.querySelector<HTMLInputElement>('.gm-sp-editor-input')!
     const addBtn = root.querySelector<HTMLButtonElement>('.gm-sp-tne-feed-add')!
     input.value = 'https://rsshub.app/telegram/channel/tnews365'
     addBtn.click()
-    const err = root.querySelector<HTMLElement>('.gm-sp-tne-error')!
+    const err = root.querySelector<HTMLElement>('.gm-sp-editor-error')!
     expect(err.textContent).toContain('已在列表中')
   })
 

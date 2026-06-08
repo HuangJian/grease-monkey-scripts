@@ -42,32 +42,32 @@ async function renderWeatherEditor(
 
   container.insertAdjacentHTML(
     'beforeend',
-    `<div class="gm-sp-weather-editor">
+    `<div class="gm-sp-editor">
       <div class="gm-sp-weather-editor-list"></div>
-      <div class="gm-sp-weather-editor-form">
-        <label class="gm-sp-weather-editor-row">
+      <div class="gm-sp-editor-form">
+        <label class="gm-sp-editor-row">
           <span>城市名</span>
           <input type="text" class="gm-sp-we-city-label" placeholder="北京" />
         </label>
-        <label class="gm-sp-weather-editor-row">
+        <label class="gm-sp-editor-row">
           <span>CMA 站点 ID</span>
           <input type="text" inputmode="numeric" pattern="\\d{5}"
                  class="gm-sp-we-cma" placeholder="54511（可选）" />
         </label>
-        <label class="gm-sp-weather-editor-row">
+        <label class="gm-sp-editor-row">
           <span>纬度</span>
           <input type="number" step="any" class="gm-sp-we-lat" placeholder="39.9042" />
         </label>
-        <label class="gm-sp-weather-editor-row">
+        <label class="gm-sp-editor-row">
           <span>经度</span>
           <input type="number" step="any" class="gm-sp-we-lon" placeholder="116.4074" />
         </label>
-        <button type="button" class="gm-sp-we-add">添加城市</button>
+        <button type="button" class="gm-sp-editor-btn gm-sp-we-add">添加城市</button>
       </div>
-      <div class="gm-sp-we-error" hidden></div>
-      <div class="gm-sp-weather-editor-actions">
-        <button type="button" class="gm-sp-we-save gm-sp-primary">保存</button>
-        <button type="button" class="gm-sp-we-cancel">取消</button>
+      <div class="gm-sp-editor-error" hidden></div>
+      <div class="gm-sp-editor-actions">
+        <button type="button" class="gm-sp-editor-btn gm-sp-editor-btn-primary gm-sp-we-save">保存</button>
+        <button type="button" class="gm-sp-editor-btn gm-sp-we-cancel">取消</button>
       </div>
     </div>`,
   )
@@ -77,10 +77,10 @@ async function renderWeatherEditor(
   const latInput = container.querySelector('.gm-sp-we-lat') as HTMLInputElement
   const lonInput = container.querySelector('.gm-sp-we-lon') as HTMLInputElement
   const cmaInput = container.querySelector('.gm-sp-we-cma') as HTMLInputElement
-  const addBtn = container.querySelector('.gm-sp-we-add') as HTMLButtonElement
+  const addBtn = container.querySelector('.gm-sp-editor-btn.gm-sp-we-add') as HTMLButtonElement
   const saveBtn = container.querySelector('.gm-sp-we-save') as HTMLButtonElement
   const cancelBtn = container.querySelector('.gm-sp-we-cancel') as HTMLButtonElement
-  const errorEl = container.querySelector('.gm-sp-we-error') as HTMLDivElement
+  const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
 
   const error = bindErrorBox(errorEl)
 
@@ -124,7 +124,7 @@ async function renderWeatherEditor(
     showError: (msg) => error.show(msg),
     clearError: () => error.clear(),
     emptyText: '尚未添加城市',
-    emptyClass: 'gm-sp-we-empty',
+    emptyClass: 'gm-sp-editor-empty',
   })
 
   cancelBtn.addEventListener('click', () => {

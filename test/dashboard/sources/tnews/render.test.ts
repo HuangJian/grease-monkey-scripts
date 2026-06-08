@@ -57,8 +57,8 @@ describe('renderTnews', () => {
     ]
     renderTnews(getRoot(dom), items, state, runtime, NOW)
     const root = getRoot(dom)
-    expect(root.querySelectorAll('.gm-sp-tnews-item').length).toBe(2)
-    expect(root.querySelector('ol.gm-sp-tnews-list')).not.toBeNull()
+    expect(root.querySelectorAll('.gm-sp-list-item').length).toBe(2)
+    expect(root.querySelector('ol.gm-sp-list')).not.toBeNull()
   })
 
   test('click on row toggles expanded state and updates DOM', () => {
@@ -68,14 +68,14 @@ describe('renderTnews', () => {
     const items = [makeItem({ id: 'https://t.me/a/1', link: 'https://t.me/a/1' })]
     renderTnews(getRoot(dom), items, state, runtime, NOW)
     const root = getRoot(dom)
-    const li = root.querySelector<HTMLElement>('.gm-sp-tnews-item')!
+    const li = root.querySelector<HTMLElement>('.gm-sp-list-item')!
     const row = li.querySelector<HTMLElement>('.gm-sp-tnews-row')!
     const body = li.querySelector<HTMLElement>('.gm-sp-tnews-body')!
     expect(body.hidden).toBe(true)
-    expect(li.classList.contains('gm-sp-tnews-item-expanded')).toBe(false)
+    expect(li.classList.contains('gm-sp-list-item-expanded')).toBe(false)
     row.click()
     expect(body.hidden).toBe(false)
-    expect(li.classList.contains('gm-sp-tnews-item-expanded')).toBe(true)
+    expect(li.classList.contains('gm-sp-list-item-expanded')).toBe(true)
     expect(state.isExpanded('https://t.me/a/1')).toBe(true)
     row.click()
     expect(body.hidden).toBe(true)
@@ -89,12 +89,12 @@ describe('renderTnews', () => {
     const items = [makeItem({ id: 'https://t.me/a/1', link: 'https://t.me/a/1' })]
     renderTnews(getRoot(dom), items, state, runtime, NOW)
     const root = getRoot(dom)
-    const li = root.querySelector<HTMLElement>('.gm-sp-tnews-item')!
+    const li = root.querySelector<HTMLElement>('.gm-sp-list-item')!
     const row = li.querySelector<HTMLElement>('.gm-sp-tnews-row')!
     row.click()
     expect(state.isRead('https://t.me/a/1')).toBe(true)
-    expect(li.classList.contains('gm-sp-tnews-read')).toBe(true)
-    expect(li.classList.contains('gm-sp-tnews-item-expanded')).toBe(true)
+    expect(li.classList.contains('gm-sp-item-read')).toBe(true)
+    expect(li.classList.contains('gm-sp-list-item-expanded')).toBe(true)
   })
 
   test('previously read items still show read class', () => {
@@ -105,8 +105,8 @@ describe('renderTnews', () => {
     const items = [makeItem({ id: 'https://t.me/a/1', link: 'https://t.me/a/1' })]
     renderTnews(getRoot(dom), items, state, runtime, NOW)
     const root = getRoot(dom)
-    const li = root.querySelector<HTMLElement>('.gm-sp-tnews-item')!
-    expect(li.classList.contains('gm-sp-tnews-read')).toBe(true)
+    const li = root.querySelector<HTMLElement>('.gm-sp-list-item')!
+    expect(li.classList.contains('gm-sp-item-read')).toBe(true)
   })
 
   test('clicking hide button does not toggle expand', () => {
@@ -116,11 +116,11 @@ describe('renderTnews', () => {
     const items = [makeItem({ id: 'https://t.me/a/1', link: 'https://t.me/a/1' })]
     renderTnews(getRoot(dom), items, state, runtime, NOW)
     const root = getRoot(dom)
-    const li = root.querySelector<HTMLElement>('.gm-sp-tnews-item')!
-    const hideBtn = li.querySelector<HTMLButtonElement>('.gm-sp-tnews-hide')!
+    const li = root.querySelector<HTMLElement>('.gm-sp-list-item')!
+    const hideBtn = li.querySelector<HTMLButtonElement>('.gm-sp-item-hide')!
     hideBtn.click()
     expect(state.isExpanded('https://t.me/a/1')).toBe(false)
-    expect(li.classList.contains('gm-sp-tnews-item-expanded')).toBe(false)
+    expect(li.classList.contains('gm-sp-list-item-expanded')).toBe(false)
   })
 
   test('clicking body content does not toggle expand', () => {
@@ -137,11 +137,11 @@ describe('renderTnews', () => {
     state.setExpanded('https://t.me/a/1', true)
     renderTnews(getRoot(dom), items, state, runtime, NOW)
     const root = getRoot(dom)
-    const li = root.querySelector<HTMLElement>('.gm-sp-tnews-item')!
+    const li = root.querySelector<HTMLElement>('.gm-sp-list-item')!
     const body = li.querySelector<HTMLElement>('.gm-sp-tnews-body')!
     expect(body.hidden).toBe(false)
     body.click()
-    expect(li.classList.contains('gm-sp-tnews-item-expanded')).toBe(true)
+    expect(li.classList.contains('gm-sp-list-item-expanded')).toBe(true)
     expect(state.isExpanded('https://t.me/a/1')).toBe(true)
   })
 
@@ -155,17 +155,17 @@ describe('renderTnews', () => {
     ]
     renderTnews(getRoot(dom), items, state, runtime, NOW)
     const root = getRoot(dom)
-    const li1 = root.querySelectorAll<HTMLElement>('.gm-sp-tnews-item')[0]
+    const li1 = root.querySelectorAll<HTMLElement>('.gm-sp-list-item')[0]
     const row1 = li1.querySelector<HTMLElement>('.gm-sp-tnews-row')!
-    const li2 = root.querySelectorAll<HTMLElement>('.gm-sp-tnews-item')[1]
+    const li2 = root.querySelectorAll<HTMLElement>('.gm-sp-list-item')[1]
     const row2 = li2.querySelector<HTMLElement>('.gm-sp-tnews-row')!
     row1.click()
-    expect(li1.classList.contains('gm-sp-tnews-item-expanded')).toBe(true)
+    expect(li1.classList.contains('gm-sp-list-item-expanded')).toBe(true)
     expect(state.isExpanded('https://t.me/a/1')).toBe(true)
     row2.click()
-    expect(li1.classList.contains('gm-sp-tnews-item-expanded')).toBe(false)
+    expect(li1.classList.contains('gm-sp-list-item-expanded')).toBe(false)
     expect(state.isExpanded('https://t.me/a/1')).toBe(false)
-    expect(li2.classList.contains('gm-sp-tnews-item-expanded')).toBe(true)
+    expect(li2.classList.contains('gm-sp-list-item-expanded')).toBe(true)
     expect(state.isExpanded('https://t.me/b/2')).toBe(true)
   })
 
@@ -188,11 +188,11 @@ describe('renderTnews', () => {
     ]
     renderTnews(getRoot(dom), items, state, runtime, NOW)
     const root = getRoot(dom)
-    const li = root.querySelector<HTMLElement>('.gm-sp-tnews-item')!
-    const hideBtn = li.querySelector<HTMLButtonElement>('.gm-sp-tnews-hide')!
+    const li = root.querySelector<HTMLElement>('.gm-sp-list-item')!
+    const hideBtn = li.querySelector<HTMLButtonElement>('.gm-sp-item-hide')!
     hideBtn.click()
     expect(state.isHidden('https://t.me/a/1')).toBe(true)
-    expect(root.querySelectorAll('.gm-sp-tnews-item').length).toBe(1)
+    expect(root.querySelectorAll('.gm-sp-list-item').length).toBe(1)
     await new Promise((r) => setTimeout(r, 0))
     const cached = runtime.stores['dashboard:v1:tnews'] as { data: TnewsItem[] } | undefined
     expect(cached?.data.map((it) => it.id)).toEqual(['https://t.me/b/2'])
@@ -233,12 +233,12 @@ describe('renderTnews', () => {
     const items = [makeItem({ id: 'https://t.me/a/1', link: 'https://t.me/a/1' })]
     renderTnews(getRoot(dom), items, state, runtime, NOW)
     const root = getRoot(dom)
-    const li = root.querySelector<HTMLElement>('.gm-sp-tnews-item')!
-    expect(li.classList.contains('gm-sp-tnews-read')).toBe(true)
+    const li = root.querySelector<HTMLElement>('.gm-sp-list-item')!
+    expect(li.classList.contains('gm-sp-item-read')).toBe(true)
     const row = li.querySelector<HTMLElement>('.gm-sp-tnews-row')!
     row.click()
-    expect(li.classList.contains('gm-sp-tnews-item-expanded')).toBe(true)
-    expect(li.classList.contains('gm-sp-tnews-read')).toBe(true)
+    expect(li.classList.contains('gm-sp-list-item-expanded')).toBe(true)
+    expect(li.classList.contains('gm-sp-item-read')).toBe(true)
   })
 
   test('strips leading symbols from title', () => {

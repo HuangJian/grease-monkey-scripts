@@ -76,7 +76,7 @@ describe('createDashboard', () => {
     const v2exPanel = browseCard.querySelector(
       '.gm-sp-tab-panel[data-tab-id="v2ex"]',
     ) as HTMLElement
-    expect(v2exPanel.querySelector('.gm-sp-v2ex-title')!.textContent).toBe('cached')
+    expect(v2exPanel.querySelector('.gm-sp-item-title')!.textContent).toBe('cached')
   })
 
   test('open() renders cached reddit data into the browse card reddit panel', async () => {
@@ -109,8 +109,8 @@ describe('createDashboard', () => {
       '.gm-sp-tab-panel[data-tab-id="reddit"]',
     ) as HTMLElement
     expect(redditPanel).not.toBeNull()
-    expect(redditPanel.querySelector('.gm-sp-reddit-title')!.textContent).toBe('cached-reddit')
-    expect(redditPanel.querySelector('.gm-sp-reddit-count')!.textContent).toBe('999')
+    expect(redditPanel.querySelector('.gm-sp-item-title')!.textContent).toBe('cached-reddit')
+    expect(redditPanel.querySelector('.gm-sp-item-count')!.textContent).toBe('999')
   })
 
   test('browse card defaults to v2ex tab and shows a badge on novels tab when books have updates', async () => {
@@ -198,7 +198,7 @@ describe('createDashboard', () => {
     const v2exPanel = browseCard.querySelector(
       '.gm-sp-tab-panel[data-tab-id="v2ex"]',
     ) as HTMLElement
-    expect(v2exPanel.querySelector('.gm-sp-v2ex-title')!.textContent).toBe('live-update')
+    expect(v2exPanel.querySelector('.gm-sp-item-title')!.textContent).toBe('live-update')
   })
 
   test('refreshSource acquires lock, fetches, persists cache', async () => {

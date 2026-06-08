@@ -70,41 +70,41 @@ async function renderNovelsEditor(
 
   container.insertAdjacentHTML(
     'beforeend',
-    `<div class="gm-sp-novels-editor">
+    `<div class="gm-sp-editor">
       <div class="gm-sp-novels-editor-list"></div>
       <div class="gm-sp-novels-editor-form">
-        <label class="gm-sp-novels-editor-row">
+        <label class="gm-sp-editor-row">
           <span>书库 URL</span>
           <input type="url" class="gm-sp-ne-url" placeholder="https://www.sudugu.org/166/" />
         </label>
-        <label class="gm-sp-novels-editor-row">
+        <label class="gm-sp-editor-row">
           <span>别名（可选）</span>
           <input type="text" class="gm-sp-ne-alias" placeholder="九龙夺嫡" />
         </label>
-        <button type="button" class="gm-sp-ne-add">添加书库</button>
+        <button type="button" class="gm-sp-editor-btn gm-sp-ne-add">添加书库</button>
       </div>
       <div class="gm-sp-novels-editor-advanced">
-        <label class="gm-sp-novels-editor-row">
+        <label class="gm-sp-editor-row">
           <span>TTL（分钟）</span>
           <input type="number" min="1" step="1" class="gm-sp-ne-ttl" />
         </label>
-        <label class="gm-sp-novels-editor-row">
+        <label class="gm-sp-editor-row">
           <span>初始新章数</span>
           <input type="number" min="0" step="1" class="gm-sp-ne-initial" />
         </label>
-        <label class="gm-sp-novels-editor-row">
+        <label class="gm-sp-editor-row">
           <span>折叠阈值</span>
           <input type="number" min="1" step="1" class="gm-sp-ne-fold" />
         </label>
-        <label class="gm-sp-novels-editor-row">
+        <label class="gm-sp-editor-row">
           <span>章节窗口</span>
           <input type="number" min="1" step="1" class="gm-sp-ne-window" />
         </label>
       </div>
       <div class="gm-sp-ne-error" hidden></div>
-      <div class="gm-sp-novels-editor-actions">
-        <button type="button" class="gm-sp-ne-save gm-sp-primary">保存</button>
-        <button type="button" class="gm-sp-ne-cancel">取消</button>
+      <div class="gm-sp-editor-actions">
+        <button type="button" class="gm-sp-editor-btn gm-sp-editor-btn-primary gm-sp-ne-save">保存</button>
+        <button type="button" class="gm-sp-editor-btn gm-sp-ne-cancel">取消</button>
       </div>
     </div>`,
   )
@@ -112,13 +112,15 @@ async function renderNovelsEditor(
   const listEl = container.querySelector('.gm-sp-novels-editor-list') as HTMLDivElement
   const urlInput = container.querySelector('.gm-sp-ne-url') as HTMLInputElement
   const aliasInput = container.querySelector('.gm-sp-ne-alias') as HTMLInputElement
-  const addBtn = container.querySelector('.gm-sp-ne-add') as HTMLButtonElement
+  const addBtn = container.querySelector('.gm-sp-editor-btn') as HTMLButtonElement
   const ttlInput = container.querySelector('.gm-sp-ne-ttl') as HTMLInputElement
   const initialInput = container.querySelector('.gm-sp-ne-initial') as HTMLInputElement
   const foldInput = container.querySelector('.gm-sp-ne-fold') as HTMLInputElement
   const windowInput = container.querySelector('.gm-sp-ne-window') as HTMLInputElement
   const errorEl = container.querySelector('.gm-sp-ne-error') as HTMLDivElement
-  const saveBtn = container.querySelector('.gm-sp-ne-save') as HTMLButtonElement
+  const saveBtn = container.querySelector(
+    '.gm-sp-editor-btn.gm-sp-editor-btn-primary',
+  ) as HTMLButtonElement
   const cancelBtn = container.querySelector('.gm-sp-ne-cancel') as HTMLButtonElement
 
   ttlInput.value = String(fresh.ttlMinutes)

@@ -99,7 +99,7 @@ describe('createV2exEditor', () => {
     minInput.value = '10'
     maxInput.value = '5'
     ;(container.querySelector('.gm-sp-v2e-save') as HTMLButtonElement).click()
-    const errorEl = container.querySelector('.gm-sp-v2e-error') as HTMLDivElement
+    const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
     expect(errorEl.hidden).toBe(false)
     expect(errorEl.textContent).toMatch(/最多条数/)
     expect(runtime.stores[CONFIG_KEY]).toBeUndefined()

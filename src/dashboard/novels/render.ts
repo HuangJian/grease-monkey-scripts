@@ -20,7 +20,7 @@ export function renderNovels(
   if (books.length === 0) {
     container.insertAdjacentHTML(
       'beforeend',
-      '<div class="gm-sp-novels-empty">尚未添加小说，请通过 ⚙ 添加书库 URL。</div>',
+      '<div class="gm-sp-empty">尚未添加小说，请通过 ⚙ 添加书库 URL。</div>',
     )
     return
   }
@@ -91,7 +91,7 @@ function buildBookBlockHtml(book: NovelBook): string {
           <span class="gm-sp-novels-book-status">${statusText}</span>
         </div>
         ${errorNoteHtml}
-        <ul class="gm-sp-novels-chapters">${buildReadChapterItemHtml(latest, book)}</ul>
+        <ul class="gm-sp-list gm-sp-list-col">${buildReadChapterItemHtml(latest, book)}</ul>
       </div>`
     }
     return `<div class="gm-sp-novels-book" data-book-url="${bookUrl}">
@@ -107,8 +107,8 @@ function buildBookBlockHtml(book: NovelBook): string {
   const statusText = `${unread.length} 章新`
   const folded = unread.length > FOLD_THRESHOLD
   const listClass = folded
-    ? 'gm-sp-novels-chapters gm-sp-novels-chapters-folded'
-    : 'gm-sp-novels-chapters'
+    ? 'gm-sp-list gm-sp-list-col gm-sp-novels-chapters-folded'
+    : 'gm-sp-list gm-sp-list-col'
   const chaptersHtml = unread.map((ch) => buildChapterItemHtml(ch)).join('')
   const toggleHtml = folded
     ? (() => {

@@ -70,7 +70,7 @@ describe('createWeatherEditor', () => {
   test('shows an error when add is missing fields', async () => {
     await mount(runtime, container)
     ;(container.querySelector('.gm-sp-we-add') as HTMLButtonElement).click()
-    const errorEl = container.querySelector('.gm-sp-we-error') as HTMLDivElement
+    const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
     expect(errorEl.hidden).toBe(false)
     expect(errorEl.textContent).toMatch(/城市名/)
   })
@@ -113,13 +113,13 @@ describe('createWeatherEditor', () => {
     ;(container.querySelector('.gm-sp-we-save') as HTMLButtonElement).click()
     await new Promise<void>((r) => setTimeout(r, 0))
     expect(runtime.stores[CONFIG_KEY]).toBeUndefined()
-    const errorEl = container.querySelector('.gm-sp-we-error') as HTMLDivElement
+    const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
     expect(errorEl.hidden).toBe(false)
   })
 
   test('shows empty-state hint when no cities are configured', async () => {
     await mount(runtime, container, [])
-    expect(container.querySelector('.gm-sp-we-empty')!.textContent).toBe('尚未添加城市')
+    expect(container.querySelector('.gm-sp-editor-empty')!.textContent).toBe('尚未添加城市')
   })
 
   test('Enter in label input adds the city', async () => {
@@ -162,7 +162,7 @@ describe('createWeatherEditor', () => {
     lonInput.value = '116.4'
     cmaInput.value = '5451'
     ;(container.querySelector('.gm-sp-we-add') as HTMLButtonElement).click()
-    const errorEl = container.querySelector('.gm-sp-we-error') as HTMLDivElement
+    const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
     expect(errorEl.hidden).toBe(false)
     expect(errorEl.textContent).toMatch(/5 位数字/)
   })

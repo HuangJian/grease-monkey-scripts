@@ -91,7 +91,7 @@ describe('cross-tab broadcast', () => {
     const v2exPanel = shadow.querySelector(
       '[data-source="browse"] .gm-sp-tab-panel[data-tab-id="v2ex"]',
     ) as HTMLElement
-    expect(v2exPanel.querySelector('.gm-sp-v2ex-title')!.textContent).toBe('from-other-tab')
+    expect(v2exPanel.querySelector('.gm-sp-item-title')!.textContent).toBe('from-other-tab')
   })
 
   test('remote change to reddit cache re-renders the open card', async () => {
@@ -123,9 +123,7 @@ describe('cross-tab broadcast', () => {
     const redditPanel = shadow.querySelector(
       '[data-source="browse"] .gm-sp-tab-panel[data-tab-id="reddit"]',
     ) as HTMLElement
-    expect(redditPanel.querySelector('.gm-sp-reddit-title')!.textContent).toBe(
-      'reddit-remote-update',
-    )
+    expect(redditPanel.querySelector('.gm-sp-item-title')!.textContent).toBe('reddit-remote-update')
   })
 
   test('remote change while overlay closed is a no-op (no crash)', () => {

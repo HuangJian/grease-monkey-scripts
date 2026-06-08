@@ -50,42 +50,42 @@ async function renderV2exEditor(
 
   container.insertAdjacentHTML(
     'beforeend',
-    `<div class="gm-sp-v2ex-editor">
-      <div class="gm-sp-v2ex-editor-form">
-        <label class="gm-sp-v2ex-editor-row">
+    `<div class="gm-sp-editor">
+      <div class="gm-sp-editor-form">
+        <label class="gm-sp-editor-row">
           <span>TTL（分钟）</span>
           <input type="number" min="1" step="1" class="gm-sp-v2e-ttl" />
         </label>
-        <label class="gm-sp-v2ex-editor-row">
+        <label class="gm-sp-editor-row">
           <span>最少条数</span>
           <input type="number" min="1" step="1" class="gm-sp-v2e-min" />
         </label>
-        <label class="gm-sp-v2ex-editor-row">
+        <label class="gm-sp-editor-row">
           <span>最多条数</span>
           <input type="number" min="1" step="1" class="gm-sp-v2e-max" />
         </label>
-        <label class="gm-sp-v2ex-editor-row">
+        <label class="gm-sp-editor-row">
           <span>显示比例</span>
           <input type="number" min="0" max="1" step="0.01" class="gm-sp-v2e-ratio" />
         </label>
-        <label class="gm-sp-v2ex-editor-row">
+        <label class="gm-sp-editor-row">
           <span>拐点跌幅</span>
           <input type="number" min="0" max="1" step="0.01" class="gm-sp-v2e-elbow" />
         </label>
-        <label class="gm-sp-v2ex-editor-row">
+        <label class="gm-sp-editor-row">
           <span>回复阈值</span>
           <input type="number" min="0" step="1" class="gm-sp-v2e-min-replies" />
         </label>
-        <label class="gm-sp-v2ex-editor-row">
+        <label class="gm-sp-editor-row">
           <span>衰减半衰期（天）</span>
           <input type="number" min="0.1" max="30" step="0.1"
                  class="gm-sp-v2e-half-life" placeholder="0.1–30" />
         </label>
       </div>
-      <div class="gm-sp-v2e-error" hidden></div>
-      <div class="gm-sp-v2ex-editor-actions">
-        <button type="button" class="gm-sp-v2e-save gm-sp-primary">保存</button>
-        <button type="button" class="gm-sp-v2e-cancel">取消</button>
+      <div class="gm-sp-editor-error" hidden></div>
+      <div class="gm-sp-editor-actions">
+        <button type="button" class="gm-sp-editor-btn gm-sp-editor-btn-primary gm-sp-v2e-save">保存</button>
+        <button type="button" class="gm-sp-editor-btn gm-sp-v2e-cancel">取消</button>
       </div>
     </div>`,
   )
@@ -97,7 +97,7 @@ async function renderV2exEditor(
   const elbowInput = container.querySelector('.gm-sp-v2e-elbow') as HTMLInputElement
   const minRepliesInput = container.querySelector('.gm-sp-v2e-min-replies') as HTMLInputElement
   const halfLifeInput = container.querySelector('.gm-sp-v2e-half-life') as HTMLInputElement
-  const errorEl = container.querySelector('.gm-sp-v2e-error') as HTMLDivElement
+  const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
   const saveBtn = container.querySelector('.gm-sp-v2e-save') as HTMLButtonElement
   const cancelBtn = container.querySelector('.gm-sp-v2e-cancel') as HTMLButtonElement
 

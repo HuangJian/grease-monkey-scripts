@@ -13,17 +13,17 @@ function truncateTitle(title: string, max = TITLE_MAX_CHARS): string {
 }
 
 function buildItemHtml(post: RedditPost, state: RedditState): string {
-  const readClass = state.isRead(post.id) ? ' gm-sp-reddit-read' : ''
-  const titleHtml = `<a class="gm-sp-reddit-title" href="${escapeUrl(post.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(truncateTitle(post.title))}</a>`
+  const readClass = state.isRead(post.id) ? ' gm-sp-item-read' : ''
+  const titleHtml = `<a class="gm-sp-item-title" href="${escapeUrl(post.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(truncateTitle(post.title))}</a>`
   const subText = escapeHtml(post.subreddits.map((s) => `r/${s}`).join(', '))
-  return `<li class="gm-sp-reddit-item${readClass}" data-post-id="${post.id}">
-        <span class="gm-sp-reddit-count" title="得分">${post.score}</span>
+  return `<li class="gm-sp-list-item gm-sp-list-item-flex${readClass}" data-post-id="${post.id}">
+        <span class="gm-sp-item-count" title="得分">${post.score}</span>
         ${titleHtml}
-        <span class="gm-sp-reddit-meta">
+        <span class="gm-sp-item-meta">
           <span class="gm-sp-reddit-sub">${subText}</span>
           <span class="gm-sp-reddit-comments" title="评论数">💬 ${post.numComments}</span>
         </span>
-        <button class="gm-sp-reddit-hide" title="隐藏该主题">×</button>
+        <button class="gm-sp-item-hide" title="隐藏该主题">×</button>
       </li>`
 }
 
@@ -58,7 +58,7 @@ export function renderReddit(
           <span class="gm-sp-reddit-caret${caretClass}">▾</span>
           r/${escapeHtml(sub)}
         </h3>
-        <ol class="gm-sp-reddit-list">${listHtml}</ol>
+        <ol class="gm-sp-list">${listHtml}</ol>
       </section>`
     })
     .join('')
@@ -66,14 +66,14 @@ export function renderReddit(
 
   container.querySelectorAll<HTMLElement>('.gm-sp-reddit-section').forEach((section) => {
     const sub = section.dataset['sub']!
-    section.querySelectorAll<HTMLElement>('.gm-sp-reddit-item').forEach((item) => {
+    section.querySelectorAll<HTMLElement>('.gm-sp-list-item').forEach((item) => {
       const postId = item.dataset['postId']!
-      const link = item.querySelector('.gm-sp-reddit-title') as HTMLAnchorElement
+      const link = item.querySelector('.gm-sp-item-title') as HTMLAnchorElement
       link.addEventListener('click', () => {
         state.markRead(postId)
-        item.classList.add('gm-sp-reddit-read')
+        item.classList.add('gm-sp-item-read')
       })
-      const hideBtn = item.querySelector('.gm-sp-reddit-hide') as HTMLButtonElement
+      const hideBtn = item.querySelector('.gm-sp-item-hide') as HTMLButtonElement
       hideBtn.addEventListener('click', (e) => {
         e.preventDefault()
         state.markHidden(postId)

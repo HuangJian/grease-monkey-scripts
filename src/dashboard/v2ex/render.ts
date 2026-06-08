@@ -22,18 +22,18 @@ function sourceBadge(topic: V2exTopic): { icon: string; title: string } | null {
 function buildTopicItemHtml(topic: V2exTopic, state: V2exState): string {
   const badge = sourceBadge(topic)
   const sourceAttrs = badge ? ` title="${badge.title}"` : ''
-  const readClass = state.isRead(topic.id) ? ' gm-sp-v2ex-read' : ''
-  const titleHtml = `<a class="gm-sp-v2ex-title" href="${escapeUrl(topic.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(topic.title)}</a>`
+  const readClass = state.isRead(topic.id) ? ' gm-sp-item-read' : ''
+  const titleHtml = `<a class="gm-sp-item-title" href="${escapeUrl(topic.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(topic.title)}</a>`
   const authorText = topic.member.username ? `@${escapeHtml(topic.member.username)}` : ''
-  return `<li class="gm-sp-v2ex-item${readClass}" data-topic-id="${topic.id}">
+  return `<li class="gm-sp-list-item gm-sp-list-item-flex${readClass}" data-topic-id="${topic.id}">
       <span class="gm-sp-v2ex-source"${sourceAttrs}>${badge?.icon ?? ''}</span>
-      <span class="gm-sp-v2ex-count" title="回复数">${topic.replies}</span>
+      <span class="gm-sp-item-count" title="回复数">${topic.replies}</span>
       ${titleHtml}
-      <span class="gm-sp-v2ex-meta">
+      <span class="gm-sp-item-meta">
         <span class="gm-sp-v2ex-node">${escapeHtml(topic.node.title)}</span>
         <span class="gm-sp-v2ex-author">${authorText}</span>
       </span>
-      <button class="gm-sp-v2ex-hide" title="隐藏该主题">×</button>
+      <button class="gm-sp-item-hide" title="隐藏该主题">×</button>
     </li>`
 }
 
@@ -50,15 +50,15 @@ export function renderV2ex(
     return
   }
   const listHtml = visible.map((t) => buildTopicItemHtml(t, state)).join('')
-  container.insertAdjacentHTML('beforeend', `<ol class="gm-sp-v2ex-list">${listHtml}</ol>`)
-  container.querySelectorAll<HTMLElement>('.gm-sp-v2ex-item').forEach((item) => {
+  container.insertAdjacentHTML('beforeend', `<ol class="gm-sp-list">${listHtml}</ol>`)
+  container.querySelectorAll<HTMLElement>('.gm-sp-list-item').forEach((item) => {
     const topicId = Number(item.dataset['topicId']!)
-    const link = item.querySelector('.gm-sp-v2ex-title') as HTMLAnchorElement
+    const link = item.querySelector('.gm-sp-item-title') as HTMLAnchorElement
     link.addEventListener('click', () => {
       state.markRead(topicId)
-      item.classList.add('gm-sp-v2ex-read')
+      item.classList.add('gm-sp-item-read')
     })
-    const hideBtn = item.querySelector('.gm-sp-v2ex-hide') as HTMLButtonElement
+    const hideBtn = item.querySelector('.gm-sp-item-hide') as HTMLButtonElement
     hideBtn.addEventListener('click', (e) => {
       e.preventDefault()
       state.markHidden(topicId)

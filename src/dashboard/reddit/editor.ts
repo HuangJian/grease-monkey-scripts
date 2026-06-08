@@ -21,59 +21,59 @@ async function renderRedditEditor(
 
   container.insertAdjacentHTML(
     'beforeend',
-    `<div class="gm-sp-reddit-editor">
-      <div class="gm-sp-reddit-editor-section">
-        <div class="gm-sp-reddit-editor-label">Subreddit 列表</div>
+    `<div class="gm-sp-editor">
+      <div class="gm-sp-editor-section">
+        <div class="gm-sp-editor-label">Subreddit 列表</div>
         <div class="gm-sp-re-list"></div>
-        <div class="gm-sp-re-add-row">
-          <input type="text" class="gm-sp-re-input" placeholder="r/funny 或 funny" />
-          <button type="button" class="gm-sp-re-add">添加</button>
+        <div class="gm-sp-editor-add-row">
+          <input type="text" class="gm-sp-editor-input" placeholder="r/funny 或 funny" />
+          <button type="button" class="gm-sp-editor-btn gm-sp-re-add">添加</button>
         </div>
       </div>
-      <div class="gm-sp-reddit-editor-form">
-        <label class="gm-sp-reddit-editor-row">
+      <div class="gm-sp-editor-form">
+        <label class="gm-sp-editor-row">
           <span>TTL（分钟）</span>
           <input type="number" min="1" step="1" class="gm-sp-re-ttl" />
         </label>
-        <label class="gm-sp-reddit-editor-row">
+        <label class="gm-sp-editor-row">
           <span>最少条数</span>
           <input type="number" min="1" step="1" class="gm-sp-re-min" />
         </label>
-        <label class="gm-sp-reddit-editor-row">
+        <label class="gm-sp-editor-row">
           <span>最多条数</span>
           <input type="number" min="1" step="1" class="gm-sp-re-max" />
         </label>
-        <label class="gm-sp-reddit-editor-row">
+        <label class="gm-sp-editor-row">
           <span>每 sub 至少 N 条</span>
           <input type="number" min="0" step="1" class="gm-sp-re-minpersub" />
         </label>
-        <label class="gm-sp-reddit-editor-row">
+        <label class="gm-sp-editor-row">
           <span>显示比例</span>
           <input type="number" min="0" max="1" step="0.01" class="gm-sp-re-ratio" />
         </label>
-        <label class="gm-sp-reddit-editor-row">
+        <label class="gm-sp-editor-row">
           <span>拐点跌幅</span>
           <input type="number" min="0" max="1" step="0.01" class="gm-sp-re-elbow" />
         </label>
-        <label class="gm-sp-reddit-editor-row">
+        <label class="gm-sp-editor-row">
           <span>最低分数</span>
           <input type="number" min="0" step="1" class="gm-sp-re-cutoff" />
         </label>
-        <label class="gm-sp-reddit-editor-row">
+        <label class="gm-sp-editor-row">
           <span>衰减半衰期（天）</span>
           <input type="number" min="0.1" max="30" step="0.1" class="gm-sp-re-half-life" />
         </label>
       </div>
-      <div class="gm-sp-re-error" hidden></div>
-      <div class="gm-sp-reddit-editor-actions">
-        <button type="button" class="gm-sp-re-save gm-sp-primary">保存</button>
-        <button type="button" class="gm-sp-re-cancel">取消</button>
+      <div class="gm-sp-editor-error" hidden></div>
+      <div class="gm-sp-editor-actions">
+        <button type="button" class="gm-sp-editor-btn gm-sp-editor-btn-primary gm-sp-re-save">保存</button>
+        <button type="button" class="gm-sp-editor-btn gm-sp-re-cancel">取消</button>
       </div>
     </div>`,
   )
 
   const listEl = container.querySelector('.gm-sp-re-list') as HTMLDivElement
-  const inputEl = container.querySelector('.gm-sp-re-input') as HTMLInputElement
+  const inputEl = container.querySelector('.gm-sp-editor-input') as HTMLInputElement
   const addBtn = container.querySelector('.gm-sp-re-add') as HTMLButtonElement
   const ttlInput = container.querySelector('.gm-sp-re-ttl') as HTMLInputElement
   const minInput = container.querySelector('.gm-sp-re-min') as HTMLInputElement
@@ -83,7 +83,7 @@ async function renderRedditEditor(
   const elbowInput = container.querySelector('.gm-sp-re-elbow') as HTMLInputElement
   const cutoffInput = container.querySelector('.gm-sp-re-cutoff') as HTMLInputElement
   const halfLifeInput = container.querySelector('.gm-sp-re-half-life') as HTMLInputElement
-  const errorEl = container.querySelector('.gm-sp-re-error') as HTMLDivElement
+  const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
   const saveBtn = container.querySelector('.gm-sp-re-save') as HTMLButtonElement
   const cancelBtn = container.querySelector('.gm-sp-re-cancel') as HTMLButtonElement
 
@@ -108,12 +108,12 @@ async function renderRedditEditor(
       subs.push(...next)
     },
     renderChip: (name, i) =>
-      `<div class="gm-sp-re-chip" data-index="${i}">
-          <span class="gm-sp-re-chip-drag" title="拖动重排">⋮⋮</span>
-          <span class="gm-sp-re-chip-label">r/${escapeHtml(name)}</span>
-          <button type="button" class="gm-sp-re-chip-remove" aria-label="remove">×</button>
+      `<div class="gm-sp-editor-chip" data-index="${i}">
+          <span class="gm-sp-editor-chip-drag" title="拖动重排">⋮⋮</span>
+          <span class="gm-sp-editor-chip-label">r/${escapeHtml(name)}</span>
+          <button type="button" class="gm-sp-editor-chip-remove" aria-label="remove">×</button>
         </div>`,
-    removeSelector: '.gm-sp-re-chip-remove',
+    removeSelector: '.gm-sp-editor-chip-remove',
     tryAdd: () => {
       const normalized = normalizeSubredditName(inputEl.value)
       if (!normalized) return { ok: false, error: '请输入有效的 subreddit 名称' }
@@ -123,11 +123,11 @@ async function renderRedditEditor(
     showError: (msg) => error.show(msg),
     clearError: () => error.clear(),
     emptyText: '尚未添加 subreddit',
-    emptyClass: 'gm-sp-re-empty',
+    emptyClass: 'gm-sp-editor-empty',
     draggable: true,
-    dragHandleSelector: '.gm-sp-re-chip-drag',
-    chipSelector: '.gm-sp-re-chip',
-    draggingClass: 'gm-sp-re-chip-dragging',
+    dragHandleSelector: '.gm-sp-editor-chip-drag',
+    chipSelector: '.gm-sp-editor-chip',
+    draggingClass: 'gm-sp-editor-chip-dragging',
   })
 
   cancelBtn.addEventListener('click', () => {
