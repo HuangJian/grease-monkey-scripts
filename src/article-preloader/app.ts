@@ -11,6 +11,16 @@ type ChapterResult = {
   nextChapterUrl: string
 }
 
+function isEndOfStory(nextUrl: string, selectors: Selectors, baseUrl: string): boolean {
+  const indexLink = selectors.indexLinkSelector()
+  const indexUrl = indexLink ? indexLink.getAttribute('href') || '' : ''
+  return (
+    !!indexUrl &&
+    toAbsoluteUrl(nextUrl, baseUrl).replace(/#.*/, '') ===
+      toAbsoluteUrl(indexUrl, baseUrl).replace(/#.*/, '')
+  )
+}
+
 function fetchPage(
   runtime: Runtime,
   url: string,
@@ -211,7 +221,7 @@ export function startArticlePreloader(runtime: Runtime) {
           const link = selectors.nextChapterLinkSelector()
           if (link) {
             link.setAttribute('href', nextUrl)
-            link.textContent = '下一章'
+            link.textContent = isEndOfStory(nextUrl, selectors, currentUrl) ? '今日文尽' : '下一章'
           }
         }
 
@@ -252,6 +262,12 @@ export function startArticlePreloader(runtime: Runtime) {
     runtime.document.documentElement.innerHTML = nextChapterContent
     runtime.document.defaultView?.history.pushState(null, '', nextChapterUrl)
     runtime.document.defaultView?.scrollTo(0, 0)
+
+    const nextLink = selectors.nextChapterLinkSelector()
+    if (nextLink && isEndOfStory(nextLink.getAttribute('href') || '', selectors, nextChapterUrl)) {
+      nextLink.textContent = '今日文尽'
+    }
+
     preloadNextChapter()
   }
 
@@ -272,7 +288,10 @@ export function startArticlePreloader(runtime: Runtime) {
       ({ html, url }) => {
         nextChapterContent = html
         nextChapterUrl = url
-        nextChapterLink.insertAdjacentHTML('afterend', '<a style="cursor: pointer">下一章</a>')
+        const linkText = isEndOfStory(nextChapterUrl, selectors, runtime.location.href)
+          ? '今日文尽'
+          : '下一章'
+        nextChapterLink.insertAdjacentHTML('afterend', `<a style="cursor: pointer">${linkText}</a>`)
         const newLink = nextChapterLink.nextElementSibling as HTMLElement
         newLink.addEventListener('click', () => displayNextChapter())
         nextChapterLink.replaceWith(newLink)
