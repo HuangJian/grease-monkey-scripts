@@ -21,7 +21,7 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
     title: 'Reddit 热帖',
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
-    order: 2,
+    order: 3,
     async fetch(runtime, _prevData) {
       runtimeRef = runtime
       const fresh = await loadFreshRedditOptions(runtime, options)

@@ -12,6 +12,7 @@ import type { TnewsItem, TnewsSourceOptions } from './types'
 export type TnewsHandle = {
   source: Source<TnewsItem[]>
   state: TnewsState
+  initRuntime(runtime: Runtime): Promise<void>
 }
 
 export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
@@ -22,7 +23,7 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
     title: '竹新社',
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
-    order: 3,
+    order: 1,
     getTabLabel(data) {
       return tnewsTabLabel(data, state)
     },
@@ -62,15 +63,22 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
       return visible
     },
     render(container, data) {
-      if (!runtimeRef) return
       console.debug('[gm-tnews] render items=', data?.length ?? 0)
-      renderTnews(container, data, state, runtimeRef, Date.now())
+      renderTnews(container, data, state, runtimeRef!, Date.now())
     },
     createEditor() {
       return createTnewsEditor(options)
     },
   }
-  return { source, state }
+  const handle: TnewsHandle = {
+    source,
+    state,
+    async initRuntime(runtime) {
+      runtimeRef = runtime
+      await state.loadFromStorage(runtime)
+    },
+  }
+  return handle
 }
 
 export function tnewsTabLabel(data: TnewsItem[] | null, state: TnewsState): TabLabel {

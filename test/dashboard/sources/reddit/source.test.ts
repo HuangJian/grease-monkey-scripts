@@ -52,7 +52,7 @@ describe('createRedditSource', () => {
     expect(source.id).toBe('reddit')
     expect(source.title).toBe('Reddit 热帖')
     expect(source.groupId).toBe('browse')
-    expect(source.order).toBe(2)
+    expect(source.order).toBe(3)
     expect(source.ttlMs).toBe(30 * 60_000)
     expect(typeof source.createEditor).toBe('function')
   })

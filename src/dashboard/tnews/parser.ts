@@ -166,6 +166,20 @@ function sanitizeNode(node: Element): void {
       continue
     }
     sanitizeAttrs(el, tag)
+    if (
+      tag === 'img' &&
+      el.hasAttribute('src') &&
+      el.parentNode &&
+      (el.parentNode as Element).tagName?.toLowerCase() !== 'a'
+    ) {
+      const src = el.getAttribute('src')!
+      const anchor = el.ownerDocument!.createElement('a')
+      anchor.setAttribute('href', src)
+      anchor.setAttribute('target', '_blank')
+      anchor.setAttribute('rel', 'noopener noreferrer')
+      el.parentNode.replaceChild(anchor, el)
+      anchor.appendChild(el)
+    }
   }
 }
 
@@ -182,9 +196,6 @@ function sanitizeAttrs(el: Element, tag: string): void {
       }
     }
     if (tag === 'img') {
-      if (name === 'width' || name === 'height') {
-        el.removeAttribute(attr.name)
-      }
       if (name === 'src' && DANGEROUS_HREF_PREFIXES.test(attr.value)) {
         el.removeAttribute(attr.name)
       }

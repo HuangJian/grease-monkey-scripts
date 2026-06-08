@@ -16,7 +16,7 @@ export function createNovelsSource(
     title: '网文更新',
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
-    order: 1,
+    order: 2,
     getTabLabel(data) {
       return novelsTabLabel(data)
     },

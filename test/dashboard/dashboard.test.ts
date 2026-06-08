@@ -138,7 +138,7 @@ describe('createDashboard', () => {
     const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
     const tabs = browseCard.querySelectorAll('.gm-sp-tab')
     expect(tabs[0]!.classList.contains('gm-sp-tab-active')).toBe(true)
-    const badge = tabs[1]!.querySelector('.gm-sp-tab-badge') as HTMLElement
+    const badge = tabs[2]!.querySelector('.gm-sp-tab-badge') as HTMLElement
     expect(badge.hidden).toBe(false)
     expect(badge.textContent).toBe('1')
   })

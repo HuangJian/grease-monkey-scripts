@@ -128,15 +128,15 @@ describe('sanitizeHtml', () => {
     const out = sanitizeHtml('<p style="color:red">x</p>', parser)
     expect(out).toBe('<p>x</p>')
   })
-  test('keeps img src and alt; strips width/height/style', () => {
+  test('keeps img src, alt, width, height; strips style', () => {
     const out = sanitizeHtml(
       '<img src="https://x/a.jpg" width="100" height="50" style="border:0" alt="hi"/>',
       parser,
     )
     expect(out).toContain('src="https://x/a.jpg"')
     expect(out).toContain('alt="hi"')
-    expect(out).not.toContain('width=')
-    expect(out).not.toContain('height=')
+    expect(out).toContain('width="100"')
+    expect(out).toContain('height="50"')
     expect(out).not.toContain('style=')
   })
   test('removes javascript: and data: and vbscript: hrefs', () => {
@@ -157,6 +157,20 @@ describe('sanitizeHtml', () => {
     const out = sanitizeHtml('<weird><span>kept</span></weird>', parser)
     expect(out).toContain('kept')
     expect(out).not.toContain('<weird')
+  })
+  test('wraps img in anchor with src as href', () => {
+    const out = sanitizeHtml('<img src="https://x/a.jpg"/>', parser)
+    expect(out).toBe('<a href="https://x/a.jpg" target="_blank" rel="noopener noreferrer"><img src="https://x/a.jpg"></a>')
+  })
+  test('does not wrap img that is already inside an anchor', () => {
+    const out = sanitizeHtml('<a href="https://y"><img src="https://x/a.jpg"/></a>', parser)
+    expect(out).toBe('<a href="https://y" target="_blank" rel="noopener noreferrer"><img src="https://x/a.jpg"></a>')
+  })
+
+  test('keeps img width and height', () => {
+    const out = sanitizeHtml('<img src="https://x/a.jpg" width="200" height="100"/>', parser)
+    expect(out).toContain('width="200"')
+    expect(out).toContain('height="100"')
   })
 })
 
