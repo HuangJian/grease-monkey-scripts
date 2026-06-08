@@ -3,6 +3,7 @@ import { JSDOM } from 'jsdom'
 import { createV2exSource } from '../../../../src/dashboard/v2ex/source'
 import type { V2exSourceOptions, V2exTopic } from '../../../../src/dashboard/v2ex/types'
 import type { RequestDetails } from '../../../../src/runtime'
+import { STATE_KEY } from '../../../../src/dashboard/types'
 import { createRuntime, type TestRuntime } from '../../../runtime'
 
 const DEFAULTS: V2exSourceOptions = {
@@ -76,7 +77,7 @@ describe('createV2exSource', () => {
     const source = createV2exSource({ ...DEFAULTS, minItems: 0, maxItems: 0 })
     const result = await source.fetch(runtime, undefined)
     expect(result).toEqual([])
-    const stored = runtime.stores['gm:v2ex:topic-state']
+    const stored = runtime.stores[STATE_KEY('v2ex')]
     expect(stored).toBeDefined()
   })
 
@@ -104,7 +105,7 @@ describe('createV2exSource', () => {
         }
       },
     }
-    runtime.stores['gm:v2ex:topic-state'] = { '7': { h: Date.now() } }
+    runtime.stores[STATE_KEY('v2ex')] = { '7': { h: Date.now() } }
     const source = createV2exSource({ ...DEFAULTS, minItems: 1, maxItems: 1 })
     const result = await source.fetch(runtime, undefined)
     expect(result).toEqual([])

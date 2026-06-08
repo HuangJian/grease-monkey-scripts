@@ -1,5 +1,3 @@
-export const STATE_KEY = 'gm:tnews:topic-state'
-export const STATE_TTL = 7 * 24 * 60 * 60 * 1000
 export const RETENTION_MS = 7 * 24 * 60 * 60 * 1000
 export const RSSHUB_HOST = 'rsshub.app'
 export const TITLE_FALLBACK_MAX_CHARS = 60

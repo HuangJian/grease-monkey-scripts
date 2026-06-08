@@ -1,9 +1,9 @@
 import type { Runtime } from '../../runtime'
-import { CACHE_KEY, type CachedSource } from '../types'
-import { STATE_KEY, STATE_TTL } from './constants'
+import { STATE_KEY } from '../types'
+import { createItemState, type ItemState, removeItemFromCacheById } from '../item-state'
 import type { TnewsItem } from './types'
 
-type StoredEntry = { r?: number; h?: number }
+const STATE_TTL = 7 * 24 * 60 * 60 * 1000
 
 export type TnewsState = {
   isRead(id: string): boolean
@@ -21,31 +21,28 @@ export type TnewsState = {
 }
 
 export function createTnewsState(): TnewsState {
-  const readAt = new Map<string, number>()
-  const hiddenAt = new Map<string, number>()
+  const itemState: ItemState<string> = createItemState<string>({
+    storageKey: STATE_KEY('tnews'),
+    ttlMs: STATE_TTL,
+    oldStorageKey: 'gm:tnews:topic-state',
+  })
   const expandedAt = new Map<string, number>()
-
-  function expire(now: number, map: Map<string, number>): void {
-    for (const [k, ts] of map) {
-      if (now - ts >= STATE_TTL) map.delete(k)
-    }
-  }
 
   return {
     isRead(id) {
-      return readAt.has(id)
+      return itemState.isRead(id)
     },
     isHidden(id) {
-      return hiddenAt.has(id)
+      return itemState.isHidden(id)
     },
-    markRead(id, ts = Date.now()) {
-      readAt.set(id, ts)
+    markRead(id, ts) {
+      itemState.markRead(id, ts)
     },
-    markHidden(id, ts = Date.now()) {
-      hiddenAt.set(id, ts)
+    markHidden(id, ts) {
+      itemState.markHidden(id, ts)
     },
     filterVisible(items) {
-      return items.filter((it) => !hiddenAt.has(it.id))
+      return itemState.filterVisible(items)
     },
     isExpanded(id) {
       return expandedAt.has(id)
@@ -63,58 +60,16 @@ export function createTnewsState(): TnewsState {
       else expandedAt.delete(id)
     },
     async loadFromStorage(runtime) {
-      try {
-        const stored = await runtime.getValue<Record<string, StoredEntry> | null>(STATE_KEY, null)
-        const now = Date.now()
-        if (stored) {
-          for (const [id, entry] of Object.entries(stored)) {
-            if (entry.r && now - entry.r < STATE_TTL && !readAt.has(id)) {
-              readAt.set(id, entry.r)
-            }
-            if (entry.h && now - entry.h < STATE_TTL && !hiddenAt.has(id)) {
-              hiddenAt.set(id, entry.h)
-            }
-          }
-        }
-        expire(now, readAt)
-        expire(now, hiddenAt)
-      } catch {
-        /* ignore */
-      }
+      await itemState.loadFromStorage(runtime)
     },
     async saveToStorage(runtime) {
-      const now = Date.now()
-      const obj: Record<string, StoredEntry> = {}
-      for (const [id, ts] of readAt) {
-        if (now - ts < STATE_TTL) {
-          obj[id] = { r: ts }
-        }
-      }
-      for (const [id, ts] of hiddenAt) {
-        if (now - ts < STATE_TTL) {
-          const prev = obj[id]
-          obj[id] = prev ? { ...prev, h: ts } : { h: ts }
-        }
-      }
-      await runtime.setValue(STATE_KEY, obj)
+      await itemState.saveToStorage(runtime)
     },
     async removeFromCache(runtime, id) {
-      try {
-        const cached = await runtime.getValue<CachedSource<TnewsItem[]> | null>(
-          CACHE_KEY('tnews'),
-          null,
-        )
-        if (!cached?.data || !Array.isArray(cached.data)) return
-        const filtered = cached.data.filter((it) => it.id !== id)
-        if (filtered.length === cached.data.length) return
-        await runtime.setValue(CACHE_KEY('tnews'), { ...cached, data: filtered })
-      } catch {
-        /* ignore */
-      }
+      await removeItemFromCacheById<TnewsItem>(runtime, 'tnews', id)
     },
     clear() {
-      readAt.clear()
-      hiddenAt.clear()
+      itemState.clear()
       expandedAt.clear()
     },
   }

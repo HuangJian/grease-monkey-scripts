@@ -1,7 +1,10 @@
-import { CACHE_KEY, type CachedSource } from '../types'
+import { CACHE_KEY, STATE_KEY, type CachedSource } from '../types'
 import type { Runtime } from '../../runtime'
-import { HISTORY_KEY, TOPIC_STATE_KEY, TOPIC_STATE_TTL } from './constants'
+import { createItemState, type ItemState } from '../item-state'
+import { HISTORY_KEY } from './constants'
 import type { RedditPost, StoredHistoryPost } from './types'
+
+const TOPIC_STATE_TTL = 72 * 60 * 60 * 1000
 
 export type RedditState = {
   isRead(id: string): boolean
@@ -26,65 +29,34 @@ function unionUnique(a: ReadonlyArray<string>, b: ReadonlyArray<string>): string
 }
 
 export function createRedditState(): RedditState {
-  const readAt = new Map<string, number>()
-  const hiddenAt = new Map<string, number>()
+  const itemState: ItemState<string> = createItemState<string>({
+    storageKey: STATE_KEY('reddit'),
+    ttlMs: TOPIC_STATE_TTL,
+    oldStorageKey: 'gm:reddit:topic-state',
+  })
   let cachedHistory: StoredHistoryPost[] | null = null
 
   return {
     isRead(id) {
-      return readAt.has(id)
+      return itemState.isRead(id)
     },
     isHidden(id) {
-      return hiddenAt.has(id)
+      return itemState.isHidden(id)
     },
-    markRead(id, ts = Date.now()) {
-      readAt.set(id, ts)
+    markRead(id, ts) {
+      itemState.markRead(id, ts)
     },
-    markHidden(id, ts = Date.now()) {
-      hiddenAt.set(id, ts)
+    markHidden(id, ts) {
+      itemState.markHidden(id, ts)
     },
     filterVisible(posts) {
-      return posts.filter((p) => !hiddenAt.has(p.id))
+      return itemState.filterVisible(posts)
     },
     async loadFromStorage(runtime) {
-      const stored = await runtime.getValue<Record<string, { r?: number; h?: number }> | null>(
-        TOPIC_STATE_KEY,
-        null,
-      )
-      const now = Date.now()
-      if (stored) {
-        for (const [idStr, entry] of Object.entries(stored)) {
-          const id = idStr
-          if (entry.r && now - entry.r < TOPIC_STATE_TTL && !readAt.has(id)) {
-            readAt.set(id, entry.r)
-          }
-          if (entry.h && now - entry.h < TOPIC_STATE_TTL && !hiddenAt.has(id)) {
-            hiddenAt.set(id, entry.h)
-          }
-        }
-      }
-      for (const [id, ts] of readAt) {
-        if (now - ts >= TOPIC_STATE_TTL) readAt.delete(id)
-      }
-      for (const [id, ts] of hiddenAt) {
-        if (now - ts >= TOPIC_STATE_TTL) hiddenAt.delete(id)
-      }
+      await itemState.loadFromStorage(runtime)
     },
     async saveToStorage(runtime) {
-      const now = Date.now()
-      const obj: Record<string, { r?: number; h?: number }> = {}
-      for (const [id, ts] of readAt) {
-        if (now - ts < TOPIC_STATE_TTL) {
-          obj[id] = { r: ts }
-        }
-      }
-      for (const [id, ts] of hiddenAt) {
-        if (now - ts < TOPIC_STATE_TTL) {
-          const prev = obj[id]
-          obj[id] = prev ? { ...prev, h: ts } : { h: ts }
-        }
-      }
-      await runtime.setValue(TOPIC_STATE_KEY, obj)
+      await itemState.saveToStorage(runtime)
     },
     async loadHistory(runtime) {
       if (cachedHistory) return cachedHistory
@@ -175,8 +147,7 @@ export function createRedditState(): RedditState {
       }
     },
     clear() {
-      readAt.clear()
-      hiddenAt.clear()
+      itemState.clear()
       cachedHistory = null
     },
   }

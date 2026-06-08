@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { JSDOM } from 'jsdom'
-import { CACHE_KEY, CACHE_SCHEMA_VERSION, type CachedSource } from '../../../../src/dashboard/types'
+import {
+  CACHE_KEY,
+  CACHE_SCHEMA_VERSION,
+  STATE_KEY,
+  type CachedSource,
+} from '../../../../src/dashboard/types'
 import { createExpandCollapse } from '../../../../src/dashboard/reddit/expand-collapse'
 import { renderReddit } from '../../../../src/dashboard/reddit/render'
 import { createRedditState, type RedditState } from '../../../../src/dashboard/reddit/state'
@@ -202,7 +207,7 @@ describe('renderReddit hide button', () => {
     expect(container.querySelectorAll('.gm-sp-reddit-item')).toHaveLength(1)
     expect(state.isHidden('a1')).toBe(true)
     await new Promise<void>((r) => setTimeout(r, 0))
-    const stored = runtime.stores['gm:reddit:topic-state'] as Record<string, { h?: number }>
+    const stored = runtime.stores[STATE_KEY('reddit')] as Record<string, { h?: number }>
     expect(stored['a1']?.h).toBeGreaterThan(0)
     const cache = runtime.stores[CACHE_KEY('reddit')] as CachedSource<Record<string, RedditPost[]>>
     const aww = cache.data!['aww']!

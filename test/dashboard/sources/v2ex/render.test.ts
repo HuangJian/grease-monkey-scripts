@@ -4,6 +4,7 @@ import { renderV2ex } from '../../../../src/dashboard/v2ex/render'
 import { createV2exState } from '../../../../src/dashboard/v2ex/state'
 import type { V2exTopic } from '../../../../src/dashboard/v2ex/types'
 import type { Runtime } from '../../../../src/runtime'
+import { STATE_KEY } from '../../../../src/dashboard/types'
 import { createRuntime, type TestRuntime } from '../../../runtime'
 
 const FIXTURE: V2exTopic[] = [
@@ -142,7 +143,7 @@ describe('renderV2ex', () => {
     expect(container.querySelectorAll('.gm-sp-v2ex-item')).toHaveLength(2)
     expect(state.isHidden(1)).toBe(true)
     await new Promise<void>((r) => setTimeout(r, 0))
-    const stored = runtime.stores['gm:v2ex:topic-state'] as Record<string, { h?: number }>
+    const stored = runtime.stores[STATE_KEY('v2ex')] as Record<string, { h?: number }>
     expect(stored['1']?.h).toBeGreaterThan(0)
   })
 

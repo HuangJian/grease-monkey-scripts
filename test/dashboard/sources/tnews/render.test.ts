@@ -82,7 +82,7 @@ describe('renderTnews', () => {
     expect(state.isExpanded('https://t.me/a/1')).toBe(false)
   })
 
-  test('click on row does not mark as read', () => {
+  test('click on row marks as read', () => {
     const dom = makeDom()
     const state = createTnewsState()
     const runtime = makeRuntime(dom)
@@ -92,8 +92,8 @@ describe('renderTnews', () => {
     const li = root.querySelector<HTMLElement>('.gm-sp-tnews-item')!
     const row = li.querySelector<HTMLElement>('.gm-sp-tnews-row')!
     row.click()
-    expect(state.isRead('https://t.me/a/1')).toBe(false)
-    expect(li.classList.contains('gm-sp-tnews-read')).toBe(false)
+    expect(state.isRead('https://t.me/a/1')).toBe(true)
+    expect(li.classList.contains('gm-sp-tnews-read')).toBe(true)
     expect(li.classList.contains('gm-sp-tnews-item-expanded')).toBe(true)
   })
 

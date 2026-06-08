@@ -53,6 +53,18 @@ function applyItemExpanded(li: HTMLElement, expanded: boolean): void {
   li.classList.toggle('gm-sp-tnews-item-expanded', expanded)
 }
 
+function updateBadge(container: HTMLElement): void {
+  const card = container.closest('.gm-sp-card')
+  if (!card) return
+  const badge = card.querySelector<HTMLElement>('.gm-sp-tab[data-tab-id="tnews"] .gm-sp-tab-badge')
+  if (!badge) return
+  const unread = container.querySelectorAll<HTMLElement>(
+    '.gm-sp-tnews-item:not(.gm-sp-tnews-read)',
+  ).length
+  badge.textContent = String(unread)
+  badge.hidden = unread === 0
+}
+
 export function renderTnews(
   container: HTMLElement,
   items: TnewsItem[] | null,
@@ -73,6 +85,9 @@ export function renderTnews(
     const hideBtn = li.querySelector<HTMLButtonElement>('.gm-sp-tnews-hide')!
     row.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).closest('.gm-sp-tnews-hide')) return
+      state.markRead(id)
+      li.classList.add('gm-sp-tnews-read')
+      updateBadge(container)
       container.querySelectorAll<HTMLElement>('.gm-sp-tnews-item').forEach((otherLi) => {
         if (otherLi !== li) {
           const otherId = otherLi.dataset['itemId']!
@@ -87,7 +102,10 @@ export function renderTnews(
       e.stopPropagation()
       state.markHidden(id)
       li.remove()
-      if (runtime) void state.removeFromCache(runtime, id)
+      if (runtime) {
+        void state.saveToStorage(runtime)
+        void state.removeFromCache(runtime, id)
+      }
     })
   })
 }

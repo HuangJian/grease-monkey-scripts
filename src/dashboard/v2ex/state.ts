@@ -1,9 +1,9 @@
 import type { Runtime } from '../../runtime'
-import { CACHE_KEY, type CachedSource } from '../types'
+import { CACHE_KEY, STATE_KEY, type CachedSource } from '../types'
+import { createItemState, type ItemState } from '../item-state'
 import { TOPICS_HISTORY_TTL } from './constants'
 import type { V2exTopic } from './types'
 
-const TOPIC_STATE_KEY = 'gm:v2ex:topic-state'
 const TOPIC_STATE_TTL = 72 * 60 * 60 * 1000
 const TOPICS_HISTORY_KEY = 'gm:v2ex:topics-history'
 const OLD_API_TOPICS_KEY = 'gm:v2ex:api-topics'
@@ -44,66 +44,37 @@ export type V2exState = {
 }
 
 export function createV2exState(): V2exState {
-  const readAt = new Map<number, number>()
-  const hiddenAt = new Map<number, number>()
+  const itemState: ItemState<number> = createItemState<number>({
+    storageKey: STATE_KEY('v2ex'),
+    ttlMs: TOPIC_STATE_TTL,
+    oldStorageKey: 'gm:v2ex:topic-state',
+    serializeId: String,
+    deserializeId: Number,
+  })
   let cachedHistory: StoredHistoryTopic[] | null = null
   let migrationDone = false
 
   return {
     isRead(id) {
-      return readAt.has(id)
+      return itemState.isRead(id)
     },
     isHidden(id) {
-      return hiddenAt.has(id)
+      return itemState.isHidden(id)
     },
-    markRead(id, ts = Date.now()) {
-      readAt.set(id, ts)
+    markRead(id, ts) {
+      itemState.markRead(id, ts)
     },
-    markHidden(id, ts = Date.now()) {
-      hiddenAt.set(id, ts)
+    markHidden(id, ts) {
+      itemState.markHidden(id, ts)
     },
     filterVisible(topics) {
-      return topics.filter((t) => !hiddenAt.has(t.id))
+      return itemState.filterVisible(topics)
     },
     async loadFromStorage(runtime) {
-      const stored = await runtime.getValue<Record<string, { r?: number; h?: number }> | null>(
-        TOPIC_STATE_KEY,
-        null,
-      )
-      const now = Date.now()
-      if (stored) {
-        for (const [idStr, entry] of Object.entries(stored)) {
-          const id = Number(idStr)
-          if (entry.r && now - entry.r < TOPIC_STATE_TTL && !readAt.has(id)) {
-            readAt.set(id, entry.r)
-          }
-          if (entry.h && now - entry.h < TOPIC_STATE_TTL && !hiddenAt.has(id)) {
-            hiddenAt.set(id, entry.h)
-          }
-        }
-      }
-      for (const [id, ts] of readAt) {
-        if (now - ts >= TOPIC_STATE_TTL) readAt.delete(id)
-      }
-      for (const [id, ts] of hiddenAt) {
-        if (now - ts >= TOPIC_STATE_TTL) hiddenAt.delete(id)
-      }
+      await itemState.loadFromStorage(runtime)
     },
     async saveToStorage(runtime) {
-      const now = Date.now()
-      const obj: Record<string, { r?: number; h?: number }> = {}
-      for (const [id, ts] of readAt) {
-        if (now - ts < TOPIC_STATE_TTL) {
-          obj[String(id)] = { r: ts }
-        }
-      }
-      for (const [id, ts] of hiddenAt) {
-        if (now - ts < TOPIC_STATE_TTL) {
-          const prev = obj[String(id)]
-          obj[String(id)] = prev ? { ...prev, h: ts } : { h: ts }
-        }
-      }
-      await runtime.setValue(TOPIC_STATE_KEY, obj)
+      await itemState.saveToStorage(runtime)
     },
     async loadHistory(runtime) {
       if (cachedHistory) return cachedHistory
@@ -196,8 +167,7 @@ export function createV2exState(): V2exState {
       }
     },
     clear() {
-      readAt.clear()
-      hiddenAt.clear()
+      itemState.clear()
       cachedHistory = null
     },
   }

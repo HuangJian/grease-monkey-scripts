@@ -3,6 +3,7 @@ import type { Runtime } from '../runtime'
 export const KEY_PREFIX = 'dashboard:v1'
 
 export const CACHE_KEY = (sourceId: string): string => `${KEY_PREFIX}:${sourceId}`
+export const STATE_KEY = (sourceId: string): string => `${KEY_PREFIX}:state:${sourceId}`
 export const LOCK_KEY = (sourceId: string): string => `${KEY_PREFIX}:lock:${sourceId}`
 export const CONFIG_KEY = `${KEY_PREFIX}:config`
 
