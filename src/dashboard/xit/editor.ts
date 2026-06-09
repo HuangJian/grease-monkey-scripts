@@ -32,6 +32,10 @@ export function createXitEditor(): SourceEditor {
 
     textarea.addEventListener('input', schedulePreview)
 
+    // Prevent keyboard events from bubbling to GitHub's shortcut handler
+    textarea.addEventListener('keydown', (e) => e.stopPropagation())
+    textarea.addEventListener('keyup', (e) => e.stopPropagation())
+
     // Scroll sync: textarea → preview
     textarea.addEventListener('scroll', () => {
       const ratio = textarea.scrollTop / (textarea.scrollHeight - textarea.clientHeight || 1)
