@@ -42,6 +42,9 @@ export function showEditorDialog(
   })
   const onKeydown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
+      const target = e.target as Element | null
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
       e.stopPropagation()
       close()
     }

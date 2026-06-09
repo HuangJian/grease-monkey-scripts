@@ -198,6 +198,10 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     }
     const onKeydown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (newHandle.root.querySelector('.gm-sp-editor-dialog')) return
+        const target = e.target as Element | null
+        const tag = target?.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return
         e.stopPropagation()
         dashboard.close()
       }

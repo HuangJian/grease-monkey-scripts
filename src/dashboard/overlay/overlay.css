@@ -68,7 +68,7 @@
 .gm-sp-cards {
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 2fr) minmax(512px, 1fr);
   gap: 12px;
   min-height: 0;
   overflow: hidden;
@@ -85,14 +85,19 @@
   overflow: hidden;
 }
 
+.gm-sp-cards-side {
+  min-width: 512px;
+}
+
 .gm-sp-cards-side > .gm-sp-card {
-  flex: 0 1 auto;
-  max-height: 50%;
+  flex: 0 0 auto;
 }
 
 .gm-sp-cards-side > .gm-sp-card[data-source='xit'] {
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  min-height: 0;
   max-height: none;
+  overflow: hidden;
 }
 
 .gm-sp-card {
