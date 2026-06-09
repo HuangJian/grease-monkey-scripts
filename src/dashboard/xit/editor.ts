@@ -4,10 +4,18 @@ import { renderXitPreview } from './render'
 import { DEFAULT_XIT_TEXT } from './source'
 import type { XitData } from './types'
 
+let pendingLineIndex: number | null = null
+
+export function setPendingLineIndex(index: number | null): void {
+  pendingLineIndex = index
+}
+
 export function createXitEditor(): SourceEditor {
   return async (container, ctx): Promise<SourceEditorResult> => {
     const cached = await loadCache<XitData>(ctx.runtime, 'xit')
     const currentText = cached?.data?.text ?? DEFAULT_XIT_TEXT
+    const targetLine = pendingLineIndex
+    pendingLineIndex = null
 
     container.classList.add('gm-sp-xit-editor-dual')
     container.insertAdjacentHTML(
@@ -44,6 +52,24 @@ export function createXitEditor(): SourceEditor {
 
     // Initial preview render
     renderXitPreview(preview, currentText)
+
+    // Scroll to target line if double-click triggered the editor
+    if (targetLine !== null) {
+      const textLines = currentText.split(/\r?\n/)
+      let charOffset = 0
+      for (let i = 0; i < Math.min(targetLine, textLines.length); i++) {
+        charOffset += textLines[i]!.length + 1
+      }
+      const lineEnd = charOffset + (textLines[targetLine]?.length ?? 0)
+
+      requestAnimationFrame(() => {
+        const style = getComputedStyle(textarea)
+        const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.5
+        textarea.scrollTop = targetLine * lineHeight - textarea.clientHeight / 2
+        textarea.setSelectionRange(charOffset, lineEnd)
+        textarea.focus()
+      })
+    }
 
     return {
       render() {

@@ -1,6 +1,7 @@
 import type { Runtime } from '../../runtime'
 import type { Source } from '../types'
-import { createXitEditor } from './editor'
+import { showEditorDialog } from '../overlay/editor'
+import { createXitEditor, setPendingLineIndex } from './editor'
 import { renderXit } from './render'
 import type { XitData } from './types'
 
@@ -50,7 +51,7 @@ export function createXitSource(
       }
       return { text: DEFAULT_XIT_TEXT }
     },
-    render(container, data) {
+    render(container, data, ctx) {
       renderXit(container, data, {
         onSaveText: (newText) => {
           const next = {
@@ -64,6 +65,25 @@ export function createXitSource(
             schemaVersion: 2,
             byteSize: new Blob([JSON.stringify(next)]).size,
           })
+        },
+        openEditor(lineIndex) {
+          if (ctx?.root && ctx?.runtime) {
+            setPendingLineIndex(lineIndex ?? null)
+            showEditorDialog(
+              container.ownerDocument,
+              ctx.root,
+              '<a href="https://xit.jotaen.net/" target="_blank" rel="noopener">[x]it! 语法规范</a>',
+              ctx.runtime,
+              async (dialogBody, dialogClose) => {
+                const editor = createXitEditor()
+                return editor(dialogBody, {
+                  runtime: ctx.runtime!,
+                  onRevert: () => {},
+                  close: dialogClose,
+                })
+              },
+            )
+          }
         },
       })
     },

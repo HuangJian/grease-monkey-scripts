@@ -78,6 +78,6 @@ export function renderTabsCard(container: HTMLElement, options: TabsCardOptions)
     const tab = group.tabs.find((t) => t.id === tabId)!
     const cached = caches.get(tabId) ?? null
     const data = cached?.data ?? null
-    tab.render(panel, data as never)
+    tab.render(panel, data as never, { root, runtime })
   })
 }

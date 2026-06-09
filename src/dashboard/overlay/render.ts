@@ -51,7 +51,7 @@ export function renderCard<T>(container: HTMLElement, options: CardOptions<T>): 
   })
 
   const data = (cached?.data ?? null) as T | null
-  source.render(chrome.body, data)
+  source.render(chrome.body, data, { root, runtime })
   if (source.customizeHeader) {
     source.customizeHeader(chrome.header.querySelector('.gm-sp-card-title')!, data)
   }

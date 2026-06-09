@@ -104,7 +104,11 @@ export type Source<T> = {
   readonly hideDefaultHeader?: boolean
   readonly dialogTitle?: string
   fetch(runtime: Runtime, prevData?: T): Promise<T>
-  render(container: HTMLElement, data: T | null): void
+  render(
+    container: HTMLElement,
+    data: T | null,
+    ctx?: { root?: ShadowRoot; runtime?: Runtime },
+  ): void
   loadState?(runtime: Runtime): Promise<void>
   customizeHeader?(titleContainer: HTMLElement, data: T | null): void
   createEditor?: () => SourceEditor

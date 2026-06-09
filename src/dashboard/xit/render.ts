@@ -64,10 +64,15 @@ function formatDueDateDisplay(dateStr: string): string {
   return dateStr
 }
 
+export type XitRenderOptions = {
+  onSaveText: (newText: string) => void
+  openEditor?: (lineIndex?: number) => void
+}
+
 export function renderXit(
   container: HTMLElement,
   data: XitData | null,
-  _options: { onSaveText: (newText: string) => void },
+  options: XitRenderOptions,
 ): void {
   const text = data?.text ?? ''
   const lines = parseXitText(text)
@@ -135,7 +140,7 @@ export function renderXit(
             errorEl.textContent = ''
             errorEl.classList.add('hidden')
           }
-          renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl)
+          renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl, options.openEditor)
         })
       }
 
@@ -161,7 +166,7 @@ export function renderXit(
             }
           }
 
-          renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl)
+          renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl, options.openEditor)
         })
       }
 
@@ -192,7 +197,7 @@ export function renderXit(
                 errorEl.textContent = ''
                 errorEl.classList.add('hidden')
               }
-              renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl)
+              renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl, options.openEditor)
             }
           })
         })
@@ -205,7 +210,7 @@ export function renderXit(
   const tagsEl = card?.querySelector('.gm-sp-xit-tags') as HTMLElement | null
   const searchInput = card?.querySelector('.gm-sp-xit-header-search') as HTMLInputElement | null
   const errorEl = card?.querySelector('.gm-sp-xit-error') as HTMLElement | null
-  renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl)
+  renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl, options.openEditor)
 }
 
 function renderListAndTags(
@@ -214,6 +219,7 @@ function renderListAndTags(
   tagsEl: HTMLElement | null,
   searchInput: HTMLInputElement | null,
   errorEl: HTMLElement | null,
+  openEditor?: (lineIndex?: number) => void,
 ): void {
   const state = getQueryState(wrapper)
   const listEl = wrapper.querySelector('.gm-sp-xit-list') as HTMLElement
@@ -277,7 +283,7 @@ function renderListAndTags(
           }
         }
 
-        renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl)
+        renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl, openEditor)
       })
     })
   } else if (tagsEl) {
@@ -323,6 +329,16 @@ function renderListAndTags(
   }
 
   listEl.innerHTML = linesToHtml(displayLines)
+
+  // Wire double-click on items to open editor at that line
+  listEl.querySelectorAll<HTMLElement>('.gm-sp-xit-item').forEach((itemEl) => {
+    itemEl.addEventListener('dblclick', () => {
+      const idx = Number(itemEl.dataset['lineIndex'])
+      if (!Number.isNaN(idx) && openEditor) {
+        openEditor(idx)
+      }
+    })
+  })
 }
 
 function getCheckboxChar(status: string): string {
@@ -402,7 +418,7 @@ function renderItemHtml(line: XitItem): string {
   const isCompleted = line.status === 'checked' || line.status === 'obsolete'
   const completedClass = isCompleted ? ' gm-sp-xit-item-completed' : ''
 
-  return `<div class="gm-sp-xit-item${completedClass}" data-status="${line.status}">
+  return `<div class="gm-sp-xit-item${completedClass}" data-status="${line.status}" data-line-index="${line.lineIndex}">
     <span class="gm-sp-xit-checkbox" data-status="${line.status}">${escapeHtml(checkboxChar)}</span>
     <div class="gm-sp-xit-content">${prioHtml}${desc}</div>
   </div>`
