@@ -29,6 +29,7 @@ import {
   reorderCommentsByHearts,
   scrollToComment,
 } from './thread-enhancements'
+import { addWiseCommentNavigator } from './wise-comment-navigator'
 
 export const authorTagsKeyword = 'author_tags'
 
@@ -158,6 +159,7 @@ export async function createV2exApp(runtime: Runtime) {
     addCollapseExpandButtons(runtime)
     addTagPanel()
     highlightCommentsAndTopics(runtime, authorTagMap)
+    addWiseCommentNavigator(runtime, authorTagMap)
     addTargetToTopicLinks(runtime)
     scrollToCommentByHash()
     console.log('[v2ex] enhanceThreadPage done')
