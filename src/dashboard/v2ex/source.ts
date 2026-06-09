@@ -41,6 +41,9 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
     render(container, data) {
       renderV2ex(container, data, state, runtimeRef)
     },
+    async loadState(runtime) {
+      await state.loadFromStorage(runtime)
+    },
     createEditor() {
       return createV2exEditor(options)
     },

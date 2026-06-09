@@ -92,6 +92,7 @@ export type Source<T> = {
   readonly getTabLabel?: (data: any) => TabLabel
   fetch(runtime: Runtime, prevData?: T): Promise<T>
   render(container: HTMLElement, data: T | null): void
+  loadState?(runtime: Runtime): Promise<void>
   customizeHeader?(titleContainer: HTMLElement, data: T | null): void
   createEditor?: () => SourceEditor
 }

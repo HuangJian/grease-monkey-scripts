@@ -66,6 +66,10 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
       console.debug('[gm-tnews] render items=', data?.length ?? 0)
       renderTnews(container, data, state, runtimeRef!, Date.now())
     },
+    async loadState(runtime) {
+      runtimeRef = runtime
+      await state.loadFromStorage(runtime)
+    },
     createEditor() {
       return createTnewsEditor(options)
     },

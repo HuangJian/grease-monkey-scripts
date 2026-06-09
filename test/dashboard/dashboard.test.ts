@@ -3,7 +3,12 @@ import { JSDOM } from 'jsdom'
 import { createDashboard, isHostAllowed } from '../../src/dashboard/dashboard'
 import { DEFAULT_CONFIG, validateConfig } from '../../src/dashboard/config'
 import { getMountedRoot } from '../../src/dashboard/overlay/mount'
-import { CACHE_KEY, CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/dashboard/types'
+import {
+  CACHE_KEY,
+  CACHE_SCHEMA_VERSION,
+  STATE_KEY,
+  type CachedSource,
+} from '../../src/dashboard/types'
 import { createRuntime, type TestRuntime } from '../runtime'
 
 function shadowOf(dom: JSDOM, id = 'gm-dashboard'): ShadowRoot {
@@ -77,6 +82,47 @@ describe('createDashboard', () => {
       '.gm-sp-tab-panel[data-tab-id="v2ex"]',
     ) as HTMLElement
     expect(v2exPanel.querySelector('.gm-sp-item-title')!.textContent).toBe('cached')
+  })
+
+  test('bugfix: open() applies read state from storage on initial render', async () => {
+    const v2exCache: CachedSource<unknown> = {
+      schemaVersion: CACHE_SCHEMA_VERSION,
+      data: [
+        {
+          id: 1,
+          title: 'topic-1',
+          url: 'https://x/t/1',
+          replies: 5,
+          member: { username: 'u' },
+          node: { title: 'n' },
+        },
+        {
+          id: 2,
+          title: 'topic-2',
+          url: 'https://x/t/2',
+          replies: 3,
+          member: { username: 'v' },
+          node: { title: 'm' },
+        },
+      ],
+      fetchedAt: Date.now() - 60_000,
+      byteSize: 100,
+    }
+    runtime.stores[CACHE_KEY('v2ex')] = v2exCache
+    const now = Date.now()
+    runtime.stores[STATE_KEY('v2ex')] = { '1': { r: now } }
+    const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
+    dashboard.start()
+    await dashboard.open()
+    const shadow = shadowOf(dom)
+    const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
+    const v2exPanel = browseCard.querySelector(
+      '.gm-sp-tab-panel[data-tab-id="v2ex"]',
+    ) as HTMLElement
+    const items = v2exPanel.querySelectorAll('.gm-sp-list-item')
+    expect(items).toHaveLength(2)
+    expect((items[0] as HTMLElement).classList.contains('gm-sp-item-read')).toBe(true)
+    expect((items[1] as HTMLElement).classList.contains('gm-sp-item-read')).toBe(false)
   })
 
   test('open() renders cached reddit data into the browse card reddit panel', async () => {

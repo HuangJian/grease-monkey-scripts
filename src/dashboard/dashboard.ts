@@ -249,7 +249,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
 
   async function open(): Promise<void> {
     mount()
-    await tnews.initRuntime(runtime)
+    await Promise.all(sources.map((s) => s.loadState?.(runtime)))
     await renderAllGroups(Date.now())
     void runOpportunisticRefresh()
   }

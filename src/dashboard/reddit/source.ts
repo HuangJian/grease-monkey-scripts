@@ -55,6 +55,9 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
     render(container, data) {
       renderReddit(container, data, state, runtimeRef, expandCollapse)
     },
+    async loadState(runtime) {
+      await state.loadFromStorage(runtime)
+    },
     createEditor() {
       return createRedditEditor(options)
     },
