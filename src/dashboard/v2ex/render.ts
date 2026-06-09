@@ -65,6 +65,7 @@ export function renderV2ex(
     link.addEventListener('click', () => {
       state.markRead(topicId, Date.now(), replies)
       item.classList.add('gm-sp-item-read')
+      if (runtime) void state.saveToStorage(runtime)
     })
     const hideBtn = item.querySelector('.gm-sp-item-hide') as HTMLButtonElement
     hideBtn.addEventListener('click', (e) => {

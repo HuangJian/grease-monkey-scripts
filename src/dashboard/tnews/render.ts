@@ -88,6 +88,7 @@ export function renderTnews(
       state.markRead(id)
       li.classList.add('gm-sp-item-read')
       updateBadge(container)
+      if (runtime) void state.saveToStorage(runtime)
       container.querySelectorAll<HTMLElement>('.gm-sp-list-item').forEach((otherLi) => {
         if (otherLi !== li) {
           const otherId = otherLi.dataset['itemId']!

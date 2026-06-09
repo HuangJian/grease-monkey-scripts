@@ -3,6 +3,7 @@ import { JSDOM } from 'jsdom'
 import { renderTnews } from '../../../../src/dashboard/tnews/render'
 import { createTnewsState } from '../../../../src/dashboard/tnews/state'
 import type { TnewsItem } from '../../../../src/dashboard/tnews/types'
+import { STATE_KEY } from '../../../../src/dashboard/types'
 import { createRuntime, type TestRuntime } from '../../../runtime'
 
 function makeDom(): JSDOM {
@@ -254,5 +255,21 @@ describe('renderTnews', () => {
     const titles = root.querySelectorAll<HTMLElement>('.gm-sp-tnews-title')
     expect(titles[0]!.textContent).toBe('real title')
     expect(titles[1]!.textContent).toBe('news')
+  })
+
+  test('bugfix: click on row persists read status to storage', async () => {
+    const dom = makeDom()
+    const state = createTnewsState()
+    const runtime = makeRuntime(dom)
+    const items = [makeItem({ id: 'https://t.me/a/1', link: 'https://t.me/a/1' })]
+    renderTnews(getRoot(dom), items, state, runtime, NOW)
+    const root = getRoot(dom)
+    const li = root.querySelector<HTMLElement>('.gm-sp-list-item')!
+    const row = li.querySelector<HTMLElement>('.gm-sp-tnews-row')!
+    row.click()
+    expect(state.isRead('https://t.me/a/1')).toBe(true)
+    await new Promise((r) => setTimeout(r, 0))
+    const stored = runtime.stores[STATE_KEY('tnews')] as Record<string, { r?: number }>
+    expect(stored['https://t.me/a/1']?.r).toBeGreaterThan(0)
   })
 })
