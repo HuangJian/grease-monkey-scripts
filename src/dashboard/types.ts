@@ -62,6 +62,10 @@ export type Config = {
     maxLatestWindow: number
   }
   tnews: TnewsConfig
+  xit: {
+    enabled: boolean
+    placement: 'main' | 'side'
+  }
   shortcut: {
     doublePressWindowMs: number
     enabled: boolean
@@ -90,6 +94,10 @@ export type Source<T> = {
   readonly groupId?: string
   readonly order?: number
   readonly getTabLabel?: (data: any) => TabLabel
+  readonly headerContent?: string
+  readonly hideDefaultHeader?: boolean
+  readonly headerActions?: string
+  readonly dialogTitle?: string
   fetch(runtime: Runtime, prevData?: T): Promise<T>
   render(container: HTMLElement, data: T | null): void
   loadState?(runtime: Runtime): Promise<void>

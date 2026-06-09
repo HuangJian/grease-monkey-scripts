@@ -10,6 +10,7 @@ import { createWeatherSource } from './weather'
 import { createNovelsSource } from './novels'
 import { createRedditSource } from './reddit'
 import { createTnewsSource } from './tnews'
+import { createXitSource } from './xit/source'
 import type { Source } from './types'
 import { buildCardGroups, type CardGroup } from './card-group'
 import { CACHE_KEY, type CachedSource, type Config } from './types'
@@ -43,6 +44,9 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     createRedditSource(options.config.reddit),
     tnews.source,
   ]
+  if (options.config.xit?.enabled !== false) {
+    sources.push(createXitSource(options.config.xit, runtime))
+  }
   const cardGroups = buildCardGroups(sources)
   const groupById = new Map<string, CardGroup>()
   const groupForSource = new Map<string, CardGroup>()

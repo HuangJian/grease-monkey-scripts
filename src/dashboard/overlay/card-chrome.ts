@@ -7,6 +7,8 @@ export type CardChromeEdit = {
   sourceTitle: string
   createEditor: () => SourceEditor
   onRevert: () => void
+  headerActions?: string
+  dialogTitle?: string
 }
 
 export type CardChromeOptions = {
@@ -19,6 +21,8 @@ export type CardChromeOptions = {
   bodyHtml: string
   onRefresh: () => Promise<void>
   edit?: CardChromeEdit
+  headerContent?: string
+  hideDefaultHeader?: boolean
 }
 
 export type CardChrome = {
@@ -28,20 +32,36 @@ export type CardChrome = {
 }
 
 export function renderCardChrome(container: HTMLElement, options: CardChromeOptions): CardChrome {
-  const { root, runtime, now, ttlMs, cached, titleHtml, bodyHtml, onRefresh, edit } = options
+  const {
+    root,
+    runtime,
+    now,
+    ttlMs,
+    cached,
+    titleHtml,
+    bodyHtml,
+    onRefresh,
+    edit,
+    headerContent,
+    hideDefaultHeader,
+  } = options
   const document = container.ownerDocument
   const veryStale = isVeryStale(cached, ttlMs, now)
   container.replaceChildren()
 
+  const editIcon = edit?.sourceTitle === 'xit' ? '✏' : '⚙'
   const editButtonHtml = edit
-    ? '<button type="button" class="gm-sp-edit" aria-label="edit">⚙</button>'
+    ? `<button type="button" class="gm-sp-edit" aria-label="edit"><span class="gm-sp-edit-icon">${editIcon}</span></button>`
     : ''
-  const staleHtml = veryStale ? '<span class="gm-sp-card-stale">数据陈旧</span>' : ''
-  const errorText = cached?.error ?? ''
-  const errorClasses = `gm-sp-card-error${cached?.error ? ' gm-sp-error' : ''}`
-  container.insertAdjacentHTML(
-    'beforeend',
-    `<div class="gm-sp-card-header">
+
+  let headerHtml: string
+  if (hideDefaultHeader) {
+    headerHtml = `<div class="gm-sp-card-header gm-sp-card-header-custom">
+      ${headerContent ?? ''}
+    </div>`
+  } else {
+    const staleHtml = veryStale ? '<span class="gm-sp-card-stale">数据陈旧</span>' : ''
+    headerHtml = `<div class="gm-sp-card-header">
       <div class="gm-sp-card-title">${titleHtml}</div>
       ${staleHtml}
       <div class="gm-sp-card-actions">
@@ -53,37 +73,61 @@ export function renderCardChrome(container: HTMLElement, options: CardChromeOpti
         </button>
         ${editButtonHtml}
       </div>
-    </div>
+    </div>`
+  }
+
+  const errorText = cached?.error ?? ''
+  const errorClasses = `gm-sp-card-error${cached?.error ? ' gm-sp-error' : ''}`
+  container.insertAdjacentHTML(
+    'beforeend',
+    `${headerHtml}
     <div class="${errorClasses}">${errorText}</div>
     <div class="gm-sp-card-body">${bodyHtml}</div>`,
   )
   const header = container.querySelector('.gm-sp-card-header') as HTMLElement
-  const refreshButton = header.querySelector('.gm-sp-refresh') as HTMLButtonElement
-  refreshButton.addEventListener('click', () => {
-    refreshButton.disabled = true
-    refreshButton.classList.add('gm-sp-refresh-loading')
-    onRefresh().then(
-      () => {
-        refreshButton.disabled = false
-        refreshButton.classList.remove('gm-sp-refresh-loading')
-      },
-      () => {
-        refreshButton.disabled = false
-        refreshButton.classList.remove('gm-sp-refresh-loading')
-      },
-    )
-  })
+
+  if (hideDefaultHeader && edit) {
+    const headerRow = header.querySelector('.gm-sp-xit-header-row')
+    if (headerRow) headerRow.insertAdjacentHTML('beforeend', editButtonHtml)
+  }
+
+  if (!hideDefaultHeader) {
+    const refreshButton = header.querySelector('.gm-sp-refresh') as HTMLButtonElement
+    refreshButton.addEventListener('click', () => {
+      refreshButton.disabled = true
+      refreshButton.classList.add('gm-sp-refresh-loading')
+      onRefresh().then(
+        () => {
+          refreshButton.disabled = false
+          refreshButton.classList.remove('gm-sp-refresh-loading')
+        },
+        () => {
+          refreshButton.disabled = false
+          refreshButton.classList.remove('gm-sp-refresh-loading')
+        },
+      )
+    })
+  }
+
   if (edit) {
     const e = edit
     const editBtn = header.querySelector('.gm-sp-edit') as HTMLButtonElement
     editBtn.addEventListener('click', () => {
-      showEditorDialog(document, root, e.sourceTitle, runtime, async (dialogBody, dialogClose) => {
-        const editor = e.createEditor()
-        await editor(dialogBody, { runtime, onRevert: e.onRevert, close: dialogClose })
-      })
+      showEditorDialog(
+        document,
+        root,
+        e.dialogTitle ?? e.sourceTitle,
+        runtime,
+        async (dialogBody, dialogClose) => {
+          const editor = e.createEditor()
+          await editor(dialogBody, { runtime, onRevert: e.onRevert, close: dialogClose })
+        },
+        e.headerActions,
+      )
     })
   }
   const body = container.querySelector('.gm-sp-card-body') as HTMLElement
+  const refreshButton = header.querySelector('.gm-sp-refresh') as HTMLButtonElement
   return { header, body, refreshButton }
 }
 

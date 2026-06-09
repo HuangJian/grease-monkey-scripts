@@ -7,13 +7,18 @@ export function showEditorDialog(
   title: string,
   runtime: Runtime,
   renderEditor: (container: HTMLElement, close: () => void) => void,
+  headerActions?: string,
 ): () => void {
+  const actionsHtml = headerActions
+    ? `<div class="gm-sp-editor-dialog-actions">${headerActions}</div>`
+    : ''
   const backdrop = htmlToElement<HTMLDivElement>(
     document,
     `<div class="gm-sp-editor-dialog">
       <div class="gm-sp-editor-dialog-panel">
         <div class="gm-sp-editor-dialog-header">
           <span class="gm-sp-editor-dialog-title">${title}</span>
+          ${actionsHtml}
           <button type="button" class="gm-sp-editor-dialog-close" aria-label="close">×</button>
         </div>
         <div class="gm-sp-editor-dialog-body"></div>
