@@ -80,7 +80,6 @@ function coerceRedditOptions(
         ? (raw['subreddits'] as unknown[]).map((s) => String(s)).filter((s) => s.length > 0)
         : fallback.subreddits,
     minItems: typeof raw['minItems'] === 'number' ? (raw['minItems'] as number) : fallback.minItems,
-    maxItems: typeof raw['maxItems'] === 'number' ? (raw['maxItems'] as number) : fallback.maxItems,
     minPerSub:
       typeof raw['minPerSub'] === 'number' ? (raw['minPerSub'] as number) : fallback.minPerSub,
     displayRatio:

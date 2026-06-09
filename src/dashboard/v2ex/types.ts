@@ -13,7 +13,6 @@ export type V2exTopic = {
 
 export type V2exCountOptions = {
   minItems: number
-  maxItems: number
   displayRatio: number
   elbowDropRatio: number
   minReplies: number

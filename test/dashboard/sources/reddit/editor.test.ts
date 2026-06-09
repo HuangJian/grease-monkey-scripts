@@ -14,7 +14,6 @@ const DEFAULTS: RedditSourceOptions = {
   ageHalfLifeDays: 2,
   subreddits: ['popular'],
   minItems: 10,
-  maxItems: 30,
   minPerSub: 1,
   displayRatio: 0.1,
   elbowDropRatio: 0.4,
@@ -149,17 +148,6 @@ describe('createRedditEditor', () => {
     expect(runtime.stores[CONFIG_KEY]).toBeUndefined()
   })
 
-  test('save rejects when maxItems < minItems', async () => {
-    await mount(runtime, container, { ...DEFAULTS, minItems: 20, maxItems: 30 })
-    const min = container.querySelector('.gm-sp-re-min') as HTMLInputElement
-    const max = container.querySelector('.gm-sp-re-max') as HTMLInputElement
-    min.value = '25'
-    max.value = '10'
-    ;(container.querySelector('.gm-sp-re-save') as HTMLButtonElement).click()
-    const err = container.querySelector('.gm-sp-editor-error') as HTMLElement
-    expect(err.textContent).toContain('最多条数')
-  })
-
   test('load reads fresh subreddits from CONFIG_KEY when present', async () => {
     runtime.stores[CONFIG_KEY] = {
       reddit: { ...DEFAULTS, subreddits: ['fromStorage'] },
@@ -175,7 +163,6 @@ describe('createRedditEditor', () => {
       ...DEFAULTS,
       ttlMinutes: 45,
       minItems: 7,
-      maxItems: 25,
       minPerSub: 2,
       displayRatio: 0.2,
       elbowDropRatio: 0.5,
@@ -184,7 +171,6 @@ describe('createRedditEditor', () => {
     })
     expect((container.querySelector('.gm-sp-re-ttl') as HTMLInputElement).value).toBe('45')
     expect((container.querySelector('.gm-sp-re-min') as HTMLInputElement).value).toBe('7')
-    expect((container.querySelector('.gm-sp-re-max') as HTMLInputElement).value).toBe('25')
     expect((container.querySelector('.gm-sp-re-minpersub') as HTMLInputElement).value).toBe('2')
     expect((container.querySelector('.gm-sp-re-ratio') as HTMLInputElement).value).toBe('0.2')
     expect((container.querySelector('.gm-sp-re-elbow') as HTMLInputElement).value).toBe('0.5')

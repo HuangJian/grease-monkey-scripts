@@ -12,7 +12,6 @@ import type {
 
 const DEFAULT_COUNT_OPTS: RedditCountOptions = {
   minItems: 10,
-  maxItems: 30,
   minPerSub: 1,
   displayRatio: 0.1,
   elbowDropRatio: 0.4,
@@ -167,16 +166,6 @@ describe('selectPostsPerSub', () => {
     const result = selectPostsPerSub([], { ...LOW_FLOOR_OPTS, ageHalfLifeDays: 2, now: NOW })
     expect(result.size).toBe(0)
   })
-  test('caps each sub at maxItems', () => {
-    const posts = Array.from({ length: 50 }, (_, i) => post({ id: `a${i}`, score: 1000 - i }))
-    const result = selectPostsPerSub([{ sub: 'x', posts }], {
-      ...LOW_FLOOR_OPTS,
-      maxItems: 5,
-      ageHalfLifeDays: 2,
-      now: NOW,
-    })
-    expect(result.get('x')).toHaveLength(5)
-  })
   test('minPerSub forces at least N posts per sub (when data available)', () => {
     const big = Array.from({ length: 20 }, (_, i) => post({ id: `big${i}`, score: 5000 - i }))
     const small = Array.from({ length: 5 }, (_, i) => post({ id: `small${i}`, score: 100 - i }))
@@ -185,25 +174,12 @@ describe('selectPostsPerSub', () => {
         { sub: 'funny', posts: big },
         { sub: 'niche', posts: small },
       ],
-      { ...LOW_FLOOR_OPTS, maxItems: 20, minPerSub: 3, ageHalfLifeDays: 2, now: NOW },
+      { ...LOW_FLOOR_OPTS, minPerSub: 3, ageHalfLifeDays: 2, now: NOW },
     )
     expect(result.get('niche')).toHaveLength(5)
     expect(result.get('funny')).toHaveLength(20)
   })
 
-  test('isolates per-sub cap: each sub capped at maxItems independently', () => {
-    const big = Array.from({ length: 20 }, (_, i) => post({ id: `big${i}`, score: 5000 - i }))
-    const small = Array.from({ length: 20 }, (_, i) => post({ id: `small${i}`, score: 1000 - i }))
-    const result = selectPostsPerSub(
-      [
-        { sub: 'funny', posts: big },
-        { sub: 'niche', posts: small },
-      ],
-      { ...LOW_FLOOR_OPTS, maxItems: 10, minPerSub: 0, ageHalfLifeDays: 2, now: NOW },
-    )
-    expect(result.get('funny')).toHaveLength(10)
-    expect(result.get('niche')).toHaveLength(10)
-  })
   test('when sub has fewer posts than minPerSub, returns all available', () => {
     const result = selectPostsPerSub([{ sub: 'x', posts: [post({ id: '1', score: 100 })] }], {
       ...LOW_FLOOR_OPTS,
@@ -233,26 +209,7 @@ describe('selectPostsPerSub', () => {
       ...LOW_FLOOR_OPTS,
       ageHalfLifeDays: 2,
       now: NOW,
-      maxItems: 5,
     })
     expect(result.get('x')!.map((p) => p.id)).toEqual(['old-high', 'new-low'])
-  })
-  test('isolates per-sub cap so big sub cannot consume small sub slots', () => {
-    const big = Array.from({ length: 20 }, (_, i) => post({ id: `big${i}`, score: 5000 - i }))
-    const small = Array.from({ length: 10 }, (_, i) =>
-      post({ id: `small${i}`, score: 1000 - i * 10 }),
-    )
-    const result = selectPostsPerSub(
-      [
-        { sub: 'funny', posts: big },
-        { sub: 'niche', posts: small },
-      ],
-      { ...LOW_FLOOR_OPTS, maxItems: 5, minPerSub: 0, ageHalfLifeDays: 2, now: NOW },
-    )
-    const funnyCount = result.get('funny')!.length
-    const nicheCount = result.get('niche')!.length
-    expect(funnyCount).toBeLessThanOrEqual(5)
-    expect(nicheCount).toBeGreaterThan(0)
-    expect(funnyCount + nicheCount).toBeLessThanOrEqual(10)
   })
 })

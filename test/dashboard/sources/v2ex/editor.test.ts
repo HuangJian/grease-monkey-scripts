@@ -8,7 +8,6 @@ import { createRuntime, type TestRuntime } from '../../../runtime'
 const DEFAULTS: V2exSourceOptions = {
   ttlMinutes: 30,
   minItems: 10,
-  maxItems: 30,
   displayRatio: 0.1,
   elbowDropRatio: 0.4,
   minReplies: 5,
@@ -90,18 +89,5 @@ describe('createV2exEditor', () => {
     await new Promise<void>((r) => setTimeout(r, 0))
     const stored = runtime.stores[CONFIG_KEY] as { v2ex: { minItems: number } }
     expect(stored.v2ex.minItems).toBe(10)
-  })
-
-  test('shows validation error when maxItems < minItems', async () => {
-    await mount(runtime, container, { ...DEFAULTS, minItems: 5, maxItems: 30 })
-    const minInput = container.querySelector('.gm-sp-v2e-min') as HTMLInputElement
-    const maxInput = container.querySelector('.gm-sp-v2e-max') as HTMLInputElement
-    minInput.value = '10'
-    maxInput.value = '5'
-    ;(container.querySelector('.gm-sp-v2e-save') as HTMLButtonElement).click()
-    const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
-    expect(errorEl.hidden).toBe(false)
-    expect(errorEl.textContent).toMatch(/最多条数/)
-    expect(runtime.stores[CONFIG_KEY]).toBeUndefined()
   })
 })

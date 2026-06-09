@@ -45,7 +45,6 @@ const FIXTURE = [
 
 const DEFAULT_COUNT_OPTS: V2exCountOptions = {
   minItems: 10,
-  maxItems: 30,
   displayRatio: 0.1,
   elbowDropRatio: 0.4,
   minReplies: 5,
@@ -167,7 +166,7 @@ describe('mergeV2exTopics', () => {
   test('merges api and page with cross-source marking', () => {
     const api = [topic({ id: 1, replies: 10, title: 'A' })]
     const page = [topic({ id: 1, replies: 5, title: 'A-page' })]
-    const merged = mergeV2exTopics(api, page, 10)
+    const merged = mergeV2exTopics(api, page)
     expect(merged).toHaveLength(1)
     expect(merged[0].id).toBe(1)
     expect(merged[0].replies).toBe(10)
@@ -176,25 +175,25 @@ describe('mergeV2exTopics', () => {
   test('takes max replies when both sources differ', () => {
     const api = [topic({ id: 1, replies: 5 })]
     const page = [topic({ id: 1, replies: 50 })]
-    expect(mergeV2exTopics(api, page, 10)[0].replies).toBe(50)
+    expect(mergeV2exTopics(api, page)[0].replies).toBe(50)
   })
   test('keeps api title when both present', () => {
     const api = [topic({ id: 1, title: 'api-title', node: { title: 'api-node' } })]
     const page = [topic({ id: 1, title: 'page-title', node: { title: 'page-node' } })]
-    const merged = mergeV2exTopics(api, page, 10)
+    const merged = mergeV2exTopics(api, page)
     expect(merged[0].title).toBe('api-title')
     expect(merged[0].node.title).toBe('api-node')
   })
   test('sorts by replies descending', () => {
     const api = [topic({ id: 1, replies: 5 }), topic({ id: 2, replies: 100 })]
     const page = [topic({ id: 3, replies: 30 })]
-    const merged = mergeV2exTopics(api, page, 10)
+    const merged = mergeV2exTopics(api, page)
     expect(merged.map((t) => t.id)).toEqual([3])
   })
   test('retains api-only topics when dropApiOnly is false', () => {
     const api = [topic({ id: 1, replies: 100 })]
     const page: V2exTopic[] = []
-    const merged = mergeV2exTopics(api, page, 10, false)
+    const merged = mergeV2exTopics(api, page, false)
     expect(merged).toHaveLength(1)
     expect(merged[0].id).toBe(1)
     expect(merged[0].sources).toEqual(['api'])
@@ -202,42 +201,37 @@ describe('mergeV2exTopics', () => {
   test('cross-source items win ties at same reply count', () => {
     const api = [topic({ id: 1, replies: 10 })]
     const page = [topic({ id: 1, replies: 10 }), topic({ id: 2, replies: 10 })]
-    const merged = mergeV2exTopics(api, page, 10)
+    const merged = mergeV2exTopics(api, page)
     expect(merged[0].id).toBe(1)
     expect(merged[0].sources).toEqual(['api', 'page'])
   })
   test('api-only topics are filtered out', () => {
     const api = [topic({ id: 1, replies: 10 })]
     const page = [topic({ id: 2, replies: 10 })]
-    const merged = mergeV2exTopics(api, page, 10)
+    const merged = mergeV2exTopics(api, page)
     expect(merged.map((t) => t.id)).toEqual([2])
     expect(merged[0].sources).toEqual(['page'])
   })
   test('api index breaks page-only ties', () => {
     const api: V2exTopic[] = []
     const page = [topic({ id: 1, replies: 5 }), topic({ id: 2, replies: 5 })]
-    const merged = mergeV2exTopics(api, page, 10)
+    const merged = mergeV2exTopics(api, page)
     expect(merged.map((t) => t.id)).toEqual([1, 2])
   })
   test('skips invalid ids', () => {
     const api = [topic({ id: 0 }), topic({ id: -1 }), topic({ id: 1, replies: 5 })]
     const page = [topic({ id: 2, replies: 5 })]
-    expect(mergeV2exTopics(api, page, 10).map((t) => t.id)).toEqual([2])
-  })
-  test('limits to maxItems', () => {
-    const api = [topic({ id: 1, replies: 1 }), topic({ id: 2, replies: 2 })]
-    const page = [topic({ id: 3, replies: 3 })]
-    expect(mergeV2exTopics(api, page, 1)).toHaveLength(1)
+    expect(mergeV2exTopics(api, page).map((t) => t.id)).toEqual([2])
   })
   test('handles empty inputs', () => {
-    expect(mergeV2exTopics([], [], 10)).toEqual([])
+    expect(mergeV2exTopics([], [])).toEqual([])
     const page = [topic({ id: 1, replies: 5 })]
-    expect(mergeV2exTopics([], page, 10)).toEqual([{ ...page[0], sources: ['page'] }])
+    expect(mergeV2exTopics([], page)).toEqual([{ ...page[0], sources: ['page'] }])
   })
   test('filters out API-only topics', () => {
     const api = [topic({ id: 1, replies: 100 })]
     const page = [topic({ id: 2, replies: 10 })]
-    const merged = mergeV2exTopics(api, page, 10)
+    const merged = mergeV2exTopics(api, page)
     expect(merged).toHaveLength(1)
     expect(merged[0].id).toBe(2)
     expect(merged[0].sources).toEqual(['page'])
@@ -245,7 +239,7 @@ describe('mergeV2exTopics', () => {
   test('keeps cross-source topics', () => {
     const api = [topic({ id: 1, replies: 100 })]
     const page = [topic({ id: 1, replies: 50 })]
-    const merged = mergeV2exTopics(api, page, 10)
+    const merged = mergeV2exTopics(api, page)
     expect(merged).toHaveLength(1)
     expect(merged[0].id).toBe(1)
     expect(merged[0].sources).toEqual(['api', 'page'])
@@ -253,7 +247,7 @@ describe('mergeV2exTopics', () => {
   test('page-only items carry page index in tiebreaker', () => {
     const api: V2exTopic[] = []
     const page = [topic({ id: 2, replies: 5 }), topic({ id: 1, replies: 5 })]
-    const merged = mergeV2exTopics(api, page, 10)
+    const merged = mergeV2exTopics(api, page)
     expect(merged.map((t) => t.id)).toEqual([2, 1])
   })
   test('historical api topics retain api source when merged as first arg', () => {
@@ -262,7 +256,7 @@ describe('mergeV2exTopics', () => {
       topic({ id: 1, replies: 50, sources: ['page'] as const }),
       topic({ id: 100, replies: 40, sources: ['api', 'page'] as const }),
     ]
-    const merged = mergeV2exTopics(historical, current, 10, false)
+    const merged = mergeV2exTopics(historical, current, false)
     const t100 = merged.find((t) => t.id === 100)!
     expect(t100.sources).toEqual(['api', 'page'])
     expect(t100.replies).toBe(40)
@@ -286,11 +280,6 @@ describe('dynamicV2exCount', () => {
     const replies = [100, 80, 50, 30, 20, 10, 5, 3, 2, 1, 0]
     expect(dynamicV2exCount(replies, DEFAULT_COUNT_OPTS)).toBe(11)
   })
-  test('clamps to max when heat is broadly distributed', () => {
-    const replies = [100, 60, 55, 50, 48, 45, 40, 35, 30, 28, 25, 22, 20, 18, 15]
-    const result = dynamicV2exCount(replies, DEFAULT_COUNT_OPTS)
-    expect(result).toBeLessThanOrEqual(DEFAULT_COUNT_OPTS.maxItems)
-  })
   test('clamps to min when distribution is flat', () => {
     const replies = [5, 5, 5, 5, 5, 5, 5, 5]
     expect(dynamicV2exCount(replies, DEFAULT_COUNT_OPTS)).toBe(DEFAULT_COUNT_OPTS.minItems)
@@ -300,12 +289,11 @@ describe('dynamicV2exCount', () => {
       DEFAULT_COUNT_OPTS.minItems,
     )
   })
-  test('honors custom min/max', () => {
+  test('honors custom minItems', () => {
     const replies = [100, 80, 50, 30, 20, 10, 5, 3]
-    const opts = { ...DEFAULT_COUNT_OPTS, minItems: 3, maxItems: 5 }
+    const opts = { ...DEFAULT_COUNT_OPTS, minItems: 3 }
     const result = dynamicV2exCount(replies, opts)
     expect(result).toBeGreaterThanOrEqual(3)
-    expect(result).toBeLessThanOrEqual(5)
   })
   test('minReplies raises the threshold floor', () => {
     const replies = [50, 20, 10, 8, 5, 5, 5]

@@ -40,10 +40,6 @@ async function renderRedditEditor(
           <input type="number" min="1" step="1" class="gm-sp-re-min" />
         </label>
         <label class="gm-sp-editor-row">
-          <span>最多条数</span>
-          <input type="number" min="1" step="1" class="gm-sp-re-max" />
-        </label>
-        <label class="gm-sp-editor-row">
           <span>每 sub 至少 N 条</span>
           <input type="number" min="0" step="1" class="gm-sp-re-minpersub" />
         </label>
@@ -77,7 +73,6 @@ async function renderRedditEditor(
   const addBtn = container.querySelector('.gm-sp-re-add') as HTMLButtonElement
   const ttlInput = container.querySelector('.gm-sp-re-ttl') as HTMLInputElement
   const minInput = container.querySelector('.gm-sp-re-min') as HTMLInputElement
-  const maxInput = container.querySelector('.gm-sp-re-max') as HTMLInputElement
   const minPerSubInput = container.querySelector('.gm-sp-re-minpersub') as HTMLInputElement
   const ratioInput = container.querySelector('.gm-sp-re-ratio') as HTMLInputElement
   const elbowInput = container.querySelector('.gm-sp-re-elbow') as HTMLInputElement
@@ -89,7 +84,6 @@ async function renderRedditEditor(
 
   ttlInput.value = String(fresh.ttlMinutes)
   minInput.value = String(fresh.minItems)
-  maxInput.value = String(fresh.maxItems)
   minPerSubInput.value = String(fresh.minPerSub)
   ratioInput.value = String(fresh.displayRatio)
   elbowInput.value = String(fresh.elbowDropRatio)
@@ -144,7 +138,6 @@ async function renderRedditEditor(
       [
         { input: ttlInput, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' },
         { input: minInput, min: 1, errorMessage: '最少条数必须是 ≥1 的整数' },
-        { input: maxInput, min: 1, errorMessage: '最多条数必须 ≥ 最少条数' },
         { input: minPerSubInput, min: 0, errorMessage: '每 sub 至少 N 条必须 ≥0' },
         { input: ratioInput, min: 0, max: 1, errorMessage: '显示比例必须是 0~1 之间' },
         { input: elbowInput, min: 0, max: 1, errorMessage: '拐点跌幅必须是 0~1 之间' },
@@ -154,17 +147,12 @@ async function renderRedditEditor(
       (msg) => error.show(msg),
     )
     if (nums === null) return
-    const [ttl, min, max, minPerSub, ratio, elbow, cutoff, halfLife] = nums
-    if (max < min) {
-      error.show('最多条数必须 ≥ 最少条数')
-      return
-    }
+    const [ttl, min, minPerSub, ratio, elbow, cutoff, halfLife] = nums
     const reddit = {
       ttlMinutes: Math.round(ttl),
       ageHalfLifeDays: halfLife,
       subreddits: [...subs],
       minItems: Math.round(min),
-      maxItems: Math.round(max),
       minPerSub: Math.round(minPerSub),
       displayRatio: ratio,
       elbowDropRatio: elbow,

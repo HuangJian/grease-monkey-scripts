@@ -10,7 +10,6 @@ import { createRuntime, type TestRuntime } from '../../../runtime'
 
 const DEFAULT_COUNT_OPTS = {
   minItems: 10,
-  maxItems: 30,
   minPerSub: 1,
   displayRatio: 0.1,
   elbowDropRatio: 0.4,
@@ -98,19 +97,6 @@ describe('createRedditSource.fetch reads fresh config', () => {
       d.onload({ responseText: JSON.stringify(json) })
     })
     const source = createRedditSource(defaultRedditOpts({ subreddits: ['funny', 'aww'] }))
-    runtime.stores['dashboard:v1:config'] = {
-      reddit: {
-        ttlMinutes: 30,
-        ageHalfLifeDays: 2,
-        subreddits: ['funny', 'aww'],
-        minItems: 10,
-        maxItems: 30,
-        minPerSub: 1,
-        displayRatio: 0.1,
-        elbowDropRatio: 0.4,
-        minCutoffScore: 0,
-      },
-    }
     const data = await source.fetch(runtime, undefined)
     expect(data).not.toBeNull()
     expect(typeof data).toBe('object')
@@ -129,7 +115,6 @@ describe('validateConfig.reddit', () => {
           ageHalfLifeDays: 2,
           subreddits: ['popular'],
           minItems: 10,
-          maxItems: 30,
           displayRatio: 0.1,
           elbowDropRatio: 0.4,
           minCutoffScore: 500,
@@ -143,29 +128,14 @@ describe('validateConfig.reddit', () => {
   test('rejects empty subreddits', () => {
     expect(
       validateConfig({
-        reddit: { subreddits: [], minItems: 1, maxItems: 1, ttlMinutes: 1, minCutoffScore: 0 },
+        reddit: { subreddits: [], minItems: 1, ttlMinutes: 1, minCutoffScore: 0 },
       }).ok,
     ).toBe(false)
   })
   test('rejects blank subreddit name', () => {
     expect(
       validateConfig({
-        reddit: { subreddits: ['  '], minItems: 1, maxItems: 1, ttlMinutes: 1, minCutoffScore: 0 },
-      }).ok,
-    ).toBe(false)
-  })
-  test('rejects minItems > maxItems', () => {
-    expect(
-      validateConfig({
-        reddit: {
-          subreddits: ['a'],
-          minItems: 5,
-          maxItems: 3,
-          ttlMinutes: 30,
-          displayRatio: 0.1,
-          elbowDropRatio: 0.4,
-          minCutoffScore: 0,
-        },
+        reddit: { subreddits: ['  '], minItems: 1, ttlMinutes: 1, minCutoffScore: 0 },
       }).ok,
     ).toBe(false)
   })
@@ -175,7 +145,6 @@ describe('validateConfig.reddit', () => {
         reddit: {
           subreddits: ['a'],
           minItems: 1,
-          maxItems: 1,
           ttlMinutes: 30,
           displayRatio: 1.5,
           elbowDropRatio: 0.4,
@@ -190,7 +159,6 @@ describe('validateConfig.reddit', () => {
         reddit: {
           subreddits: ['a'],
           minItems: 1,
-          maxItems: 1,
           ttlMinutes: 0,
           displayRatio: 0.1,
           elbowDropRatio: 0.4,
@@ -205,7 +173,6 @@ describe('validateConfig.reddit', () => {
         reddit: {
           subreddits: ['a'],
           minItems: 1,
-          maxItems: 1,
           ttlMinutes: 30,
           displayRatio: 0.1,
           elbowDropRatio: 0.4,
@@ -220,7 +187,6 @@ describe('validateConfig.reddit', () => {
         reddit: {
           subreddits: ['a'],
           minItems: 1,
-          maxItems: 1,
           ttlMinutes: 30,
           displayRatio: 0.1,
           elbowDropRatio: 0.4,
@@ -234,7 +200,6 @@ describe('validateConfig.reddit', () => {
         reddit: {
           subreddits: ['a'],
           minItems: 1,
-          maxItems: 1,
           ttlMinutes: 30,
           displayRatio: 0.1,
           elbowDropRatio: 0.4,

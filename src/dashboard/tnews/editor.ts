@@ -27,10 +27,6 @@ function coerceTnewsOptions(
       typeof raw['ttlMinutes'] === 'number' && Number.isFinite(raw['ttlMinutes'])
         ? (raw['ttlMinutes'] as number)
         : fallback.ttlMinutes,
-    maxItems:
-      typeof raw['maxItems'] === 'number' && Number.isFinite(raw['maxItems'])
-        ? (raw['maxItems'] as number)
-        : fallback.maxItems,
   }
 }
 
@@ -97,10 +93,6 @@ async function renderTnewsEditor(
           <span>TTL（分钟）</span>
           <input type="number" min="1" step="1" class="gm-sp-tne-ttl" />
         </label>
-        <label class="gm-sp-editor-row">
-          <span>maxItems</span>
-          <input type="number" min="1" step="1" class="gm-sp-tne-max" />
-        </label>
       </div>
       <div class="gm-sp-editor-error" hidden></div>
       <div class="gm-sp-editor-actions">
@@ -117,13 +109,11 @@ async function renderTnewsEditor(
   const mirrorInputEl = container.querySelector('.gm-sp-editor-input') as HTMLInputElement
   const mirrorAddBtn = container.querySelector('.gm-sp-tne-mirror-add') as HTMLButtonElement
   const ttlInput = container.querySelector('.gm-sp-tne-ttl') as HTMLInputElement
-  const maxInput = container.querySelector('.gm-sp-tne-max') as HTMLInputElement
   const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
   const saveBtn = container.querySelector('.gm-sp-tne-save') as HTMLButtonElement
   const cancelBtn = container.querySelector('.gm-sp-tne-cancel') as HTMLButtonElement
 
   ttlInput.value = String(fresh.ttlMinutes)
-  maxInput.value = String(fresh.maxItems)
 
   const error = bindErrorBox(errorEl)
 
@@ -192,19 +182,15 @@ async function renderTnewsEditor(
       return
     }
     const nums = readNumberFields(
-      [
-        { input: ttlInput, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' },
-        { input: maxInput, min: 1, errorMessage: 'maxItems 必须是 ≥1 的整数' },
-      ],
+      [{ input: ttlInput, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' }],
       (msg) => error.show(msg),
     )
     if (nums === null) return
-    const [ttl, max] = nums
+    const [ttl] = nums
     const tnews = {
       feeds: [...feeds],
       mirrors: [...mirrors],
       ttlMinutes: Math.round(ttl),
-      maxItems: Math.round(max),
     }
     void saveConfigSection({
       runtime: ctx.runtime,

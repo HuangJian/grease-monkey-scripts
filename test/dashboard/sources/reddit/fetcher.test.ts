@@ -9,7 +9,6 @@ import { createRuntime } from '../../../runtime'
 
 const DEFAULT_COUNT_OPTS = {
   minItems: 10,
-  maxItems: 30,
   minPerSub: 1,
   displayRatio: 0.1,
   elbowDropRatio: 0.4,

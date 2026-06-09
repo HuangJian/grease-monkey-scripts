@@ -22,7 +22,6 @@ export type StoredHistoryPost = {
 
 export type RedditCountOptions = {
   minItems: number
-  maxItems: number
   minPerSub: number
   displayRatio: number
   elbowDropRatio: number

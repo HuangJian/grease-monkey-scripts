@@ -123,7 +123,6 @@ export function selectPostsPerSub(
     )
     const n = dynamicCount(decayedScores, {
       minItems: options.minPerSub,
-      maxItems: options.maxItems,
       displayRatio: options.displayRatio,
       elbowDropRatio: options.elbowDropRatio,
       cutoffFloor: 0,

@@ -1,6 +1,5 @@
 export type DynamicCountOptions = {
   minItems: number
-  maxItems: number
   displayRatio: number
   elbowDropRatio: number
   cutoffFloor: number
@@ -31,5 +30,5 @@ export function dynamicCount(scores: ReadonlyArray<number>, options: DynamicCoun
   }
 
   const count = Math.max(thresholdCount, elbowCount)
-  return Math.max(options.minItems, Math.min(options.maxItems, count))
+  return Math.max(options.minItems, count)
 }

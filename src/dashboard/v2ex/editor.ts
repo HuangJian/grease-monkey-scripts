@@ -16,7 +16,6 @@ function coerceV2exOptions(
     ttlMinutes:
       typeof raw['ttlMinutes'] === 'number' ? (raw['ttlMinutes'] as number) : fallback.ttlMinutes,
     minItems: typeof raw['minItems'] === 'number' ? (raw['minItems'] as number) : fallback.minItems,
-    maxItems: typeof raw['maxItems'] === 'number' ? (raw['maxItems'] as number) : fallback.maxItems,
     displayRatio:
       typeof raw['displayRatio'] === 'number'
         ? (raw['displayRatio'] as number)
@@ -61,10 +60,6 @@ async function renderV2exEditor(
           <input type="number" min="1" step="1" class="gm-sp-v2e-min" />
         </label>
         <label class="gm-sp-editor-row">
-          <span>最多条数</span>
-          <input type="number" min="1" step="1" class="gm-sp-v2e-max" />
-        </label>
-        <label class="gm-sp-editor-row">
           <span>显示比例</span>
           <input type="number" min="0" max="1" step="0.01" class="gm-sp-v2e-ratio" />
         </label>
@@ -92,7 +87,6 @@ async function renderV2exEditor(
 
   const ttlInput = container.querySelector('.gm-sp-v2e-ttl') as HTMLInputElement
   const minInput = container.querySelector('.gm-sp-v2e-min') as HTMLInputElement
-  const maxInput = container.querySelector('.gm-sp-v2e-max') as HTMLInputElement
   const ratioInput = container.querySelector('.gm-sp-v2e-ratio') as HTMLInputElement
   const elbowInput = container.querySelector('.gm-sp-v2e-elbow') as HTMLInputElement
   const minRepliesInput = container.querySelector('.gm-sp-v2e-min-replies') as HTMLInputElement
@@ -103,7 +97,6 @@ async function renderV2exEditor(
 
   ttlInput.value = String(fresh.ttlMinutes)
   minInput.value = String(fresh.minItems)
-  maxInput.value = String(fresh.maxItems)
   ratioInput.value = String(fresh.displayRatio)
   elbowInput.value = String(fresh.elbowDropRatio)
   minRepliesInput.value = String(fresh.minReplies)
@@ -121,7 +114,6 @@ async function renderV2exEditor(
       [
         { input: ttlInput, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' },
         { input: minInput, min: 1, errorMessage: '最少条数必须是 ≥1 的整数' },
-        { input: maxInput, min: 1, errorMessage: '最多条数必须 ≥ 最少条数' },
         { input: ratioInput, min: 0, max: 1, errorMessage: '显示比例必须是 0~1 之间' },
         { input: elbowInput, min: 0, max: 1, errorMessage: '拐点跌幅必须是 0~1 之间' },
         { input: minRepliesInput, min: 0, errorMessage: '回复阈值必须 ≥0' },
@@ -130,15 +122,10 @@ async function renderV2exEditor(
       (msg) => error.show(msg),
     )
     if (nums === null) return
-    const [ttl, min, max, ratio, elbow, minReplies, halfLife] = nums
-    if (max < min) {
-      error.show('最多条数必须 ≥ 最少条数')
-      return
-    }
+    const [ttl, min, ratio, elbow, minReplies, halfLife] = nums
     const v2ex = {
       ttlMinutes: Math.round(ttl),
       minItems: Math.round(min),
-      maxItems: Math.round(max),
       displayRatio: ratio,
       elbowDropRatio: elbow,
       minReplies: Math.round(minReplies),

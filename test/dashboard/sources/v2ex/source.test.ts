@@ -9,7 +9,6 @@ import { createRuntime, type TestRuntime } from '../../../runtime'
 const DEFAULTS: V2exSourceOptions = {
   ttlMinutes: 30,
   minItems: 10,
-  maxItems: 30,
   displayRatio: 0.1,
   elbowDropRatio: 0.4,
   minReplies: 5,
@@ -74,7 +73,7 @@ describe('createV2exSource', () => {
         }
       },
     }
-    const source = createV2exSource({ ...DEFAULTS, minItems: 0, maxItems: 0 })
+    const source = createV2exSource({ ...DEFAULTS, minItems: 0 })
     const result = await source.fetch(runtime, undefined)
     expect(result).toEqual([])
     const stored = runtime.stores[STATE_KEY('v2ex')]
@@ -106,7 +105,7 @@ describe('createV2exSource', () => {
       },
     }
     runtime.stores[STATE_KEY('v2ex')] = { '7': { h: Date.now() } }
-    const source = createV2exSource({ ...DEFAULTS, minItems: 1, maxItems: 1 })
+    const source = createV2exSource({ ...DEFAULTS, minItems: 1 })
     const result = await source.fetch(runtime, undefined)
     expect(result).toEqual([])
   })

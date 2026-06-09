@@ -44,7 +44,6 @@ function fetchFromEndpoint(
 
 export async function fetchV2ex(
   runtime: Runtime,
-  fetchCap: number,
   countOptions: V2exCountOptions,
   domParser: DOMParser,
   state: V2exState,
@@ -82,7 +81,7 @@ export async function fetchV2ex(
     throw new Error(`v2ex api: ${apiResult.error}; v2ex page: ${pageResult.error}`)
   }
 
-  let full = mergeV2exTopics(apiResult.topics, pageResult.topics, fetchCap, false)
+  let full = mergeV2exTopics(apiResult.topics, pageResult.topics, false)
 
   if (historicalTopics.length > 0) {
     const currentIds = new Set(full.map((t) => t.id))
@@ -99,7 +98,7 @@ export async function fetchV2ex(
         created: t.created,
       }))
     if (historicalAsV2ex.length > 0) {
-      full = mergeV2exTopics(historicalAsV2ex, full, fetchCap + historicalAsV2ex.length, false)
+      full = mergeV2exTopics(historicalAsV2ex, full, false)
     }
   }
 

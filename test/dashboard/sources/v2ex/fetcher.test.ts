@@ -43,7 +43,6 @@ const FIXTURE = [
 
 const DEFAULT_COUNT_OPTS: V2exCountOptions = {
   minItems: 10,
-  maxItems: 30,
   displayRatio: 0.1,
   elbowDropRatio: 0.4,
   minReplies: 5,
@@ -81,13 +80,7 @@ describe('fetchV2ex', () => {
       }
     })
     const state = createV2exState()
-    const topics = await fetchV2ex(
-      runtime,
-      50,
-      DEFAULT_COUNT_OPTS,
-      new dom.window.DOMParser(),
-      state,
-    )
+    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
     expect(topics.length).toBeGreaterThan(0)
     const ids = topics.map((t) => t.id)
     expect(ids).toContain(1217291)
@@ -101,7 +94,7 @@ describe('fetchV2ex', () => {
       d.onload({ responseText: '[]' })
     })
     const state = createV2exState()
-    await fetchV2ex(runtime, 50, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
+    await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
     expect(captured).toHaveLength(2)
     for (const c of captured) expect(c.anonymous).toBe(true)
   })
@@ -111,7 +104,7 @@ describe('fetchV2ex', () => {
     const runtime = makeRuntime(dom, (d) => d.onerror?.())
     const state = createV2exState()
     await expect(
-      fetchV2ex(runtime, 50, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state),
+      fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state),
     ).rejects.toThrow(/v2ex api/)
   })
 
@@ -123,13 +116,7 @@ describe('fetchV2ex', () => {
       else d.onload({ responseText: html })
     })
     const state = createV2exState()
-    const topics = await fetchV2ex(
-      runtime,
-      50,
-      DEFAULT_COUNT_OPTS,
-      new dom.window.DOMParser(),
-      state,
-    )
+    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
     const pageTopic = topics.find((t) => t.id === 1217291)
     expect(pageTopic).toBeDefined()
     // Fixture topic created 2026-06-02 → auto-promoted to 'api' (today > 2026-06-02)
@@ -154,13 +141,7 @@ describe('fetchV2ex', () => {
       else d.onload({ responseText: html })
     })
     const state = createV2exState()
-    const topics = await fetchV2ex(
-      runtime,
-      50,
-      DEFAULT_COUNT_OPTS,
-      new dom.window.DOMParser(),
-      state,
-    )
+    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
     const promoted = topics.find((t) => t.id === 9999)
     expect(promoted).toBeDefined()
     expect(promoted!.sources).toEqual(['api'])
@@ -183,13 +164,7 @@ describe('fetchV2ex', () => {
       else d.onload({ responseText: html })
     })
     const state = createV2exState()
-    const topics = await fetchV2ex(
-      runtime,
-      50,
-      DEFAULT_COUNT_OPTS,
-      new dom.window.DOMParser(),
-      state,
-    )
+    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
     const notPromoted = topics.find((t) => t.id === 8888)
     expect(notPromoted).toBeDefined()
     expect(notPromoted!.sources).toEqual(['page'])
@@ -205,13 +180,7 @@ describe('fetchV2ex', () => {
       }
     })
     const state = createV2exState()
-    const topics = await fetchV2ex(
-      runtime,
-      50,
-      DEFAULT_COUNT_OPTS,
-      new dom.window.DOMParser(),
-      state,
-    )
+    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
     const apiTopic = topics.find((t) => t.id === 1)
     expect(apiTopic).toBeDefined()
     expect(apiTopic!.sources).toEqual(['api'])
@@ -237,34 +206,10 @@ describe('fetchV2ex', () => {
       }
     })
     const state = createV2exState()
-    const topics = await fetchV2ex(
-      runtime,
-      50,
-      DEFAULT_COUNT_OPTS,
-      new dom.window.DOMParser(),
-      state,
-    )
+    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
     const shared = topics.find((t) => t.id === 1217291)
     expect(shared).toBeDefined()
     expect(shared!.sources).toEqual(['api', 'page'])
-  })
-
-  test('respects maxItems in the count options', async () => {
-    const dom = makeDom()
-    const html = loadPageFixture()
-    const runtime = makeRuntime(dom, (d) => {
-      if (d.url.includes('hot.json')) d.onload({ responseText: JSON.stringify(FIXTURE) })
-      else d.onload({ responseText: html })
-    })
-    const state = createV2exState()
-    const topics = await fetchV2ex(
-      runtime,
-      50,
-      { ...DEFAULT_COUNT_OPTS, minItems: 2, maxItems: 2 },
-      new dom.window.DOMParser(),
-      state,
-    )
-    expect(topics.length).toBe(2)
   })
 
   test('filters out topics with replies below minReplies', async () => {
@@ -288,7 +233,6 @@ describe('fetchV2ex', () => {
     const state = createV2exState()
     const topics = await fetchV2ex(
       runtime,
-      50,
       { ...DEFAULT_COUNT_OPTS, minReplies: 5 },
       new dom.window.DOMParser(),
       state,
@@ -306,7 +250,7 @@ describe('fetchV2ex', () => {
       }
     })
     const state = createV2exState()
-    await fetchV2ex(runtime, 50, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
+    await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
     const history = await state.loadHistory(runtime)
     expect(history).toHaveLength(3)
     expect(history.map((t) => t.id).sort()).toEqual([1, 2, 3])
@@ -319,7 +263,7 @@ describe('fetchV2ex', () => {
       else d.onload({ responseText: '[]' })
     })
     const state = createV2exState()
-    await fetchV2ex(runtime, 50, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
+    await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
     const history = await state.loadHistory(runtime)
     expect(history).toEqual([])
   })
@@ -343,13 +287,7 @@ describe('fetchV2ex', () => {
       },
     ]
     const state = createV2exState()
-    const topics = await fetchV2ex(
-      runtime,
-      50,
-      DEFAULT_COUNT_OPTS,
-      new dom.window.DOMParser(),
-      state,
-    )
+    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
     const historical = topics.find((t) => t.id === 500)
     expect(historical).toBeDefined()
     expect(historical!.sources).toEqual(['api'])

@@ -24,7 +24,6 @@ const DEFAULT_OPTS = {
   feeds: ['https://rsshub.app/telegram/channel/tnews365'],
   mirrors: [],
   ttlMinutes: 30,
-  maxItems: 30,
 }
 
 describe('createTnewsSource metadata', () => {
@@ -166,7 +165,6 @@ describe('validateConfig.tnews', () => {
           feeds: ['https://rsshub.app/x'],
           mirrors: [],
           ttlMinutes: 30,
-          maxItems: 30,
         },
       }),
     ).toEqual({ ok: true })
@@ -175,14 +173,11 @@ describe('validateConfig.tnews', () => {
     expect(validateConfig({ tnews: 'no' }).ok).toBe(false)
   })
   test('rejects empty feeds', () => {
-    expect(
-      validateConfig({ tnews: { feeds: [], mirrors: [], ttlMinutes: 30, maxItems: 30 } }).ok,
-    ).toBe(false)
+    expect(validateConfig({ tnews: { feeds: [], mirrors: [], ttlMinutes: 30 } }).ok).toBe(false)
   })
   test('rejects invalid feed URL', () => {
     expect(
-      validateConfig({ tnews: { feeds: ['not a url'], mirrors: [], ttlMinutes: 30, maxItems: 30 } })
-        .ok,
+      validateConfig({ tnews: { feeds: ['not a url'], mirrors: [], ttlMinutes: 30 } }).ok,
     ).toBe(false)
   })
   test('rejects invalid mirror hostname', () => {
@@ -192,7 +187,6 @@ describe('validateConfig.tnews', () => {
           feeds: ['https://x.com'],
           mirrors: ['bad host!'],
           ttlMinutes: 30,
-          maxItems: 30,
         },
       }).ok,
     ).toBe(false)
@@ -200,14 +194,7 @@ describe('validateConfig.tnews', () => {
   test('rejects ttlMinutes <= 0', () => {
     expect(
       validateConfig({
-        tnews: { feeds: ['https://x.com'], mirrors: [], ttlMinutes: 0, maxItems: 30 },
-      }).ok,
-    ).toBe(false)
-  })
-  test('rejects maxItems <= 0', () => {
-    expect(
-      validateConfig({
-        tnews: { feeds: ['https://x.com'], mirrors: [], ttlMinutes: 30, maxItems: 0 },
+        tnews: { feeds: ['https://x.com'], mirrors: [], ttlMinutes: 0 },
       }).ok,
     ).toBe(false)
   })

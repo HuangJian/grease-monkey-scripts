@@ -147,7 +147,6 @@ export function parseV2exHotPage(
 export function mergeV2exTopics(
   apiTopics: V2exTopic[],
   pageTopics: V2exTopic[],
-  fetchCap: number,
   dropApiOnly = true,
 ): V2exTopic[] {
   const byId = new Map<number, V2exTopic>()
@@ -196,7 +195,7 @@ export function mergeV2exTopics(
     return true
   })
 
-  return filtered.slice(0, Math.max(0, fetchCap))
+  return filtered
 }
 
 /**
@@ -269,7 +268,6 @@ export function dynamicV2exCount(
 ): number {
   return dynamicCount(replies, {
     minItems: options.minItems,
-    maxItems: options.maxItems,
     displayRatio: options.displayRatio,
     elbowDropRatio: options.elbowDropRatio,
     cutoffFloor: options.minReplies,

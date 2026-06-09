@@ -9,7 +9,7 @@ export const DEFAULT_CONFIG: Config = {
   v2ex: {
     ttlMinutes: 30,
     minItems: 10,
-    maxItems: 30,
+    maxItems: Number.POSITIVE_INFINITY,
     displayRatio: 0.1,
     elbowDropRatio: 0.4,
     minReplies: 5,
@@ -20,7 +20,7 @@ export const DEFAULT_CONFIG: Config = {
     ageHalfLifeDays: 2,
     subreddits: ['popular'],
     minItems: 10,
-    maxItems: 30,
+    maxItems: Number.POSITIVE_INFINITY,
     minPerSub: 1,
     displayRatio: 0.1,
     elbowDropRatio: 0.4,
@@ -31,13 +31,12 @@ export const DEFAULT_CONFIG: Config = {
     ttlMinutes: 60,
     initialNewChapters: 3,
     maxNewChaptersPerBook: 5,
-    maxLatestWindow: 50,
+    maxLatestWindow: Number.POSITIVE_INFINITY,
   },
   tnews: {
     feeds: ['https://rsshub.app/telegram/channel/tnews365'],
     mirrors: ['rsshub.rssforever.com'],
     ttlMinutes: 30,
-    maxItems: 30,
   },
   shortcut: {
     doublePressWindowMs: 400,
@@ -180,15 +179,21 @@ export function validateConfig(value: unknown): ConfigValidation {
     const numFields: Array<[string, number, number]> = [
       ['ttlMinutes', 0, Number.POSITIVE_INFINITY],
       ['minItems', 0, Number.POSITIVE_INFINITY],
-      ['maxItems', 0, Number.POSITIVE_INFINITY],
       ['minReplies', 0, Number.POSITIVE_INFINITY],
       ['ageHalfLifeDays', 0.1, 30],
     ]
     for (const [name, min, max] of numFields) {
       if (name in v) {
         const n = v[name]
-        if (typeof n !== 'number' || !Number.isFinite(n) || n < min || n > max) {
-          return { ok: false, error: `v2ex.${name} 必须是 ${min}–${max} 之间的有限数` }
+        if (
+          typeof n !== 'number' ||
+          n < min ||
+          (Number.isFinite(max) ? n > max : !Number.isFinite(n) && n > max)
+        ) {
+          return {
+            ok: false,
+            error: `v2ex.${name} 必须是 ${min}–${Number.isFinite(max) ? max : '∞'} 之间的数`,
+          }
         }
       }
     }
@@ -198,13 +203,6 @@ export function validateConfig(value: unknown): ConfigValidation {
         if (typeof n !== 'number' || !Number.isFinite(n) || n < 0 || n > 1) {
           return { ok: false, error: `v2ex.${name} 必须是 0–1 之间的有限数` }
         }
-      }
-    }
-    if ('minItems' in v && 'maxItems' in v) {
-      const minI = v['minItems']
-      const maxI = v['maxItems']
-      if (typeof minI === 'number' && typeof maxI === 'number' && minI > maxI) {
-        return { ok: false, error: 'v2ex.minItems 不能大于 v2ex.maxItems' }
       }
     }
   }
@@ -228,7 +226,6 @@ export function validateConfig(value: unknown): ConfigValidation {
     const numFields: Array<[string, number, number]> = [
       ['ttlMinutes', 1, Number.POSITIVE_INFINITY],
       ['minItems', 1, Number.POSITIVE_INFINITY],
-      ['maxItems', 1, Number.POSITIVE_INFINITY],
       ['minPerSub', 0, Number.POSITIVE_INFINITY],
       ['minCutoffScore', 0, Number.POSITIVE_INFINITY],
       ['ageHalfLifeDays', 0.1, 30],
@@ -236,8 +233,15 @@ export function validateConfig(value: unknown): ConfigValidation {
     for (const [name, min, max] of numFields) {
       if (name in r) {
         const n = r[name]
-        if (typeof n !== 'number' || !Number.isFinite(n) || n < min || n > max) {
-          return { ok: false, error: `reddit.${name} 必须是 ${min}–${max} 之间的有限数` }
+        if (
+          typeof n !== 'number' ||
+          n < min ||
+          (Number.isFinite(max) ? n > max : !Number.isFinite(n) && n > max)
+        ) {
+          return {
+            ok: false,
+            error: `reddit.${name} 必须是 ${min}–${Number.isFinite(max) ? max : '∞'} 之间的数`,
+          }
         }
       }
     }
@@ -247,13 +251,6 @@ export function validateConfig(value: unknown): ConfigValidation {
         if (typeof n !== 'number' || !Number.isFinite(n) || n < 0 || n > 1) {
           return { ok: false, error: `reddit.${name} 必须是 0–1 之间的有限数` }
         }
-      }
-    }
-    if ('minItems' in r && 'maxItems' in r) {
-      const minI = r['minItems']
-      const maxI = r['maxItems']
-      if (typeof minI === 'number' && typeof maxI === 'number' && minI > maxI) {
-        return { ok: false, error: 'reddit.minItems 不能大于 reddit.maxItems' }
       }
     }
   }
@@ -294,8 +291,15 @@ export function validateConfig(value: unknown): ConfigValidation {
     for (const [name, min, max] of numFields) {
       if (name in n) {
         const v = n[name]
-        if (typeof v !== 'number' || !Number.isFinite(v) || v < min || v > max) {
-          return { ok: false, error: `novels.${name} 必须是 ${min}–${max} 之间的有限数` }
+        if (
+          typeof v !== 'number' ||
+          v < min ||
+          (Number.isFinite(max) ? v > max : !Number.isFinite(v) && v > max)
+        ) {
+          return {
+            ok: false,
+            error: `novels.${name} 必须是 ${min}–${Number.isFinite(max) ? max : '∞'} 之间的数`,
+          }
         }
       }
     }
@@ -334,10 +338,7 @@ export function validateConfig(value: unknown): ConfigValidation {
         }
       }
     }
-    const numFields: Array<[string, number, number]> = [
-      ['ttlMinutes', 1, Number.POSITIVE_INFINITY],
-      ['maxItems', 1, Number.POSITIVE_INFINITY],
-    ]
+    const numFields: Array<[string, number, number]> = [['ttlMinutes', 1, Number.POSITIVE_INFINITY]]
     for (const [name, min, max] of numFields) {
       if (name in t) {
         const v = t[name]

@@ -1,6 +1,5 @@
 import type { Runtime } from '../../runtime'
 import type { Source } from '../types'
-import { FETCH_CAP_FLOOR } from './constants'
 import { createV2exEditor } from './editor'
 import { fetchV2ex } from './fetcher'
 import { renderV2ex } from './render'
@@ -18,14 +17,11 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
     order: 0,
     async fetch(runtime, _prevData) {
       runtimeRef = runtime
-      const fetchCap = Math.max(options.maxItems, FETCH_CAP_FLOOR)
       await state.loadFromStorage(runtime)
       const allTopics = await fetchV2ex(
         runtime,
-        fetchCap,
         {
           minItems: options.minItems,
-          maxItems: options.maxItems,
           displayRatio: options.displayRatio,
           elbowDropRatio: options.elbowDropRatio,
           minReplies: options.minReplies,

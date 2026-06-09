@@ -21,7 +21,6 @@ const DEFAULT_OPTS: TnewsSourceOptions = {
   feeds: ['https://rsshub.app/telegram/channel/tnews365'],
   mirrors: [],
   ttlMinutes: 30,
-  maxItems: 30,
 }
 
 async function setup(
@@ -37,12 +36,11 @@ async function setup(
 }
 
 describe('createTnewsEditor', () => {
-  test('renders feed and mirror chip lists, ttl/max inputs', async () => {
+  test('renders feed and mirror chip lists, ttl input', async () => {
     const { root } = await setup()
     expect(root.querySelector('.gm-sp-tne-feeds')).not.toBeNull()
     expect(root.querySelector('.gm-sp-tne-mirrors')).not.toBeNull()
     expect(root.querySelector<HTMLInputElement>('.gm-sp-tne-ttl')!.value).toBe('30')
-    expect(root.querySelector<HTMLInputElement>('.gm-sp-tne-max')!.value).toBe('30')
   })
 
   test('prefills default mirrors from DEFAULT_CONFIG on first open', async () => {
@@ -123,14 +121,12 @@ describe('createTnewsEditor', () => {
         feeds: ['https://custom.example/feed'],
         mirrors: ['custom.mirror.example'],
         ttlMinutes: 45,
-        maxItems: 50,
       },
     }
     const root = getRoot(dom)
     const editor = createTnewsEditor(DEFAULT_OPTS)
     await editor(root, { runtime, onRevert: () => {}, close: () => {} })
     expect(root.querySelector<HTMLInputElement>('.gm-sp-tne-ttl')!.value).toBe('45')
-    expect(root.querySelector<HTMLInputElement>('.gm-sp-tne-max')!.value).toBe('50')
     const chips = Array.from(root.querySelectorAll<HTMLElement>('.gm-sp-tne-chip-label'))
     const labels = chips.map((c) => c.textContent)
     expect(labels).toContain('https://custom.example/feed')

@@ -10,14 +10,12 @@ export type TnewsConfig = {
   feeds: string[]
   mirrors: string[]
   ttlMinutes: number
-  maxItems: number
 }
 
 export type TnewsSourceOptions = {
   feeds: string[]
   mirrors: string[]
   ttlMinutes: number
-  maxItems: number
 }
 
 export type TnewsFetchResult = {
