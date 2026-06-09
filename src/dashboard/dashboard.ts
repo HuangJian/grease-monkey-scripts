@@ -1,6 +1,6 @@
 import type { Runtime } from '../runtime'
 import { isStale, loadCache, saveCache } from './cache'
-import { tryAcquireLock } from './lock'
+import { releaseLock, tryAcquireLock } from './lock'
 import { mountOverlay, type OverlayHandle } from './overlay/mount'
 import { renderCard, renderHeader } from './overlay/render'
 import { renderTabsCard } from './overlay/tabs-render'
@@ -168,6 +168,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     }
     if (!next) return
     await saveCache(runtime, sourceId, next)
+    await releaseLock(runtime, sourceId)
     const group = groupForSource.get(sourceId)
     if (group) {
       await renderGroupById(group.id)

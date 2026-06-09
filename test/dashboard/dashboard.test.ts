@@ -274,6 +274,34 @@ describe('createDashboard', () => {
     expect(called).toBe(0)
   })
 
+  test('bugfix: refreshSource releases lock after success so subsequent refresh works', async () => {
+    let fetchCount = 0
+    runtime.request = ((d) => {
+      fetchCount++
+      d.onload({ responseText: '[]' })
+    }) as typeof runtime.request
+    const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
+    dashboard.start()
+    await dashboard.refreshSource('v2ex')
+    const countAfterFirst = fetchCount
+    await dashboard.refreshSource('v2ex')
+    expect(fetchCount).toBeGreaterThan(countAfterFirst)
+  })
+
+  test('bugfix: refreshSource releases lock after failure so subsequent refresh works', async () => {
+    let fetchCount = 0
+    runtime.request = ((d) => {
+      fetchCount++
+      d.onerror?.()
+    }) as typeof runtime.request
+    const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
+    dashboard.start()
+    await dashboard.refreshSource('v2ex')
+    const countAfterFirst = fetchCount
+    await dashboard.refreshSource('v2ex')
+    expect(fetchCount).toBeGreaterThan(countAfterFirst)
+  })
+
   test('double-Shift toggles the overlay', async () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()

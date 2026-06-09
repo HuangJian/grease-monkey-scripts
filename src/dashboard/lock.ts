@@ -38,3 +38,7 @@ export async function tryAcquireLock(
   const after = await runtime.getValue<Lock>(key, me)
   return after.owner === me.owner
 }
+
+export async function releaseLock(runtime: Runtime, sourceId: string): Promise<void> {
+  await runtime.setValue(LOCK_KEY(sourceId), null)
+}
