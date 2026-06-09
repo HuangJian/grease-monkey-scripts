@@ -1919,6 +1919,23 @@
   border: 1px solid #dcfce7;
 }
 
+.gm-sp-xit-due-invalid {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+}
+
+.gm-sp-xit-link {
+  color: #2563eb;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.gm-sp-xit-link:hover {
+  text-decoration-style: solid;
+}
+
 .gm-sp-xit-indent {
   display: inline-block;
   user-select: none;

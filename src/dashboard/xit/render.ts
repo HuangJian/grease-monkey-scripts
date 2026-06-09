@@ -43,6 +43,27 @@ export function getDueDateStatus(
   }
 }
 
+function formatDueDateDisplay(dateStr: string): string {
+  const currentYear = new Date().getFullYear()
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr)
+  if (ymd) {
+    return Number(ymd[1]) === currentYear ? `${ymd[2]}-${ymd[3]}` : dateStr
+  }
+  const ym = /^(\d{4})-(\d{2})$/.exec(dateStr)
+  if (ym) {
+    return Number(ym[1]) === currentYear ? ym[2] : dateStr
+  }
+  const yq = /^(\d{4})-(Q[1-4])$/.exec(dateStr)
+  if (yq) {
+    return Number(yq[1]) === currentYear ? yq[2] : dateStr
+  }
+  const yw = /^(\d{4})-(W\d{1,2})$/.exec(dateStr)
+  if (yw) {
+    return Number(yw[1]) === currentYear ? yw[2] : dateStr
+  }
+  return dateStr
+}
+
 export function renderXit(
   container: HTMLElement,
   data: XitData | null,
@@ -321,31 +342,56 @@ function getCheckboxChar(status: string): string {
 
 function renderItemHtml(line: XitItem): string {
   const checkboxChar = getCheckboxChar(line.status)
-  let descHtml = escapeHtml(line.description)
+  let desc = line.description
 
-  descHtml = descHtml.replace(
-    /(#[\w\d\u4e00-\u9fa5_-]+(?:=(?:[^\s#]+|"[^"]*"|'[^']*'))?)/gi,
-    (match) => `<span class="gm-sp-xit-tag">${match}</span>`,
+  // Token-based inline extraction: replace matched patterns with placeholders
+  // to avoid regex collision (e.g., tag regex matching inside link text).
+  const tokens: string[] = []
+  // Token placeholder: uses U+FFFD (replacement character) as delimiter
+  // to avoid control-char lint warnings. Survives escapeHtml.
+  const T = '\uFFFD'
+  function token(html: string): string {
+    const i = tokens.length
+    tokens.push(html)
+    return `${T}${i}${T}`
+  }
+
+  // 1. Markdown links: [text](url) — extract first to protect brackets from other regexes
+  desc = desc.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, text, href) =>
+    token(
+      `<a class="gm-sp-xit-link" href="${escapeHtml(href)}" target="_blank" rel="noopener">${escapeHtml(text)}</a>`,
+    ),
   )
 
-  descHtml = descHtml.replace(
-    /(->\s*(\d{4}(?:-\d{2}-\d{2}|-\d{2}|-Q[1-4]|-W\d{1,2})?))/g,
-    (match, _p1, dateStr) => {
+  // 2. Tags: #name or #name=value
+  desc = desc.replace(
+    /(?<=\s|^)#([\w\d\u4e00-\u9fa5_-]+)(?:=([^\s#]+|"[^"]*"|'[^']*'))?/g,
+    (match) => token(`<span class="gm-sp-xit-tag">${escapeHtml(match)}</span>`),
+  )
+
+  // 3. Due dates: -> YYYY-MM-DD (etc.)
+  desc = desc.replace(
+    /->\s*(\d{4}(?:-\d{2}-\d{2}|-\d{2}|-Q[1-4]|-W\d{1,2})?)/g,
+    (_match, dateStr) => {
       const status = getDueDateStatus(dateStr)
-      let alertText = ''
+      const display = formatDueDateDisplay(dateStr)
+      let icon = ''
       if (line.status !== 'checked' && line.status !== 'obsolete') {
-        if (status === 'overdue') alertText = ' (已逾期 ⚠️)'
-        else if (status === 'today') alertText = ' (今天到期 ⏰)'
-        else if (status === 'tomorrow') alertText = ' (明天到期)'
+        if (status === 'overdue') icon = '⚠️'
+        else if (status === 'today') icon = '⏰'
+        else if (status === 'tomorrow') icon = '⏳'
       }
-      return `<span class="gm-sp-xit-duedate gm-sp-xit-due-${status}">${match}${alertText}</span>`
+      return token(
+        `<span class="gm-sp-xit-duedate gm-sp-xit-due-${status}">${icon}${escapeHtml(display)}</span>`,
+      )
     },
   )
 
-  descHtml = descHtml.replace(
-    /\n/g,
-    '<br><span class="gm-sp-xit-indent">&nbsp;&nbsp;&nbsp;&nbsp;</span>',
-  )
+  // Escape remaining plain text, then restore tokens
+  desc = escapeHtml(desc).replace(new RegExp(`${T}(\\d+)${T}`, 'g'), (_m, i) => tokens[Number(i)]!)
+
+  // Newlines → indented line breaks
+  desc = desc.replace(/\n/g, '<br><span class="gm-sp-xit-indent">&nbsp;&nbsp;&nbsp;&nbsp;</span>')
 
   const priorityClass = line.priority > 0 ? ` gm-sp-xit-prio-${line.priority}` : ''
   const prioHtml =
@@ -358,7 +404,7 @@ function renderItemHtml(line: XitItem): string {
 
   return `<div class="gm-sp-xit-item${completedClass}" data-status="${line.status}">
     <span class="gm-sp-xit-checkbox" data-status="${line.status}">${escapeHtml(checkboxChar)}</span>
-    <div class="gm-sp-xit-content">${prioHtml}${descHtml}</div>
+    <div class="gm-sp-xit-content">${prioHtml}${desc}</div>
   </div>`
 }
 
