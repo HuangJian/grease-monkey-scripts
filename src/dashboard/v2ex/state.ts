@@ -32,7 +32,8 @@ type OldStoredApiTopic = {
 export type V2exState = {
   isRead(id: number): boolean
   isHidden(id: number): boolean
-  markRead(id: number, ts?: number): void
+  getReadReplies(id: number): number | undefined
+  markRead(id: number, ts?: number, replies?: number): void
   markHidden(id: number, ts?: number): void
   filterVisible(topics: ReadonlyArray<V2exTopic>): V2exTopic[]
   loadFromStorage(runtime: Runtime): Promise<void>
@@ -61,8 +62,11 @@ export function createV2exState(): V2exState {
     isHidden(id) {
       return itemState.isHidden(id)
     },
-    markRead(id, ts) {
-      itemState.markRead(id, ts)
+    getReadReplies(id) {
+      return itemState.getReadReplies(id)
+    },
+    markRead(id, ts, replies) {
+      itemState.markRead(id, ts, replies)
     },
     markHidden(id, ts) {
       itemState.markHidden(id, ts)

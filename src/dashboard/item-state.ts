@@ -1,7 +1,7 @@
 import type { Runtime } from '../runtime'
 import { CACHE_KEY, type CachedSource } from './types'
 
-type StoredEntry = { r?: number; h?: number }
+type StoredEntry = { r?: number; h?: number; n?: number }
 
 export type ItemStateOptions<T extends string | number> = {
   storageKey: string
@@ -14,7 +14,8 @@ export type ItemStateOptions<T extends string | number> = {
 export type ItemState<T extends string | number = string> = {
   isRead(id: T): boolean
   isHidden(id: T): boolean
-  markRead(id: T, ts?: number): void
+  getReadReplies(id: T): number | undefined
+  markRead(id: T, ts?: number, replies?: number): void
   markHidden(id: T, ts?: number): void
   filterVisible<U extends { id: T }>(items: ReadonlyArray<U>): U[]
   loadFromStorage(runtime: Runtime): Promise<void>
@@ -32,6 +33,7 @@ export function createItemState<T extends string | number = string>(
   const { storageKey, ttlMs, oldStorageKey, serializeId = identity as (id: T) => string } = options
 
   const readAt = new Map<string, number>()
+  const readReplies = new Map<string, number>()
   const hiddenAt = new Map<string, number>()
 
   function expireNow(map: Map<string, number>): void {
@@ -48,8 +50,13 @@ export function createItemState<T extends string | number = string>(
     isHidden(id) {
       return hiddenAt.has(serializeId(id))
     },
-    markRead(id, ts = Date.now()) {
-      readAt.set(serializeId(id), ts)
+    getReadReplies(id) {
+      return readReplies.get(serializeId(id))
+    },
+    markRead(id, ts = Date.now(), replies) {
+      const key = serializeId(id)
+      readAt.set(key, ts)
+      if (replies !== undefined) readReplies.set(key, replies)
     },
     markHidden(id, ts = Date.now()) {
       hiddenAt.set(serializeId(id), ts)
@@ -66,6 +73,9 @@ export function createItemState<T extends string | number = string>(
         for (const [idStr, entry] of Object.entries(stored)) {
           if (entry.r && now - entry.r < ttlMs && !readAt.has(idStr)) {
             readAt.set(idStr, entry.r)
+          }
+          if (entry.n !== undefined && !readReplies.has(idStr)) {
+            readReplies.set(idStr, entry.n)
           }
           if (entry.h && now - entry.h < ttlMs && !hiddenAt.has(idStr)) {
             hiddenAt.set(idStr, entry.h)
@@ -92,7 +102,10 @@ export function createItemState<T extends string | number = string>(
       const obj: Record<string, StoredEntry> = {}
       for (const [id, ts] of readAt) {
         if (now - ts < ttlMs) {
-          obj[id] = { r: ts }
+          const entry: StoredEntry = { r: ts }
+          const replies = readReplies.get(id)
+          if (replies !== undefined) entry.n = replies
+          obj[id] = entry
         }
       }
       for (const [id, ts] of hiddenAt) {
@@ -105,6 +118,7 @@ export function createItemState<T extends string | number = string>(
     },
     clear() {
       readAt.clear()
+      readReplies.clear()
       hiddenAt.clear()
     },
   }

@@ -327,3 +327,54 @@ describe('renderReddit sub collapse', () => {
     expect(sub0.classList.contains('gm-sp-reddit-section-collapsed')).toBe(false)
   })
 })
+
+describe('renderReddit reply count formatting', () => {
+  let dom: JSDOM
+  let container: HTMLElement
+  let state: RedditState
+
+  beforeEach(() => {
+    dom = makeDom()
+    container = dom.window.document.createElement('div')
+    state = createRedditState()
+  })
+
+  test('shows plain count for unread post', () => {
+    const data: Record<string, RedditPost[]> = {
+      aww: [makePost({ id: 'a1', numComments: 10 })],
+    }
+    renderReddit(container, data, state, null, createExpandCollapse())
+    const count = container.querySelector('.gm-sp-reddit-comments')!
+    expect(count.textContent).toBe('💬 10')
+  })
+
+  test('shows plain count when read and no new comments', () => {
+    state.markRead('a1', Date.now(), 10)
+    const data: Record<string, RedditPost[]> = {
+      aww: [makePost({ id: 'a1', numComments: 10 })],
+    }
+    renderReddit(container, data, state, null, createExpandCollapse())
+    const count = container.querySelector('.gm-sp-reddit-comments')!
+    expect(count.textContent).toBe('💬 10')
+  })
+
+  test('shows new comment count when read and comments increased', () => {
+    state.markRead('a1', Date.now(), 10)
+    const data: Record<string, RedditPost[]> = {
+      aww: [makePost({ id: 'a1', numComments: 15 })],
+    }
+    renderReddit(container, data, state, null, createExpandCollapse())
+    const count = container.querySelector('.gm-sp-reddit-comments')!
+    expect(count.textContent).toBe('💬 10 + 5')
+  })
+
+  test('clicking title stores comment count', () => {
+    const data: Record<string, RedditPost[]> = {
+      aww: [makePost({ id: 'a1', numComments: 10 })],
+    }
+    renderReddit(container, data, state, null, createExpandCollapse())
+    const link = container.querySelector('.gm-sp-item-title') as HTMLAnchorElement
+    link.click()
+    expect(state.getReadReplies('a1')).toBe(10)
+  })
+})

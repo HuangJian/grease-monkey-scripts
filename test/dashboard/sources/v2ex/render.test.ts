@@ -153,4 +153,32 @@ describe('renderV2ex', () => {
     hideBtn.click()
     expect(state.isHidden(1)).toBe(true)
   })
+
+  test('shows plain count for unread topic', () => {
+    renderV2ex(container, FIXTURE, state, null)
+    const count = container.querySelector('.gm-sp-item-count')!
+    expect(count.textContent).toBe('10')
+  })
+
+  test('shows plain count when read and no new replies', () => {
+    state.markRead(1, Date.now(), 10)
+    renderV2ex(container, FIXTURE, state, null)
+    const count = container.querySelector('.gm-sp-item-count')!
+    expect(count.textContent).toBe('10')
+  })
+
+  test('shows new reply count when read and replies increased', () => {
+    state.markRead(1, Date.now(), 10)
+    const moreReplies = [{ ...FIXTURE[0], replies: 15 }]
+    renderV2ex(container, moreReplies, state, null)
+    const count = container.querySelector('.gm-sp-item-count')!
+    expect(count.textContent).toBe('10 + 5')
+  })
+
+  test('clicking topic link stores reply count', () => {
+    renderV2ex(container, FIXTURE, state, null)
+    const link = container.querySelector('.gm-sp-item-title') as HTMLAnchorElement
+    link.click()
+    expect(state.getReadReplies(1)).toBe(10)
+  })
 })

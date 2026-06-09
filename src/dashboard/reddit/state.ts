@@ -9,7 +9,8 @@ const TOPIC_STATE_TTL = 72 * 60 * 60 * 1000
 export type RedditState = {
   isRead(id: string): boolean
   isHidden(id: string): boolean
-  markRead(id: string, ts?: number): void
+  getReadReplies(id: string): number | undefined
+  markRead(id: string, ts?: number, replies?: number): void
   markHidden(id: string, ts?: number): void
   filterVisible(posts: ReadonlyArray<RedditPost>): RedditPost[]
   loadFromStorage(runtime: Runtime): Promise<void>
@@ -43,8 +44,11 @@ export function createRedditState(): RedditState {
     isHidden(id) {
       return itemState.isHidden(id)
     },
-    markRead(id, ts) {
-      itemState.markRead(id, ts)
+    getReadReplies(id) {
+      return itemState.getReadReplies(id)
+    },
+    markRead(id, ts, replies) {
+      itemState.markRead(id, ts, replies)
     },
     markHidden(id, ts) {
       itemState.markHidden(id, ts)

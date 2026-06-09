@@ -58,6 +58,20 @@ describe('createItemState (string IDs)', () => {
       expect(state.isRead('1')).toBe(true)
       expect(state.isHidden('2')).toBe(true)
     })
+    test('markRead with replies stores reply count', () => {
+      state.markRead('1', Date.now(), 42)
+      expect(state.getReadReplies('1')).toBe(42)
+    })
+    test('getReadReplies returns undefined for unread items', () => {
+      expect(state.getReadReplies('1')).toBeUndefined()
+    })
+    test('round-trip preserves read replies', async () => {
+      state.markRead('1', Date.now(), 10)
+      await state.saveToStorage(runtime)
+      const restored = createItemState<string>({ storageKey: STATE_KEY('test'), ttlMs: TTL_MS })
+      await restored.loadFromStorage(runtime)
+      expect(restored.getReadReplies('1')).toBe(10)
+    })
   })
 
   describe('filterVisible', () => {

@@ -12,16 +12,23 @@ function truncateTitle(title: string, max = TITLE_MAX_CHARS): string {
   return title.slice(0, max) + '…'
 }
 
+function formatCommentCount(current: number, readReplies: number | undefined): string {
+  if (readReplies === undefined) return `${current}`
+  if (current <= readReplies) return `${current}`
+  return `${readReplies} + ${current - readReplies}`
+}
+
 function buildItemHtml(post: RedditPost, state: RedditState): string {
   const readClass = state.isRead(post.id) ? ' gm-sp-item-read' : ''
   const titleHtml = `<a class="gm-sp-item-title" href="${escapeUrl(post.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(truncateTitle(post.title))}</a>`
   const subText = escapeHtml(post.subreddits.map((s) => `r/${s}`).join(', '))
-  return `<li class="gm-sp-list-item gm-sp-list-item-flex${readClass}" data-post-id="${post.id}">
+  const commentCount = formatCommentCount(post.numComments, state.getReadReplies(post.id))
+  return `<li class="gm-sp-list-item gm-sp-list-item-flex${readClass}" data-post-id="${post.id}" data-num-comments="${post.numComments}">
         <span class="gm-sp-item-count" title="得分">${post.score}</span>
         ${titleHtml}
         <span class="gm-sp-item-meta">
           <span class="gm-sp-reddit-sub">${subText}</span>
-          <span class="gm-sp-reddit-comments" title="评论数">💬 ${post.numComments}</span>
+          <span class="gm-sp-reddit-comments" title="评论数">💬 ${commentCount}</span>
         </span>
         <button class="gm-sp-item-hide" title="隐藏该主题">×</button>
       </li>`
@@ -68,9 +75,10 @@ export function renderReddit(
     const sub = section.dataset['sub']!
     section.querySelectorAll<HTMLElement>('.gm-sp-list-item').forEach((item) => {
       const postId = item.dataset['postId']!
+      const numComments = Number(item.dataset['numComments']!)
       const link = item.querySelector('.gm-sp-item-title') as HTMLAnchorElement
       link.addEventListener('click', () => {
-        state.markRead(postId)
+        state.markRead(postId, Date.now(), numComments)
         item.classList.add('gm-sp-item-read')
       })
       const hideBtn = item.querySelector('.gm-sp-item-hide') as HTMLButtonElement
