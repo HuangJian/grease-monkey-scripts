@@ -38,6 +38,10 @@ export const DEFAULT_CONFIG: Config = {
     mirrors: ['rsshub.rssforever.com'],
     ttlMinutes: 30,
   },
+  xit: {
+    enabled: true,
+    placement: 'main',
+  },
   shortcut: {
     doublePressWindowMs: 400,
     enabled: true,
@@ -346,6 +350,18 @@ export function validateConfig(value: unknown): ConfigValidation {
           return { ok: false, error: `tnews.${name} 必须是 ${min}–${max} 之间的有限数` }
         }
       }
+    }
+  }
+  if ('xit' in value) {
+    const n = value['xit']
+    if (!isPlainObject(n)) {
+      return { ok: false, error: 'xit 必须是对象' }
+    }
+    if ('enabled' in n && typeof n['enabled'] !== 'boolean') {
+      return { ok: false, error: 'xit.enabled 必须是 boolean' }
+    }
+    if ('placement' in n && n['placement'] !== 'main' && n['placement'] !== 'side') {
+      return { ok: false, error: 'xit.placement 必须是 "main" 或 "side"' }
     }
   }
   return { ok: true }

@@ -62,6 +62,10 @@ export type Config = {
     maxLatestWindow: number
   }
   tnews: TnewsConfig
+  xit: {
+    enabled: boolean
+    placement: 'main' | 'side'
+  }
   shortcut: {
     doublePressWindowMs: number
     enabled: boolean

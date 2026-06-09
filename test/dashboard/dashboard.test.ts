@@ -44,7 +44,11 @@ describe('createDashboard', () => {
   })
 
   test('open() mounts shadow root with header and cards', async () => {
-    const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
+    const config = {
+      ...DEFAULT_CONFIG,
+      notepad: { enabled: false, placement: 'main' as const },
+    }
+    const dashboard = createDashboard(runtime, { config })
     dashboard.start()
     await dashboard.open()
     const host = dom.window.document.getElementById('gm-dashboard')
