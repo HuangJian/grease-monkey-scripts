@@ -31,8 +31,8 @@ async function setup(
   const root = getRoot(dom)
   const close = () => root.replaceChildren()
   const editor = createTnewsEditor(options)
-  await editor(root, { runtime, onRevert: () => {}, close })
-  return { dom, runtime, root, close }
+  const result = await editor(root, { runtime, onRevert: () => {}, close })
+  return { dom, runtime, root, close, result }
 }
 
 describe('createTnewsEditor', () => {
@@ -72,32 +72,32 @@ describe('createTnewsEditor', () => {
   })
 
   test('rejects empty feeds on save', async () => {
-    const { root } = await setup()
+    const { root, result } = await setup()
     const removeButtons = Array.from(
       root.querySelectorAll<HTMLElement>('.gm-sp-editor-chip-remove'),
     )
     removeButtons.forEach((b) => b.click())
-    root.querySelector<HTMLButtonElement>('.gm-sp-tne-save')!.click()
+    void result.save?.()
     const err = root.querySelector<HTMLElement>('.gm-sp-editor-error')!
     expect(err.textContent).toContain('至少添加一个 feed')
   })
 
   test('rejects ttlMinutes <= 0 on save', async () => {
-    const { root } = await setup()
+    const { root, result } = await setup()
     const ttl = root.querySelector<HTMLInputElement>('.gm-sp-tne-ttl')!
     ttl.value = '0'
-    root.querySelector<HTMLButtonElement>('.gm-sp-tne-save')!.click()
+    void result.save?.()
     const err = root.querySelector<HTMLElement>('.gm-sp-editor-error')!
     expect(err.hidden).toBe(false)
   })
 
   test('saves valid section to CONFIG_KEY and closes', async () => {
-    const { runtime, root } = await setup()
+    const { runtime, root, result } = await setup()
     const input = root.querySelector<HTMLInputElement>('.gm-sp-editor-input')!
     const addBtn = root.querySelector<HTMLButtonElement>('.gm-sp-tne-feed-add')!
     input.value = 'https://example.com/feed'
     addBtn.click()
-    root.querySelector<HTMLButtonElement>('.gm-sp-tne-save')!.click()
+    void result.save?.()
     await new Promise((r) => setTimeout(r, 0))
     const cfg = runtime.stores['dashboard:v1:config'] as { tnews: typeof DEFAULT_OPTS } | undefined
     expect(cfg?.tnews.feeds).toContain('https://example.com/feed')
@@ -134,9 +134,9 @@ describe('createTnewsEditor', () => {
   })
 
   test('cancel button closes without saving', async () => {
-    const { runtime, root } = await setup()
+    const { runtime, result } = await setup()
     const initialConfig = runtime.stores['dashboard:v1:config']
-    root.querySelector<HTMLButtonElement>('.gm-sp-tne-cancel')!.click()
+    result.cancel?.()
     expect(runtime.stores['dashboard:v1:config']).toBe(initialConfig)
   })
 })

@@ -88,6 +88,7 @@ describe('renderCardChrome', () => {
         createEditor: () => (body, ctx) => {
           body.textContent = 'editor-body'
           ctx.onRevert()
+          return { render() {}, cancel() {}, save() {} }
         },
         onRevert: () => {
           revertCalls++

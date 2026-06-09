@@ -14,14 +14,19 @@ async function mount(
   initialCities: { latitude: number; longitude: number; cityLabel: string }[] = [
     { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ' },
   ],
-): Promise<{ revertCalls: () => number; closeCalls: () => number }> {
+) {
   let revertCalls = 0
   let closeCalls = 0
   const editor = createWeatherEditor({ cities: initialCities, ttlMinutes: 60 })
-  await editor(container, { runtime, onRevert: () => revertCalls++, close: () => closeCalls++ })
+  const result = await editor(container, {
+    runtime,
+    onRevert: () => revertCalls++,
+    close: () => closeCalls++,
+  })
   return {
     revertCalls: () => revertCalls,
     closeCalls: () => closeCalls,
+    result,
   }
 }
 
@@ -89,16 +94,16 @@ describe('createWeatherEditor', () => {
 
   test('cancel calls close', async () => {
     const handle = await mount(runtime, container, [{ latitude: 1, longitude: 2, cityLabel: 'A' }])
-    ;(container.querySelector('.gm-sp-we-cancel') as HTMLButtonElement).click()
+    handle.result.cancel?.()
     expect(handle.closeCalls()).toBe(1)
   })
 
   test('save persists the patch', async () => {
-    await mount(runtime, container, [
+    const { result } = await mount(runtime, container, [
       { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ' },
       { latitude: 31.2, longitude: 121.5, cityLabel: 'SH' },
     ])
-    ;(container.querySelector('.gm-sp-we-save') as HTMLButtonElement).click()
+    void result.save?.()
     await new Promise<void>((r) => setTimeout(r, 0))
     const stored = runtime.stores[CONFIG_KEY] as {
       weather: { cities: { cityLabel: string; latitude: number }[]; ttlMinutes: number }
@@ -109,8 +114,8 @@ describe('createWeatherEditor', () => {
   })
 
   test('save with empty list shows error and does not persist', async () => {
-    await mount(runtime, container, [])
-    ;(container.querySelector('.gm-sp-we-save') as HTMLButtonElement).click()
+    const { result } = await mount(runtime, container, [])
+    void result.save?.()
     await new Promise<void>((r) => setTimeout(r, 0))
     expect(runtime.stores[CONFIG_KEY]).toBeUndefined()
     const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement

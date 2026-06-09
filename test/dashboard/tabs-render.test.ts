@@ -283,6 +283,7 @@ describe('renderTabsCard', () => {
       createEditor: () => (c, ctx) => {
         c.textContent = 'editor'
         captured = ctx
+        return { render() {}, cancel() {}, save() {} }
       },
     })
     const group: CardGroup = browseGroup([v2ex, novels])

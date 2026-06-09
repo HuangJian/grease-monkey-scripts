@@ -2,7 +2,7 @@ import type { Runtime } from '../../runtime'
 import { escapeHtml } from '../../utils'
 import { loadConfigSection, validateConfig } from '../config'
 import { bindChipList, bindErrorBox, saveConfigSection } from '../editor-helpers'
-import type { SourceEditor } from '../types'
+import type { SourceEditor, SourceEditorResult } from '../types'
 import type { WeatherCity, WeatherSourceOptions } from './types'
 
 export function createWeatherEditor(options: WeatherSourceOptions): SourceEditor {
@@ -35,7 +35,7 @@ async function renderWeatherEditor(
   container: HTMLElement,
   options: WeatherSourceOptions,
   ctx: { runtime: Runtime; onRevert: () => void; close: () => void },
-): Promise<void> {
+): Promise<SourceEditorResult> {
   const fresh = await loadFreshWeatherOptions(ctx.runtime, options)
 
   const cities: WeatherCity[] = fresh.cities.map((c) => ({ ...c }))
@@ -65,10 +65,6 @@ async function renderWeatherEditor(
         <button type="button" class="gm-sp-editor-btn gm-sp-we-add">添加城市</button>
       </div>
       <div class="gm-sp-editor-error" hidden></div>
-      <div class="gm-sp-editor-actions">
-        <button type="button" class="gm-sp-editor-btn gm-sp-editor-btn-primary gm-sp-we-save">保存</button>
-        <button type="button" class="gm-sp-editor-btn gm-sp-we-cancel">取消</button>
-      </div>
     </div>`,
   )
 
@@ -78,8 +74,6 @@ async function renderWeatherEditor(
   const lonInput = container.querySelector('.gm-sp-we-lon') as HTMLInputElement
   const cmaInput = container.querySelector('.gm-sp-we-cma') as HTMLInputElement
   const addBtn = container.querySelector('.gm-sp-editor-btn.gm-sp-we-add') as HTMLButtonElement
-  const saveBtn = container.querySelector('.gm-sp-we-save') as HTMLButtonElement
-  const cancelBtn = container.querySelector('.gm-sp-we-cancel') as HTMLButtonElement
   const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
 
   const error = bindErrorBox(errorEl)
@@ -127,25 +121,27 @@ async function renderWeatherEditor(
     emptyClass: 'gm-sp-editor-empty',
   })
 
-  cancelBtn.addEventListener('click', () => {
-    ctx.close()
-  })
-
-  saveBtn.addEventListener('click', () => {
-    error.clear()
-    if (cities.length === 0) {
-      error.show('至少保留一个城市')
-      return
-    }
-    void saveConfigSection({
-      runtime: ctx.runtime,
-      sectionKey: 'weather',
-      section: { cities, ttlMinutes: fresh.ttlMinutes },
-      validate: validateConfig,
-      onError: (msg) => error.show(msg),
-      onSuccess: () => ctx.close(),
-    })
-  })
-
   chipList.render()
+
+  return {
+    render() {},
+    cancel() {
+      ctx.close()
+    },
+    save() {
+      error.clear()
+      if (cities.length === 0) {
+        error.show('至少保留一个城市')
+        return
+      }
+      void saveConfigSection({
+        runtime: ctx.runtime,
+        sectionKey: 'weather',
+        section: { cities, ttlMinutes: fresh.ttlMinutes },
+        validate: validateConfig,
+        onError: (msg) => error.show(msg),
+        onSuccess: () => ctx.close(),
+      })
+    },
+  }
 }

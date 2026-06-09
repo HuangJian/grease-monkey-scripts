@@ -2,7 +2,7 @@ import type { Runtime } from '../../runtime'
 import { escapeHtml } from '../../utils'
 import { validateConfig } from '../config'
 import { bindChipList, bindErrorBox, readNumberFields, saveConfigSection } from '../editor-helpers'
-import type { SourceEditor } from '../types'
+import type { SourceEditor, SourceEditorResult } from '../types'
 import { normalizeSubredditName } from './parser'
 import type { RedditSourceOptions } from './types'
 import { loadFreshRedditOptions } from './source'
@@ -15,7 +15,7 @@ async function renderRedditEditor(
   container: HTMLElement,
   options: RedditSourceOptions,
   ctx: { runtime: Runtime; onRevert: () => void; close: () => void },
-): Promise<void> {
+): Promise<SourceEditorResult> {
   const fresh = await loadFreshRedditOptions(ctx.runtime, options)
   const subs: string[] = fresh.subreddits.map(normalizeSubredditName).filter((s) => s.length > 0)
 
@@ -61,10 +61,6 @@ async function renderRedditEditor(
         </label>
       </div>
       <div class="gm-sp-editor-error" hidden></div>
-      <div class="gm-sp-editor-actions">
-        <button type="button" class="gm-sp-editor-btn gm-sp-editor-btn-primary gm-sp-re-save">保存</button>
-        <button type="button" class="gm-sp-editor-btn gm-sp-re-cancel">取消</button>
-      </div>
     </div>`,
   )
 
@@ -79,8 +75,6 @@ async function renderRedditEditor(
   const cutoffInput = container.querySelector('.gm-sp-re-cutoff') as HTMLInputElement
   const halfLifeInput = container.querySelector('.gm-sp-re-half-life') as HTMLInputElement
   const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
-  const saveBtn = container.querySelector('.gm-sp-re-save') as HTMLButtonElement
-  const cancelBtn = container.querySelector('.gm-sp-re-cancel') as HTMLButtonElement
 
   ttlInput.value = String(fresh.ttlMinutes)
   minInput.value = String(fresh.minItems)
@@ -124,49 +118,51 @@ async function renderRedditEditor(
     draggingClass: 'gm-sp-editor-chip-dragging',
   })
 
-  cancelBtn.addEventListener('click', () => {
-    ctx.close()
-  })
-
-  saveBtn.addEventListener('click', () => {
-    error.clear()
-    if (subs.length === 0) {
-      error.show('至少添加一个 subreddit')
-      return
-    }
-    const nums = readNumberFields(
-      [
-        { input: ttlInput, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' },
-        { input: minInput, min: 1, errorMessage: '最少条数必须是 ≥1 的整数' },
-        { input: minPerSubInput, min: 0, errorMessage: '每 sub 至少 N 条必须 ≥0' },
-        { input: ratioInput, min: 0, max: 1, errorMessage: '显示比例必须是 0~1 之间' },
-        { input: elbowInput, min: 0, max: 1, errorMessage: '拐点跌幅必须是 0~1 之间' },
-        { input: cutoffInput, min: 0, errorMessage: '最低分数必须 ≥0' },
-        { input: halfLifeInput, min: 0.1, max: 30, errorMessage: '衰减半衰期必须是 0.1~30 之间' },
-      ],
-      (msg) => error.show(msg),
-    )
-    if (nums === null) return
-    const [ttl, min, minPerSub, ratio, elbow, cutoff, halfLife] = nums
-    const reddit = {
-      ttlMinutes: Math.round(ttl),
-      ageHalfLifeDays: halfLife,
-      subreddits: [...subs],
-      minItems: Math.round(min),
-      minPerSub: Math.round(minPerSub),
-      displayRatio: ratio,
-      elbowDropRatio: elbow,
-      minCutoffScore: Math.round(cutoff),
-    }
-    void saveConfigSection({
-      runtime: ctx.runtime,
-      sectionKey: 'reddit',
-      section: reddit,
-      validate: validateConfig,
-      onError: (msg) => error.show(msg),
-      onSuccess: () => ctx.close(),
-    })
-  })
-
   chipList.render()
+
+  return {
+    render() {},
+    cancel() {
+      ctx.close()
+    },
+    save() {
+      error.clear()
+      if (subs.length === 0) {
+        error.show('至少添加一个 subreddit')
+        return
+      }
+      const nums = readNumberFields(
+        [
+          { input: ttlInput, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' },
+          { input: minInput, min: 1, errorMessage: '最少条数必须是 ≥1 的整数' },
+          { input: minPerSubInput, min: 0, errorMessage: '每 sub 至少 N 条必须 ≥0' },
+          { input: ratioInput, min: 0, max: 1, errorMessage: '显示比例必须是 0~1 之间' },
+          { input: elbowInput, min: 0, max: 1, errorMessage: '拐点跌幅必须是 0~1 之间' },
+          { input: cutoffInput, min: 0, errorMessage: '最低分数必须 ≥0' },
+          { input: halfLifeInput, min: 0.1, max: 30, errorMessage: '衰减半衰期必须是 0.1~30 之间' },
+        ],
+        (msg) => error.show(msg),
+      )
+      if (nums === null) return
+      const [ttl, min, minPerSub, ratio, elbow, cutoff, halfLife] = nums
+      const reddit = {
+        ttlMinutes: Math.round(ttl),
+        ageHalfLifeDays: halfLife,
+        subreddits: [...subs],
+        minItems: Math.round(min),
+        minPerSub: Math.round(minPerSub),
+        displayRatio: ratio,
+        elbowDropRatio: elbow,
+        minCutoffScore: Math.round(cutoff),
+      }
+      void saveConfigSection({
+        runtime: ctx.runtime,
+        sectionKey: 'reddit',
+        section: reddit,
+        validate: validateConfig,
+        onError: (msg) => error.show(msg),
+        onSuccess: () => ctx.close(),
+      })
+    },
+  }
 }

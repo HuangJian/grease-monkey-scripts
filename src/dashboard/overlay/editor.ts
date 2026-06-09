@@ -1,4 +1,5 @@
 import type { Runtime } from '../../runtime'
+import type { SourceEditorResult } from '../types'
 import { htmlToElement } from '../../utils'
 
 export function showEditorDialog(
@@ -6,20 +7,21 @@ export function showEditorDialog(
   root: ShadowRoot,
   title: string,
   runtime: Runtime,
-  renderEditor: (container: HTMLElement, close: () => void) => void,
-  headerActions?: string,
+  renderEditor: (
+    container: HTMLElement,
+    close: () => void,
+  ) => SourceEditorResult | Promise<SourceEditorResult>,
 ): () => void {
-  const actionsHtml = headerActions
-    ? `<div class="gm-sp-editor-dialog-actions">${headerActions}</div>`
-    : ''
   const backdrop = htmlToElement<HTMLDivElement>(
     document,
     `<div class="gm-sp-editor-dialog">
       <div class="gm-sp-editor-dialog-panel">
         <div class="gm-sp-editor-dialog-header">
           <span class="gm-sp-editor-dialog-title">${title}</span>
-          ${actionsHtml}
-          <button type="button" class="gm-sp-editor-dialog-close" aria-label="close">×</button>
+          <div class="gm-sp-editor-dialog-actions">
+            <button type="button" class="gm-sp-editor-btn gm-sp-editor-dialog-save">保存</button>
+            <button type="button" class="gm-sp-editor-btn gm-sp-editor-dialog-cancel">取消</button>
+          </div>
         </div>
         <div class="gm-sp-editor-dialog-body"></div>
       </div>
@@ -27,8 +29,9 @@ export function showEditorDialog(
   )
 
   const panel = backdrop.querySelector('.gm-sp-editor-dialog-panel') as HTMLDivElement
-  const closeBtn = backdrop.querySelector('.gm-sp-editor-dialog-close') as HTMLButtonElement
   const body = backdrop.querySelector('.gm-sp-editor-dialog-body') as HTMLDivElement
+  const saveBtn = backdrop.querySelector('.gm-sp-editor-dialog-save') as HTMLButtonElement
+  const cancelBtn = backdrop.querySelector('.gm-sp-editor-dialog-cancel') as HTMLButtonElement
 
   function close(): void {
     backdrop.remove()
@@ -37,7 +40,6 @@ export function showEditorDialog(
   backdrop.addEventListener('click', (e) => {
     if (e.target === backdrop) close()
   })
-  closeBtn.addEventListener('click', close)
   const onKeydown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.stopPropagation()
@@ -52,7 +54,18 @@ export function showEditorDialog(
     origRemove()
   }
 
-  renderEditor(body, close)
+  const result = renderEditor(body, close)
+  Promise.resolve(result).then((r) => {
+    cancelBtn.addEventListener('click', () => {
+      r.cancel?.()
+    })
+    if (r.save) {
+      saveBtn.addEventListener('click', () => {
+        void r.save!()
+      })
+    }
+  })
+
   root.appendChild(backdrop)
   panel.focus()
   return close

@@ -22,11 +22,15 @@ async function mount(
   runtime: TestRuntime,
   container: HTMLElement,
   options: V2exSourceOptions = DEFAULTS,
-): Promise<{ closeCalls: () => number }> {
+) {
   let closeCalls = 0
   const editor = createV2exEditor(options)
-  await editor(container, { runtime, onRevert: () => {}, close: () => closeCalls++ })
-  return { closeCalls: () => closeCalls }
+  const result = await editor(container, {
+    runtime,
+    onRevert: () => {},
+    close: () => closeCalls++,
+  })
+  return { closeCalls: () => closeCalls, result }
 }
 
 describe('createV2exEditor', () => {
@@ -47,7 +51,7 @@ describe('createV2exEditor', () => {
 
   test('cancel calls close', async () => {
     const handle = await mount(runtime, container)
-    ;(container.querySelector('.gm-sp-v2e-cancel') as HTMLButtonElement).click()
+    handle.result.cancel?.()
     expect(handle.closeCalls()).toBe(1)
   })
 
@@ -71,8 +75,8 @@ describe('createV2exEditor', () => {
         minCutoffScore: 500,
       },
     }
-    await mount(runtime, container)
-    ;(container.querySelector('.gm-sp-v2e-save') as HTMLButtonElement).click()
+    const { result } = await mount(runtime, container)
+    void result.save?.()
     await new Promise<void>((r) => setTimeout(r, 0))
     const stored = runtime.stores[CONFIG_KEY] as Record<string, unknown>
     expect(stored['weather']).toBeDefined()
@@ -84,8 +88,8 @@ describe('createV2exEditor', () => {
   })
 
   test('save with no existing config creates fresh entry', async () => {
-    await mount(runtime, container)
-    ;(container.querySelector('.gm-sp-v2e-save') as HTMLButtonElement).click()
+    const { result } = await mount(runtime, container)
+    void result.save?.()
     await new Promise<void>((r) => setTimeout(r, 0))
     const stored = runtime.stores[CONFIG_KEY] as { v2ex: { minItems: number } }
     expect(stored.v2ex.minItems).toBe(10)

@@ -79,10 +79,16 @@ export type SourceEditorContext = {
   close: () => void
 }
 
+export type SourceEditorResult = {
+  render: () => void
+  save?: () => void | Promise<void>
+  cancel?: () => void
+}
+
 export type SourceEditor = (
   container: HTMLElement,
   ctx: SourceEditorContext,
-) => void | Promise<void>
+) => SourceEditorResult | Promise<SourceEditorResult>
 
 export type TabLabel = { label: string; badge?: string | number | null }
 
@@ -96,7 +102,6 @@ export type Source<T> = {
   readonly getTabLabel?: (data: any) => TabLabel
   readonly headerContent?: string
   readonly hideDefaultHeader?: boolean
-  readonly headerActions?: string
   readonly dialogTitle?: string
   fetch(runtime: Runtime, prevData?: T): Promise<T>
   render(container: HTMLElement, data: T | null): void

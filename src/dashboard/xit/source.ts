@@ -41,8 +41,6 @@ export function createXitSource(
         <div class="gm-sp-xit-tags"></div>
       </div>`,
     hideDefaultHeader: true,
-    headerActions: `<button type="button" class="gm-sp-editor-btn gm-sp-editor-btn-primary gm-sp-xit-save">保存</button>
-      <button type="button" class="gm-sp-editor-btn gm-sp-xit-cancel">取消</button>`,
     dialogTitle:
       '<a href="https://xit.jotaen.net/" target="_blank" rel="noopener">[x]it! 语法规范</a>',
     async fetch(runtimeArg, prevData) {

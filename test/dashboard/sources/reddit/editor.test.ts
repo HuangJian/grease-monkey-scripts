@@ -24,11 +24,11 @@ async function mount(
   runtime: TestRuntime,
   container: HTMLElement,
   options: RedditSourceOptions = DEFAULTS,
-): Promise<{ closeCalls: () => number }> {
+) {
   let closeCalls = 0
   const editor = createRedditEditor(options)
-  await editor(container, { runtime, onRevert: () => {}, close: () => closeCalls++ })
-  return { closeCalls: () => closeCalls }
+  const result = await editor(container, { runtime, onRevert: () => {}, close: () => closeCalls++ })
+  return { closeCalls: () => closeCalls, result }
 }
 
 describe('createRedditEditor', () => {
@@ -103,7 +103,7 @@ describe('createRedditEditor', () => {
 
   test('cancel calls close', async () => {
     const handle = await mount(runtime, container)
-    ;(container.querySelector('.gm-sp-re-cancel') as HTMLButtonElement).click()
+    handle.result.cancel?.()
     expect(handle.closeCalls()).toBe(1)
   })
 
@@ -118,8 +118,8 @@ describe('createRedditEditor', () => {
         maxLatestWindow: 50,
       },
     }
-    await mount(runtime, container)
-    ;(container.querySelector('.gm-sp-re-save') as HTMLButtonElement).click()
+    const { result } = await mount(runtime, container)
+    void result.save?.()
     await new Promise<void>((r) => setTimeout(r, 0))
     const stored = runtime.stores[CONFIG_KEY] as Record<string, unknown>
     expect(stored['weather']).toBeDefined()
@@ -130,8 +130,8 @@ describe('createRedditEditor', () => {
   })
 
   test('save rejects when subreddits list is empty', async () => {
-    await mount(runtime, container, { ...DEFAULTS, subreddits: [] })
-    ;(container.querySelector('.gm-sp-re-save') as HTMLButtonElement).click()
+    const { result } = await mount(runtime, container, { ...DEFAULTS, subreddits: [] })
+    void result.save?.()
     const err = container.querySelector('.gm-sp-editor-error') as HTMLElement
     expect(err.hidden).toBe(false)
     expect(err.textContent).toContain('subreddit')
@@ -139,10 +139,10 @@ describe('createRedditEditor', () => {
   })
 
   test('save rejects invalid TTL', async () => {
-    await mount(runtime, container)
+    const { result } = await mount(runtime, container)
     const ttl = container.querySelector('.gm-sp-re-ttl') as HTMLInputElement
     ttl.value = '0'
-    ;(container.querySelector('.gm-sp-re-save') as HTMLButtonElement).click()
+    void result.save?.()
     const err = container.querySelector('.gm-sp-editor-error') as HTMLElement
     expect(err.textContent).toContain('TTL')
     expect(runtime.stores[CONFIG_KEY]).toBeUndefined()
@@ -179,20 +179,20 @@ describe('createRedditEditor', () => {
   })
 
   test('saves ageHalfLifeDays to config', async () => {
-    await mount(runtime, container)
+    const { result } = await mount(runtime, container)
     const halfLife = container.querySelector('.gm-sp-re-half-life') as HTMLInputElement
     halfLife.value = '5'
-    ;(container.querySelector('.gm-sp-re-save') as HTMLButtonElement).click()
+    void result.save?.()
     await new Promise<void>((r) => setTimeout(r, 0))
     const stored = runtime.stores[CONFIG_KEY] as Record<string, { ageHalfLifeDays: number }>
     expect(stored['reddit']!.ageHalfLifeDays).toBe(5)
   })
 
   test('rejects ageHalfLifeDays out of range', async () => {
-    await mount(runtime, container)
+    const { result } = await mount(runtime, container)
     const halfLife = container.querySelector('.gm-sp-re-half-life') as HTMLInputElement
     halfLife.value = '50'
-    ;(container.querySelector('.gm-sp-re-save') as HTMLButtonElement).click()
+    void result.save?.()
     const err = container.querySelector('.gm-sp-editor-error') as HTMLElement
     expect(err.textContent).toContain('衰减半衰期')
     expect(runtime.stores[CONFIG_KEY]).toBeUndefined()

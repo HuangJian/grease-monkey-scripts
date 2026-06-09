@@ -34,16 +34,13 @@ const baseOptions = {
   maxLatestWindow: 50,
 }
 
-async function mountEditor(
-  entries: NovelEntry[],
-  cachedTitles: Map<string, string> = new Map(),
-): Promise<void> {
+async function mountEditor(entries: NovelEntry[], cachedTitles: Map<string, string> = new Map()) {
   const editor = createNovelsEditor({
     entries,
     ...baseOptions,
     getCachedTitles: () => Promise.resolve(cachedTitles),
   })
-  editor(root, {
+  const result = await editor(root, {
     runtime,
     onRevert: () => {},
     close: () => {
@@ -51,6 +48,7 @@ async function mountEditor(
     },
   })
   await new Promise((r) => setTimeout(r, 0))
+  return result
 }
 
 describe('createNovelsEditor', () => {
@@ -145,14 +143,14 @@ describe('createNovelsEditor', () => {
   })
 
   test('cancel button triggers close', async () => {
-    await mountEditor([])
-    ;(root.querySelector('.gm-sp-ne-cancel') as HTMLButtonElement).click()
+    const result = await mountEditor([])
+    result.cancel?.()
     expect(closed).toBe(true)
   })
 
   test('save persists novels config to CONFIG_KEY', async () => {
-    await mountEditor([{ url: 'https://www.sudugu.org/166/' }])
-    ;(root.querySelector('.gm-sp-ne-save') as HTMLButtonElement).click()
+    const result = await mountEditor([{ url: 'https://www.sudugu.org/166/' }])
+    void result.save?.()
     await new Promise((r) => setTimeout(r, 0))
     const stored = runtime.stores[CONFIG_KEY] as
       | { novels: { entries: NovelEntry[]; ttlMinutes: number } }
@@ -163,18 +161,18 @@ describe('createNovelsEditor', () => {
   })
 
   test('save rejects invalid TTL', async () => {
-    await mountEditor([])
+    const result = await mountEditor([])
     const ttl = root.querySelector('.gm-sp-ne-ttl') as HTMLInputElement
     ttl.value = '0'
-    ;(root.querySelector('.gm-sp-ne-save') as HTMLButtonElement).click()
+    void result.save?.()
     await new Promise((r) => setTimeout(r, 0))
     const err = root.querySelector('.gm-sp-ne-error') as HTMLElement
     expect(err.textContent).toContain('TTL')
   })
 
   test('allows saving an entry with unknown host', async () => {
-    await mountEditor([{ url: 'https://other.example/x/' }])
-    ;(root.querySelector('.gm-sp-ne-save') as HTMLButtonElement).click()
+    const result = await mountEditor([{ url: 'https://other.example/x/' }])
+    void result.save?.()
     await new Promise((r) => setTimeout(r, 0))
     const stored = runtime.stores[CONFIG_KEY] as { novels: { entries: NovelEntry[] } } | undefined
     expect(stored?.novels.entries).toEqual([{ url: 'https://other.example/x/' }])
@@ -188,8 +186,8 @@ describe('createNovelsEditor', () => {
       },
     }
     runtime.stores[CONFIG_KEY] = preexisting
-    await mountEditor([{ url: 'https://www.sudugu.org/166/' }])
-    ;(root.querySelector('.gm-sp-ne-save') as HTMLButtonElement).click()
+    const result = await mountEditor([{ url: 'https://www.sudugu.org/166/' }])
+    void result.save?.()
     await new Promise((r) => setTimeout(r, 0))
     const stored = runtime.stores[CONFIG_KEY] as Record<string, unknown> | undefined
     expect(stored?.weather).toEqual(preexisting.weather)

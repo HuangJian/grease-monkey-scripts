@@ -2,7 +2,7 @@ import type { Runtime } from '../../runtime'
 import { escapeHtml } from '../../utils'
 import { loadConfigSection, validateConfig } from '../config'
 import { bindChipList, bindErrorBox, readNumberFields, saveConfigSection } from '../editor-helpers'
-import type { SourceEditor } from '../types'
+import type { SourceEditor, SourceEditorResult } from '../types'
 import { adapterByHostname } from './adapters/registry'
 import type { NovelEntry, NovelSourceOptions } from './types'
 
@@ -63,7 +63,7 @@ async function renderNovelsEditor(
   container: HTMLElement,
   options: NovelsEditorOptions,
   ctx: { runtime: Runtime; onRevert: () => void; close: () => void },
-): Promise<void> {
+): Promise<SourceEditorResult> {
   const fresh = await loadFreshNovelsOptions(ctx.runtime, options)
   const titleMap = await options.getCachedTitles()
   const entries: NovelEntry[] = fresh.entries.map((e) => ({ ...e }))
@@ -102,10 +102,6 @@ async function renderNovelsEditor(
         </label>
       </div>
       <div class="gm-sp-ne-error" hidden></div>
-      <div class="gm-sp-editor-actions">
-        <button type="button" class="gm-sp-editor-btn gm-sp-editor-btn-primary gm-sp-ne-save">保存</button>
-        <button type="button" class="gm-sp-editor-btn gm-sp-ne-cancel">取消</button>
-      </div>
     </div>`,
   )
 
@@ -118,10 +114,6 @@ async function renderNovelsEditor(
   const foldInput = container.querySelector('.gm-sp-ne-fold') as HTMLInputElement
   const windowInput = container.querySelector('.gm-sp-ne-window') as HTMLInputElement
   const errorEl = container.querySelector('.gm-sp-ne-error') as HTMLDivElement
-  const saveBtn = container.querySelector(
-    '.gm-sp-editor-btn.gm-sp-editor-btn-primary',
-  ) as HTMLButtonElement
-  const cancelBtn = container.querySelector('.gm-sp-ne-cancel') as HTMLButtonElement
 
   ttlInput.value = String(fresh.ttlMinutes)
   initialInput.value = String(fresh.initialNewChapters)
@@ -171,39 +163,41 @@ async function renderNovelsEditor(
     emptyClass: 'gm-sp-ne-empty',
   })
 
-  cancelBtn.addEventListener('click', () => {
-    ctx.close()
-  })
-
-  saveBtn.addEventListener('click', () => {
-    error.clear()
-    const nums = readNumberFields(
-      [
-        { input: ttlInput, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' },
-        { input: initialInput, min: 0, errorMessage: '初始新章数必须是 ≥0 的整数' },
-        { input: foldInput, min: 1, errorMessage: '折叠阈值必须是 ≥1 的整数' },
-        { input: windowInput, min: 1, errorMessage: '章节窗口必须是 ≥1 的整数' },
-      ],
-      (msg) => error.show(msg),
-    )
-    if (nums === null) return
-    const [ttl, initial, fold, window] = nums
-    const novels = {
-      entries,
-      ttlMinutes: Math.round(ttl),
-      initialNewChapters: Math.round(initial),
-      maxNewChaptersPerBook: Math.round(fold),
-      maxLatestWindow: Math.round(window),
-    }
-    void saveConfigSection({
-      runtime: ctx.runtime,
-      sectionKey: 'novels',
-      section: novels,
-      validate: validateConfig,
-      onError: (msg) => error.show(msg),
-      onSuccess: () => ctx.close(),
-    })
-  })
-
   chipList.render()
+
+  return {
+    render() {},
+    cancel() {
+      ctx.close()
+    },
+    save() {
+      error.clear()
+      const nums = readNumberFields(
+        [
+          { input: ttlInput, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' },
+          { input: initialInput, min: 0, errorMessage: '初始新章数必须是 ≥0 的整数' },
+          { input: foldInput, min: 1, errorMessage: '折叠阈值必须是 ≥1 的整数' },
+          { input: windowInput, min: 1, errorMessage: '章节窗口必须是 ≥1 的整数' },
+        ],
+        (msg) => error.show(msg),
+      )
+      if (nums === null) return
+      const [ttl, initial, fold, window] = nums
+      const novels = {
+        entries,
+        ttlMinutes: Math.round(ttl),
+        initialNewChapters: Math.round(initial),
+        maxNewChaptersPerBook: Math.round(fold),
+        maxLatestWindow: Math.round(window),
+      }
+      void saveConfigSection({
+        runtime: ctx.runtime,
+        sectionKey: 'novels',
+        section: novels,
+        validate: validateConfig,
+        onError: (msg) => error.show(msg),
+        onSuccess: () => ctx.close(),
+      })
+    },
+  }
 }

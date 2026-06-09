@@ -43,7 +43,6 @@ export function renderCard<T>(container: HTMLElement, options: CardOptions<T>): 
           sourceTitle: source.title,
           createEditor: source.createEditor,
           onRevert,
-          headerActions: source.headerActions,
           dialogTitle: source.dialogTitle,
         }
       : undefined,

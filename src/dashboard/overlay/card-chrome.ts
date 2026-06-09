@@ -7,7 +7,6 @@ export type CardChromeEdit = {
   sourceTitle: string
   createEditor: () => SourceEditor
   onRevert: () => void
-  headerActions?: string
   dialogTitle?: string
 }
 
@@ -120,9 +119,8 @@ export function renderCardChrome(container: HTMLElement, options: CardChromeOpti
         runtime,
         async (dialogBody, dialogClose) => {
           const editor = e.createEditor()
-          await editor(dialogBody, { runtime, onRevert: e.onRevert, close: dialogClose })
+          return editor(dialogBody, { runtime, onRevert: e.onRevert, close: dialogClose })
         },
-        e.headerActions,
       )
     })
   }

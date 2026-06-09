@@ -1,5 +1,5 @@
 import { escapeHtml } from '../../utils'
-import type { SourceEditor } from '../types'
+import type { SourceEditor, SourceEditorResult } from '../types'
 import { bindErrorBox, readNumberFields, saveConfigSection } from '../editor-helpers'
 import { bindChipList } from '../editor-helpers'
 import { validateConfig } from '../config'
@@ -64,7 +64,7 @@ async function renderTnewsEditor(
   container: HTMLElement,
   options: TnewsSourceOptions,
   ctx: { runtime: Runtime; onRevert: () => void; close: () => void },
-): Promise<void> {
+): Promise<SourceEditorResult> {
   const fresh = await loadFreshTnewsOptions(ctx.runtime, options)
   const feeds: string[] = [...fresh.feeds]
   const mirrors: string[] = [...fresh.mirrors]
@@ -95,10 +95,6 @@ async function renderTnewsEditor(
         </label>
       </div>
       <div class="gm-sp-editor-error" hidden></div>
-      <div class="gm-sp-editor-actions">
-        <button type="button" class="gm-sp-editor-btn gm-sp-editor-btn-primary gm-sp-tne-save">保存</button>
-        <button type="button" class="gm-sp-editor-btn gm-sp-tne-cancel">取消</button>
-      </div>
     </div>`,
   )
 
@@ -110,8 +106,6 @@ async function renderTnewsEditor(
   const mirrorAddBtn = container.querySelector('.gm-sp-tne-mirror-add') as HTMLButtonElement
   const ttlInput = container.querySelector('.gm-sp-tne-ttl') as HTMLInputElement
   const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
-  const saveBtn = container.querySelector('.gm-sp-tne-save') as HTMLButtonElement
-  const cancelBtn = container.querySelector('.gm-sp-tne-cancel') as HTMLButtonElement
 
   ttlInput.value = String(fresh.ttlMinutes)
 
@@ -171,39 +165,41 @@ async function renderTnewsEditor(
     emptyClass: 'gm-sp-editor-empty',
   })
 
-  cancelBtn.addEventListener('click', () => {
-    ctx.close()
-  })
-
-  saveBtn.addEventListener('click', () => {
-    error.clear()
-    if (feeds.length === 0) {
-      error.show('至少添加一个 feed URL')
-      return
-    }
-    const nums = readNumberFields(
-      [{ input: ttlInput, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' }],
-      (msg) => error.show(msg),
-    )
-    if (nums === null) return
-    const [ttl] = nums
-    const tnews = {
-      feeds: [...feeds],
-      mirrors: [...mirrors],
-      ttlMinutes: Math.round(ttl),
-    }
-    void saveConfigSection({
-      runtime: ctx.runtime,
-      sectionKey: 'tnews',
-      section: tnews,
-      validate: validateConfig,
-      onError: (msg) => error.show(msg),
-      onSuccess: () => ctx.close(),
-    })
-  })
-
   feedChips.render()
   mirrorChips.render()
+
+  return {
+    render() {},
+    cancel() {
+      ctx.close()
+    },
+    save() {
+      error.clear()
+      if (feeds.length === 0) {
+        error.show('至少添加一个 feed URL')
+        return
+      }
+      const nums = readNumberFields(
+        [{ input: ttlInput, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' }],
+        (msg) => error.show(msg),
+      )
+      if (nums === null) return
+      const [ttl] = nums
+      const tnews = {
+        feeds: [...feeds],
+        mirrors: [...mirrors],
+        ttlMinutes: Math.round(ttl),
+      }
+      void saveConfigSection({
+        runtime: ctx.runtime,
+        sectionKey: 'tnews',
+        section: tnews,
+        validate: validateConfig,
+        onError: (msg) => error.show(msg),
+        onSuccess: () => ctx.close(),
+      })
+    },
+  }
 }
 
 export function createTnewsEditor(options: TnewsSourceOptions): SourceEditor {

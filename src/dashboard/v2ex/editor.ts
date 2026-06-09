@@ -1,7 +1,7 @@
 import type { Runtime } from '../../runtime'
 import { loadConfigSection, validateConfig } from '../config'
 import { bindErrorBox, readNumberFields, saveConfigSection } from '../editor-helpers'
-import type { SourceEditor } from '../types'
+import type { SourceEditor, SourceEditorResult } from '../types'
 import type { V2exSourceOptions } from './types'
 
 export function createV2exEditor(options: V2exSourceOptions): SourceEditor {
@@ -44,7 +44,7 @@ async function renderV2exEditor(
   container: HTMLElement,
   options: V2exSourceOptions,
   ctx: { runtime: Runtime; onRevert: () => void; close: () => void },
-): Promise<void> {
+): Promise<SourceEditorResult> {
   const fresh = await loadFreshV2exOptions(ctx.runtime, options)
 
   container.insertAdjacentHTML(
@@ -78,10 +78,6 @@ async function renderV2exEditor(
         </label>
       </div>
       <div class="gm-sp-editor-error" hidden></div>
-      <div class="gm-sp-editor-actions">
-        <button type="button" class="gm-sp-editor-btn gm-sp-editor-btn-primary gm-sp-v2e-save">保存</button>
-        <button type="button" class="gm-sp-editor-btn gm-sp-v2e-cancel">取消</button>
-      </div>
     </div>`,
   )
 
@@ -92,8 +88,6 @@ async function renderV2exEditor(
   const minRepliesInput = container.querySelector('.gm-sp-v2e-min-replies') as HTMLInputElement
   const halfLifeInput = container.querySelector('.gm-sp-v2e-half-life') as HTMLInputElement
   const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
-  const saveBtn = container.querySelector('.gm-sp-v2e-save') as HTMLButtonElement
-  const cancelBtn = container.querySelector('.gm-sp-v2e-cancel') as HTMLButtonElement
 
   ttlInput.value = String(fresh.ttlMinutes)
   minInput.value = String(fresh.minItems)
@@ -104,40 +98,42 @@ async function renderV2exEditor(
 
   const error = bindErrorBox(errorEl)
 
-  cancelBtn.addEventListener('click', () => {
-    ctx.close()
-  })
-
-  saveBtn.addEventListener('click', () => {
-    error.clear()
-    const nums = readNumberFields(
-      [
-        { input: ttlInput, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' },
-        { input: minInput, min: 1, errorMessage: '最少条数必须是 ≥1 的整数' },
-        { input: ratioInput, min: 0, max: 1, errorMessage: '显示比例必须是 0~1 之间' },
-        { input: elbowInput, min: 0, max: 1, errorMessage: '拐点跌幅必须是 0~1 之间' },
-        { input: minRepliesInput, min: 0, errorMessage: '回复阈值必须 ≥0' },
-        { input: halfLifeInput, min: 0.1, max: 30, errorMessage: '衰减半衰期必须是 0.1~30 之间' },
-      ],
-      (msg) => error.show(msg),
-    )
-    if (nums === null) return
-    const [ttl, min, ratio, elbow, minReplies, halfLife] = nums
-    const v2ex = {
-      ttlMinutes: Math.round(ttl),
-      minItems: Math.round(min),
-      displayRatio: ratio,
-      elbowDropRatio: elbow,
-      minReplies: Math.round(minReplies),
-      ageHalfLifeDays: halfLife,
-    }
-    void saveConfigSection({
-      runtime: ctx.runtime,
-      sectionKey: 'v2ex',
-      section: v2ex,
-      validate: validateConfig,
-      onError: (msg) => error.show(msg),
-      onSuccess: () => ctx.close(),
-    })
-  })
+  return {
+    render() {},
+    cancel() {
+      ctx.close()
+    },
+    save() {
+      error.clear()
+      const nums = readNumberFields(
+        [
+          { input: ttlInput, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' },
+          { input: minInput, min: 1, errorMessage: '最少条数必须是 ≥1 的整数' },
+          { input: ratioInput, min: 0, max: 1, errorMessage: '显示比例必须是 0~1 之间' },
+          { input: elbowInput, min: 0, max: 1, errorMessage: '拐点跌幅必须是 0~1 之间' },
+          { input: minRepliesInput, min: 0, errorMessage: '回复阈值必须 ≥0' },
+          { input: halfLifeInput, min: 0.1, max: 30, errorMessage: '衰减半衰期必须是 0.1~30 之间' },
+        ],
+        (msg) => error.show(msg),
+      )
+      if (nums === null) return
+      const [ttl, min, ratio, elbow, minReplies, halfLife] = nums
+      const v2ex = {
+        ttlMinutes: Math.round(ttl),
+        minItems: Math.round(min),
+        displayRatio: ratio,
+        elbowDropRatio: elbow,
+        minReplies: Math.round(minReplies),
+        ageHalfLifeDays: halfLife,
+      }
+      void saveConfigSection({
+        runtime: ctx.runtime,
+        sectionKey: 'v2ex',
+        section: v2ex,
+        validate: validateConfig,
+        onError: (msg) => error.show(msg),
+        onSuccess: () => ctx.close(),
+      })
+    },
+  }
 }

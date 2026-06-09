@@ -227,6 +227,7 @@ describe('renderCard', () => {
       },
       createEditor: () => (c) => {
         c.textContent = 'editor-body'
+        return { render() {}, cancel() {}, save() {} }
       },
     }
     renderCard(container, {
