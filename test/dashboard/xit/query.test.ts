@@ -1,0 +1,484 @@
+import { describe, expect, it } from 'bun:test'
+import { parseQuery, filterItems } from '../../../src/dashboard/xit/query'
+import type { XitItem } from '../../../src/dashboard/xit/types'
+
+function makeItem(overrides: Partial<XitItem> = {}): XitItem {
+  return {
+    type: 'item',
+    status: 'open',
+    priority: 0,
+    priorityText: '',
+    description: '',
+    rawLines: [],
+    lineIndex: 0,
+    dueDate: null,
+    tags: [],
+    ...overrides,
+  }
+}
+
+describe('query parser', () => {
+  describe('empty query', () => {
+    it('empty string matches all', () => {
+      const r = parseQuery('')
+      expect(r.ok).toBe(true)
+    })
+
+    it('whitespace-only matches all', () => {
+      const r = parseQuery('   ')
+      expect(r.ok).toBe(true)
+    })
+  })
+
+  describe('status terms', () => {
+    it('parses [ ] as open', () => {
+      const r = parseQuery('[ ]')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'status', value: 'open' })
+    })
+
+    it('parses [] as open', () => {
+      const r = parseQuery('[]')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'status', value: 'open' })
+    })
+
+    it('parses [x] as checked', () => {
+      const r = parseQuery('[x]')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'status', value: 'checked' })
+    })
+
+    it('parses [@] as ongoing', () => {
+      const r = parseQuery('[@]')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'status', value: 'ongoing' })
+    })
+
+    it('parses [~] as obsolete', () => {
+      const r = parseQuery('[~]')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'status', value: 'obsolete' })
+    })
+
+    it('parses [?] as in-question', () => {
+      const r = parseQuery('[?]')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'status', value: 'in-question' })
+    })
+
+    it('rejects multiple status terms', () => {
+      const r = parseQuery('[ ] [x]')
+      expect(r.ok).toBe(false)
+    })
+  })
+
+  describe('priority terms', () => {
+    it('parses ! as any priority', () => {
+      const r = parseQuery('!')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'priority', op: 'any' })
+    })
+
+    it('parses !3 as exact priority', () => {
+      const r = parseQuery('!3')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'priority', op: '=', value: 3 })
+    })
+
+    it('parses !>2', () => {
+      const r = parseQuery('!>2')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'priority', op: '>', value: 2 })
+    })
+
+    it('parses !>=1', () => {
+      const r = parseQuery('!>=1')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'priority', op: '>=', value: 1 })
+    })
+
+    it('rejects !open', () => {
+      const r = parseQuery('!open')
+      expect(r.ok).toBe(false)
+    })
+  })
+
+  describe('date comparison terms', () => {
+    it('parses >20260609', () => {
+      const r = parseQuery('>20260609')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'date', op: '>', value: '20260609' })
+    })
+
+    it('parses <0830', () => {
+      const r = parseQuery('<0830')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'date', op: '<', value: '0830' })
+    })
+
+    it('parses =20260609', () => {
+      const r = parseQuery('=20260609')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'date', op: '=', value: '20260609' })
+    })
+
+    it('parses >=20260609', () => {
+      const r = parseQuery('>=20260609')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'date', op: '>=', value: '20260609' })
+    })
+
+    it('parses <=0830', () => {
+      const r = parseQuery('<=0830')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'date', op: '<=', value: '0830' })
+    })
+  })
+
+  describe('date period terms', () => {
+    it('parses ~2026Q3', () => {
+      const r = parseQuery('~2026Q3')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'date', op: '~', value: '2026Q3' })
+    })
+
+    it('parses ~2026W23', () => {
+      const r = parseQuery('~2026W23')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'date', op: '~', value: '2026W23' })
+    })
+
+    it('parses ~202606', () => {
+      const r = parseQuery('~202606')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'date', op: '~', value: '202606' })
+    })
+
+    it('parses ~06', () => {
+      const r = parseQuery('~06')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'date', op: '~', value: '06' })
+    })
+
+    it('parses ~2026', () => {
+      const r = parseQuery('~2026')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'date', op: '~', value: '2026' })
+    })
+  })
+
+  describe('date keyword terms', () => {
+    it('parses today', () => {
+      const r = parseQuery('today')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'dateKeyword', value: 'today' })
+    })
+
+    it('parses thisweek', () => {
+      const r = parseQuery('thisweek')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'dateKeyword', value: 'thisweek' })
+    })
+
+    it('parses thismonth', () => {
+      const r = parseQuery('thismonth')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'dateKeyword', value: 'thismonth' })
+    })
+
+    it('parses thisyear', () => {
+      const r = parseQuery('thisyear')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'dateKeyword', value: 'thisyear' })
+    })
+
+    it('parses overdue', () => {
+      const r = parseQuery('overdue')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'dateKeyword', value: 'overdue' })
+    })
+
+    it('parses nodue', () => {
+      const r = parseQuery('nodue')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'dateKeyword', value: 'nodue' })
+    })
+
+    it('parses today+3', () => {
+      const r = parseQuery('today+3')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'dateKeyword', value: 'today', offset: 3 })
+    })
+
+    it('parses thisweek-1', () => {
+      const r = parseQuery('thisweek-1')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'dateKeyword', value: 'thisweek', offset: -1 })
+    })
+
+    it('parses <today+3', () => {
+      const r = parseQuery('<today+3')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'dateKeyword', value: 'today', offset: 3 })
+    })
+
+    it('parses ~thisweek+1', () => {
+      const r = parseQuery('~thisweek+1')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'date', op: '~', value: 'thisweek', offset: 1 })
+    })
+  })
+
+  describe('tag terms', () => {
+    it('parses #urgent', () => {
+      const r = parseQuery('#urgent')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'tag', name: 'urgent' })
+    })
+
+    it('parses #project=frontend', () => {
+      const r = parseQuery('#project=frontend')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'tag', name: 'project', value: 'frontend' })
+    })
+
+    it('parses #tag="hello world"', () => {
+      const r = parseQuery('#tag="hello world"')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'tag', name: 'tag', value: 'hello world' })
+    })
+  })
+
+  describe('text terms', () => {
+    it('parses quoted string', () => {
+      const r = parseQuery('"buy groceries"')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'text', value: 'buy groceries' })
+    })
+
+    it('parses bare word as text', () => {
+      const r = parseQuery('groceries')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'text', value: 'groceries' })
+    })
+  })
+
+  describe('operators', () => {
+    it('implicit AND', () => {
+      const r = parseQuery('[ ] !>2')
+      expect(r.ok).toBe(true)
+      if (r.ok) {
+        expect(r.ast.type).toBe('and')
+        if (r.ast.type === 'and') {
+          expect(r.ast.children.length).toBe(2)
+          expect(r.ast.children[0]!.type).toBe('status')
+          expect(r.ast.children[1]!.type).toBe('priority')
+        }
+      }
+    })
+
+    it('explicit AND', () => {
+      const r = parseQuery('[ ] and !>2')
+      expect(r.ok).toBe(true)
+      if (r.ok) {
+        expect(r.ast.type).toBe('and')
+        if (r.ast.type === 'and') expect(r.ast.children.length).toBe(2)
+      }
+    })
+
+    it('OR', () => {
+      const r = parseQuery('[ ] or [x]')
+      expect(r.ok).toBe(true)
+      if (r.ok) {
+        expect(r.ast.type).toBe('or')
+        if (r.ast.type === 'or') expect(r.ast.children.length).toBe(2)
+      }
+    })
+
+    it('NOT', () => {
+      const r = parseQuery('not [x]')
+      expect(r.ok).toBe(true)
+      if (r.ok) {
+        expect(r.ast.type).toBe('not')
+        if (r.ast.type === 'not') expect(r.ast.child.type).toBe('status')
+      }
+    })
+
+    it('grouping with ()', () => {
+      const r = parseQuery('([ ] or [@]) !>2')
+      expect(r.ok).toBe(true)
+      if (r.ok) {
+        expect(r.ast.type).toBe('and')
+        if (r.ast.type === 'and') {
+          expect(r.ast.children[0]!.type).toBe('or')
+          expect(r.ast.children[1]!.type).toBe('priority')
+        }
+      }
+    })
+
+    it('precedence: OR lower than AND', () => {
+      const r = parseQuery('[ ] or [x] !>2')
+      expect(r.ok).toBe(true)
+      if (r.ok) {
+        // should be: [ ] or ([x] and !>2)
+        expect(r.ast.type).toBe('or')
+        if (r.ast.type === 'or') {
+          expect(r.ast.children[0]!.type).toBe('status')
+          expect(r.ast.children[1]!.type).toBe('and')
+        }
+      }
+    })
+  })
+
+  describe('error cases', () => {
+    it('rejects unclosed quote', () => {
+      const r = parseQuery('"hello')
+      expect(r.ok).toBe(false)
+    })
+
+    it('rejects unmatched paren', () => {
+      const r = parseQuery('([ ]')
+      expect(r.ok).toBe(false)
+    })
+  })
+})
+
+describe('filterItems', () => {
+  const items: XitItem[] = [
+    makeItem({ status: 'open', description: 'task A', priority: 1, tags: [{ name: 'urgent' }] }),
+    makeItem({ status: 'checked', description: 'task B', priority: 2 }),
+    makeItem({
+      status: 'open',
+      description: 'task C',
+      priority: 3,
+      dueDate: '2026-06-15',
+      tags: [{ name: 'work', value: 'frontend' }],
+    }),
+    makeItem({ status: 'ongoing', description: 'task D', dueDate: '2026-12-01' }),
+    makeItem({ status: 'open', description: 'task E', dueDate: null }),
+  ]
+
+  const lines = items.map((item) => item as any)
+
+  it('filters by status', () => {
+    const r = parseQuery('[ ]')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      const result = filterItems(lines, r.ast)
+      expect(result.length).toBe(3)
+    }
+  })
+
+  it('filters by priority', () => {
+    const r = parseQuery('!>=2')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      const result = filterItems(lines, r.ast)
+      expect(result.length).toBe(2) // task B (2) and task C (3)
+    }
+  })
+
+  it('filters by tag', () => {
+    const r = parseQuery('#urgent')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      const result = filterItems(lines, r.ast)
+      expect(result.length).toBe(1)
+      expect((result[0] as XitItem).description).toBe('task A')
+    }
+  })
+
+  it('filters by tag with value', () => {
+    const r = parseQuery('#work=frontend')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      const result = filterItems(lines, r.ast)
+      expect(result.length).toBe(1)
+      expect((result[0] as XitItem).description).toBe('task C')
+    }
+  })
+
+  it('filters by text', () => {
+    const r = parseQuery('task D')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      const result = filterItems(lines, r.ast)
+      // task D matches description "task D", task C matches because tag value "frontend" contains "d"
+      expect(result.length).toBe(2)
+    }
+  })
+
+  it('filters by exact quoted text', () => {
+    const r = parseQuery('"task D"')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      const result = filterItems(lines, r.ast)
+      expect(result.length).toBe(1)
+      expect((result[0] as XitItem).description).toBe('task D')
+    }
+  })
+
+  it('filters by nodue', () => {
+    const r = parseQuery('nodue')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      const result = filterItems(lines, r.ast)
+      expect(result.length).toBe(3) // tasks A, B, E have null dueDate
+    }
+  })
+
+  it('filters by overdue (past dates)', () => {
+    // Change task C's dueDate to a past date for this test
+    const pastItems = items.map((item) =>
+      item.description === 'task C' ? { ...item, dueDate: '2026-06-01' } : item,
+    )
+    const pastLines = pastItems.map((item) => item as any)
+
+    const r = parseQuery('overdue')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      const result = filterItems(pastLines, r.ast)
+      expect(result.length).toBe(1)
+      expect((result[0] as XitItem).description).toBe('task C')
+    }
+  })
+
+  it('combines with AND', () => {
+    const r = parseQuery('[ ] !>=2')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      const result = filterItems(lines, r.ast)
+      expect(result.length).toBe(1)
+      expect((result[0] as XitItem).description).toBe('task C')
+    }
+  })
+
+  it('combines with OR', () => {
+    const r = parseQuery('[x] or [@]')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      const result = filterItems(lines, r.ast)
+      expect(result.length).toBe(2)
+    }
+  })
+
+  it('combines with NOT', () => {
+    const r = parseQuery('not [x]')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      const result = filterItems(lines, r.ast)
+      expect(result.length).toBe(4)
+    }
+  })
+
+  it('combines with grouping', () => {
+    const r = parseQuery('([ ] or [@]) !>=2')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      const result = filterItems(lines, r.ast)
+      expect(result.length).toBe(1)
+      expect((result[0] as XitItem).description).toBe('task C')
+    }
+  })
+})

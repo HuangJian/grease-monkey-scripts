@@ -1,25 +1,15 @@
 import { escapeHtml } from '../../utils'
 import { parseXitText, parseDueDate } from './parser'
+import { parseQuery, filterItems } from './query'
 import type { XitData, XitLine } from './types'
 
-const filterStates = new WeakMap<
-  HTMLElement,
-  {
-    status: 'all' | 'open' | 'checked' | 'due'
-    tag: string | null
-    search: string
-  }
->()
+const queryStates = new WeakMap<HTMLElement, { query: string; error: string | null }>()
 
-function getFilterState(container: HTMLElement) {
-  let state = filterStates.get(container)
+function getQueryState(container: HTMLElement) {
+  let state = queryStates.get(container)
   if (!state) {
-    state = {
-      status: 'all',
-      tag: null,
-      search: '',
-    }
-    filterStates.set(container, state)
+    state = { query: '', error: null }
+    queryStates.set(container, state)
   }
   return state
 }
@@ -53,12 +43,6 @@ export function getDueDateStatus(
   }
 }
 
-function isNearOrOverdue(dateStr: string | null): boolean {
-  if (!dateStr) return false
-  const status = getDueDateStatus(dateStr)
-  return status === 'overdue' || status === 'today' || status === 'tomorrow' || status === 'soon'
-}
-
 export function renderXit(
   container: HTMLElement,
   data: XitData | null,
@@ -86,6 +70,7 @@ export function renderXit(
       const filtersPanel = card.querySelector('.gm-sp-xit-header-filters') as HTMLElement | null
       const tabsEl = card.querySelector('.gm-sp-xit-tabs') as HTMLElement | null
       const tagsEl = card.querySelector('.gm-sp-xit-tags') as HTMLElement | null
+      const errorEl = card.querySelector('.gm-sp-xit-error') as HTMLElement | null
 
       if (searchInput && filtersPanel) {
         const showFilters = () => {
@@ -121,17 +106,41 @@ export function renderXit(
         clearBtn.addEventListener('click', () => {
           searchInput.value = ''
           searchInput.focus()
-          const state = getFilterState(wrapper)
-          state.search = ''
-          renderListAndTags(wrapper, lines, tagsEl, searchInput)
+          const state = getQueryState(wrapper)
+          state.query = ''
+          state.error = null
+          searchInput.classList.remove('gm-sp-xit-query-error')
+          if (errorEl) {
+            errorEl.textContent = ''
+            errorEl.classList.add('hidden')
+          }
+          renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl)
         })
       }
 
       if (searchInput) {
         searchInput.addEventListener('input', () => {
-          const state = getFilterState(wrapper)
-          state.search = searchInput.value.trim()
-          renderListAndTags(wrapper, lines, tagsEl, searchInput)
+          const state = getQueryState(wrapper)
+          state.query = searchInput.value.trim()
+
+          const result = parseQuery(state.query)
+          if (result.ok) {
+            state.error = null
+            searchInput.classList.remove('gm-sp-xit-query-error')
+            if (errorEl) {
+              errorEl.textContent = ''
+              errorEl.classList.add('hidden')
+            }
+          } else {
+            state.error = result.error
+            searchInput.classList.add('gm-sp-xit-query-error')
+            if (errorEl) {
+              errorEl.textContent = result.error
+              errorEl.classList.remove('hidden')
+            }
+          }
+
+          renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl)
         })
       }
 
@@ -139,11 +148,31 @@ export function renderXit(
         const tabs = tabsEl.querySelectorAll<HTMLButtonElement>('.gm-sp-xit-tab')
         tabs.forEach((tab) => {
           tab.addEventListener('click', () => {
+            const statusMap: Record<string, string> = {
+              all: '',
+              open: '[ ]',
+              checked: '[x]',
+              due: 'overdue',
+            }
+            const statusQuery = statusMap[tab.dataset['status'] ?? ''] ?? ''
+
+            // Update active tab visually
             tabs.forEach((t) => t.classList.remove('gm-sp-xit-tab-active'))
             tab.classList.add('gm-sp-xit-tab-active')
-            const state = getFilterState(wrapper)
-            state.status = tab.dataset['status'] as any
-            renderListAndTags(wrapper, lines, tagsEl, searchInput)
+
+            // Set query
+            if (searchInput) {
+              searchInput.value = statusQuery
+              const state = getQueryState(wrapper)
+              state.query = statusQuery
+              state.error = null
+              searchInput.classList.remove('gm-sp-xit-query-error')
+              if (errorEl) {
+                errorEl.textContent = ''
+                errorEl.classList.add('hidden')
+              }
+              renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl)
+            }
           })
         })
       }
@@ -154,7 +183,8 @@ export function renderXit(
   const card = container.parentElement
   const tagsEl = card?.querySelector('.gm-sp-xit-tags') as HTMLElement | null
   const searchInput = card?.querySelector('.gm-sp-xit-header-search') as HTMLInputElement | null
-  renderListAndTags(wrapper, lines, tagsEl, searchInput)
+  const errorEl = card?.querySelector('.gm-sp-xit-error') as HTMLElement | null
+  renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl)
 }
 
 function renderListAndTags(
@@ -162,8 +192,9 @@ function renderListAndTags(
   lines: XitLine[],
   tagsEl: HTMLElement | null,
   searchInput: HTMLInputElement | null,
+  errorEl: HTMLElement | null,
 ): void {
-  const state = getFilterState(wrapper)
+  const state = getQueryState(wrapper)
   const listEl = wrapper.querySelector('.gm-sp-xit-list') as HTMLElement
 
   // Calculate tags count from all item lines
@@ -182,7 +213,9 @@ function renderListAndTags(
     const sortedTags = Array.from(tagCounts.entries()).sort((a, b) => b[1] - a[1])
     const tagsHtml = sortedTags
       .map(([name, count]) => {
-        const activeClass = state.tag === name ? ' gm-sp-xit-tag-chip-active' : ''
+        // Check if this tag is active in the current query
+        const isActive = state.query.includes(`#${name}`)
+        const activeClass = isActive ? ' gm-sp-xit-tag-chip-active' : ''
         return `<button type="button" class="gm-sp-xit-tag-chip${activeClass}" data-tag="${escapeHtml(name)}">
           #${escapeHtml(name)} <span class="gm-sp-xit-tag-chip-count">${count}</span>
         </button>`
@@ -196,64 +229,69 @@ function renderListAndTags(
     tagsEl.querySelectorAll<HTMLButtonElement>('.gm-sp-xit-tag-chip').forEach((chip) => {
       chip.addEventListener('click', () => {
         const clickedTag = chip.dataset['tag'] ?? null
-        if (state.tag === clickedTag) {
-          state.tag = null
+        if (!searchInput || !clickedTag) return
+
+        const tagQuery = `#${clickedTag}`
+        // Toggle: if already in query, remove it; otherwise append it
+        if (state.query.includes(tagQuery)) {
+          state.query = state.query.replace(tagQuery, '').replace(/\s+/g, ' ').trim()
         } else {
-          state.tag = clickedTag
+          state.query = state.query ? `${state.query} ${tagQuery}` : tagQuery
         }
-        if (searchInput) {
-          searchInput.value = state.tag ? `#${state.tag}` : ''
+        searchInput.value = state.query
+
+        const result = parseQuery(state.query)
+        state.error = result.ok ? null : result.error
+        if (result.ok) {
+          searchInput.classList.remove('gm-sp-xit-query-error')
+          if (errorEl) {
+            errorEl.textContent = ''
+            errorEl.classList.add('hidden')
+          }
+        } else {
+          searchInput.classList.add('gm-sp-xit-query-error')
+          if (errorEl) {
+            errorEl.textContent = result.error
+            errorEl.classList.remove('hidden')
+          }
         }
-        renderListAndTags(wrapper, lines, tagsEl, searchInput)
+
+        renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl)
       })
     })
   } else if (tagsEl) {
     tagsEl.innerHTML = ''
     tagsEl.classList.add('hidden')
-    state.tag = null
   }
 
   // Filter lines
-  const isFiltering = state.status !== 'all' || state.tag !== null || state.search !== ''
+  const isFiltering = state.query !== ''
 
   let displayLines: XitLine[] = []
 
   if (isFiltering) {
-    displayLines = lines.filter((line) => {
-      if (line.type !== 'item') return false
-
-      // Status filter
-      if (state.status === 'open') {
-        if (line.status === 'checked' || line.status === 'obsolete') return false
-      } else if (state.status === 'checked') {
-        if (line.status !== 'checked' && line.status !== 'obsolete') return false
-      } else if (state.status === 'due') {
-        if (
-          line.status === 'checked' ||
-          line.status === 'obsolete' ||
-          !isNearOrOverdue(line.dueDate)
-        ) {
-          return false
+    const result = parseQuery(state.query)
+    if (result.ok) {
+      displayLines = filterItems(lines, result.ast)
+      // Also include headings that precede matching items
+      const enrichedLines: XitLine[] = []
+      let lastHeading: XitLine | null = null
+      for (const line of lines) {
+        if (line.type === 'heading') {
+          lastHeading = line
+        } else if (displayLines.includes(line)) {
+          if (lastHeading && !enrichedLines.includes(lastHeading)) {
+            enrichedLines.push(lastHeading)
+          }
+          enrichedLines.push(line)
+          lastHeading = null
         }
       }
-
-      // Tag filter
-      if (state.tag) {
-        if (!line.tags.some((t) => t.name === state.tag)) return false
-      }
-
-      // Text search query
-      if (state.search) {
-        const query = state.search.toLowerCase()
-        const matchDesc = line.description.toLowerCase().includes(query)
-        const matchTags = line.tags.some(
-          (t) => t.name.includes(query) || (t.value && t.value.toLowerCase().includes(query)),
-        )
-        if (!matchDesc && !matchTags) return false
-      }
-
-      return true
-    })
+      displayLines = enrichedLines
+    } else {
+      // Parse error: show all items
+      displayLines = lines.filter((l) => l.type !== 'blank')
+    }
   } else {
     displayLines = lines
   }
