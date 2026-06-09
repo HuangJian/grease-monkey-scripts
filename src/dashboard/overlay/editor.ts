@@ -56,6 +56,9 @@ export function showEditorDialog(
 
   const result = renderEditor(body, close)
   Promise.resolve(result).then((r) => {
+    if (body.classList.contains('gm-sp-xit-editor-dual')) {
+      panel.style.width = '1200px'
+    }
     cancelBtn.addEventListener('click', () => {
       r.cancel?.()
     })

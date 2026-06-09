@@ -1,7 +1,7 @@
 import { escapeHtml } from '../../utils'
 import { parseXitText, parseDueDate } from './parser'
 import { parseQuery, filterItems } from './query'
-import type { XitData, XitLine } from './types'
+import type { XitData, XitItem, XitLine } from './types'
 
 const queryStates = new WeakMap<HTMLElement, { query: string; error: string | null }>()
 
@@ -296,74 +296,12 @@ function renderListAndTags(
     displayLines = lines
   }
 
-  // Render HTML
   if (displayLines.length === 0) {
     listEl.innerHTML = `<div class="gm-sp-xit-empty">无符合条件的条目</div>`
     return
   }
 
-  const listHtml = displayLines
-    .map((line) => {
-      if (line.type === 'heading') {
-        return `<div class="gm-sp-xit-heading">${escapeHtml(line.text)}</div>`
-      }
-      if (line.type === 'blank') {
-        return `<div class="gm-sp-xit-blank"></div>`
-      }
-      if (line.type === 'comment') {
-        return `<div class="gm-sp-xit-comment">${escapeHtml(line.text)}</div>`
-      }
-
-      // Render XitItem
-      const checkboxChar = getCheckboxChar(line.status)
-      let descHtml = escapeHtml(line.description)
-
-      // Highlight tags
-      descHtml = descHtml.replace(
-        /(#[\w\d\u4e00-\u9fa5_-]+(?:=(?:[^\s#]+|"[^"]*"|'[^']*'))?)/gi,
-        (match) => {
-          return `<span class="gm-sp-xit-tag">${match}</span>`
-        },
-      )
-
-      // Highlight due dates and show warnings
-      descHtml = descHtml.replace(
-        /(->\s*(\d{4}(?:-\d{2}-\d{2}|-\d{2}|-Q[1-4]|-W\d{1,2})?))/g,
-        (match, p1, dateStr) => {
-          const status = getDueDateStatus(dateStr)
-          let alertText = ''
-          if (line.status !== 'checked' && line.status !== 'obsolete') {
-            if (status === 'overdue') alertText = ' (已逾期 ⚠️)'
-            else if (status === 'today') alertText = ' (今天到期 ⏰)'
-            else if (status === 'tomorrow') alertText = ' (明天到期)'
-          }
-          return `<span class="gm-sp-xit-duedate gm-sp-xit-due-${status}">${match}${alertText}</span>`
-        },
-      )
-
-      // Highlight multi-line indentation
-      descHtml = descHtml.replace(
-        /\n/g,
-        '<br><span class="gm-sp-xit-indent">&nbsp;&nbsp;&nbsp;&nbsp;</span>',
-      )
-
-      const priorityClass = line.priority > 0 ? ` gm-sp-xit-prio-${line.priority}` : ''
-      const prioHtml =
-        line.priority > 0
-          ? `<span class="gm-sp-xit-priority${priorityClass}">${escapeHtml(line.priorityText)}</span> `
-          : ''
-
-      const isCompleted = line.status === 'checked' || line.status === 'obsolete'
-      const completedClass = isCompleted ? ' gm-sp-xit-item-completed' : ''
-
-      return `<div class="gm-sp-xit-item${completedClass}" data-status="${line.status}">
-        <span class="gm-sp-xit-checkbox" data-status="${line.status}">${escapeHtml(checkboxChar)}</span>
-        <div class="gm-sp-xit-content">${prioHtml}${descHtml}</div>
-      </div>`
-    })
-    .join('')
-
-  listEl.innerHTML = listHtml
+  listEl.innerHTML = linesToHtml(displayLines)
 }
 
 function getCheckboxChar(status: string): string {
@@ -379,4 +317,73 @@ function getCheckboxChar(status: string): string {
     default:
       return '[ ]'
   }
+}
+
+function renderItemHtml(line: XitItem): string {
+  const checkboxChar = getCheckboxChar(line.status)
+  let descHtml = escapeHtml(line.description)
+
+  descHtml = descHtml.replace(
+    /(#[\w\d\u4e00-\u9fa5_-]+(?:=(?:[^\s#]+|"[^"]*"|'[^']*'))?)/gi,
+    (match) => `<span class="gm-sp-xit-tag">${match}</span>`,
+  )
+
+  descHtml = descHtml.replace(
+    /(->\s*(\d{4}(?:-\d{2}-\d{2}|-\d{2}|-Q[1-4]|-W\d{1,2})?))/g,
+    (match, _p1, dateStr) => {
+      const status = getDueDateStatus(dateStr)
+      let alertText = ''
+      if (line.status !== 'checked' && line.status !== 'obsolete') {
+        if (status === 'overdue') alertText = ' (已逾期 ⚠️)'
+        else if (status === 'today') alertText = ' (今天到期 ⏰)'
+        else if (status === 'tomorrow') alertText = ' (明天到期)'
+      }
+      return `<span class="gm-sp-xit-duedate gm-sp-xit-due-${status}">${match}${alertText}</span>`
+    },
+  )
+
+  descHtml = descHtml.replace(
+    /\n/g,
+    '<br><span class="gm-sp-xit-indent">&nbsp;&nbsp;&nbsp;&nbsp;</span>',
+  )
+
+  const priorityClass = line.priority > 0 ? ` gm-sp-xit-prio-${line.priority}` : ''
+  const prioHtml =
+    line.priority > 0
+      ? `<span class="gm-sp-xit-priority${priorityClass}">${escapeHtml(line.priorityText)}</span> `
+      : ''
+
+  const isCompleted = line.status === 'checked' || line.status === 'obsolete'
+  const completedClass = isCompleted ? ' gm-sp-xit-item-completed' : ''
+
+  return `<div class="gm-sp-xit-item${completedClass}" data-status="${line.status}">
+    <span class="gm-sp-xit-checkbox" data-status="${line.status}">${escapeHtml(checkboxChar)}</span>
+    <div class="gm-sp-xit-content">${prioHtml}${descHtml}</div>
+  </div>`
+}
+
+function linesToHtml(lines: XitLine[]): string {
+  return lines
+    .map((line) => {
+      if (line.type === 'heading') {
+        return `<div class="gm-sp-xit-heading">${escapeHtml(line.text)}</div>`
+      }
+      if (line.type === 'blank') {
+        return `<div class="gm-sp-xit-blank"></div>`
+      }
+      if (line.type === 'comment') {
+        return `<div class="gm-sp-xit-comment">${escapeHtml(line.text)}</div>`
+      }
+      return renderItemHtml(line)
+    })
+    .join('')
+}
+
+export function renderXitPreview(container: HTMLElement, text: string): void {
+  const lines = parseXitText(text)
+  if (lines.length === 0) {
+    container.innerHTML = `<div class="gm-sp-xit-empty">无内容</div>`
+    return
+  }
+  container.innerHTML = linesToHtml(lines)
 }

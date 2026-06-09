@@ -1924,9 +1924,22 @@
   user-select: none;
 }
 
+.gm-sp-xit-editor-dual {
+  display: flex;
+  gap: 12px;
+  height: 420px;
+}
+
+.gm-sp-xit-editor-pane {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .gm-sp-xit-editor-textarea {
   width: 100%;
-  min-height: 300px;
+  flex: 1 1 0;
   font-family:
     ui-monospace,
     SFMono-Regular,
@@ -1941,7 +1954,7 @@
   border: 1px solid #d1d5db;
   border-radius: 6px;
   box-sizing: border-box;
-  resize: vertical;
+  resize: none;
   background: #ffffff;
   color: #1f2328;
 }
@@ -1949,4 +1962,14 @@
 .gm-sp-xit-editor-textarea:focus {
   outline: none;
   border-color: #2563eb;
+}
+
+.gm-sp-xit-editor-preview {
+  overflow-y: auto;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #f9fafb;
+  font-size: 13px;
+  line-height: 1.6;
 }
