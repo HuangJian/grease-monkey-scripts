@@ -8,30 +8,26 @@ export type ExpandCollapse = {
 }
 
 export function createExpandCollapse(): ExpandCollapse {
-  const order: string[] = []
-  let touched = false
+  const expanded = new Set<string>()
+  let initialized = false
+
   return {
     activeSubs(allSubs, totalPosts) {
       if (totalPosts <= COLLAPSE_THRESHOLD) return new Set(allSubs)
-      if (!touched) {
-        return new Set(allSubs.slice(0, MAX_EXPANDED))
+      if (!initialized) {
+        initialized = true
+        for (const s of allSubs.slice(0, MAX_EXPANDED)) expanded.add(s)
       }
-      return new Set(order.slice(-MAX_EXPANDED))
+      return new Set(expanded)
     },
     toggleSub(sub, totalPosts) {
       if (totalPosts <= COLLAPSE_THRESHOLD) return
-      touched = true
-      const idx = order.indexOf(sub)
-      if (idx >= 0) {
-        order.splice(idx, 1)
-        return
-      }
-      order.push(sub)
-      while (order.length > MAX_EXPANDED) order.shift()
+      if (expanded.has(sub)) expanded.delete(sub)
+      else expanded.add(sub)
     },
     reset() {
-      order.length = 0
-      touched = false
+      expanded.clear()
+      initialized = false
     },
   }
 }

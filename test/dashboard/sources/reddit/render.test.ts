@@ -273,46 +273,22 @@ describe('renderReddit sub collapse', () => {
     expect(container.querySelectorAll('.gm-sp-reddit-caret-visible')).toHaveLength(5)
   })
 
-  test('clicking a collapsed sub title expands it and collapses another (LRU)', () => {
+  test('clicking a collapsed sub expands it', () => {
     const data = makeDataWithSubs(5, 5)
     const ec = createExpandCollapse()
     renderReddit(container, data, state, null, ec)
-    const sub3 = container.querySelector<HTMLElement>('[data-sub="sub3"]')!
-    const sub3Title = sub3.querySelector('.gm-sp-reddit-sub-title') as HTMLElement
-    sub3Title.click()
-    const sub3Collapsed = sub3.classList.contains('gm-sp-reddit-section-collapsed')
-    const sub0 = container.querySelector<HTMLElement>('[data-sub="sub0"]')!
-    const sub0Collapsed = sub0.classList.contains('gm-sp-reddit-section-collapsed')
-    expect(sub3Collapsed).toBe(false)
-    expect(sub0Collapsed).toBe(true)
-  })
-
-  test('expanding a 3rd sub evicts the oldest (LRU cap = 2)', () => {
-    const data = makeDataWithSubs(5, 5)
-    const ec = createExpandCollapse()
-    renderReddit(container, data, state, null, ec)
-    const titles = container.querySelectorAll<HTMLElement>('.gm-sp-reddit-sub-title')
-    const sub2Title = Array.from(titles).find((t) => t.dataset['sub'] === 'sub2')!
-    sub2Title.click()
-    const sub3Title = Array.from(titles).find((t) => t.dataset['sub'] === 'sub3')!
-    sub3Title.click()
-    const sub0 = container.querySelector<HTMLElement>('[data-sub="sub0"]')!
-    const sub1 = container.querySelector<HTMLElement>('[data-sub="sub1"]')!
     const sub2 = container.querySelector<HTMLElement>('[data-sub="sub2"]')!
-    const sub3 = container.querySelector<HTMLElement>('[data-sub="sub3"]')!
-    expect(sub0.classList.contains('gm-sp-reddit-section-collapsed')).toBe(true)
-    expect(sub1.classList.contains('gm-sp-reddit-section-collapsed')).toBe(true)
+    const sub2Title = sub2.querySelector('.gm-sp-reddit-sub-title') as HTMLElement
+    sub2Title.click()
     expect(sub2.classList.contains('gm-sp-reddit-section-collapsed')).toBe(false)
-    expect(sub3.classList.contains('gm-sp-reddit-section-collapsed')).toBe(false)
   })
 
-  test('clicking a sub that is in the LRU removes it from active (collapses it)', () => {
+  test('clicking an expanded sub collapses it', () => {
     const data = makeDataWithSubs(5, 5)
     const ec = createExpandCollapse()
     renderReddit(container, data, state, null, ec)
     const sub0 = container.querySelector<HTMLElement>('[data-sub="sub0"]')!
     const sub0Title = sub0.querySelector('.gm-sp-reddit-sub-title') as HTMLElement
-    sub0Title.click()
     sub0Title.click()
     expect(sub0.classList.contains('gm-sp-reddit-section-collapsed')).toBe(true)
   })
