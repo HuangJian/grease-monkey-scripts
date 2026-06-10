@@ -181,4 +181,54 @@ describe('renderV2ex', () => {
     link.click()
     expect(state.getReadReplies(1)).toBe(10)
   })
+
+  test('bugfix: re-clicking after re-render with higher replies updates stored count', () => {
+    renderV2ex(container, FIXTURE, state, null)
+    const link1 = container.querySelector('.gm-sp-item-title') as HTMLAnchorElement
+    link1.click()
+    expect(state.getReadReplies(1)).toBe(10)
+
+    const updated = [{ ...FIXTURE[0], replies: 25 }]
+    renderV2ex(container, updated, state, null)
+    const link2 = container.querySelector('.gm-sp-item-title') as HTMLAnchorElement
+    link2.click()
+    expect(state.getReadReplies(1)).toBe(25)
+  })
+
+  test('bugfix: click saves reply count to storage (not just in-memory)', async () => {
+    renderV2ex(container, FIXTURE, state, runtime as unknown as Runtime)
+    const link = container.querySelector('.gm-sp-item-title') as HTMLAnchorElement
+    link.click()
+    await new Promise<void>((r) => setTimeout(r, 0))
+    const stored = runtime.stores[STATE_KEY('v2ex')] as Record<string, { n?: number }>
+    expect(stored['1']?.n).toBe(10)
+  })
+
+  test('bugfix: re-click updates reply count in storage', async () => {
+    renderV2ex(container, FIXTURE, state, runtime as unknown as Runtime)
+    const link1 = container.querySelector('.gm-sp-item-title') as HTMLAnchorElement
+    link1.click()
+    await new Promise<void>((r) => setTimeout(r, 0))
+
+    const updated = [{ ...FIXTURE[0], replies: 25 }]
+    renderV2ex(container, updated, state, runtime as unknown as Runtime)
+    const link2 = container.querySelector('.gm-sp-item-title') as HTMLAnchorElement
+    link2.click()
+    await new Promise<void>((r) => setTimeout(r, 0))
+
+    const stored = runtime.stores[STATE_KEY('v2ex')] as Record<string, { n?: number }>
+    expect(stored['1']?.n).toBe(25)
+  })
+
+  test('bugfix: clicking updates count display immediately without waiting for re-render', () => {
+    const topic = [{ ...FIXTURE[0], replies: 110 }]
+    state.markRead(1, Date.now(), 100)
+    renderV2ex(container, topic, state, null)
+    const countEl = container.querySelector('.gm-sp-item-count')!
+    expect(countEl.textContent).toBe('100 + 10')
+
+    const link = container.querySelector('.gm-sp-item-title') as HTMLAnchorElement
+    link.click()
+    expect(countEl.textContent).toBe('110')
+  })
 })

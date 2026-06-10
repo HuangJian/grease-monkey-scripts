@@ -60,12 +60,14 @@ export function renderV2ex(
   container.insertAdjacentHTML('beforeend', `<ol class="gm-sp-list">${listHtml}</ol>`)
   container.querySelectorAll<HTMLElement>('.gm-sp-list-item').forEach((item) => {
     const topicId = Number(item.dataset['topicId']!)
-    const replies = Number(item.dataset['replies']!)
     const link = item.querySelector('.gm-sp-item-title') as HTMLAnchorElement
     link.addEventListener('click', () => {
-      state.markRead(topicId, Date.now(), replies)
+      const currentReplies = Number(item.dataset['replies']!)
+      state.markRead(topicId, Date.now(), currentReplies)
       item.classList.add('gm-sp-item-read')
-      if (runtime) void state.saveToStorage(runtime)
+      const countEl = item.querySelector('.gm-sp-item-count')
+      if (countEl) countEl.textContent = formatReplyCount(currentReplies, currentReplies)
+      if (runtime) state.saveToStorage(runtime).catch(() => {})
     })
     const hideBtn = item.querySelector('.gm-sp-item-hide') as HTMLButtonElement
     hideBtn.addEventListener('click', (e) => {
