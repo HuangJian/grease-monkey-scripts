@@ -39,3 +39,14 @@ export type XitLine = XitItem | XitHeading | XitBlank | XitComment
 export type XitData = {
   text: string
 }
+
+export type NamedFilter = {
+  id: string
+  name: string
+  query: string
+  isDefault: boolean
+}
+
+export type NamedFilterStore = {
+  filters: NamedFilter[]
+}

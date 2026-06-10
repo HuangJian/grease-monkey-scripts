@@ -1,7 +1,16 @@
 import { escapeHtml } from '../../utils'
+import type { Runtime } from '../../runtime'
 import { parseXitText, parseDueDate } from './parser'
 import { parseQuery, filterItems } from './query'
-import type { XitData, XitItem, XitLine } from './types'
+import {
+  loadFilters,
+  addFilter,
+  updateFilter,
+  deleteFilter,
+  setDefaultFilter,
+  getDefaultFilter,
+} from './filters'
+import type { XitData, XitItem, XitLine, NamedFilter } from './types'
 
 const queryStates = new WeakMap<HTMLElement, { query: string; error: string | null }>()
 
@@ -67,6 +76,7 @@ function formatDueDateDisplay(dateStr: string): string {
 export type XitRenderOptions = {
   onSaveText: (newText: string) => void
   openEditor?: (lineIndex?: number) => void
+  runtime?: Runtime
 }
 
 export function renderXit(
@@ -94,7 +104,6 @@ export function renderXit(
     if (card) {
       const searchInput = card.querySelector('.gm-sp-xit-header-search') as HTMLInputElement | null
       const filtersPanel = card.querySelector('.gm-sp-xit-header-filters') as HTMLElement | null
-      const tabsEl = card.querySelector('.gm-sp-xit-tabs') as HTMLElement | null
       const tagsEl = card.querySelector('.gm-sp-xit-tags') as HTMLElement | null
       const errorEl = card.querySelector('.gm-sp-xit-error') as HTMLElement | null
 
@@ -117,7 +126,7 @@ export function renderXit(
         })
         card.addEventListener('click', (e) => {
           const target = e.target as HTMLElement
-          if (target.closest('.gm-sp-xit-tab') || target.closest('.gm-sp-xit-tag-chip')) {
+          if (target.closest('.gm-sp-xit-tag-chip') || target.closest('.gm-sp-xit-saved-filter')) {
             searchInput.focus()
           }
         })
@@ -129,6 +138,90 @@ export function renderXit(
         clearBtn.setAttribute('aria-label', 'clear')
         clearBtn.textContent = '\u00d7'
         searchInput.parentElement!.insertBefore(clearBtn, searchInput.nextElementSibling)
+
+        // Save filter button (+)
+        const saveBtn = container.ownerDocument.createElement('button')
+        saveBtn.type = 'button'
+        saveBtn.className = 'gm-sp-edit'
+        saveBtn.setAttribute('aria-label', 'save filter')
+        saveBtn.textContent = '+'
+        searchInput.parentElement!.insertBefore(saveBtn, clearBtn.nextElementSibling)
+
+        let saveFormEl: HTMLElement | null = null
+
+        function removeSaveForm() {
+          if (saveFormEl) {
+            saveFormEl.remove()
+            saveFormEl = null
+          }
+        }
+
+        function showSaveForm(query: string, existingFilter?: NamedFilter) {
+          removeSaveForm()
+          saveFormEl = container.ownerDocument.createElement('div')
+          saveFormEl.className = 'gm-sp-xit-save-form'
+          const nameInput = container.ownerDocument.createElement('input')
+          nameInput.type = 'text'
+          nameInput.className = 'gm-sp-xit-save-name'
+          nameInput.placeholder = 'Name'
+          if (existingFilter) nameInput.value = existingFilter.name
+          const queryInput = container.ownerDocument.createElement('input')
+          queryInput.type = 'text'
+          queryInput.className = 'gm-sp-xit-save-query'
+          queryInput.placeholder = 'Query'
+          queryInput.value = query
+          const confirmBtn = container.ownerDocument.createElement('button')
+          confirmBtn.type = 'button'
+          confirmBtn.className = 'gm-sp-xit-save-confirm'
+          confirmBtn.textContent = 'Save'
+          const cancelBtn = container.ownerDocument.createElement('button')
+          cancelBtn.type = 'button'
+          cancelBtn.className = 'gm-sp-xit-save-cancel'
+          cancelBtn.textContent = 'Cancel'
+          saveFormEl.append(nameInput, queryInput, confirmBtn, cancelBtn)
+
+          // Insert form after the header row
+          const headerRow = card!.querySelector('.gm-sp-xit-header-row')
+          if (headerRow?.nextElementSibling) {
+            headerRow.parentElement!.insertBefore(saveFormEl, headerRow.nextElementSibling)
+          }
+
+          nameInput.focus()
+
+          confirmBtn.addEventListener('click', async () => {
+            const name = nameInput.value.trim()
+            const q = queryInput.value.trim()
+            if (!name || !q || !options.runtime) return
+            if (existingFilter) {
+              await updateFilter(options.runtime, existingFilter.id, { name, query: q })
+            } else {
+              await addFilter(options.runtime, name, q)
+            }
+            removeSaveForm()
+            renderSavedFilters(card!, wrapper, lines, options)
+          })
+
+          cancelBtn.addEventListener('click', () => {
+            removeSaveForm()
+          })
+
+          nameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') confirmBtn.click()
+            if (e.key === 'Escape') cancelBtn.click()
+            e.stopPropagation()
+          })
+          queryInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') confirmBtn.click()
+            if (e.key === 'Escape') cancelBtn.click()
+            e.stopPropagation()
+          })
+        }
+
+        saveBtn.addEventListener('click', () => {
+          const state = getQueryState(wrapper)
+          if (state.query) showSaveForm(state.query)
+        })
+
         clearBtn.addEventListener('click', () => {
           searchInput.value = ''
           searchInput.focus()
@@ -140,7 +233,9 @@ export function renderXit(
             errorEl.textContent = ''
             errorEl.classList.add('hidden')
           }
+          removeSaveForm()
           renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl, options.openEditor)
+          renderSavedFilters(card, wrapper, lines, options)
         })
       }
 
@@ -167,39 +262,22 @@ export function renderXit(
           }
 
           renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl, options.openEditor)
+          renderSavedFilters(card, wrapper, lines, options)
         })
       }
 
-      if (tabsEl) {
-        const tabs = tabsEl.querySelectorAll<HTMLButtonElement>('.gm-sp-xit-tab')
-        tabs.forEach((tab) => {
-          tab.addEventListener('click', () => {
-            const statusMap: Record<string, string> = {
-              all: '',
-              open: '[ ]',
-              checked: '[x]',
-              due: 'overdue',
-            }
-            const statusQuery = statusMap[tab.dataset['status'] ?? ''] ?? ''
-
-            // Update active tab visually
-            tabs.forEach((t) => t.classList.remove('gm-sp-xit-tab-active'))
-            tab.classList.add('gm-sp-xit-tab-active')
-
-            // Set query
-            if (searchInput) {
-              searchInput.value = statusQuery
-              const state = getQueryState(wrapper)
-              state.query = statusQuery
-              state.error = null
-              searchInput.classList.remove('gm-sp-xit-query-error')
-              if (errorEl) {
-                errorEl.textContent = ''
-                errorEl.classList.add('hidden')
-              }
-              renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl, options.openEditor)
-            }
-          })
+      // Load default filter and render saved filters
+      if (options.runtime) {
+        loadFilters(options.runtime).then((store) => {
+          const defaultFilter = getDefaultFilter(store)
+          if (defaultFilter && !getQueryState(wrapper).query && searchInput) {
+            searchInput.value = defaultFilter.query
+            const state = getQueryState(wrapper)
+            state.query = defaultFilter.query
+            state.error = null
+            renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl, options.openEditor)
+          }
+          renderSavedFilters(card, wrapper, lines, options)
         })
       }
     }
@@ -336,6 +414,165 @@ function renderListAndTags(
         openEditor(idx)
       }
     })
+  })
+}
+
+function renderSavedFilters(
+  card: HTMLElement,
+  wrapper: HTMLElement,
+  lines: XitLine[],
+  options: XitRenderOptions,
+): void {
+  const savedFiltersEl = card.querySelector('.gm-sp-xit-saved-filters') as HTMLElement | null
+  const searchInput = card.querySelector('.gm-sp-xit-header-search') as HTMLInputElement | null
+  const tagsEl = card.querySelector('.gm-sp-xit-tags') as HTMLElement | null
+  const errorEl = card.querySelector('.gm-sp-xit-error') as HTMLElement | null
+  if (!savedFiltersEl || !options.runtime) return
+
+  loadFilters(options.runtime).then((store) => {
+    if (store.filters.length === 0) {
+      savedFiltersEl.innerHTML = ''
+      return
+    }
+
+    const state = getQueryState(wrapper)
+    const chipsHtml = store.filters
+      .map((f) => {
+        const isActive = state.query === f.query
+        const activeClass = isActive ? ' gm-sp-xit-saved-filter-active' : ''
+        const starClass = f.isDefault ? ' gm-sp-xit-saved-filter-star-default' : ''
+        const starChar = f.isDefault ? '\u2605' : '\u2606'
+        return `<button type="button" class="gm-sp-xit-saved-filter${activeClass}" data-filter-id="${escapeHtml(f.id)}">
+          <span class="gm-sp-xit-saved-filter-name">${escapeHtml(f.name)}</span>
+          <span class="gm-sp-xit-saved-filter-actions">
+            <span class="gm-sp-xit-saved-filter-star${starClass}" data-action="star">${starChar}</span>
+            <span class="gm-sp-xit-saved-filter-edit" data-action="edit">\u270f</span>
+            <span class="gm-sp-xit-saved-filter-delete" data-action="delete">\u00d7</span>
+          </span>
+        </button>`
+      })
+      .join('')
+
+    savedFiltersEl.innerHTML = chipsHtml
+
+    // Wire chip events
+    savedFiltersEl
+      .querySelectorAll<HTMLButtonElement>('.gm-sp-xit-saved-filter')
+      .forEach((chip) => {
+        const filterId = chip.dataset['filterId'] ?? ''
+
+        // Chip click — apply filter
+        chip.addEventListener('click', (e) => {
+          const target = e.target as HTMLElement
+          // Ignore clicks on action buttons
+          if (target.closest('[data-action]')) return
+
+          const filter = store.filters.find((f) => f.id === filterId)
+          if (!filter || !searchInput) return
+
+          searchInput.value = filter.query
+          state.query = filter.query
+          state.error = null
+          searchInput.classList.remove('gm-sp-xit-query-error')
+          if (errorEl) {
+            errorEl.textContent = ''
+            errorEl.classList.add('hidden')
+          }
+          renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl, options.openEditor)
+          renderSavedFilters(card, wrapper, lines, options)
+          searchInput.focus()
+        })
+
+        // Star click — toggle default
+        chip.querySelector('[data-action="star"]')?.addEventListener('click', async (e) => {
+          e.stopPropagation()
+          if (!options.runtime) return
+          await setDefaultFilter(options.runtime, filterId)
+          renderSavedFilters(card, wrapper, lines, options)
+        })
+
+        // Edit click — show edit form
+        chip.querySelector('[data-action="edit"]')?.addEventListener('click', (e) => {
+          e.stopPropagation()
+          const filter = store.filters.find((f) => f.id === filterId)
+          if (!filter) return
+          showEditForm(card, wrapper, filter, lines, options)
+        })
+
+        // Delete click — remove filter
+        chip.querySelector('[data-action="delete"]')?.addEventListener('click', async (e) => {
+          e.stopPropagation()
+          if (!options.runtime) return
+          await deleteFilter(options.runtime, filterId)
+          renderSavedFilters(card, wrapper, lines, options)
+        })
+      })
+  })
+}
+
+function showEditForm(
+  card: HTMLElement,
+  wrapper: HTMLElement,
+  filter: NamedFilter,
+  lines: XitLine[],
+  options: XitRenderOptions,
+): void {
+  // Remove any existing save form
+  const existingForm = card.querySelector('.gm-sp-xit-save-form')
+  if (existingForm) existingForm.remove()
+
+  const formEl = card.ownerDocument.createElement('div')
+  formEl.className = 'gm-sp-xit-save-form'
+  const nameInput = card.ownerDocument.createElement('input')
+  nameInput.type = 'text'
+  nameInput.className = 'gm-sp-xit-save-name'
+  nameInput.placeholder = 'Name'
+  nameInput.value = filter.name
+  const queryInput = card.ownerDocument.createElement('input')
+  queryInput.type = 'text'
+  queryInput.className = 'gm-sp-xit-save-query'
+  queryInput.placeholder = 'Query'
+  queryInput.value = filter.query
+  const confirmBtn = card.ownerDocument.createElement('button')
+  confirmBtn.type = 'button'
+  confirmBtn.className = 'gm-sp-xit-save-confirm'
+  confirmBtn.textContent = 'Save'
+  const cancelBtn = card.ownerDocument.createElement('button')
+  cancelBtn.type = 'button'
+  cancelBtn.className = 'gm-sp-xit-save-cancel'
+  cancelBtn.textContent = 'Cancel'
+  formEl.append(nameInput, queryInput, confirmBtn, cancelBtn)
+
+  const headerRow = card.querySelector('.gm-sp-xit-header-row')
+  if (headerRow?.nextElementSibling) {
+    headerRow.parentElement!.insertBefore(formEl, headerRow.nextElementSibling)
+  }
+
+  nameInput.focus()
+  nameInput.select()
+
+  confirmBtn.addEventListener('click', async () => {
+    const name = nameInput.value.trim()
+    const q = queryInput.value.trim()
+    if (!name || !q || !options.runtime) return
+    await updateFilter(options.runtime, filter.id, { name, query: q })
+    formEl.remove()
+    renderSavedFilters(card, wrapper, lines, options)
+  })
+
+  cancelBtn.addEventListener('click', () => {
+    formEl.remove()
+  })
+
+  nameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') confirmBtn.click()
+    if (e.key === 'Escape') cancelBtn.click()
+    e.stopPropagation()
+  })
+  queryInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') confirmBtn.click()
+    if (e.key === 'Escape') cancelBtn.click()
+    e.stopPropagation()
   })
 }
 

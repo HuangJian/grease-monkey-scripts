@@ -34,12 +34,7 @@ export function createXitSource(
       </div>
       <div class="gm-sp-xit-error hidden"></div>
       <div class="gm-sp-xit-header-filters hidden">
-        <div class="gm-sp-xit-tabs" role="tablist">
-          <button type="button" class="gm-sp-xit-tab gm-sp-xit-tab-active" data-status="all">全部</button>
-          <button type="button" class="gm-sp-xit-tab" data-status="open">待办</button>
-          <button type="button" class="gm-sp-xit-tab" data-status="checked">完成</button>
-          <button type="button" class="gm-sp-xit-tab" data-status="due">即将到期</button>
-        </div>
+        <div class="gm-sp-xit-saved-filters"></div>
         <div class="gm-sp-xit-tags"></div>
       </div>`,
     hideDefaultHeader: true,
@@ -53,6 +48,7 @@ export function createXitSource(
     },
     render(container, data, ctx) {
       renderXit(container, data, {
+        runtime,
         onSaveText: (newText) => {
           const next = {
             data: { text: newText },
