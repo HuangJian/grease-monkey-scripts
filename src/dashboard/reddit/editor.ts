@@ -19,6 +19,49 @@ async function renderRedditEditor(
   const fresh = await loadFreshRedditOptions(ctx.runtime, options)
   const subs: string[] = fresh.subreddits.map(normalizeSubredditName).filter((s) => s.length > 0)
 
+  const formFields: {
+    prop: string
+    label: string
+    min: number
+    max?: number
+    errorMsg: string
+  }[] = [
+    { prop: 'ttlMinutes', label: 'TTL（分钟）', min: 1, errorMsg: 'TTL 必须是 ≥1 的整数' },
+    { prop: 'minItems', label: '最少条数', min: 1, errorMsg: '最少条数必须是 ≥1 的整数' },
+    { prop: 'minPerSub', label: '每 sub 至少 N 条', min: 0, errorMsg: '每 sub 至少 N 条必须 ≥0' },
+    {
+      prop: 'displayRatio',
+      label: '显示比例',
+      min: 0,
+      max: 1,
+      errorMsg: '显示比例必须是 0~1 之间',
+    },
+    {
+      prop: 'elbowDropRatio',
+      label: '拐点跌幅',
+      min: 0,
+      max: 1,
+      errorMsg: '拐点跌幅必须是 0~1 之间',
+    },
+    { prop: 'minCutoffScore', label: '最低分数', min: 0, errorMsg: '最低分数必须 ≥0' },
+    {
+      prop: 'ageHalfLifeDays',
+      label: '衰减半衰期（天）',
+      min: 0.1,
+      max: 30,
+      errorMsg: '衰减半衰期必须是 0.1~30 之间',
+    },
+  ]
+  const formHtml = formFields
+    .map(
+      (f) =>
+        `          <label class="gm-sp-editor-row">
+            <span>${f.label}</span>
+            <input type="number"${f.min !== undefined ? ` min="${f.min}"` : ''}${f.max !== undefined ? ` max="${f.max}"` : ''} />
+          </label>`,
+    )
+    .join('\n')
+
   container.insertAdjacentHTML(
     'beforeend',
     `<div class="gm-sp-editor">
@@ -31,34 +74,7 @@ async function renderRedditEditor(
         </div>
       </div>
       <div class="gm-sp-editor-form">
-        <label class="gm-sp-editor-row">
-          <span>TTL（分钟）</span>
-          <input type="number" min="1" step="1" class="gm-sp-re-ttl" />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>最少条数</span>
-          <input type="number" min="1" step="1" class="gm-sp-re-min" />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>每 sub 至少 N 条</span>
-          <input type="number" min="0" step="1" class="gm-sp-re-minpersub" />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>显示比例</span>
-          <input type="number" min="0" max="1" step="0.01" class="gm-sp-re-ratio" />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>拐点跌幅</span>
-          <input type="number" min="0" max="1" step="0.01" class="gm-sp-re-elbow" />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>最低分数</span>
-          <input type="number" min="0" step="1" class="gm-sp-re-cutoff" />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>衰减半衰期（天）</span>
-          <input type="number" min="0.1" max="30" step="0.1" class="gm-sp-re-half-life" />
-        </label>
+${formHtml}
       </div>
       <div class="gm-sp-editor-error" hidden></div>
     </div>`,
@@ -67,22 +83,14 @@ async function renderRedditEditor(
   const listEl = container.querySelector('.gm-sp-re-list') as HTMLDivElement
   const inputEl = container.querySelector('.gm-sp-editor-input') as HTMLInputElement
   const addBtn = container.querySelector('[data-action="add"]') as HTMLButtonElement
-  const ttlInput = container.querySelector('.gm-sp-re-ttl') as HTMLInputElement
-  const minInput = container.querySelector('.gm-sp-re-min') as HTMLInputElement
-  const minPerSubInput = container.querySelector('.gm-sp-re-minpersub') as HTMLInputElement
-  const ratioInput = container.querySelector('.gm-sp-re-ratio') as HTMLInputElement
-  const elbowInput = container.querySelector('.gm-sp-re-elbow') as HTMLInputElement
-  const cutoffInput = container.querySelector('.gm-sp-re-cutoff') as HTMLInputElement
-  const halfLifeInput = container.querySelector('.gm-sp-re-half-life') as HTMLInputElement
   const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
 
-  ttlInput.value = String(fresh.ttlMinutes)
-  minInput.value = String(fresh.minItems)
-  minPerSubInput.value = String(fresh.minPerSub)
-  ratioInput.value = String(fresh.displayRatio)
-  elbowInput.value = String(fresh.elbowDropRatio)
-  cutoffInput.value = String(fresh.minCutoffScore)
-  halfLifeInput.value = String(fresh.ageHalfLifeDays)
+  const numberInputs = container.querySelectorAll<HTMLInputElement>(
+    '.gm-sp-editor-form input[type="number"]',
+  )
+  for (let i = 0; i < formFields.length; i++) {
+    numberInputs[i].value = String((fresh as Record<string, unknown>)[formFields[i].prop])
+  }
 
   const error = bindErrorBox(errorEl)
 
@@ -132,15 +140,12 @@ async function renderRedditEditor(
         return
       }
       const nums = readNumberFields(
-        [
-          { input: ttlInput, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' },
-          { input: minInput, min: 1, errorMessage: '最少条数必须是 ≥1 的整数' },
-          { input: minPerSubInput, min: 0, errorMessage: '每 sub 至少 N 条必须 ≥0' },
-          { input: ratioInput, min: 0, max: 1, errorMessage: '显示比例必须是 0~1 之间' },
-          { input: elbowInput, min: 0, max: 1, errorMessage: '拐点跌幅必须是 0~1 之间' },
-          { input: cutoffInput, min: 0, errorMessage: '最低分数必须 ≥0' },
-          { input: halfLifeInput, min: 0.1, max: 30, errorMessage: '衰减半衰期必须是 0.1~30 之间' },
-        ],
+        formFields.map((f, i) => ({
+          input: numberInputs[i],
+          min: f.min,
+          max: f.max,
+          errorMessage: f.errorMsg,
+        })),
         (msg) => error.show(msg),
       )
       if (nums === null) return

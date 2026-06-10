@@ -162,8 +162,10 @@ describe('createNovelsEditor', () => {
 
   test('save rejects invalid TTL', async () => {
     const result = await mountEditor([])
-    const ttl = root.querySelector('.gm-sp-ne-ttl') as HTMLInputElement
-    ttl.value = '0'
+    const inputs = root.querySelectorAll<HTMLInputElement>(
+      '.gm-sp-editor-advanced input[type="number"]',
+    )
+    inputs[0]!.value = '0'
     void result.save?.()
     await new Promise((r) => setTimeout(r, 0))
     const err = root.querySelector('.gm-sp-editor-error') as HTMLElement

@@ -138,9 +138,11 @@ describe('createRedditEditor', () => {
     expect(runtime.stores[CONFIG_KEY]).toBeUndefined()
   })
 
+  const inputs = (sel: string) => container.querySelectorAll<HTMLInputElement>(sel)
+
   test('save rejects invalid TTL', async () => {
     const { result } = await mount(runtime, container)
-    const ttl = container.querySelector('.gm-sp-re-ttl') as HTMLInputElement
+    const ttl = inputs('.gm-sp-editor-form input[type="number"]')[0]
     ttl.value = '0'
     void result.save?.()
     const err = container.querySelector('.gm-sp-editor-error') as HTMLElement
@@ -169,18 +171,19 @@ describe('createRedditEditor', () => {
       minCutoffScore: 300,
       ageHalfLifeDays: 3,
     })
-    expect((container.querySelector('.gm-sp-re-ttl') as HTMLInputElement).value).toBe('45')
-    expect((container.querySelector('.gm-sp-re-min') as HTMLInputElement).value).toBe('7')
-    expect((container.querySelector('.gm-sp-re-minpersub') as HTMLInputElement).value).toBe('2')
-    expect((container.querySelector('.gm-sp-re-ratio') as HTMLInputElement).value).toBe('0.2')
-    expect((container.querySelector('.gm-sp-re-elbow') as HTMLInputElement).value).toBe('0.5')
-    expect((container.querySelector('.gm-sp-re-cutoff') as HTMLInputElement).value).toBe('300')
-    expect((container.querySelector('.gm-sp-re-half-life') as HTMLInputElement).value).toBe('3')
+    const ns = inputs('.gm-sp-editor-form input[type="number"]')
+    expect(ns[0].value).toBe('45')
+    expect(ns[1].value).toBe('7')
+    expect(ns[2].value).toBe('2')
+    expect(ns[3].value).toBe('0.2')
+    expect(ns[4].value).toBe('0.5')
+    expect(ns[5].value).toBe('300')
+    expect(ns[6].value).toBe('3')
   })
 
   test('saves ageHalfLifeDays to config', async () => {
     const { result } = await mount(runtime, container)
-    const halfLife = container.querySelector('.gm-sp-re-half-life') as HTMLInputElement
+    const halfLife = inputs('.gm-sp-editor-form input[type="number"]')[6]
     halfLife.value = '5'
     void result.save?.()
     await new Promise<void>((r) => setTimeout(r, 0))
@@ -190,7 +193,7 @@ describe('createRedditEditor', () => {
 
   test('rejects ageHalfLifeDays out of range', async () => {
     const { result } = await mount(runtime, container)
-    const halfLife = container.querySelector('.gm-sp-re-half-life') as HTMLInputElement
+    const halfLife = inputs('.gm-sp-editor-form input[type="number"]')[6]
     halfLife.value = '50'
     void result.save?.()
     const err = container.querySelector('.gm-sp-editor-error') as HTMLElement

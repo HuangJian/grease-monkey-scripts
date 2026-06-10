@@ -47,55 +47,67 @@ async function renderV2exEditor(
 ): Promise<SourceEditorResult> {
   const fresh = await loadFreshV2exOptions(ctx.runtime, options)
 
+  const formFields: {
+    prop: string
+    label: string
+    min: number
+    max?: number
+    placeholder?: string
+    errorMsg: string
+  }[] = [
+    { prop: 'ttlMinutes', label: 'TTL（分钟）', min: 1, errorMsg: 'TTL 必须是 ≥1 的整数' },
+    { prop: 'minItems', label: '最少条数', min: 1, errorMsg: '最少条数必须是 ≥1 的整数' },
+    {
+      prop: 'displayRatio',
+      label: '显示比例',
+      min: 0,
+      max: 1,
+      errorMsg: '显示比例必须是 0~1 之间',
+    },
+    {
+      prop: 'elbowDropRatio',
+      label: '拐点跌幅',
+      min: 0,
+      max: 1,
+      errorMsg: '拐点跌幅必须是 0~1 之间',
+    },
+    { prop: 'minReplies', label: '回复阈值', min: 0, errorMsg: '回复阈值必须 ≥0' },
+    {
+      prop: 'ageHalfLifeDays',
+      label: '衰减半衰期（天）',
+      min: 0.1,
+      max: 30,
+      placeholder: '0.1–30',
+      errorMsg: '衰减半衰期必须是 0.1~30 之间',
+    },
+  ]
+
   container.insertAdjacentHTML(
     'beforeend',
     `<div class="gm-sp-editor">
       <div class="gm-sp-editor-form">
-        <label class="gm-sp-editor-row">
-          <span>TTL（分钟）</span>
-          <input type="number" min="1" step="1" class="gm-sp-v2e-ttl" />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>最少条数</span>
-          <input type="number" min="1" step="1" class="gm-sp-v2e-min" />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>显示比例</span>
-          <input type="number" min="0" max="1" step="0.01" class="gm-sp-v2e-ratio" />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>拐点跌幅</span>
-          <input type="number" min="0" max="1" step="0.01" class="gm-sp-v2e-elbow" />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>回复阈值</span>
-          <input type="number" min="0" step="1" class="gm-sp-v2e-min-replies" />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>衰减半衰期（天）</span>
-          <input type="number" min="0.1" max="30" step="0.1"
-                 class="gm-sp-v2e-half-life" placeholder="0.1–30" />
-        </label>
+${formFields
+  .map(
+    (f) =>
+      `        <label class="gm-sp-editor-row">
+          <span>${f.label}</span>
+          <input type="number"${f.min !== undefined ? ` min="${f.min}"` : ''}${f.max !== undefined ? ` max="${f.max}"` : ''}${f.placeholder !== undefined ? ` placeholder="${f.placeholder}"` : ''} />
+        </label>`,
+  )
+  .join('\n')}
       </div>
       <div class="gm-sp-editor-error" hidden></div>
     </div>`,
   )
 
-  const ttlInput = container.querySelector('.gm-sp-v2e-ttl') as HTMLInputElement
-  const minInput = container.querySelector('.gm-sp-v2e-min') as HTMLInputElement
-  const ratioInput = container.querySelector('.gm-sp-v2e-ratio') as HTMLInputElement
-  const elbowInput = container.querySelector('.gm-sp-v2e-elbow') as HTMLInputElement
-  const minRepliesInput = container.querySelector('.gm-sp-v2e-min-replies') as HTMLInputElement
-  const halfLifeInput = container.querySelector('.gm-sp-v2e-half-life') as HTMLInputElement
+  const numberInputs = container.querySelectorAll<HTMLInputElement>(
+    '.gm-sp-editor-form input[type="number"]',
+  )
+  for (let i = 0; i < formFields.length; i++) {
+    numberInputs[i].value = String((fresh as Record<string, unknown>)[formFields[i].prop])
+  }
+
   const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
-
-  ttlInput.value = String(fresh.ttlMinutes)
-  minInput.value = String(fresh.minItems)
-  ratioInput.value = String(fresh.displayRatio)
-  elbowInput.value = String(fresh.elbowDropRatio)
-  minRepliesInput.value = String(fresh.minReplies)
-  halfLifeInput.value = String(fresh.ageHalfLifeDays)
-
   const error = bindErrorBox(errorEl)
 
   return {
@@ -106,14 +118,12 @@ async function renderV2exEditor(
     save() {
       error.clear()
       const nums = readNumberFields(
-        [
-          { input: ttlInput, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' },
-          { input: minInput, min: 1, errorMessage: '最少条数必须是 ≥1 的整数' },
-          { input: ratioInput, min: 0, max: 1, errorMessage: '显示比例必须是 0~1 之间' },
-          { input: elbowInput, min: 0, max: 1, errorMessage: '拐点跌幅必须是 0~1 之间' },
-          { input: minRepliesInput, min: 0, errorMessage: '回复阈值必须 ≥0' },
-          { input: halfLifeInput, min: 0.1, max: 30, errorMessage: '衰减半衰期必须是 0.1~30 之间' },
-        ],
+        formFields.map((f, i) => ({
+          input: numberInputs[i],
+          min: f.min,
+          max: f.max,
+          errorMessage: f.errorMsg,
+        })),
         (msg) => error.show(msg),
       )
       if (nums === null) return

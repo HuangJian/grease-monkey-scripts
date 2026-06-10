@@ -68,6 +68,28 @@ async function renderNovelsEditor(
   const titleMap = await options.getCachedTitles()
   const entries: NovelEntry[] = fresh.entries.map((e) => ({ ...e }))
 
+  const advancedFields: {
+    prop: string
+    label: string
+    min: number
+    errorMsg: string
+  }[] = [
+    { prop: 'ttlMinutes', label: 'TTL（分钟）', min: 1, errorMsg: 'TTL 必须是 ≥1 的整数' },
+    {
+      prop: 'initialNewChapters',
+      label: '初始新章数',
+      min: 0,
+      errorMsg: '初始新章数必须是 ≥0 的整数',
+    },
+    {
+      prop: 'maxNewChaptersPerBook',
+      label: '折叠阈值',
+      min: 1,
+      errorMsg: '折叠阈值必须是 ≥1 的整数',
+    },
+    { prop: 'maxLatestWindow', label: '章节窗口', min: 1, errorMsg: '章节窗口必须是 ≥1 的整数' },
+  ]
+
   container.insertAdjacentHTML(
     'beforeend',
     `<div class="gm-sp-editor">
@@ -84,22 +106,15 @@ async function renderNovelsEditor(
         <button type="button" class="gm-sp-editor-btn" data-action="add">添加书库</button>
       </div>
       <div class="gm-sp-editor-advanced">
-        <label class="gm-sp-editor-row">
-          <span>TTL（分钟）</span>
-          <input type="number" min="1" step="1" class="gm-sp-ne-ttl" />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>初始新章数</span>
-          <input type="number" min="0" step="1" class="gm-sp-ne-initial" />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>折叠阈值</span>
-          <input type="number" min="1" step="1" class="gm-sp-ne-fold" />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>章节窗口</span>
-          <input type="number" min="1" step="1" class="gm-sp-ne-window" />
-        </label>
+${advancedFields
+  .map(
+    (f) =>
+      `        <label class="gm-sp-editor-row">
+          <span>${f.label}</span>
+          <input type="number"${f.min !== undefined ? ` min="${f.min}"` : ''} />
+        </label>`,
+  )
+  .join('\n')}
       </div>
       <div class="gm-sp-editor-error" hidden></div>
     </div>`,
@@ -109,16 +124,14 @@ async function renderNovelsEditor(
   const urlInput = container.querySelector('.gm-sp-ne-url') as HTMLInputElement
   const aliasInput = container.querySelector('.gm-sp-ne-alias') as HTMLInputElement
   const addBtn = container.querySelector('[data-action="add"]') as HTMLButtonElement
-  const ttlInput = container.querySelector('.gm-sp-ne-ttl') as HTMLInputElement
-  const initialInput = container.querySelector('.gm-sp-ne-initial') as HTMLInputElement
-  const foldInput = container.querySelector('.gm-sp-ne-fold') as HTMLInputElement
-  const windowInput = container.querySelector('.gm-sp-ne-window') as HTMLInputElement
   const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
 
-  ttlInput.value = String(fresh.ttlMinutes)
-  initialInput.value = String(fresh.initialNewChapters)
-  foldInput.value = String(fresh.maxNewChaptersPerBook)
-  windowInput.value = String(fresh.maxLatestWindow)
+  const numberInputs = container.querySelectorAll<HTMLInputElement>(
+    '.gm-sp-editor-advanced input[type="number"]',
+  )
+  for (let i = 0; i < advancedFields.length; i++) {
+    numberInputs[i].value = String((fresh as Record<string, unknown>)[advancedFields[i].prop])
+  }
 
   const error = bindErrorBox(errorEl)
 
@@ -173,12 +186,11 @@ async function renderNovelsEditor(
     save() {
       error.clear()
       const nums = readNumberFields(
-        [
-          { input: ttlInput, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' },
-          { input: initialInput, min: 0, errorMessage: '初始新章数必须是 ≥0 的整数' },
-          { input: foldInput, min: 1, errorMessage: '折叠阈值必须是 ≥1 的整数' },
-          { input: windowInput, min: 1, errorMessage: '章节窗口必须是 ≥1 的整数' },
-        ],
+        advancedFields.map((f, i) => ({
+          input: numberInputs[i],
+          min: f.min,
+          errorMessage: f.errorMsg,
+        })),
         (msg) => error.show(msg),
       )
       if (nums === null) return
