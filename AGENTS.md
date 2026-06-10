@@ -316,3 +316,8 @@ Before finishing a task:
 3. Review `git status --short`.
 4. Mention files changed and validation results.
 5. Call out any behavior that was not verified in a real browser.
+
+**Build Hash Verification**: Every completed development task must end with a
+fresh `bun run build` (or `bun run check`, which includes build) using the
+latest code. Report the resulting `Build hash: xxxxxxxx` output to the user
+so they can confirm the scripts pasted into Tampermonkey match the latest build.

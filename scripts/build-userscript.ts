@@ -1,5 +1,6 @@
 import { mkdir, readFile, unlink, writeFile, opendir, stat } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
+import { randomBytes } from 'node:crypto'
 import { $ } from 'bun'
 
 function stripConsoleFromSource(source: string): string {
@@ -79,7 +80,11 @@ const BUILD_MODES = [
 
 type BuildMode = (typeof BUILD_MODES)[number]
 
-async function buildUserScript(entrypoint: string, mode: BuildMode): Promise<void> {
+async function buildUserScript(
+  entrypoint: string,
+  mode: BuildMode,
+  buildHash: string,
+): Promise<void> {
   const name = basename(dirname(entrypoint))
 
   const entrypointSource = await readFile(entrypoint, 'utf8')
@@ -139,7 +144,7 @@ async function buildUserScript(entrypoint: string, mode: BuildMode): Promise<voi
 
     bundle = bundle.replace(/^\/\/ ==build.meta==\n[\s\S]*?^\/\/ ==\/build.meta==\n/m, '')
 
-    await writeFile(outfile, `${metadata}\n\n${bundle}`)
+    await writeFile(outfile, `${metadata}\n\n${bundle}\n// build ${buildHash}`)
     console.log(`  ✓ ${outfile}`)
   } finally {
     await unlink(temporaryOutfile).catch(() => {})
@@ -148,6 +153,7 @@ async function buildUserScript(entrypoint: string, mode: BuildMode): Promise<voi
 }
 
 async function main() {
+  const buildHash = randomBytes(4).toString('hex')
   const srcDir = 'src'
   const entries = []
 
@@ -177,7 +183,7 @@ async function main() {
   for (const entrypoint of entries) {
     console.log(`\n${basename(dirname(entrypoint))}:`)
     try {
-      await buildUserScript(entrypoint, BUILD_MODES[0])
+      await buildUserScript(entrypoint, BUILD_MODES[0], buildHash)
     } catch (error) {
       console.error(`  ✗ Failed:`, error)
     }
@@ -201,7 +207,7 @@ async function main() {
     for (const entrypoint of entries) {
       console.log(`\n${basename(dirname(entrypoint))}:`)
       try {
-        await buildUserScript(entrypoint, BUILD_MODES[1])
+        await buildUserScript(entrypoint, BUILD_MODES[1], buildHash)
       } catch (error) {
         console.error(`  ✗ Failed:`, error)
       }
@@ -210,6 +216,8 @@ async function main() {
     console.log('\nRestoring source files...')
     await restoreSourceFiles(originals)
   }
+
+  console.log(`\nBuild hash: ${buildHash}`)
 }
 
 main().catch(console.error)
