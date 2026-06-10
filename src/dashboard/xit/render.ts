@@ -105,7 +105,7 @@ export function renderXit(
       const searchInput = card.querySelector('.gm-sp-xit-header-search') as HTMLInputElement | null
       const filtersPanel = card.querySelector('.gm-sp-xit-header-filters') as HTMLElement | null
       const tagsEl = card.querySelector('.gm-sp-xit-tags') as HTMLElement | null
-      const errorEl = card.querySelector('.gm-sp-xit-error') as HTMLElement | null
+      const errorEl = card.querySelector('.gm-sp-error') as HTMLElement | null
 
       if (searchInput && filtersPanel) {
         const showFilters = () => {
@@ -296,7 +296,7 @@ export function renderXit(
   const card = container.parentElement
   const tagsEl = card?.querySelector('.gm-sp-xit-tags') as HTMLElement | null
   const searchInput = card?.querySelector('.gm-sp-xit-header-search') as HTMLInputElement | null
-  const errorEl = card?.querySelector('.gm-sp-xit-error') as HTMLElement | null
+  const errorEl = card?.querySelector('.gm-sp-error') as HTMLElement | null
   renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl, options.openEditor)
 }
 
@@ -464,7 +464,7 @@ function renderSavedFilters(
   const savedFiltersEl = card.querySelector('.gm-sp-xit-saved-filters') as HTMLElement | null
   const searchInput = card.querySelector('.gm-sp-xit-header-search') as HTMLInputElement | null
   const tagsEl = card.querySelector('.gm-sp-xit-tags') as HTMLElement | null
-  const errorEl = card.querySelector('.gm-sp-xit-error') as HTMLElement | null
+  const errorEl = card.querySelector('.gm-sp-error') as HTMLElement | null
   if (!savedFiltersEl || !options.runtime) return
 
   loadFilters(options.runtime).then((store) => {

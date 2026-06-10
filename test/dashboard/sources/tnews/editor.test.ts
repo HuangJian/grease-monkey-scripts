@@ -54,7 +54,7 @@ describe('createTnewsEditor', () => {
   test('rejects invalid feed URL on add', async () => {
     const { root } = await setup()
     const input = root.querySelector<HTMLInputElement>('.gm-sp-editor-input')!
-    const addBtn = root.querySelector<HTMLButtonElement>('.gm-sp-tne-feed-add')!
+    const addBtn = root.querySelector<HTMLButtonElement>('[data-action="add-feed"]')!
     input.value = 'not a url'
     addBtn.click()
     const err = root.querySelector<HTMLElement>('.gm-sp-editor-error')!
@@ -65,7 +65,7 @@ describe('createTnewsEditor', () => {
   test('rejects invalid mirror hostname on add', async () => {
     const { root } = await setup()
     const input = root.querySelector<HTMLInputElement>('.gm-sp-editor-input')!
-    const addBtn = root.querySelector<HTMLButtonElement>('.gm-sp-tne-mirror-add')!
+    const addBtn = root.querySelector<HTMLButtonElement>('[data-action="add-mirror"]')!
     input.value = 'bad host!'
     addBtn.click()
     expect(root.querySelector<HTMLElement>('.gm-sp-editor-error')!.hidden).toBe(false)
@@ -94,7 +94,7 @@ describe('createTnewsEditor', () => {
   test('saves valid section to CONFIG_KEY and closes', async () => {
     const { runtime, root, result } = await setup()
     const input = root.querySelector<HTMLInputElement>('.gm-sp-editor-input')!
-    const addBtn = root.querySelector<HTMLButtonElement>('.gm-sp-tne-feed-add')!
+    const addBtn = root.querySelector<HTMLButtonElement>('[data-action="add-feed"]')!
     input.value = 'https://example.com/feed'
     addBtn.click()
     void result.save?.()
@@ -106,7 +106,7 @@ describe('createTnewsEditor', () => {
   test('rejects duplicate feed URL', async () => {
     const { root } = await setup()
     const input = root.querySelector<HTMLInputElement>('.gm-sp-editor-input')!
-    const addBtn = root.querySelector<HTMLButtonElement>('.gm-sp-tne-feed-add')!
+    const addBtn = root.querySelector<HTMLButtonElement>('[data-action="add-feed"]')!
     input.value = 'https://rsshub.app/telegram/channel/tnews365'
     addBtn.click()
     const err = root.querySelector<HTMLElement>('.gm-sp-editor-error')!

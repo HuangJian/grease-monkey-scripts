@@ -363,21 +363,6 @@
   opacity: 1;
 }
 
-.gm-sp-v2ex-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.gm-sp-v2ex-meta {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-  font-size: 11px;
-  color: #6b7280;
-  flex: 0 0 auto;
-}
-
 .gm-sp-date-filter {
   display: inline-flex;
   align-items: center;
@@ -496,52 +481,17 @@
   gap: 4px;
 }
 
-.gm-sp-weather-tabs {
-  display: flex;
-  gap: 2px;
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-width: thin;
-}
-
-.gm-sp-weather-tab {
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  padding: 4px 8px;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  color: #6b7280;
-  white-space: nowrap;
-  line-height: 1.4;
-  flex: 0 0 auto;
-  border-radius: 4px;
-}
-
-.gm-sp-weather-tab:hover {
-  color: #1f2328;
-  background: rgba(0, 0, 0, 0.04);
-}
-
-.gm-sp-weather-tab-active {
-  color: #1f2328;
-  background: #ffffff;
-}
-
-.gm-sp-weather-panels {
+.gm-sp-panels {
   display: contents;
 }
 
-.gm-sp-weather-panel {
+.gm-sp-panel {
   display: none;
   flex-direction: column;
   gap: 4px;
 }
 
-.gm-sp-weather-panel-active {
+.gm-sp-panel-active {
   display: flex;
 }
 
@@ -744,7 +694,7 @@
   padding: 0;
 }
 
-.gm-sp-weather-editor-list {
+.gm-sp-editor-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -752,34 +702,26 @@
   overflow-y: auto;
 }
 
-.gm-sp-we-item {
+.gm-sp-editor-item {
   display: grid;
   grid-template-columns: 1fr auto auto auto;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: 8px 10px;
+  font-size: 13px;
   background: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
-  padding: 4px 8px;
+  padding: 6px 10px;
 }
 
-.gm-sp-we-item-label {
+.gm-sp-editor-item-label {
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.gm-sp-we-item-coord {
-  color: #6b7280;
-  font-variant-numeric: tabular-nums;
-}
-
-.gm-sp-we-item-cma {
-  color: #2563eb;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-
-.gm-sp-we-remove {
+.gm-sp-item-remove {
   cursor: pointer;
   background: transparent;
   border: none;
@@ -789,84 +731,13 @@
   padding: 0 4px;
 }
 
-.gm-sp-we-remove:hover {
+.gm-sp-item-remove:hover {
   color: #7f1d1d;
 }
 
-.gm-sp-weather-editor-form {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 16px;
-  border-top: 1px solid #e5e7eb;
-  padding-top: 12px;
-}
-
-.gm-sp-weather-editor-row {
-  display: grid;
-  grid-template-columns: 80px 1fr;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  min-width: 0;
-}
-
-.gm-sp-weather-editor-row input {
-  font: inherit;
-  padding: 6px 8px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  background: #ffffff;
-  color: inherit;
-  min-width: 0;
-}
-
-.gm-sp-weather-editor-row input:focus {
-  outline: none;
-  border-color: #2563eb;
-}
-
-.gm-sp-we-add,
-.gm-sp-we-save,
-.gm-sp-we-cancel {
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  padding: 5px 14px;
-  border-radius: 6px;
-  border: 1px solid #d1d5db;
-  background: #ffffff;
-  color: #374151;
-}
-
-.gm-sp-we-add {
+.gm-sp-editor-form [data-action='add'] {
   grid-column: 1 / -1;
   justify-self: start;
-}
-
-.gm-sp-we-add:hover,
-.gm-sp-we-save:hover,
-.gm-sp-we-cancel:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
-}
-
-.gm-sp-we-save.gm-sp-primary {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: #ffffff;
-}
-
-.gm-sp-we-save.gm-sp-primary:hover {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
-}
-
-.gm-sp-weather-editor-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-  border-top: 1px solid #e5e7eb;
-  padding-top: 12px;
 }
 
 .gm-sp-editor-dialog {
@@ -1075,35 +946,6 @@
   color: #ffffff;
 }
 
-.gm-sp-v2e-save,
-.gm-sp-v2e-cancel {
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  padding: 5px 14px;
-  border-radius: 6px;
-  border: 1px solid #d1d5db;
-  background: #ffffff;
-  color: #374151;
-}
-
-.gm-sp-v2e-save:hover,
-.gm-sp-v2e-cancel:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
-}
-
-.gm-sp-v2e-save.gm-sp-primary {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: #ffffff;
-}
-
-.gm-sp-v2e-save.gm-sp-primary:hover {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
-}
-
 @media (max-width: 640px) {
   .gm-sp-cards {
     grid-template-columns: 1fr;
@@ -1270,39 +1112,6 @@
   gap: 14px;
 }
 
-.gm-sp-novels-editor-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.gm-sp-ne-empty {
-  font-size: 13px;
-  color: #9ca3af;
-  font-style: italic;
-}
-
-.gm-sp-ne-item {
-  display: grid;
-  grid-template-columns: 1fr auto auto auto;
-  align-items: center;
-  gap: 8px 10px;
-  font-size: 13px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  padding: 6px 10px;
-}
-
-.gm-sp-ne-item-label {
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .gm-sp-ne-item-url {
   color: #6b7280;
   font-size: 11px;
@@ -1320,22 +1129,8 @@
   padding: 2px 8px;
 }
 
-.gm-sp-ne-remove {
-  cursor: pointer;
-  background: transparent;
-  border: none;
-  color: #b91c1c;
-  font-size: 16px;
-  line-height: 1;
-  padding: 0 4px;
-}
-
-.gm-sp-ne-remove:hover {
-  color: #7f1d1d;
-}
-
-.gm-sp-novels-editor-form,
-.gm-sp-novels-editor-advanced {
+.gm-sp-editor-form-stacked,
+.gm-sp-editor-advanced {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1343,90 +1138,15 @@
   padding-top: 12px;
 }
 
-.gm-sp-novels-editor-advanced {
+.gm-sp-editor-advanced {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px 16px;
   border-top-style: dashed;
 }
 
-.gm-sp-novels-editor-advanced > .gm-sp-novels-editor-row {
-  grid-template-columns: 80px 1fr;
-}
-
-.gm-sp-novels-editor-row {
-  display: grid;
-  grid-template-columns: 80px 1fr;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-}
-
-.gm-sp-novels-editor-row input {
-  font: inherit;
-  padding: 6px 8px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  background: #ffffff;
-  color: inherit;
-  min-width: 0;
-}
-
-.gm-sp-novels-editor-row input:focus {
-  outline: none;
-  border-color: #2563eb;
-}
-
-.gm-sp-ne-add,
-.gm-sp-ne-save,
-.gm-sp-ne-cancel {
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  padding: 5px 14px;
-  border-radius: 6px;
-  border: 1px solid #d1d5db;
-  background: #ffffff;
-  color: #374151;
-}
-
-.gm-sp-ne-add {
+.gm-sp-editor-form-stacked [data-action='add'] {
   align-self: flex-start;
-}
-
-.gm-sp-ne-add:hover,
-.gm-sp-ne-save:hover,
-.gm-sp-ne-cancel:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
-}
-
-.gm-sp-ne-save.gm-sp-primary {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: #ffffff;
-}
-
-.gm-sp-ne-save.gm-sp-primary:hover {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
-}
-
-.gm-sp-ne-error {
-  font-size: 13px;
-  color: #b91c1c;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 6px;
-  padding: 6px 10px;
-}
-
-.gm-sp-novels-editor-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-  border-top: 1px solid #e5e7eb;
-  padding-top: 12px;
 }
 
 .gm-sp-reddit-list {
@@ -1532,51 +1252,6 @@
   padding: 4px 0;
 }
 
-.gm-sp-re-add {
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  padding: 6px 14px;
-  border-radius: 6px;
-  border: 1px solid #d1d5db;
-  background: #ffffff;
-  color: #374151;
-}
-
-.gm-sp-re-add:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
-}
-
-.gm-sp-re-save,
-.gm-sp-re-cancel {
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  padding: 5px 14px;
-  border-radius: 6px;
-  border: 1px solid #d1d5db;
-  background: #ffffff;
-  color: #374151;
-}
-
-.gm-sp-re-save:hover,
-.gm-sp-re-cancel:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
-}
-
-.gm-sp-re-save.gm-sp-primary {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: #ffffff;
-}
-
-.gm-sp-re-save.gm-sp-primary:hover {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
-}
-
 .gm-sp-tnews-row {
   display: flex;
   align-items: baseline;
@@ -1650,53 +1325,6 @@
   flex-wrap: wrap;
   gap: 6px;
   min-height: 24px;
-}
-
-.gm-sp-tne-feed-add,
-.gm-sp-tne-mirror-add {
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  padding: 6px 14px;
-  border-radius: 6px;
-  border: 1px solid #d1d5db;
-  background: #ffffff;
-  color: #374151;
-}
-
-.gm-sp-tne-feed-add:hover,
-.gm-sp-tne-mirror-add:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
-}
-
-.gm-sp-tne-save,
-.gm-sp-tne-cancel {
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  padding: 5px 14px;
-  border-radius: 6px;
-  border: 1px solid #d1d5db;
-  background: #ffffff;
-  color: #374151;
-}
-
-.gm-sp-tne-save:hover,
-.gm-sp-tne-cancel:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
-}
-
-.gm-sp-tne-save.gm-sp-primary {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: #ffffff;
-}
-
-.gm-sp-tne-save.gm-sp-primary:hover {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
 }
 
 /* ── Xit (xit syntax) ── */

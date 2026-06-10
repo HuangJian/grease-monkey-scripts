@@ -77,7 +77,7 @@ async function renderTnewsEditor(
         <div class="gm-sp-tne-feeds"></div>
         <div class="gm-sp-editor-add-row">
           <input type="text" class="gm-sp-editor-input" placeholder="https://rsshub.app/telegram/channel/<name>" />
-          <button type="button" class="gm-sp-editor-btn gm-sp-tne-feed-add">添加</button>
+          <button type="button" class="gm-sp-editor-btn" data-action="add-feed">添加</button>
         </div>
       </div>
       <div class="gm-sp-editor-section">
@@ -85,7 +85,7 @@ async function renderTnewsEditor(
         <div class="gm-sp-tne-mirrors"></div>
         <div class="gm-sp-editor-add-row">
           <input type="text" class="gm-sp-editor-input" placeholder="rsshub.example.com" />
-          <button type="button" class="gm-sp-editor-btn gm-sp-tne-mirror-add">添加</button>
+          <button type="button" class="gm-sp-editor-btn" data-action="add-mirror">添加</button>
         </div>
       </div>
       <div class="gm-sp-editor-form">
@@ -100,10 +100,10 @@ async function renderTnewsEditor(
 
   const feedsEl = container.querySelector('.gm-sp-tne-feeds') as HTMLDivElement
   const feedInputEl = container.querySelector('.gm-sp-editor-input') as HTMLInputElement
-  const feedAddBtn = container.querySelector('.gm-sp-tne-feed-add') as HTMLButtonElement
+  const feedAddBtn = container.querySelector('[data-action="add-feed"]') as HTMLButtonElement
   const mirrorsEl = container.querySelector('.gm-sp-tne-mirrors') as HTMLDivElement
   const mirrorInputEl = container.querySelector('.gm-sp-editor-input') as HTMLInputElement
-  const mirrorAddBtn = container.querySelector('.gm-sp-tne-mirror-add') as HTMLButtonElement
+  const mirrorAddBtn = container.querySelector('[data-action="add-mirror"]') as HTMLButtonElement
   const ttlInput = container.querySelector('.gm-sp-tne-ttl') as HTMLInputElement
   const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
 

@@ -54,7 +54,7 @@ async function mountEditor(entries: NovelEntry[], cachedTitles: Map<string, stri
 describe('createNovelsEditor', () => {
   test('renders empty list when no entries', async () => {
     await mountEditor([])
-    expect(root.querySelector('.gm-sp-ne-empty')!.textContent).toContain('尚未添加')
+    expect(root.querySelector('.gm-sp-editor-empty')!.textContent).toContain('尚未添加')
   })
 
   test('renders existing entries with title from cache', async () => {
@@ -62,14 +62,14 @@ describe('createNovelsEditor', () => {
       [{ url: 'https://www.sudugu.org/166/' }],
       new Map([['https://www.sudugu.org/166/', '九龙夺嫡']]),
     )
-    const items = root.querySelectorAll('.gm-sp-ne-item')
+    const items = root.querySelectorAll('.gm-sp-editor-item')
     expect(items.length).toBe(1)
-    expect(items[0]!.querySelector('.gm-sp-ne-item-label')!.textContent).toBe('九龙夺嫡')
+    expect(items[0]!.querySelector('.gm-sp-editor-item-label')!.textContent).toBe('九龙夺嫡')
   })
 
   test('uses alias when no cached title', async () => {
     await mountEditor([{ url: 'https://www.sudugu.org/166/', alias: '神书' }])
-    expect(root.querySelector('.gm-sp-ne-item-label')!.textContent).toBe('神书')
+    expect(root.querySelector('.gm-sp-editor-item-label')!.textContent).toBe('神书')
   })
 
   test('shows unknown-site warning for unregistered hostnames', async () => {
@@ -89,20 +89,20 @@ describe('createNovelsEditor', () => {
     await mountEditor([])
     const urlInput = root.querySelector('.gm-sp-ne-url') as HTMLInputElement
     const aliasInput = root.querySelector('.gm-sp-ne-alias') as HTMLInputElement
-    const addBtn = root.querySelector('.gm-sp-ne-add') as HTMLButtonElement
+    const addBtn = root.querySelector('[data-action="add"]') as HTMLButtonElement
     urlInput.value = 'https://www.sudugu.org/12/'
     aliasInput.value = '龙藏'
     addBtn.click()
     await new Promise((r) => setTimeout(r, 0))
-    expect(root.querySelectorAll('.gm-sp-ne-item').length).toBe(1)
-    expect(root.querySelector('.gm-sp-ne-item-label')!.textContent).toBe('龙藏')
+    expect(root.querySelectorAll('.gm-sp-editor-item').length).toBe(1)
+    expect(root.querySelector('.gm-sp-editor-item-label')!.textContent).toBe('龙藏')
   })
 
   test('rejects empty URL', async () => {
     await mountEditor([])
-    ;(root.querySelector('.gm-sp-ne-add') as HTMLButtonElement).click()
+    ;(root.querySelector('[data-action="add"]') as HTMLButtonElement).click()
     await new Promise((r) => setTimeout(r, 0))
-    const err = root.querySelector('.gm-sp-ne-error') as HTMLElement
+    const err = root.querySelector('.gm-sp-editor-error') as HTMLElement
     expect(err.hidden).toBe(false)
     expect(err.textContent).toContain('URL')
   })
@@ -110,22 +110,22 @@ describe('createNovelsEditor', () => {
   test('rejects duplicate URL', async () => {
     await mountEditor([{ url: 'https://www.sudugu.org/166/' }])
     const urlInput = root.querySelector('.gm-sp-ne-url') as HTMLInputElement
-    const addBtn = root.querySelector('.gm-sp-ne-add') as HTMLButtonElement
+    const addBtn = root.querySelector('[data-action="add"]') as HTMLButtonElement
     urlInput.value = 'https://www.sudugu.org/166/'
     addBtn.click()
     await new Promise((r) => setTimeout(r, 0))
-    const err = root.querySelector('.gm-sp-ne-error') as HTMLElement
+    const err = root.querySelector('.gm-sp-editor-error') as HTMLElement
     expect(err.textContent).toContain('已在列表中')
   })
 
   test('rejects invalid URL', async () => {
     await mountEditor([])
     const urlInput = root.querySelector('.gm-sp-ne-url') as HTMLInputElement
-    const addBtn = root.querySelector('.gm-sp-ne-add') as HTMLButtonElement
+    const addBtn = root.querySelector('[data-action="add"]') as HTMLButtonElement
     urlInput.value = 'not-a-url'
     addBtn.click()
     await new Promise((r) => setTimeout(r, 0))
-    const err = root.querySelector('.gm-sp-ne-error') as HTMLElement
+    const err = root.querySelector('.gm-sp-editor-error') as HTMLElement
     expect(err.textContent).toContain('无效')
   })
 
@@ -134,11 +134,11 @@ describe('createNovelsEditor', () => {
       { url: 'https://www.sudugu.org/166/' },
       { url: 'https://www.sudugu.org/12/' },
     ])
-    expect(root.querySelectorAll('.gm-sp-ne-item').length).toBe(2)
-    const removeBtns = root.querySelectorAll<HTMLButtonElement>('.gm-sp-ne-remove')
+    expect(root.querySelectorAll('.gm-sp-editor-item').length).toBe(2)
+    const removeBtns = root.querySelectorAll<HTMLButtonElement>('.gm-sp-item-remove')
     removeBtns[0]!.click()
     await new Promise((r) => setTimeout(r, 0))
-    expect(root.querySelectorAll('.gm-sp-ne-item').length).toBe(1)
+    expect(root.querySelectorAll('.gm-sp-editor-item').length).toBe(1)
     expect(root.querySelector('.gm-sp-ne-item-url')!.textContent).toContain('12/')
   })
 
@@ -166,7 +166,7 @@ describe('createNovelsEditor', () => {
     ttl.value = '0'
     void result.save?.()
     await new Promise((r) => setTimeout(r, 0))
-    const err = root.querySelector('.gm-sp-ne-error') as HTMLElement
+    const err = root.querySelector('.gm-sp-editor-error') as HTMLElement
     expect(err.textContent).toContain('TTL')
   })
 

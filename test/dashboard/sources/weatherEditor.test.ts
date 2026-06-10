@@ -51,10 +51,10 @@ describe('createWeatherEditor', () => {
       { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ' },
       { latitude: 31.2, longitude: 121.5, cityLabel: 'SH' },
     ])
-    const items = container.querySelectorAll('.gm-sp-we-item')
+    const items = container.querySelectorAll('.gm-sp-editor-item')
     expect(items).toHaveLength(2)
-    expect(items[0].querySelector('.gm-sp-we-item-label')!.textContent).toBe('BJ')
-    expect(items[1].querySelector('.gm-sp-we-item-label')!.textContent).toBe('SH')
+    expect(items[0].querySelector('.gm-sp-editor-item-label')!.textContent).toBe('BJ')
+    expect(items[1].querySelector('.gm-sp-editor-item-label')!.textContent).toBe('SH')
   })
 
   test('adds a new city from the form', async () => {
@@ -65,16 +65,16 @@ describe('createWeatherEditor', () => {
     labelInput.value = 'SH'
     latInput.value = '31.2'
     lonInput.value = '121.5'
-    ;(container.querySelector('.gm-sp-we-add') as HTMLButtonElement).click()
-    const items = container.querySelectorAll('.gm-sp-we-item')
+    ;(container.querySelector('[data-action="add"]') as HTMLButtonElement).click()
+    const items = container.querySelectorAll('.gm-sp-editor-item')
     expect(items).toHaveLength(2)
-    expect(items[1].querySelector('.gm-sp-we-item-label')!.textContent).toBe('SH')
+    expect(items[1].querySelector('.gm-sp-editor-item-label')!.textContent).toBe('SH')
     expect(labelInput.value).toBe('')
   })
 
   test('shows an error when add is missing fields', async () => {
     await mount(runtime, container)
-    ;(container.querySelector('.gm-sp-we-add') as HTMLButtonElement).click()
+    ;(container.querySelector('[data-action="add"]') as HTMLButtonElement).click()
     const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
     expect(errorEl.hidden).toBe(false)
     expect(errorEl.textContent).toMatch(/城市名/)
@@ -85,11 +85,11 @@ describe('createWeatherEditor', () => {
       { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ' },
       { latitude: 31.2, longitude: 121.5, cityLabel: 'SH' },
     ])
-    const items = container.querySelectorAll('.gm-sp-we-item')
-    ;(items[0].querySelector('.gm-sp-we-remove') as HTMLButtonElement).click()
-    const after = container.querySelectorAll('.gm-sp-we-item')
+    const items = container.querySelectorAll('.gm-sp-editor-item')
+    ;(items[0].querySelector('.gm-sp-item-remove') as HTMLButtonElement).click()
+    const after = container.querySelectorAll('.gm-sp-editor-item')
     expect(after).toHaveLength(1)
-    expect(after[0].querySelector('.gm-sp-we-item-label')!.textContent).toBe('SH')
+    expect(after[0].querySelector('.gm-sp-editor-item-label')!.textContent).toBe('SH')
   })
 
   test('cancel calls close', async () => {
@@ -138,7 +138,7 @@ describe('createWeatherEditor', () => {
     labelInput.dispatchEvent(
       new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
     )
-    expect(container.querySelectorAll('.gm-sp-we-item')).toHaveLength(2)
+    expect(container.querySelectorAll('.gm-sp-editor-item')).toHaveLength(2)
   })
 
   test('adds a CMA station id and shows it in the list', async () => {
@@ -151,9 +151,9 @@ describe('createWeatherEditor', () => {
     latInput.value = '39.9'
     lonInput.value = '116.4'
     cmaInput.value = '54511'
-    ;(container.querySelector('.gm-sp-we-add') as HTMLButtonElement).click()
-    const items = container.querySelectorAll('.gm-sp-we-item')
-    expect(items[1].querySelector('.gm-sp-we-item-cma')!.textContent).toBe('CMA 54511')
+    ;(container.querySelector('[data-action="add"]') as HTMLButtonElement).click()
+    const items = container.querySelectorAll('.gm-sp-editor-item')
+    expect(items[1].querySelector('.gm-sp-editor-item-cma')!.textContent).toBe('CMA 54511')
   })
 
   test('rejects malformed CMA station id with an error', async () => {
@@ -166,7 +166,7 @@ describe('createWeatherEditor', () => {
     latInput.value = '39.9'
     lonInput.value = '116.4'
     cmaInput.value = '5451'
-    ;(container.querySelector('.gm-sp-we-add') as HTMLButtonElement).click()
+    ;(container.querySelector('[data-action="add"]') as HTMLButtonElement).click()
     const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
     expect(errorEl.hidden).toBe(false)
     expect(errorEl.textContent).toMatch(/5 位数字/)

@@ -43,7 +43,7 @@ async function renderWeatherEditor(
   container.insertAdjacentHTML(
     'beforeend',
     `<div class="gm-sp-editor">
-      <div class="gm-sp-weather-editor-list"></div>
+      <div class="gm-sp-editor-list"></div>
       <div class="gm-sp-editor-form">
         <label class="gm-sp-editor-row">
           <span>城市名</span>
@@ -62,18 +62,18 @@ async function renderWeatherEditor(
           <span>经度</span>
           <input type="number" step="any" class="gm-sp-we-lon" placeholder="116.4074" />
         </label>
-        <button type="button" class="gm-sp-editor-btn gm-sp-we-add">添加城市</button>
+        <button type="button" class="gm-sp-editor-btn" data-action="add">添加城市</button>
       </div>
       <div class="gm-sp-editor-error" hidden></div>
     </div>`,
   )
 
-  const listEl = container.querySelector('.gm-sp-weather-editor-list') as HTMLDivElement
+  const listEl = container.querySelector('.gm-sp-editor-list') as HTMLDivElement
   const labelInput = container.querySelector('.gm-sp-we-city-label') as HTMLInputElement
   const latInput = container.querySelector('.gm-sp-we-lat') as HTMLInputElement
   const lonInput = container.querySelector('.gm-sp-we-lon') as HTMLInputElement
   const cmaInput = container.querySelector('.gm-sp-we-cma') as HTMLInputElement
-  const addBtn = container.querySelector('.gm-sp-editor-btn.gm-sp-we-add') as HTMLButtonElement
+  const addBtn = container.querySelector('[data-action="add"]') as HTMLButtonElement
   const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
 
   const error = bindErrorBox(errorEl)
@@ -90,14 +90,14 @@ async function renderWeatherEditor(
     renderChip: (city, i) => {
       const coord = `${city.latitude.toFixed(4)}, ${city.longitude.toFixed(4)}`
       const cma = city.cmaStationId ? `CMA ${escapeHtml(city.cmaStationId)}` : ''
-      return `<div class="gm-sp-we-item" data-index="${i}">
-          <span class="gm-sp-we-item-label">${escapeHtml(city.cityLabel)}</span>
-          <span class="gm-sp-we-item-coord">${coord}</span>
-          <span class="gm-sp-we-item-cma">${cma}</span>
-          <button type="button" class="gm-sp-we-remove" aria-label="remove">×</button>
+      return `<div class="gm-sp-editor-item" data-index="${i}">
+          <span class="gm-sp-editor-item-label">${escapeHtml(city.cityLabel)}</span>
+          <span class="gm-sp-editor-item-coord">${coord}</span>
+          <span class="gm-sp-editor-item-cma">${cma}</span>
+          <button type="button" class="gm-sp-item-remove" aria-label="remove">×</button>
         </div>`
     },
-    removeSelector: '.gm-sp-we-remove',
+    removeSelector: '.gm-sp-item-remove',
     tryAdd: () => {
       const cityLabel = labelInput.value.trim()
       const lat = Number(latInput.value)

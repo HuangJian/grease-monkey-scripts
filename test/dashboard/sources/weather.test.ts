@@ -464,7 +464,7 @@ describe('createWeatherSource.render', () => {
         { status: 'ok', cityLabel: 'SH', data },
       ],
     })
-    const tabs = title.querySelectorAll('.gm-sp-weather-tab')
+    const tabs = title.querySelectorAll('.gm-sp-tab')
     expect(tabs).toHaveLength(2)
     expect(tabs[0]!.textContent).toBe('BJ ☁️ 3°C')
     expect(tabs[1]!.textContent).toBe('SH ☁️ 3°C')
@@ -485,7 +485,7 @@ describe('createWeatherSource.render', () => {
         { status: 'error', cityLabel: 'SH', error: 'network error' },
       ],
     })
-    const tabs = title.querySelectorAll('.gm-sp-weather-tab')
+    const tabs = title.querySelectorAll('.gm-sp-tab')
     expect(tabs[0]!.textContent).toBe('BJ ☁️ 3°C')
     expect(tabs[1]!.textContent).toBe('SH --')
   })
@@ -506,14 +506,14 @@ describe('createWeatherSource.render', () => {
         { status: 'ok', cityLabel: 'SH', data },
       ],
     })
-    const tabs = title.querySelectorAll<HTMLElement>('.gm-sp-weather-tab')
-    const panels = body.querySelectorAll<HTMLElement>('.gm-sp-weather-panel')
-    expect(tabs[0]!.classList.contains('gm-sp-weather-tab-active')).toBe(true)
-    expect(tabs[1]!.classList.contains('gm-sp-weather-tab-active')).toBe(false)
+    const tabs = title.querySelectorAll<HTMLElement>('.gm-sp-tab')
+    const panels = body.querySelectorAll<HTMLElement>('.gm-sp-panel')
+    expect(tabs[0]!.classList.contains('gm-sp-tab-active')).toBe(true)
+    expect(tabs[1]!.classList.contains('gm-sp-tab-active')).toBe(false)
     expect(tabs[0]!.getAttribute('aria-selected')).toBe('true')
     expect(tabs[1]!.getAttribute('aria-selected')).toBe('false')
-    expect(panels[0]!.classList.contains('gm-sp-weather-panel-active')).toBe(true)
-    expect(panels[1]!.classList.contains('gm-sp-weather-panel-active')).toBe(false)
+    expect(panels[0]!.classList.contains('gm-sp-panel-active')).toBe(true)
+    expect(panels[1]!.classList.contains('gm-sp-panel-active')).toBe(false)
   })
 
   test('clicking a tab activates the corresponding panel', () => {
@@ -532,13 +532,13 @@ describe('createWeatherSource.render', () => {
         { status: 'ok', cityLabel: 'SH', data },
       ],
     })
-    const tabs = title.querySelectorAll<HTMLElement>('.gm-sp-weather-tab')
-    const panels = body.querySelectorAll<HTMLElement>('.gm-sp-weather-panel')
+    const tabs = title.querySelectorAll<HTMLElement>('.gm-sp-tab')
+    const panels = body.querySelectorAll<HTMLElement>('.gm-sp-panel')
     tabs[1]!.click()
-    expect(tabs[0]!.classList.contains('gm-sp-weather-tab-active')).toBe(false)
-    expect(tabs[1]!.classList.contains('gm-sp-weather-tab-active')).toBe(true)
-    expect(panels[0]!.classList.contains('gm-sp-weather-panel-active')).toBe(false)
-    expect(panels[1]!.classList.contains('gm-sp-weather-panel-active')).toBe(true)
+    expect(tabs[0]!.classList.contains('gm-sp-tab-active')).toBe(false)
+    expect(tabs[1]!.classList.contains('gm-sp-tab-active')).toBe(true)
+    expect(panels[0]!.classList.contains('gm-sp-panel-active')).toBe(false)
+    expect(panels[1]!.classList.contains('gm-sp-panel-active')).toBe(true)
   })
 
   test('replaces title text with tabs and renders one city block per panel', () => {
@@ -558,10 +558,10 @@ describe('createWeatherSource.render', () => {
       ],
     })
     expect(card.querySelector('.gm-sp-card-title-text')).toBeNull()
-    expect(title.querySelectorAll('.gm-sp-weather-tab')).toHaveLength(2)
+    expect(title.querySelectorAll('.gm-sp-tab')).toHaveLength(2)
     const blocks = body.querySelectorAll('.gm-sp-weather-city')
     expect(blocks).toHaveLength(2)
-    const activePanel = body.querySelector('.gm-sp-weather-panel-active')!
+    const activePanel = body.querySelector('.gm-sp-panel-active')!
     expect(activePanel.querySelectorAll('.gm-sp-weather-day').length).toBeGreaterThan(0)
   })
 
@@ -580,7 +580,7 @@ describe('createWeatherSource.render', () => {
         { status: 'error', cityLabel: 'SH', error: 'network error' },
       ],
     })
-    const tabs = title.querySelectorAll('.gm-sp-weather-tab')
+    const tabs = title.querySelectorAll('.gm-sp-tab')
     expect(tabs[0]!.textContent).toBe('BJ ☁️ 3°C')
     expect(tabs[1]!.textContent).toBe('SH --')
     const errors = body.querySelectorAll('.gm-sp-weather-error')

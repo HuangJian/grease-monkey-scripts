@@ -71,8 +71,8 @@ async function renderNovelsEditor(
   container.insertAdjacentHTML(
     'beforeend',
     `<div class="gm-sp-editor">
-      <div class="gm-sp-novels-editor-list"></div>
-      <div class="gm-sp-novels-editor-form">
+      <div class="gm-sp-editor-list"></div>
+      <div class="gm-sp-editor-form-stacked">
         <label class="gm-sp-editor-row">
           <span>书库 URL</span>
           <input type="url" class="gm-sp-ne-url" placeholder="https://www.sudugu.org/166/" />
@@ -81,9 +81,9 @@ async function renderNovelsEditor(
           <span>别名（可选）</span>
           <input type="text" class="gm-sp-ne-alias" placeholder="九龙夺嫡" />
         </label>
-        <button type="button" class="gm-sp-editor-btn gm-sp-ne-add">添加书库</button>
+        <button type="button" class="gm-sp-editor-btn" data-action="add">添加书库</button>
       </div>
-      <div class="gm-sp-novels-editor-advanced">
+      <div class="gm-sp-editor-advanced">
         <label class="gm-sp-editor-row">
           <span>TTL（分钟）</span>
           <input type="number" min="1" step="1" class="gm-sp-ne-ttl" />
@@ -101,19 +101,19 @@ async function renderNovelsEditor(
           <input type="number" min="1" step="1" class="gm-sp-ne-window" />
         </label>
       </div>
-      <div class="gm-sp-ne-error" hidden></div>
+      <div class="gm-sp-editor-error" hidden></div>
     </div>`,
   )
 
-  const listEl = container.querySelector('.gm-sp-novels-editor-list') as HTMLDivElement
+  const listEl = container.querySelector('.gm-sp-editor-list') as HTMLDivElement
   const urlInput = container.querySelector('.gm-sp-ne-url') as HTMLInputElement
   const aliasInput = container.querySelector('.gm-sp-ne-alias') as HTMLInputElement
-  const addBtn = container.querySelector('.gm-sp-editor-btn') as HTMLButtonElement
+  const addBtn = container.querySelector('[data-action="add"]') as HTMLButtonElement
   const ttlInput = container.querySelector('.gm-sp-ne-ttl') as HTMLInputElement
   const initialInput = container.querySelector('.gm-sp-ne-initial') as HTMLInputElement
   const foldInput = container.querySelector('.gm-sp-ne-fold') as HTMLInputElement
   const windowInput = container.querySelector('.gm-sp-ne-window') as HTMLInputElement
-  const errorEl = container.querySelector('.gm-sp-ne-error') as HTMLDivElement
+  const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
 
   ttlInput.value = String(fresh.ttlMinutes)
   initialInput.value = String(fresh.initialNewChapters)
@@ -138,14 +138,14 @@ async function renderNovelsEditor(
       const warnHtml = unknown
         ? '<span class="gm-sp-ne-item-warn">未知站点</span>'
         : '<span class="gm-sp-ne-item-warn" hidden>未知站点</span>'
-      return `<div class="gm-sp-ne-item" data-index="${i}">
-          <span class="gm-sp-ne-item-label">${escapeHtml(display)}</span>
+      return `<div class="gm-sp-editor-item" data-index="${i}">
+          <span class="gm-sp-editor-item-label">${escapeHtml(display)}</span>
           <span class="gm-sp-ne-item-url">${escapeHtml(entry.url)}</span>
           ${warnHtml}
-          <button type="button" class="gm-sp-ne-remove" aria-label="remove">×</button>
+          <button type="button" class="gm-sp-item-remove" aria-label="remove">×</button>
         </div>`
     },
-    removeSelector: '.gm-sp-ne-remove',
+    removeSelector: '.gm-sp-item-remove',
     tryAdd: () => {
       const url = urlInput.value.trim()
       const alias = aliasInput.value.trim()
@@ -160,7 +160,7 @@ async function renderNovelsEditor(
     showError: (msg) => error.show(msg),
     clearError: () => error.clear(),
     emptyText: '尚未添加书库',
-    emptyClass: 'gm-sp-ne-empty',
+    emptyClass: 'gm-sp-editor-empty',
   })
 
   chipList.render()

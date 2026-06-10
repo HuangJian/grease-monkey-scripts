@@ -27,7 +27,7 @@ async function renderRedditEditor(
         <div class="gm-sp-re-list"></div>
         <div class="gm-sp-editor-add-row">
           <input type="text" class="gm-sp-editor-input" placeholder="r/funny 或 funny" />
-          <button type="button" class="gm-sp-editor-btn gm-sp-re-add">添加</button>
+          <button type="button" class="gm-sp-editor-btn" data-action="add">添加</button>
         </div>
       </div>
       <div class="gm-sp-editor-form">
@@ -66,7 +66,7 @@ async function renderRedditEditor(
 
   const listEl = container.querySelector('.gm-sp-re-list') as HTMLDivElement
   const inputEl = container.querySelector('.gm-sp-editor-input') as HTMLInputElement
-  const addBtn = container.querySelector('.gm-sp-re-add') as HTMLButtonElement
+  const addBtn = container.querySelector('[data-action="add"]') as HTMLButtonElement
   const ttlInput = container.querySelector('.gm-sp-re-ttl') as HTMLInputElement
   const minInput = container.querySelector('.gm-sp-re-min') as HTMLInputElement
   const minPerSubInput = container.querySelector('.gm-sp-re-minpersub') as HTMLInputElement

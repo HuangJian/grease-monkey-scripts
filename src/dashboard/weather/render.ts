@@ -125,16 +125,16 @@ function tabLabelFor(entry: WeatherCityEntry): string {
 }
 
 function setActivePanel(panels: HTMLElement, index: number): void {
-  const panelEls = panels.querySelectorAll<HTMLElement>('.gm-sp-weather-panel')
+  const panelEls = panels.querySelectorAll<HTMLElement>('.gm-sp-panel')
   panelEls.forEach((panel, i) => {
-    panel.classList.toggle('gm-sp-weather-panel-active', i === index)
+    panel.classList.toggle('gm-sp-panel-active', i === index)
   })
 }
 
 function activateTab(tabs: HTMLElement, panels: HTMLElement, index: number): void {
-  const tabEls = tabs.querySelectorAll<HTMLElement>('.gm-sp-weather-tab')
+  const tabEls = tabs.querySelectorAll<HTMLElement>('.gm-sp-tab')
   tabEls.forEach((tab, i) => {
-    tab.classList.toggle('gm-sp-weather-tab-active', i === index)
+    tab.classList.toggle('gm-sp-tab-active', i === index)
     tab.setAttribute('aria-selected', i === index ? 'true' : 'false')
   })
   setActivePanel(panels, index)
@@ -155,14 +155,14 @@ export function renderWeather(container: HTMLElement, data: WeatherData | null):
     .map((entry) => {
       const content =
         entry.status === 'ok' ? buildCityBlockHtml(entry.data) : buildErrorBlockHtml(entry.error)
-      return `<div class="gm-sp-weather-panel" role="tabpanel">${content}</div>`
+      return `<div class="gm-sp-panel" role="tabpanel">${content}</div>`
     })
     .join('')
   container.insertAdjacentHTML(
     'beforeend',
-    `<div class="gm-sp-weather"><div class="gm-sp-weather-panels">${panelsHtml}</div></div>`,
+    `<div class="gm-sp-weather"><div class="gm-sp-panels">${panelsHtml}</div></div>`,
   )
-  const panels = container.querySelector('.gm-sp-weather-panels')! as HTMLElement
+  const panels = container.querySelector('.gm-sp-panels')! as HTMLElement
   setActivePanel(panels, 0)
 }
 
@@ -179,22 +179,22 @@ export function customizeWeatherHeader(
   const tabsHtml = entries
     .map((entry) => {
       const label = tabLabelFor(entry)
-      return `<button type="button" class="gm-sp-weather-tab" role="tab" aria-selected="false">${label}</button>`
+      return `<button type="button" class="gm-sp-tab" role="tab" aria-selected="false">${label}</button>`
     })
     .join('')
   titleContainer.insertAdjacentHTML(
     'beforeend',
-    `<div class="gm-sp-weather-tabs" role="tablist">${tabsHtml}</div>`,
+    `<div class="gm-sp-tabs" role="tablist">${tabsHtml}</div>`,
   )
-  const tabs = titleContainer.querySelector('.gm-sp-weather-tabs')! as HTMLElement
-  tabs.querySelectorAll<HTMLElement>('.gm-sp-weather-tab').forEach((tab, i) => {
+  const tabs = titleContainer.querySelector('.gm-sp-tabs')! as HTMLElement
+  tabs.querySelectorAll<HTMLElement>('.gm-sp-tab').forEach((tab, i) => {
     tab.addEventListener('click', () => {
       const cardRoot = tabs.closest('.gm-sp-card')
-      const panelsContainer = cardRoot?.querySelector('.gm-sp-weather-panels')
+      const panelsContainer = cardRoot?.querySelector('.gm-sp-panels')
       if (panelsContainer) activateTab(tabs, panelsContainer as HTMLElement, i)
     })
   })
   const cardRoot = titleContainer.closest('.gm-sp-card')
-  const panelsContainer = cardRoot?.querySelector('.gm-sp-weather-panels')
+  const panelsContainer = cardRoot?.querySelector('.gm-sp-panels')
   if (panelsContainer) activateTab(tabs, panelsContainer as HTMLElement, 0)
 }

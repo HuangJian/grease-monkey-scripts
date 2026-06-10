@@ -58,7 +58,7 @@ describe('createRedditEditor', () => {
   test('adds a valid subreddit', async () => {
     await mount(runtime, container)
     const input = container.querySelector('.gm-sp-editor-input') as HTMLInputElement
-    const addBtn = container.querySelector('.gm-sp-re-add') as HTMLButtonElement
+    const addBtn = container.querySelector('[data-action="add"]') as HTMLButtonElement
     input.value = 'pics'
     addBtn.click()
     expect(container.querySelectorAll('.gm-sp-editor-chip').length).toBe(2)
@@ -76,7 +76,7 @@ describe('createRedditEditor', () => {
 
   test('rejects empty subreddit name', async () => {
     await mount(runtime, container)
-    ;(container.querySelector('.gm-sp-re-add') as HTMLButtonElement).click()
+    ;(container.querySelector('[data-action="add"]') as HTMLButtonElement).click()
     const err = container.querySelector('.gm-sp-editor-error') as HTMLElement
     expect(err.hidden).toBe(false)
     expect(err.textContent).toContain('subreddit')
@@ -85,7 +85,7 @@ describe('createRedditEditor', () => {
   test('rejects duplicate subreddit', async () => {
     await mount(runtime, container, { ...DEFAULTS, subreddits: ['popular'] })
     const input = container.querySelector('.gm-sp-editor-input') as HTMLInputElement
-    const addBtn = container.querySelector('.gm-sp-re-add') as HTMLButtonElement
+    const addBtn = container.querySelector('[data-action="add"]') as HTMLButtonElement
     input.value = 'popular'
     addBtn.click()
     const err = container.querySelector('.gm-sp-editor-error') as HTMLElement
