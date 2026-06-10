@@ -109,29 +109,36 @@ async function fetchCmaCity(runtime: Runtime, city: WeatherCity): Promise<Weathe
     const parsed = parseCmaPage(pageHtml.value, runtime.DOMParser)
     if (parsed) {
       data.daily = parsed.daily
-      const omByHour = new Map<number, number>()
-      for (let i = 0; i < data.hourly.time.length; i++) {
-        const h = parseInt(data.hourly.time[i]!.slice(11, 13), 10)
-        if (!omByHour.has(h)) omByHour.set(h, i)
-      }
-      const precipProb: number[] = parsed.hourly.time.map((t) => {
-        const h = parseInt(t.slice(11, 13), 10)
-        const idx = omByHour.get(h)
-        return idx != null ? (data.hourly.precipitation_probability[idx] ?? 0) : 0
-      })
-      data.hourly = {
-        time: parsed.hourly.time,
-        temperature_2m: parsed.hourly.temperature_2m,
-        weather_code: parsed.hourly.weather_code,
-        precipitation_probability: precipProb,
-        pressure: parsed.hourly.pressure,
-        humidity: parsed.hourly.humidity,
-        cloud_cover: parsed.hourly.cloud_cover,
-        precipitation_amount: parsed.hourly.precipitation_amount,
-        wind_speed_10m: parsed.hourly.wind_speed_10m,
-        wind_direction_10m: parsed.hourly.wind_direction_10m,
-      }
       cmaPageOk = true
+
+      if (parsed.hourly) {
+        const omByHour = new Map<number, number>()
+        for (let i = 0; i < data.hourly.time.length; i++) {
+          const h = parseInt(data.hourly.time[i]!.slice(11, 13), 10)
+          if (!omByHour.has(h)) omByHour.set(h, i)
+        }
+        const precipProb: number[] = parsed.hourly.time.map((t) => {
+          const h = parseInt(t.slice(11, 13), 10)
+          const idx = omByHour.get(h)
+          return idx != null ? (data.hourly.precipitation_probability[idx] ?? 0) : 0
+        })
+        data.hourly = {
+          time: parsed.hourly.time,
+          temperature_2m: parsed.hourly.temperature_2m,
+          weather_code: parsed.hourly.weather_code,
+          precipitation_probability: precipProb,
+          pressure: parsed.hourly.pressure,
+          humidity: parsed.hourly.humidity,
+          cloud_cover: parsed.hourly.cloud_cover,
+          precipitation_amount: parsed.hourly.precipitation_amount,
+          wind_speed_10m: parsed.hourly.wind_speed_10m,
+          wind_direction_10m: parsed.hourly.wind_direction_10m,
+        }
+      } else {
+        console.debug(
+          '[gm-dashboard] cma.fetchCmaCity: page has daily but no hourly, keeping OM hourly',
+        )
+      }
     } else {
       console.debug('[gm-dashboard] cma.fetchCmaCity: page parse returned null, keeping OM hourly')
     }

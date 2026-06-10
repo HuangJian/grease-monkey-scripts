@@ -100,7 +100,7 @@ const MISSING_TEMP = 9999
 
 export type CmaPageData = {
   daily: WeatherDaily
-  hourly: WeatherHourly
+  hourly: WeatherHourly | null
   hourlyDayDates: string[]
 }
 
@@ -152,20 +152,21 @@ export function parseCmaPage(html: string, DOMParserCtor: typeof DOMParser): Cma
   }
 
   const hourly = parseCmaHourTable(doc, dailyDates)
-  if (!hourly) {
-    console.debug('[gm-dashboard] cma.parseCmaPage: parseCmaHourTable returned null')
-    return null
+
+  if (hourly) {
+    console.debug(
+      '[gm-dashboard] cma.parseCmaPage: ok daily',
+      dailyDates.length,
+      'hourly',
+      hourly.hourly.time.length,
+      'dayDates',
+      hourly.dayDates,
+    )
+    return { daily, hourly: hourly.hourly, hourlyDayDates: hourly.dayDates }
   }
 
-  console.debug(
-    '[gm-dashboard] cma.parseCmaPage: ok daily',
-    dailyDates.length,
-    'hourly',
-    hourly.hourly.time.length,
-    'dayDates',
-    hourly.dayDates,
-  )
-  return { daily, hourly: hourly.hourly, hourlyDayDates: hourly.dayDates }
+  console.debug('[gm-dashboard] cma.parseCmaPage: no hourly table, returning daily only')
+  return { daily, hourly: null, hourlyDayDates: [] }
 }
 
 function parseCmaHourTable(
