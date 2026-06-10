@@ -628,6 +628,19 @@
   white-space: nowrap;
 }
 
+.gm-sp-weather-source-failed {
+  color: #cbd5e1;
+}
+
+.gm-sp-weather-source-badge {
+  font-size: 9px;
+  padding: 0 3px;
+  border-radius: 2px;
+  background: #f1f5f9;
+  color: #94a3b8;
+  margin-right: 1px;
+}
+
 .gm-sp-weather-source-inline:hover {
   text-decoration: underline;
 }

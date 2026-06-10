@@ -84,12 +84,15 @@ function buildCityBlockHtml(data: WeatherCityData): string {
         </div>`
     })
     .join('')
-  const sourceHtml =
-    data.current.source === 'cma' && data.cmaUrl
-      ? `<a class="gm-sp-weather-source-inline"
+  const sourceHtml = data.cmaUrl
+    ? data.cmaFailed
+      ? `<span class="gm-sp-weather-source-badge">📌</span><a class="gm-sp-weather-source-inline gm-sp-weather-source-failed"
            href="${data.cmaUrl}" target="_blank"
            rel="noopener noreferrer">气象局</a>`
-      : ''
+      : `<a class="gm-sp-weather-source-inline"
+           href="${data.cmaUrl}" target="_blank"
+           rel="noopener noreferrer">气象局</a>`
+    : ''
 
   const aqiText = aq ? `${aq.us_aqi} ${level.label}` : '--'
 

@@ -51,6 +51,7 @@ export type WeatherCityData = {
   hourly: WeatherHourly
   daily: WeatherDaily
   cmaUrl?: string
+  cmaFailed?: boolean
 }
 
 export type WeatherCityEntry =

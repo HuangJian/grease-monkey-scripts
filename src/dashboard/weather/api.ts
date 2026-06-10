@@ -101,10 +101,13 @@ async function fetchCmaCity(runtime: Runtime, city: WeatherCity): Promise<Weathe
   }
   const data = om.value
 
+  const cmaUrl = `https://weather.cma.cn/web/weather/${stationId}.html`
+  let cmaPageOk = false
+  let cmaNowOk = false
+
   if (pageHtml.status === 'fulfilled') {
     const parsed = parseCmaPage(pageHtml.value, runtime.DOMParser)
     if (parsed) {
-      data.cmaUrl = `https://weather.cma.cn/web/weather/${stationId}.html`
       data.daily = parsed.daily
       const omByHour = new Map<number, number>()
       for (let i = 0; i < data.hourly.time.length; i++) {
@@ -128,6 +131,7 @@ async function fetchCmaCity(runtime: Runtime, city: WeatherCity): Promise<Weathe
         wind_speed_10m: parsed.hourly.wind_speed_10m,
         wind_direction_10m: parsed.hourly.wind_direction_10m,
       }
+      cmaPageOk = true
     } else {
       console.debug('[gm-dashboard] cma.fetchCmaCity: page parse returned null, keeping OM hourly')
     }
@@ -145,6 +149,7 @@ async function fetchCmaCity(runtime: Runtime, city: WeatherCity): Promise<Weathe
         precipitation: nowParsed.current.precipitation,
         source: 'cma',
       }
+      cmaNowOk = true
     }
   }
 
@@ -157,9 +162,14 @@ async function fetchCmaCity(runtime: Runtime, city: WeatherCity): Promise<Weathe
     data.current.wind_direction_10m = pageWindDir
   }
 
+  data.cmaUrl = cmaUrl
+  data.cmaFailed = !cmaPageOk || !cmaNowOk
+
   console.debug(
     '[gm-dashboard] cma.fetchCmaCity: merged current.source',
     data.current.source,
+    'cmaFailed',
+    data.cmaFailed,
     'current.time',
     data.current.time,
     'hourly times',
