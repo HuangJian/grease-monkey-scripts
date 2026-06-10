@@ -60,7 +60,7 @@ function formatDueDateDisplay(dateStr: string): string {
   }
   const ym = /^(\d{4})-(\d{2})$/.exec(dateStr)
   if (ym) {
-    return Number(ym[1]) === currentYear ? ym[2] : dateStr
+    return Number(ym[1]) === currentYear ? `M${Number(ym[2])}` : dateStr
   }
   const yq = /^(\d{4})-(Q[1-4])$/.exec(dateStr)
   if (yq) {
@@ -400,6 +400,15 @@ function renderListAndTags(
         }
       }
       displayLines = enrichedLines
+
+      // Pin today's items to the top (copies, sorted by priority)
+      const todayItems = displayLines.filter(
+        (l): l is XitItem => l.type === 'item' && getDueDateStatus(l.dueDate ?? '') === 'today',
+      )
+      if (todayItems.length > 0) {
+        todayItems.sort((a, b) => b.priority - a.priority)
+        displayLines = [...todayItems, ...displayLines]
+      }
     } else {
       // Parse error: show all items
       displayLines = lines.filter((l) => l.type !== 'blank')
