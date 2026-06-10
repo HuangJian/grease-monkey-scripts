@@ -107,15 +107,13 @@ describe('renderReddit', () => {
     expect(item.querySelector('.gm-sp-reddit-comments')!.textContent).toBe('💬 56')
   })
 
-  test('truncates title longer than 100 chars', () => {
+  test('keeps full title (CSS handles overflow truncation)', () => {
     const longTitle = 'a'.repeat(150)
     const data: Record<string, RedditPost[]> = {
       aww: [makePost({ id: 'a1', title: longTitle })],
     }
     renderReddit(container, data, state, null, createExpandCollapse())
-    const text = container.querySelector('.gm-sp-item-title')!.textContent
-    expect(text!.length).toBe(101)
-    expect(text!.endsWith('…')).toBe(true)
+    expect(container.querySelector('.gm-sp-item-title')!.textContent).toBe(longTitle)
   })
 
   test('keeps short titles unchanged', () => {
@@ -341,7 +339,7 @@ describe('renderReddit reply count formatting', () => {
     }
     renderReddit(container, data, state, null, createExpandCollapse())
     const count = container.querySelector('.gm-sp-reddit-comments')!
-    expect(count.textContent).toBe('💬 10 + 5')
+    expect(count.textContent).toBe('💬 10+5')
   })
 
   test('clicking title stores comment count', () => {

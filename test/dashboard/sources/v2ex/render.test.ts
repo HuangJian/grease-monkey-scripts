@@ -172,7 +172,7 @@ describe('renderV2ex', () => {
     const moreReplies = [{ ...FIXTURE[0], replies: 15 }]
     renderV2ex(container, moreReplies, state, null)
     const count = container.querySelector('.gm-sp-item-count')!
-    expect(count.textContent).toBe('10 + 5')
+    expect(count.textContent).toBe('10+5')
   })
 
   test('clicking topic link stores reply count', () => {
@@ -225,7 +225,7 @@ describe('renderV2ex', () => {
     state.markRead(1, Date.now(), 100)
     renderV2ex(container, topic, state, null)
     const countEl = container.querySelector('.gm-sp-item-count')!
-    expect(countEl.textContent).toBe('100 + 10')
+    expect(countEl.textContent).toBe('100+10')
 
     const link = container.querySelector('.gm-sp-item-title') as HTMLAnchorElement
     link.click()

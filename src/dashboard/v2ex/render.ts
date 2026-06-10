@@ -6,7 +6,7 @@ import type { V2exTopic } from './types'
 function formatReplyCount(current: number, readReplies: number | undefined): string {
   if (readReplies === undefined) return `${current}`
   if (current <= readReplies) return `${current}`
-  return `${readReplies} + ${current - readReplies}`
+  return `${readReplies}+${current - readReplies}`
 }
 
 const SOURCE_BADGES = {

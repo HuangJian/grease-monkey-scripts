@@ -5,22 +5,15 @@ import type { RedditPost } from './types'
 import type { RedditRenderData } from './source'
 import type { Runtime } from '../../runtime'
 
-const TITLE_MAX_CHARS = 100
-
-function truncateTitle(title: string, max = TITLE_MAX_CHARS): string {
-  if (title.length <= max) return title
-  return title.slice(0, max) + '…'
-}
-
 function formatCommentCount(current: number, readReplies: number | undefined): string {
   if (readReplies === undefined) return `${current}`
   if (current <= readReplies) return `${current}`
-  return `${readReplies} + ${current - readReplies}`
+  return `${readReplies}+${current - readReplies}`
 }
 
 function buildItemHtml(post: RedditPost, state: RedditState): string {
   const readClass = state.isRead(post.id) ? ' gm-sp-item-read' : ''
-  const titleHtml = `<a class="gm-sp-item-title" href="${escapeUrl(post.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(truncateTitle(post.title))}</a>`
+  const titleHtml = `<a class="gm-sp-item-title" href="${escapeUrl(post.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(post.title)}</a>`
   const subText = escapeHtml(post.subreddits.map((s) => `r/${s}`).join(', '))
   const commentCount = formatCommentCount(post.numComments, state.getReadReplies(post.id))
   return `<li class="gm-sp-list-item gm-sp-list-item-flex${readClass}" data-post-id="${post.id}" data-num-comments="${post.numComments}">

@@ -299,7 +299,6 @@
   display: flex;
   align-items: baseline;
   gap: 8px;
-  flex-wrap: wrap;
 }
 
 .gm-sp-item-title {
@@ -309,6 +308,9 @@
   font-size: 13px;
   flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .gm-sp-item-title:hover {
@@ -317,7 +319,7 @@
 
 .gm-sp-item-count {
   flex: 0 0 auto;
-  min-width: 2.5em;
+  min-width: 7ch;
   text-align: right;
   font-size: 11px;
   font-weight: 500;
