@@ -250,7 +250,6 @@ function renderListAndTags(
       .join('')
 
     tagsEl.innerHTML = tagsHtml
-    tagsEl.classList.remove('hidden')
 
     // Wire tag clicks
     tagsEl.querySelectorAll<HTMLButtonElement>('.gm-sp-xit-tag-chip').forEach((chip) => {
@@ -288,7 +287,6 @@ function renderListAndTags(
     })
   } else if (tagsEl) {
     tagsEl.innerHTML = ''
-    tagsEl.classList.add('hidden')
   }
 
   // Filter lines
