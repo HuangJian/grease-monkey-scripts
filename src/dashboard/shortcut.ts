@@ -27,6 +27,14 @@ export function createDoubleShiftHandler(
   }
 }
 
+export function handleEscapeKey(e: KeyboardEvent, root: ShadowRoot, onClose: () => void): void {
+  if (e.key !== 'Escape') return
+  const active = root.activeElement
+  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return
+  e.stopPropagation()
+  onClose()
+}
+
 export function isEditableTarget(target: EventTarget | null): boolean {
   if (!target) return false
   const t = target as { tagName?: unknown; getAttribute?: (n: string) => string | null }

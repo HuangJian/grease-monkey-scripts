@@ -1,6 +1,7 @@
 import type { Runtime } from '../../runtime'
 import type { SourceEditorResult } from '../types'
 import { htmlToElement } from '../../utils'
+import { handleEscapeKey } from '../shortcut'
 
 export function showEditorDialog(
   document: Document,
@@ -41,13 +42,7 @@ export function showEditorDialog(
     if (e.target === backdrop) close()
   })
   const onKeydown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      const target = e.target as Element | null
-      const tag = target?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return
-      e.stopPropagation()
-      close()
-    }
+    handleEscapeKey(e, root, close)
   }
   document.addEventListener('keydown', onKeydown, { capture: true })
 

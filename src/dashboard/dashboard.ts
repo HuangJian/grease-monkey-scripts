@@ -2,9 +2,9 @@ import type { Runtime } from '../runtime'
 import { isStale, loadCache, saveCache } from './cache'
 import { releaseLock, tryAcquireLock } from './lock'
 import { mountOverlay, type OverlayHandle } from './overlay/mount'
-import { renderCard, renderHeader } from './overlay/render'
+import { renderCard } from './overlay/render'
 import { renderTabsCard } from './overlay/tabs-render'
-import { createDoubleShiftHandler, isEditableTarget } from './shortcut'
+import { createDoubleShiftHandler, handleEscapeKey, isEditableTarget } from './shortcut'
 import { createV2exSource } from './v2ex'
 import { createWeatherSource } from './weather'
 import { createNovelsSource } from './novels'
@@ -192,25 +192,28 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
   function mount(): void {
     if (handle) return
     const newHandle = mountOverlay(runtime.document)
-    renderHeader(newHandle.modal, { onClose: () => dashboard.close() })
     const onBackdropClick = (e: Event) => {
       if (e.target === newHandle.backdrop) dashboard.close()
     }
     const onKeydown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (newHandle.root.querySelector('.gm-sp-editor-dialog')) return
-        const target = e.target as Element | null
-        const tag = target?.tagName
-        if (tag === 'INPUT' || tag === 'TEXTAREA') return
-        e.stopPropagation()
-        dashboard.close()
-      }
+      if (newHandle.root.querySelector('.gm-sp-editor-dialog')) return
+      handleEscapeKey(e, newHandle.root, () => dashboard.close())
     }
+    const stopKeyboardLeak = (e: Event) => {
+      const target = e.target as Element | null
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') e.stopPropagation()
+    }
+    newHandle.closeBtn.addEventListener('click', () => dashboard.close())
+    newHandle.root.addEventListener('keydown', stopKeyboardLeak)
+    newHandle.root.addEventListener('keyup', stopKeyboardLeak)
     newHandle.backdrop.addEventListener('click', onBackdropClick)
     runtime.document.addEventListener('keydown', onKeydown, { capture: true })
     handle = newHandle
     mountedUnmount = () => {
       runtime.document.removeEventListener('keydown', onKeydown, { capture: true })
+      newHandle.root.removeEventListener('keydown', stopKeyboardLeak)
+      newHandle.root.removeEventListener('keyup', stopKeyboardLeak)
       newHandle.unmount()
     }
     const now = Date.now()
@@ -329,7 +332,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
         options.config.shortcut.enabled &&
         isHostAllowed(options.config, runtime.location.hostname)
       ) {
-        const onKeydown = createDoubleShiftHandler(() => dashboard.toggle(), {
+        const onKeydown = createDoubleShiftHandler(() => dashboard.open(), {
           windowMs: options.config.shortcut.doublePressWindowMs,
           isFocusExempt: isEditableTarget,
         })

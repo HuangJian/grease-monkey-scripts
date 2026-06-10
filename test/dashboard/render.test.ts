@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { JSDOM } from 'jsdom'
-import { formatRelativeTime, renderCard, renderHeader } from '../../src/dashboard/overlay/render'
+import { formatRelativeTime, renderCard } from '../../src/dashboard/overlay/render'
 import type { Source } from '../../src/dashboard/types'
 import { CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/dashboard/types'
 import { createRuntime } from '../runtime'
@@ -46,19 +46,6 @@ describe('formatRelativeTime', () => {
   })
   test('returns N 天前 for days', () => {
     expect(formatRelativeTime(1_000_000 - 3 * 86_400_000, 1_000_000)).toBe('3 天前')
-  })
-})
-
-describe('renderHeader', () => {
-  test('renders title and close button; close triggers callback', () => {
-    const dom = new JSDOM('<html><body><div id="m"></div></body></html>')
-    const modal = dom.window.document.getElementById('m')!
-    let closed = 0
-    renderHeader(modal, { onClose: () => closed++ })
-    expect(modal.querySelector('.gm-sp-title')!.textContent).toBe('个人仪表盘')
-    const btn = modal.querySelector('.gm-sp-close') as HTMLButtonElement
-    btn.click()
-    expect(closed).toBe(1)
   })
 })
 

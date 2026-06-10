@@ -4,6 +4,7 @@ export type OverlayHandle = {
   root: ShadowRoot
   backdrop: HTMLElement
   modal: HTMLElement
+  closeBtn: HTMLElement
   mainCards: HTMLElement
   sideCards: HTMLElement
   unmount: () => void
@@ -26,28 +27,30 @@ export function mountOverlay(document: Document): OverlayHandle {
   const style = document.createElement('style')
   style.textContent = OVERLAY_CSS
   root.appendChild(style)
-  const backdrop = document.createElement('div')
-  backdrop.className = 'gm-sp-backdrop'
-  const modal = document.createElement('div')
-  modal.className = 'gm-sp-modal'
-  const grid = document.createElement('div')
-  grid.className = 'gm-sp-cards'
-  const mainCards = document.createElement('div')
-  mainCards.className = 'gm-sp-cards-main'
-  const sideCards = document.createElement('div')
-  sideCards.className = 'gm-sp-cards-side'
-  grid.appendChild(mainCards)
-  grid.appendChild(sideCards)
-  modal.appendChild(grid)
-  backdrop.appendChild(modal)
-  root.appendChild(backdrop)
+  const template = document.createElement('template')
+  template.innerHTML = `<div class="gm-sp-backdrop">
+      <div class="gm-sp-modal">
+        <button type="button" class="gm-sp-corner-close" aria-label="close">×</button>
+        <div class="gm-sp-cards">
+          <div class="gm-sp-cards-main"></div>
+          <div class="gm-sp-cards-side"></div>
+        </div>
+      </div>
+    </div>`
+  root.appendChild(template.content)
+  const backdrop = root.querySelector('.gm-sp-backdrop')!
+  const modal = root.querySelector('.gm-sp-modal')!
+  const closeBtn = root.querySelector('.gm-sp-corner-close')!
+  const mainCards = root.querySelector('.gm-sp-cards-main')!
+  const sideCards = root.querySelector('.gm-sp-cards-side')!
   document.body.appendChild(host)
   return {
     root,
-    backdrop,
-    modal,
-    mainCards,
-    sideCards,
+    backdrop: backdrop as HTMLElement,
+    modal: modal as HTMLElement,
+    closeBtn: closeBtn as HTMLElement,
+    mainCards: mainCards as HTMLElement,
+    sideCards: sideCards as HTMLElement,
     unmount: () => host.remove(),
   }
 }

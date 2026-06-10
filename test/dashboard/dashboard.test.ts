@@ -55,7 +55,7 @@ describe('createDashboard', () => {
     expect(host).not.toBeNull()
     expect(host!.shadowRoot).toBeNull()
     const shadow = shadowOf(dom)
-    expect(shadow.querySelector('.gm-sp-header')).not.toBeNull()
+    expect(shadow.querySelector('.gm-sp-header')).toBeNull()
     const cards = shadow.querySelectorAll('.gm-sp-card')
     expect(cards.length).toBe(2)
   })
@@ -352,7 +352,7 @@ describe('createDashboard', () => {
     expect(fetchCount).toBeGreaterThan(countAfterFirst)
   })
 
-  test('double-Shift toggles the overlay', async () => {
+  test('double-Shift opens the overlay', async () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     const dispatchShift = () => {
@@ -363,9 +363,6 @@ describe('createDashboard', () => {
     dispatchShift()
     dispatchShift()
     expect(dom.window.document.getElementById('gm-dashboard')).not.toBeNull()
-    dispatchShift()
-    dispatchShift()
-    expect(dom.window.document.getElementById('gm-dashboard')).toBeNull()
   })
 
   test('Esc closes the overlay', async () => {
@@ -417,7 +414,7 @@ describe('createDashboard', () => {
     const messages: string[] = []
     runtime.prompt = (msg?: string) => {
       messages.push(msg ?? '')
-      if (messages.length === 1) return JSON.stringify({ shortcut: { enabled: 'yes' } })
+      if (messages.length === 1) return JSON.stringify({ hostAllowlist: 'bad' })
       return null
     }
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
@@ -468,12 +465,12 @@ describe('validateConfig', () => {
     expect(validateConfig(null)).toEqual({ ok: false, error: expect.any(String) })
     expect(validateConfig('x')).toEqual({ ok: false, error: expect.any(String) })
   })
-  test('rejects bad shortcut.enabled type', () => {
-    const v = validateConfig({ shortcut: { enabled: 'yes' } })
-    expect(v.ok).toBe(false)
-  })
   test('rejects bad hostAllowlist type', () => {
     const v = validateConfig({ hostAllowlist: 'v2ex.com' })
+    expect(v.ok).toBe(false)
+  })
+  test('rejects bad shortcut.enabled type', () => {
+    const v = validateConfig({ shortcut: { enabled: 'yes' } })
     expect(v.ok).toBe(false)
   })
   test('rejects bad nested weather type', () => {

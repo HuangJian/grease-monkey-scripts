@@ -117,6 +117,12 @@ export function validateConfig(value: unknown): ConfigValidation {
   if (!isPlainObject(value)) {
     return { ok: false, error: '根值必须是 plain object' }
   }
+  if ('hostAllowlist' in value) {
+    const list = value['hostAllowlist']
+    if (!Array.isArray(list) || !list.every((x) => typeof x === 'string')) {
+      return { ok: false, error: 'hostAllowlist 必须是 string[]' }
+    }
+  }
   if ('shortcut' in value) {
     const s = value['shortcut']
     if (!isPlainObject(s)) {
@@ -127,12 +133,6 @@ export function validateConfig(value: unknown): ConfigValidation {
     }
     if ('enabled' in s && typeof s['enabled'] !== 'boolean') {
       return { ok: false, error: 'shortcut.enabled 必须是 boolean' }
-    }
-  }
-  if ('hostAllowlist' in value) {
-    const list = value['hostAllowlist']
-    if (!Array.isArray(list) || !list.every((x) => typeof x === 'string')) {
-      return { ok: false, error: 'hostAllowlist 必须是 string[]' }
     }
   }
   if ('weather' in value) {

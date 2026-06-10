@@ -33,6 +33,32 @@
   flex-direction: column;
   gap: 12px;
   overflow: hidden;
+  position: relative;
+}
+
+.gm-sp-corner-close {
+  position: absolute;
+  left: 10px;
+  top: 12px;
+  width: 13px;
+  height: 13px;
+  border: 0;
+  border-radius: 50%;
+  background: #ff5f57;
+  color: transparent;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+}
+
+.gm-sp-corner-close:hover {
+  color: #1f2328;
+  opacity: 1;
 }
 
 .gm-sp-header {
