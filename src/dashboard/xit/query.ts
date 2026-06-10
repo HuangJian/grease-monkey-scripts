@@ -390,7 +390,12 @@ class Parser {
     if (valTok.type === 'DATE_KEYWORD') {
       this.advance()
       const kw = this.parseDateKeywordValue(valTok.value)
-      return { type: 'dateKeyword', ...kw, offset: kw.offset }
+      return {
+        type: 'date',
+        op: opTok.value as '>' | '<' | '>=' | '<=' | '=',
+        value: kw.value,
+        offset: kw.offset,
+      }
     }
 
     // date value: digits
@@ -588,10 +593,35 @@ function parseDateValue(value: string): Date | null {
   return parseDueDate(value)
 }
 
-function matchDate(item: XitItem, op: string, value: string): boolean {
+function matchDate(item: XitItem, op: string, value: string, offset?: number): boolean {
   if (!item.dueDate) return false
   const itemDate = parseDueDate(item.dueDate)
   if (!itemDate) return false
+
+  // Handle keyword references: today, thisweek, thismonth, thisyear
+  if ((['today', 'thisweek', 'thismonth', 'thisyear'] as const).includes(value as any)) {
+    const range = resolveDateKeyword(
+      value as 'today' | 'thisweek' | 'thismonth' | 'thisyear',
+      offset,
+    )
+    if (!range) return false
+    const t = itemDate.getTime()
+    switch (op) {
+      case '>':
+        return t >= range.end.getTime()
+      case '<':
+        return t < range.start.getTime()
+      case '>=':
+        return t >= range.start.getTime()
+      case '<=':
+        return t < range.end.getTime()
+      case '=':
+        return t >= range.start.getTime() && t < range.end.getTime()
+      default:
+        return false
+    }
+  }
+
   const targetDate = parseDateValue(value)
   if (!targetDate) return false
 
@@ -629,6 +659,16 @@ function matchDatePeriod(item: XitItem, periodSpec: string, offset?: number): bo
     )
     if (!range) return false
     return t >= range.start.getTime() && t < range.end.getTime()
+  }
+
+  // Bare quarter: Q1-Q4 (current year)
+  const bareQ = /^[Qq]([1-4])$/.exec(periodSpec)
+  if (bareQ) {
+    const year = new Date().getFullYear()
+    const q = Number(bareQ[1])
+    const start = new Date(year, (q - 1) * 3, 1)
+    const end = new Date(year, q * 3, 1)
+    return t >= start.getTime() && t < end.getTime()
   }
 
   // parse period spec: YYYYQx, YYYYWxx, YYYYMM, YYYY, MM
@@ -733,7 +773,7 @@ function matchItem(item: XitItem, ast: QueryNode): boolean {
     }
     case 'date':
       if (ast.op === '~') return matchDatePeriod(item, ast.value, ast.offset)
-      return matchDate(item, ast.op, ast.value)
+      return matchDate(item, ast.op, ast.value, ast.offset)
     case 'dateKeyword':
       return matchDateKeyword(item, ast.value, ast.offset)
     case 'tag':

@@ -217,16 +217,46 @@ describe('query parser', () => {
       if (r.ok) expect(r.ast).toEqual({ type: 'dateKeyword', value: 'thisweek', offset: -1 })
     })
 
+    it('parses >today-1', () => {
+      const r = parseQuery('>today-1')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'date', op: '>', value: 'today', offset: -1 })
+    })
+
+    it('parses <today', () => {
+      const r = parseQuery('<today')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'date', op: '<', value: 'today' })
+    })
+
+    it('parses >today', () => {
+      const r = parseQuery('>today')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'date', op: '>', value: 'today' })
+    })
+
     it('parses <today+3', () => {
       const r = parseQuery('<today+3')
       expect(r.ok).toBe(true)
-      if (r.ok) expect(r.ast).toEqual({ type: 'dateKeyword', value: 'today', offset: 3 })
+      if (r.ok) expect(r.ast).toEqual({ type: 'date', op: '<', value: 'today', offset: 3 })
+    })
+
+    it('parses ~thisweek', () => {
+      const r = parseQuery('~thisweek')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'date', op: '~', value: 'thisweek' })
     })
 
     it('parses ~thisweek+1', () => {
       const r = parseQuery('~thisweek+1')
       expect(r.ok).toBe(true)
       if (r.ok) expect(r.ast).toEqual({ type: 'date', op: '~', value: 'thisweek', offset: 1 })
+    })
+
+    it('parses ~Q2', () => {
+      const r = parseQuery('~Q2')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'date', op: '~', value: 'Q2' })
     })
   })
 
@@ -480,5 +510,118 @@ describe('filterItems', () => {
       expect(result.length).toBe(1)
       expect((result[0] as XitItem).description).toBe('task C')
     }
+  })
+
+  describe('date comparison with keywords', () => {
+    const today = new Date()
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    const oneDay = 86400000
+
+    // Items with known due dates relative to today
+    const dateItems: XitItem[] = [
+      makeItem({ description: 'far past', dueDate: '2020-01-15' }),
+      makeItem({
+        description: 'yesterday',
+        dueDate: new Date(todayStart.getTime() - oneDay).toISOString().slice(0, 10),
+      }),
+      makeItem({
+        description: 'today',
+        dueDate: todayStart.toISOString().slice(0, 10),
+      }),
+      makeItem({
+        description: 'tomorrow',
+        dueDate: new Date(todayStart.getTime() + oneDay).toISOString().slice(0, 10),
+      }),
+      makeItem({ description: 'no date' }),
+    ]
+
+    const dateLines = dateItems.map((item) => item as any)
+
+    it('>today-1 matches due dates after yesterday (today+)', () => {
+      const r = parseQuery('>today-1')
+      expect(r.ok).toBe(true)
+      if (r.ok) {
+        const result = filterItems(dateLines, r.ast)
+        const descs = result.map((l) => (l as XitItem).description)
+        expect(descs).toContain('today')
+        expect(descs).toContain('tomorrow')
+        expect(descs).not.toContain('far past')
+        expect(descs).not.toContain('yesterday')
+        expect(descs).not.toContain('no date')
+      }
+    })
+
+    it('<today matches due dates before today', () => {
+      const r = parseQuery('<today')
+      expect(r.ok).toBe(true)
+      if (r.ok) {
+        const result = filterItems(dateLines, r.ast)
+        const descs = result.map((l) => (l as XitItem).description)
+        expect(descs).toContain('far past')
+        expect(descs).toContain('yesterday')
+        expect(descs).not.toContain('today')
+        expect(descs).not.toContain('tomorrow')
+        expect(descs).not.toContain('no date')
+      }
+    })
+  })
+
+  describe('date period with keywords', () => {
+    it('~thisweek matches due dates in the current week', () => {
+      const today = new Date()
+      const dayOfWeek = today.getDay()
+      const weekStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - dayOfWeek)
+      const weekMid = new Date(weekStart.getTime() + 3 * 86400000)
+      const prevWeek = new Date(weekStart.getTime() - 86400000)
+      const nextWeek = new Date(weekStart.getTime() + 7 * 86400000)
+
+      const weekItems: XitItem[] = [
+        makeItem({ description: 'in week', dueDate: weekMid.toISOString().slice(0, 10) }),
+        makeItem({ description: 'before week', dueDate: prevWeek.toISOString().slice(0, 10) }),
+        makeItem({ description: 'after week', dueDate: nextWeek.toISOString().slice(0, 10) }),
+        makeItem({ description: 'no date' }),
+      ]
+      const weekLines = weekItems.map((item) => item as any)
+
+      const r = parseQuery('~thisweek')
+      expect(r.ok).toBe(true)
+      if (r.ok) {
+        const result = filterItems(weekLines, r.ast)
+        const descs = result.map((l) => (l as XitItem).description)
+        expect(descs).toEqual(['in week'])
+      }
+    })
+
+    it('~Q2 matches due dates in Q2 of the current year', () => {
+      const year = new Date().getFullYear()
+      const q2Start = new Date(year, 3, 1) // April 1
+      const q2Mid = new Date(year, 4, 15) // May 15
+      const q2End = new Date(year, 5, 30) // June 30
+      const beforeQ2 = new Date(year, 2, 31) // March 31
+      const afterQ2 = new Date(year, 6, 1) // July 1
+
+      const qItems: XitItem[] = [
+        makeItem({ description: 'q2 start', dueDate: q2Start.toISOString().slice(0, 10) }),
+        makeItem({ description: 'q2 mid', dueDate: q2Mid.toISOString().slice(0, 10) }),
+        makeItem({ description: 'q2 end', dueDate: q2End.toISOString().slice(0, 10) }),
+        makeItem({ description: 'before q2', dueDate: beforeQ2.toISOString().slice(0, 10) }),
+        makeItem({ description: 'after q2', dueDate: afterQ2.toISOString().slice(0, 10) }),
+        makeItem({ description: 'no date' }),
+      ]
+      const qLines = qItems.map((item) => item as any)
+
+      const r = parseQuery('~Q2')
+      expect(r.ok).toBe(true)
+      if (r.ok) {
+        const result = filterItems(qLines, r.ast)
+        const descs = result.map((l) => (l as XitItem).description)
+        expect(descs).toContain('q2 start')
+        expect(descs).toContain('q2 mid')
+        expect(descs).toContain('q2 end')
+        expect(descs).not.toContain('before q2')
+        expect(descs).not.toContain('after q2')
+        expect(descs).not.toContain('no date')
+      }
+    })
   })
 })
