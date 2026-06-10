@@ -1457,6 +1457,24 @@
   user-select: none;
 }
 
+.gm-sp-reddit-mark-all-read {
+  cursor: pointer;
+  background: none;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: 11px;
+  color: #6b7280;
+  padding: 0 4px;
+  border-radius: 3px;
+  margin-left: auto;
+  line-height: 1.6;
+}
+
+.gm-sp-reddit-mark-all-read:hover {
+  color: #1d4ed8;
+  border-color: #e5e7eb;
+}
+
 .gm-sp-reddit-section:has(> .gm-sp-reddit-sub-title .gm-sp-reddit-caret-visible) {
   cursor: pointer;
 }

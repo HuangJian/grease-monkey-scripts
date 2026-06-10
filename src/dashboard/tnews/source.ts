@@ -62,9 +62,9 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
       await state.saveToStorage(runtime)
       return visible
     },
-    render(container, data) {
+    render(container, data, ctx) {
       console.debug('[gm-tnews] render items=', data?.length ?? 0)
-      renderTnews(container, data, state, runtimeRef!, Date.now())
+      renderTnews(container, data, state, runtimeRef ?? ctx?.runtime ?? null, Date.now())
     },
     async loadState(runtime) {
       runtimeRef = runtime

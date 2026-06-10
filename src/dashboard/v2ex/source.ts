@@ -73,10 +73,11 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
       await state.saveToStorage(runtime)
       return visible
     },
-    render(container, data) {
+    render(container, data, ctx) {
       lastContainer = container
       lastData = data
       doRender(container, data)
+      runtimeRef ??= ctx?.runtime ?? null
     },
     customizeHeader(titleContainer, _data) {
       const doc = titleContainer.ownerDocument

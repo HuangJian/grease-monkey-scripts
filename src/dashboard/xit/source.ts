@@ -33,11 +33,11 @@ export function createXitSource(
         <span class="gm-sp-xit-filter-name hidden"></span>
         <input type="text" class="gm-sp-xit-header-search" placeholder="🔍 查询: [ ] !>2 #urgent today" />
       </div>
-      <div class="gm-sp-xit-error hidden"></div>
       <div class="gm-sp-xit-header-filters hidden">
         <div class="gm-sp-xit-saved-filters"></div>
         <div class="gm-sp-xit-tags"></div>
-      </div>`,
+      </div>
+      <div class="gm-sp-xit-error gm-sp-error hidden"></div>`,
     hideDefaultHeader: true,
     dialogTitle:
       '<a href="https://xit.jotaen.net/" target="_blank" rel="noopener">[x]it! 语法规范</a>',

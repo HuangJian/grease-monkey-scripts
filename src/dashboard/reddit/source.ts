@@ -52,8 +52,8 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
       await state.saveToStorage(runtime)
       return visible
     },
-    render(container, data) {
-      renderReddit(container, data, state, runtimeRef, expandCollapse)
+    render(container, data, ctx) {
+      renderReddit(container, data, state, runtimeRef ?? ctx?.runtime ?? null, expandCollapse)
     },
     async loadState(runtime) {
       await state.loadFromStorage(runtime)

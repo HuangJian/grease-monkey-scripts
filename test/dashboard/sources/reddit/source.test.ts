@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { validateConfig } from '../../../../src/dashboard/config'
 import { createRedditSource } from '../../../../src/dashboard/reddit/source'
-import type { RedditSourceOptions } from '../../../../src/dashboard/reddit/types'
+import { STATE_KEY } from '../../../../src/dashboard/types'
+import type { RedditPost, RedditSourceOptions } from '../../../../src/dashboard/reddit/types'
 import type { RequestDetails } from '../../../../src/runtime'
 import { createRuntime, type TestRuntime } from '../../../runtime'
 
@@ -103,6 +104,40 @@ describe('createRedditSource.fetch reads fresh config', () => {
     expect(
       (data as Record<string, unknown>)['funny'] || (data as Record<string, unknown>)['aww'],
     ).toBeTruthy()
+  })
+})
+
+describe('createRedditSource.render uses ctx.runtime when runtimeRef is null', () => {
+  test('bugfix: clicking title persists read state even if fetch() was never called', () => {
+    const dom = makeDom()
+    const runtime = createRuntime(dom)
+    const source = createRedditSource(defaultRedditOpts())
+
+    const container = dom.window.document.createElement('div')
+    const data: Record<string, RedditPost[]> = {
+      aww: [
+        {
+          id: 'a1',
+          title: 'test post',
+          url: 'https://www.reddit.com/r/aww/comments/a1/t',
+          score: 100,
+          numComments: 5,
+          subreddits: ['aww'],
+          author: 'u',
+          created: Date.now(),
+        },
+      ],
+    }
+
+    // Simulate mount flow: render before any fetch() call
+    source.render(container, data, { root: undefined, runtime })
+
+    const link = container.querySelector('.gm-sp-item-title') as HTMLAnchorElement
+    link.click()
+
+    // The mark should be saved to storage via ctx.runtime
+    const stored = runtime.stores[STATE_KEY('reddit')] as Record<string, { r?: number }> | undefined
+    expect(stored?.['a1']?.r).toBeGreaterThan(0)
   })
 })
 

@@ -64,6 +64,7 @@ export function renderReddit(
         <h3 class="gm-sp-reddit-sub-title" data-sub="${escapeHtml(sub)}">
           <span class="gm-sp-reddit-caret${caretClass}">▾</span>
           r/${escapeHtml(sub)}
+          <button type="button" class="gm-sp-reddit-mark-all-read">全部已读</button>
         </h3>
         <ol class="gm-sp-list">${listHtml}</ol>
       </section>`
@@ -94,9 +95,25 @@ export function renderReddit(
         }
       })
     })
+    // Mark-all-read button
+    const markAllBtn = section.querySelector('.gm-sp-reddit-mark-all-read') as HTMLButtonElement
+    markAllBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const now = Date.now()
+      section.querySelectorAll<HTMLElement>('.gm-sp-list-item').forEach((item) => {
+        const postId = item.dataset['postId']
+        if (!postId || state.isRead(postId)) return
+        const numComments = Number(item.dataset['numComments'] ?? 0)
+        state.markRead(postId, now, numComments)
+        item.classList.add('gm-sp-item-read')
+      })
+      if (runtime) void state.saveToStorage(runtime)
+    })
+
     if (showCaret) {
       const titleEl = section.querySelector('.gm-sp-reddit-sub-title') as HTMLElement
-      titleEl.addEventListener('click', () => {
+      titleEl.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('.gm-sp-reddit-mark-all-read')) return
         expandCollapse.toggleSub(sub, totalPosts)
         const newActive = expandCollapse.activeSubs(allSubs, totalPosts)
         container.querySelectorAll<HTMLElement>('.gm-sp-reddit-section').forEach((s) => {

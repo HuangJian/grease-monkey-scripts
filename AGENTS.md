@@ -189,6 +189,7 @@ Userscripts run inside pages owned by other sites. Be conservative:
 - Insert controls where they remain visible in the relevant collapsed/expanded
   state.
 - Keep script-owned classes prefixed or clearly namespaced, for example `gm-*`.
+- When creating or modifying HTML controls, reuse existing CSS classes instead of duplicating styles. Don't invent functionality-coupled class names that imply event behavior (e.g. `gm-sp-xit-error` for a styled error display — the class should describe the element, not the feature).
 
 ### Site Investigation
 
