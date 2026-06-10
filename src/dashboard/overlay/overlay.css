@@ -378,6 +378,33 @@
   flex: 0 0 auto;
 }
 
+.gm-sp-date-filter {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.gm-sp-date-filter-select {
+  font: inherit;
+  font-size: 11px;
+  padding: 1px 6px 1px 4px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: #f9fafb;
+  color: #9ca3af;
+  cursor: pointer;
+  outline: none;
+  transition:
+    border-color 0.12s,
+    background 0.12s;
+}
+
+.gm-sp-date-filter-select:hover {
+  border-color: #d1d5db;
+  background: #ffffff;
+  color: #6b7280;
+}
+
 .gm-sp-v2ex-source {
   flex: 0 0 auto;
   font-size: 10px;

@@ -80,4 +80,11 @@ export function renderTabsCard(container: HTMLElement, options: TabsCardOptions)
     const data = cached?.data ?? null
     tab.render(panel, data as never, { root, runtime })
   })
+
+  if (activeTab.customizeHeader) {
+    activeTab.customizeHeader(
+      chrome.header.querySelector('.gm-sp-card-title')!,
+      activeCached?.data ?? null,
+    )
+  }
 }
