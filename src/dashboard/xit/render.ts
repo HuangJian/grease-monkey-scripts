@@ -10,7 +10,7 @@ import {
   setDefaultFilter,
   getDefaultFilter,
 } from './filters'
-import type { XitData, XitItem, XitLine, NamedFilter } from './types'
+import type { XitData, XitItem, XitLine, NamedFilter, NamedFilterStore } from './types'
 
 const queryStates = new WeakMap<HTMLElement, { query: string; error: string | null }>()
 
@@ -266,6 +266,15 @@ export function renderXit(
         })
       }
 
+      // Wire filter name span click — show saved filters panel
+      const filterNameSpan = card.querySelector('.gm-sp-xit-filter-name') as HTMLElement
+      if (filterNameSpan) {
+        filterNameSpan.addEventListener('click', (e) => {
+          e.stopPropagation()
+          if (searchInput) searchInput.focus()
+        })
+      }
+
       // Load default filter and render saved filters
       if (options.runtime) {
         loadFilters(options.runtime).then((store) => {
@@ -417,6 +426,26 @@ function renderListAndTags(
   })
 }
 
+function updateFilterNameDisplay(
+  card: HTMLElement,
+  store: NamedFilterStore,
+  currentQuery: string,
+): void {
+  const nameSpan = card.querySelector('.gm-sp-xit-filter-name') as HTMLElement
+  const searchInput = card.querySelector('.gm-sp-xit-header-search') as HTMLInputElement
+  if (!nameSpan || !searchInput) return
+
+  const match = store.filters.find((f) => f.query === currentQuery)
+  if (match) {
+    nameSpan.textContent = match.name
+    nameSpan.classList.remove('hidden')
+    searchInput.classList.add('gm-sp-xit-header-search-with-name')
+  } else {
+    nameSpan.classList.add('hidden')
+    searchInput.classList.remove('gm-sp-xit-header-search-with-name')
+  }
+}
+
 function renderSavedFilters(
   card: HTMLElement,
   wrapper: HTMLElement,
@@ -430,12 +459,14 @@ function renderSavedFilters(
   if (!savedFiltersEl || !options.runtime) return
 
   loadFilters(options.runtime).then((store) => {
+    const state = getQueryState(wrapper)
+    updateFilterNameDisplay(card, store, state.query)
+
     if (store.filters.length === 0) {
       savedFiltersEl.innerHTML = ''
       return
     }
 
-    const state = getQueryState(wrapper)
     const chipsHtml = store.filters
       .map((f) => {
         const isActive = state.query === f.query

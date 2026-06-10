@@ -30,6 +30,7 @@ export function createXitSource(
     ttlMs: 24 * 3600 * 1000, // Large TTL, manually saved
     placement,
     headerContent: `<div class="gm-sp-xit-header-row">
+        <span class="gm-sp-xit-filter-name hidden"></span>
         <input type="text" class="gm-sp-xit-header-search" placeholder="🔍 查询: [ ] !>2 #urgent today" />
       </div>
       <div class="gm-sp-xit-error hidden"></div>

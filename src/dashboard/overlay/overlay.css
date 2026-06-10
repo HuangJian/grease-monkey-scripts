@@ -1695,11 +1695,27 @@
   gap: 4px;
   flex: 1 1 0%;
   min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.gm-sp-xit-filter-name {
+  display: inline-flex;
+  align-items: center;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
 }
 
 .gm-sp-xit-header-search {
   flex: 1 1 0%;
-  min-width: 0;
+  min-width: 50px;
   font-family: inherit;
   font-size: 12px;
   padding: 5px 10px;
@@ -1708,6 +1724,11 @@
   box-sizing: border-box;
   background: #ffffff;
   color: #1f2328;
+}
+
+.gm-sp-xit-header-search-with-name {
+  flex: 1 1 0%;
+  min-width: 50px;
 }
 
 .gm-sp-xit-header-search:focus {
