@@ -50,7 +50,10 @@ async function collectSourceFiles(dir: string): Promise<Map<string, string>> {
     if (entry.isDirectory()) {
       const nested = await collectSourceFiles(full)
       for (const [k, v] of nested) originals.set(k, v)
-    } else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) {
+    } else if (
+      (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) &&
+      !entry.name.endsWith('.d.ts')
+    ) {
       originals.set(full, await readFile(full, 'utf8'))
     }
   }

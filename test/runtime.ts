@@ -28,6 +28,8 @@ if (
 }
 
 export function createRuntime(dom: JSDOM): TestRuntime {
+  // Preact needs global document for DOM element creation
+  globalThis.document = dom.window.document as unknown as Document
   const stores: Record<string, unknown> = {}
   const listeners: Map<string, ValueChangeListener[]> = new Map()
   const menuCommands: MenuCommand[] = []
