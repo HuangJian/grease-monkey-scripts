@@ -38,9 +38,9 @@ function buildItemHtml(item: TnewsItem, state: TnewsState, now: number): string 
   const titleText = stripLeadingSymbols(item.title || '(无标题)')
   return `<li class="gm-sp-list-item${readClass}${expandedClass}" data-item-id="${escapeAttr(item.id)}">
     <span class="gm-sp-tnews-row">
-      <button type="button" class="gm-sp-item-hide" aria-label="hide">×</button>
       <span class="gm-sp-tnews-time" title="${escapeAttr(TIME_LABEL_FMT.format(new Date(item.pubDate)))}">${escapeText(timeText)}</span>
       <span class="gm-sp-tnews-title" title="${escapeAttr(titleText)}">${escapeText(titleText)}</span>
+      <button type="button" class="gm-sp-item-hide" aria-label="hide">×</button>
     </span>
     <div class="gm-sp-tnews-body"${expanded ? '' : ' hidden'}>${item.descriptionHtml}</div>
   </li>`

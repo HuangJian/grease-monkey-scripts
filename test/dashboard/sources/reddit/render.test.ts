@@ -88,7 +88,7 @@ describe('renderReddit', () => {
     expect(container.querySelector('.gm-sp-empty')!.textContent).toBe('暂无数据')
   })
 
-  test('renders score, comment count, and sub list in items', () => {
+  test('renders source badge, comment count, title, and score in items', () => {
     const data: Record<string, RedditPost[]> = {
       aww: [
         makePost({
@@ -102,9 +102,11 @@ describe('renderReddit', () => {
     }
     renderReddit(container, data, state, null, createExpandCollapse())
     const item = container.querySelector('.gm-sp-list-item')!
-    expect(item.querySelector('.gm-sp-item-count')!.textContent).toBe('1234')
-    expect(item.querySelector('.gm-sp-reddit-sub')!.textContent).toBe('r/aww, r/funny')
-    expect(item.querySelector('.gm-sp-reddit-comments')!.textContent).toBe('💬 56')
+    const badge = item.querySelector('.gm-sp-reddit-source')!
+    expect(badge.textContent).toBe('🌅')
+    expect(badge.getAttribute('title')).toBe('今日主题')
+    expect(item.querySelector('.gm-sp-item-count')!.textContent).toBe('56')
+    expect(item.querySelector('.gm-sp-reddit-score')!.textContent).toBe('1234')
   })
 
   test('keeps full title (CSS handles overflow truncation)', () => {
@@ -318,8 +320,8 @@ describe('renderReddit reply count formatting', () => {
       aww: [makePost({ id: 'a1', numComments: 10 })],
     }
     renderReddit(container, data, state, null, createExpandCollapse())
-    const count = container.querySelector('.gm-sp-reddit-comments')!
-    expect(count.textContent).toBe('💬 10')
+    const count = container.querySelector('.gm-sp-item-count')!
+    expect(count.textContent).toBe('10')
   })
 
   test('shows plain count when read and no new comments', () => {
@@ -328,8 +330,8 @@ describe('renderReddit reply count formatting', () => {
       aww: [makePost({ id: 'a1', numComments: 10 })],
     }
     renderReddit(container, data, state, null, createExpandCollapse())
-    const count = container.querySelector('.gm-sp-reddit-comments')!
-    expect(count.textContent).toBe('💬 10')
+    const count = container.querySelector('.gm-sp-item-count')!
+    expect(count.textContent).toBe('10')
   })
 
   test('shows new comment count when read and comments increased', () => {
@@ -338,8 +340,8 @@ describe('renderReddit reply count formatting', () => {
       aww: [makePost({ id: 'a1', numComments: 15 })],
     }
     renderReddit(container, data, state, null, createExpandCollapse())
-    const count = container.querySelector('.gm-sp-reddit-comments')!
-    expect(count.textContent).toBe('💬 10+5')
+    const count = container.querySelector('.gm-sp-item-count')!
+    expect(count.textContent).toBe('10+5')
   })
 
   test('clicking title stores comment count', () => {

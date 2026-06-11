@@ -1233,13 +1233,22 @@
   margin-bottom: 0;
 }
 
-.gm-sp-reddit-sub {
-  color: #2563eb;
-  font-weight: 500;
+.gm-sp-reddit-source {
+  flex: 0 0 auto;
+  font-size: 10px;
+  cursor: help;
 }
 
-.gm-sp-reddit-comments {
+.gm-sp-reddit-source:empty {
+  display: none;
+}
+
+.gm-sp-reddit-score {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
+  color: #6b7280;
 }
 
 .gm-sp-card[data-source='browse'] .gm-sp-tab-panel[data-tab-id='reddit'] .gm-sp-card-body {

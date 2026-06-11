@@ -11,18 +11,22 @@ function formatCommentCount(current: number, readReplies: number | undefined): s
   return `${readReplies}+${current - readReplies}`
 }
 
+function sourceBadge(created: number): { icon: string; title: string } {
+  const now = Date.now()
+  const isToday = new Date(created).toDateString() === new Date(now).toDateString()
+  return isToday ? { icon: '🌅', title: '今日主题' } : { icon: '⏳', title: '历史主题' }
+}
+
 function buildItemHtml(post: RedditPost, state: RedditState): string {
   const readClass = state.isRead(post.id) ? ' gm-sp-item-read' : ''
+  const badge = sourceBadge(post.created)
   const titleHtml = `<a class="gm-sp-item-title" href="${escapeUrl(post.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(post.title)}</a>`
-  const subText = escapeHtml(post.subreddits.map((s) => `r/${s}`).join(', '))
   const commentCount = formatCommentCount(post.numComments, state.getReadReplies(post.id))
   return `<li class="gm-sp-list-item gm-sp-list-item-flex${readClass}" data-post-id="${post.id}" data-num-comments="${post.numComments}">
-        <span class="gm-sp-item-count" title="得分">${post.score}</span>
+        <span class="gm-sp-reddit-source" title="${badge.title}">${badge.icon}</span>
+        <span class="gm-sp-item-count" title="评论数">${commentCount}</span>
         ${titleHtml}
-        <span class="gm-sp-item-meta">
-          <span class="gm-sp-reddit-sub">${subText}</span>
-          <span class="gm-sp-reddit-comments" title="评论数">💬 ${commentCount}</span>
-        </span>
+        <span class="gm-sp-reddit-score" title="得分">${post.score}</span>
         <button class="gm-sp-item-hide" title="隐藏该主题">×</button>
       </li>`
 }

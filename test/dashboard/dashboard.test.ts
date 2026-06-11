@@ -160,7 +160,8 @@ describe('createDashboard', () => {
     ) as HTMLElement
     expect(redditPanel).not.toBeNull()
     expect(redditPanel.querySelector('.gm-sp-item-title')!.textContent).toBe('cached-reddit')
-    expect(redditPanel.querySelector('.gm-sp-item-count')!.textContent).toBe('999')
+    expect(redditPanel.querySelector('.gm-sp-item-count')!.textContent).toBe('42')
+    expect(redditPanel.querySelector('.gm-sp-reddit-score')!.textContent).toBe('999')
   })
 
   test('browse card defaults to v2ex tab and shows a badge on novels tab when books have updates', async () => {
