@@ -1,3 +1,5 @@
+import type { AuthorTagMap } from '../../shared/author-labels'
+import { getTotalScore } from '../../shared/author-labels'
 import type { Runtime } from '../../runtime'
 import { escapeHtml, escapeUrl } from '../../utils'
 import type { V2exState } from './state'
@@ -25,12 +27,39 @@ function sourceBadge(topic: V2exTopic): { icon: string; title: string } | null {
   return null
 }
 
-function buildTopicItemHtml(topic: V2exTopic, state: V2exState): string {
+function buildTopicItemHtml(
+  topic: V2exTopic,
+  state: V2exState,
+  authorTagMap: AuthorTagMap,
+): string {
   const badge = sourceBadge(topic)
   const sourceAttrs = badge ? ` title="${badge.title}"` : ''
   const readClass = state.isRead(topic.id) ? ' gm-sp-item-read' : ''
-  const titleHtml = `<a class="gm-sp-item-title" href="${escapeUrl(topic.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(topic.title)}</a>`
-  const authorText = topic.member.username ? `@${escapeHtml(topic.member.username)}` : ''
+  const username = topic.member.username
+  const authorText = username ? `@${escapeHtml(username)}` : ''
+  const authorScore = username ? getTotalScore(authorTagMap[username]) : 0
+  const authorClass =
+    authorScore > 0 ? ' gm-sp-v2ex-author-pos' : authorScore < 0 ? ' gm-sp-v2ex-author-neg' : ''
+  let titleSuffix = ''
+  if (username) {
+    const tags = authorTagMap[username]
+    if (tags) {
+      titleSuffix =
+        ' ' +
+        Object.entries(tags)
+          .map(([name, rec]) => {
+            const scoreCls =
+              rec.score > 0
+                ? ' gm-sp-v2ex-author-pos'
+                : rec.score < 0
+                  ? ' gm-sp-v2ex-author-neg'
+                  : ''
+            return `<span class="gm-sp-v2ex-author-tag${scoreCls}">#${escapeHtml(name)}</span>`
+          })
+          .join(' ')
+    }
+  }
+  const titleHtml = `<a class="gm-sp-item-title" href="${escapeUrl(topic.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(topic.title)}${titleSuffix}</a>`
   const replyCount = formatReplyCount(topic.replies, state.getReadReplies(topic.id))
   return `<li class="gm-sp-list-item gm-sp-list-item-flex${readClass}" data-topic-id="${topic.id}" data-replies="${topic.replies}">
       <span class="gm-sp-v2ex-source"${sourceAttrs}>${badge?.icon ?? ''}</span>
@@ -38,7 +67,7 @@ function buildTopicItemHtml(topic: V2exTopic, state: V2exState): string {
       ${titleHtml}
       <span class="gm-sp-item-meta">
         <span class="gm-sp-v2ex-node">${escapeHtml(topic.node.title)}</span>
-        <span class="gm-sp-v2ex-author">${authorText}</span>
+        <span class="gm-sp-v2ex-author${authorClass}">${authorText}</span>
       </span>
       <button class="gm-sp-item-hide" title="隐藏该主题">×</button>
     </li>`
@@ -49,6 +78,7 @@ export function renderV2ex(
   data: V2exTopic[] | null,
   state: V2exState,
   runtime: Runtime | null,
+  authorTagMap: AuthorTagMap = {},
 ): void {
   container.replaceChildren()
   const visible = data ? state.filterVisible(data) : null
@@ -56,7 +86,7 @@ export function renderV2ex(
     container.insertAdjacentHTML('beforeend', '<div class="gm-sp-empty">暂无数据</div>')
     return
   }
-  const listHtml = visible.map((t) => buildTopicItemHtml(t, state)).join('')
+  const listHtml = visible.map((t) => buildTopicItemHtml(t, state, authorTagMap)).join('')
   container.insertAdjacentHTML('beforeend', `<ol class="gm-sp-list">${listHtml}</ol>`)
   container.querySelectorAll<HTMLElement>('.gm-sp-list-item').forEach((item) => {
     const topicId = Number(item.dataset['topicId']!)

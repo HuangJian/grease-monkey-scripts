@@ -1,5 +1,10 @@
 import type { Runtime } from '../../runtime'
 import type { Source } from '../types'
+import {
+  AUTHOR_TAGS_LS_KEY,
+  parseAuthorTagMap,
+  type AuthorTagMap,
+} from '../../shared/author-labels'
 import { createV2exEditor } from './editor'
 import { fetchV2ex } from './fetcher'
 import { renderV2ex } from './render'
@@ -32,6 +37,7 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
   let dateFilter: DateFilter = '全部'
   let lastContainer: HTMLElement | null = null
   let lastData: V2exTopic[] | null = null
+  let authorTagMap: AuthorTagMap = {}
 
   function applyDateFilter(data: V2exTopic[] | null): V2exTopic[] | null {
     const bounds = dateFilterBounds(dateFilter, Date.now())
@@ -45,7 +51,30 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
   }
 
   function doRender(container: HTMLElement, data: V2exTopic[] | null): void {
-    renderV2ex(container, applyDateFilter(data), state, runtimeRef)
+    renderV2ex(container, applyDateFilter(data), state, runtimeRef, authorTagMap)
+  }
+
+  function isV2exDomain(hostname: string): boolean {
+    return hostname === 'v2ex.com' || hostname.endsWith('.v2ex.com')
+  }
+
+  async function syncAuthorTags(runtime: Runtime): Promise<void> {
+    try {
+      if (isV2exDomain(runtime.location.hostname)) {
+        // On v2ex.com: read from localStorage (written by v2ex-time-saver) and cache to GM storage
+        const raw = localStorage.getItem(AUTHOR_TAGS_LS_KEY)
+        if (raw) {
+          authorTagMap = parseAuthorTagMap(JSON.parse(raw))
+          await runtime.setValue(AUTHOR_TAGS_LS_KEY, authorTagMap)
+          return
+        }
+      }
+      // Fallback: read from dashboard's own GM storage (populated during previous v2ex.com visits)
+      const stored = await runtime.getValue<unknown>(AUTHOR_TAGS_LS_KEY, null)
+      authorTagMap = stored ? parseAuthorTagMap(stored) : {}
+    } catch {
+      authorTagMap = {}
+    }
   }
 
   return {
@@ -57,6 +86,7 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
     async fetch(runtime, _prevData) {
       runtimeRef = runtime
       await state.loadFromStorage(runtime)
+      await syncAuthorTags(runtime)
       const allTopics = await fetchV2ex(
         runtime,
         {
@@ -106,6 +136,7 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
     },
     async loadState(runtime) {
       await state.loadFromStorage(runtime)
+      await syncAuthorTags(runtime)
     },
     createEditor() {
       return createV2exEditor(options)

@@ -354,6 +354,16 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
           void runOpportunisticRefresh()
         }
       })
+      // Sync V2EX author tags to GM storage on v2ex.com for cross-domain access
+      const host = runtime.location.hostname
+      if (host === 'v2ex.com' || host.endsWith('.v2ex.com')) {
+        const v2exSource = findSource('v2ex')
+        if (v2exSource) {
+          runtime.requestIdleCallback(() => void v2exSource.loadState?.(runtime), {
+            timeout: 10000,
+          })
+        }
+      }
     },
     open,
     close,

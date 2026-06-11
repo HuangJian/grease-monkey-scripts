@@ -1,3 +1,8 @@
+/** GM storage key used by v2ex-time-saver */
+export const AUTHOR_TAGS_KEY = 'author_tags'
+/** localStorage key shared across scripts for author tag data */
+export const AUTHOR_TAGS_LS_KEY = 'gm:v2ex:author-tags'
+
 export type TagRecord = {
   url: string
   score: number

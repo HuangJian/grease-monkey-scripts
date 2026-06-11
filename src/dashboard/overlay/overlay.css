@@ -341,6 +341,25 @@
   flex: 0 0 auto;
 }
 
+.gm-sp-v2ex-author-pos {
+  color: #60a5fa;
+}
+
+.gm-sp-v2ex-author-neg {
+  text-decoration: line-through;
+}
+
+.gm-sp-v2ex-author-tag {
+  display: inline-block;
+  background: #f3f4f6;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 3px;
+  line-height: 1.4;
+}
+
 .gm-sp-item-hide {
   flex: 0 0 auto;
   background: none;

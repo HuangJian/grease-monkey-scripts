@@ -1,5 +1,5 @@
 import type { Runtime } from '../runtime'
-import type { AuthorTagMap } from '../shared/author-labels'
+import { AUTHOR_TAGS_LS_KEY, type AuthorTagMap } from '../shared/author-labels'
 import {
   addTag,
   getTotalScore,
@@ -69,6 +69,11 @@ export async function createV2exApp(runtime: Runtime) {
 
   function persist(): void {
     void runtime.setValue(authorTagsKeyword, authorTagMap)
+    try {
+      localStorage.setItem(AUTHOR_TAGS_LS_KEY, JSON.stringify(authorTagMap))
+    } catch {
+      /* localStorage may be unavailable */
+    }
   }
 
   function tagAuthor(id: string, commentNumber: number | string, tag: string, delta: number): void {
