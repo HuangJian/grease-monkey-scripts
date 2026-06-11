@@ -354,14 +354,23 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
           void runOpportunisticRefresh()
         }
       })
-      // Sync V2EX author tags to GM storage on v2ex.com for cross-domain access
-      const host = runtime.location.hostname
-      if (host === 'v2ex.com' || host.endsWith('.v2ex.com')) {
-        const v2exSource = findSource('v2ex')
-        if (v2exSource) {
-          runtime.requestIdleCallback(() => void v2exSource.loadState?.(runtime), {
-            timeout: 10000,
-          })
+      // Sync author tags to GM storage for cross-domain access
+      const syncDomains: Array<{ hostMatch: (h: string) => boolean; id: string }> = [
+        {
+          hostMatch: (h) => h === 'v2ex.com' || h.endsWith('.v2ex.com'),
+          id: 'v2ex',
+        },
+        {
+          hostMatch: (h) => h === 'reddit.com' || h.endsWith('.reddit.com'),
+          id: 'reddit',
+        },
+      ]
+      for (const { hostMatch, id } of syncDomains) {
+        if (hostMatch(runtime.location.hostname)) {
+          const src = findSource(id)
+          if (src) {
+            runtime.requestIdleCallback(() => void src.loadState?.(runtime), { timeout: 10000 })
+          }
         }
       }
     },

@@ -102,28 +102,28 @@ describe('renderV2ex', () => {
     const tags: AuthorTagMap = { alice: { 智者: { url: 't/1', score: 3 } } }
     renderV2ex(container, FIXTURE, state, null, tags)
     const author = container.querySelector('.gm-sp-v2ex-author')!
-    expect(author.classList.contains('gm-sp-v2ex-author-pos')).toBe(true)
-    expect(author.classList.contains('gm-sp-v2ex-author-neg')).toBe(false)
+    expect(author.classList.contains('gm-sp-author-pos')).toBe(true)
+    expect(author.classList.contains('gm-sp-author-neg')).toBe(false)
     expect(author.textContent).toBe('@alice')
     const title = container.querySelector('.gm-sp-item-title')!
-    expect(title.classList.contains('gm-sp-v2ex-author-pos')).toBe(false)
-    const tagSpan = title.querySelector('.gm-sp-v2ex-author-tag')!
+    expect(title.classList.contains('gm-sp-author-pos')).toBe(false)
+    const tagSpan = title.querySelector('.gm-sp-author-tag')!
     expect(tagSpan.textContent).toBe('#智者')
-    expect(tagSpan.classList.contains('gm-sp-v2ex-author-pos')).toBe(true)
+    expect(tagSpan.classList.contains('gm-sp-author-pos')).toBe(true)
   })
 
   test('adds neg class for lowly-rated author', () => {
     const tags: AuthorTagMap = { alice: { 若婴: { url: 't/1', score: -2 } } }
     renderV2ex(container, FIXTURE, state, null, tags)
     const author = container.querySelector('.gm-sp-v2ex-author')!
-    expect(author.classList.contains('gm-sp-v2ex-author-neg')).toBe(true)
-    expect(author.classList.contains('gm-sp-v2ex-author-pos')).toBe(false)
+    expect(author.classList.contains('gm-sp-author-neg')).toBe(true)
+    expect(author.classList.contains('gm-sp-author-pos')).toBe(false)
     expect(author.textContent).toBe('@alice')
     const title = container.querySelector('.gm-sp-item-title')!
-    expect(title.classList.contains('gm-sp-v2ex-author-neg')).toBe(false)
-    const tagSpan = title.querySelector('.gm-sp-v2ex-author-tag')!
+    expect(title.classList.contains('gm-sp-author-neg')).toBe(false)
+    const tagSpan = title.querySelector('.gm-sp-author-tag')!
     expect(tagSpan.textContent).toBe('#若婴')
-    expect(tagSpan.classList.contains('gm-sp-v2ex-author-neg')).toBe(true)
+    expect(tagSpan.classList.contains('gm-sp-author-neg')).toBe(true)
   })
 
   test('positive score wins over negative for mixed tags', () => {
@@ -132,37 +132,37 @@ describe('renderV2ex', () => {
     }
     renderV2ex(container, FIXTURE, state, null, tags)
     const author = container.querySelector('.gm-sp-v2ex-author')!
-    expect(author.classList.contains('gm-sp-v2ex-author-pos')).toBe(true)
+    expect(author.classList.contains('gm-sp-author-pos')).toBe(true)
     const title = container.querySelector('.gm-sp-item-title')!
-    const tagSpans = title.querySelectorAll('.gm-sp-v2ex-author-tag')
+    const tagSpans = title.querySelectorAll('.gm-sp-author-tag')
     expect(tagSpans.length).toBe(2)
     expect(tagSpans[0].textContent).toBe('#智者')
-    expect(tagSpans[0].classList.contains('gm-sp-v2ex-author-pos')).toBe(true)
+    expect(tagSpans[0].classList.contains('gm-sp-author-pos')).toBe(true)
     expect(tagSpans[1].textContent).toBe('#若婴')
-    expect(tagSpans[1].classList.contains('gm-sp-v2ex-author-neg')).toBe(true)
+    expect(tagSpans[1].classList.contains('gm-sp-author-neg')).toBe(true)
   })
 
   test('shows tag span for neutral-score author without pos/neg class', () => {
     const tags: AuthorTagMap = { alice: { 智者: { url: 't/1', score: 0 } } }
     renderV2ex(container, FIXTURE, state, null, tags)
     const author = container.querySelector('.gm-sp-v2ex-author')!
-    expect(author.classList.contains('gm-sp-v2ex-author-pos')).toBe(false)
-    expect(author.classList.contains('gm-sp-v2ex-author-neg')).toBe(false)
+    expect(author.classList.contains('gm-sp-author-pos')).toBe(false)
+    expect(author.classList.contains('gm-sp-author-neg')).toBe(false)
     const title = container.querySelector('.gm-sp-item-title')!
-    const tagSpan = title.querySelector('.gm-sp-v2ex-author-tag')!
+    const tagSpan = title.querySelector('.gm-sp-author-tag')!
     expect(tagSpan.textContent).toBe('#智者')
-    expect(tagSpan.classList.contains('gm-sp-v2ex-author-pos')).toBe(false)
-    expect(tagSpan.classList.contains('gm-sp-v2ex-author-neg')).toBe(false)
+    expect(tagSpan.classList.contains('gm-sp-author-pos')).toBe(false)
+    expect(tagSpan.classList.contains('gm-sp-author-neg')).toBe(false)
   })
 
   test('no tag spans for unscored author', () => {
     renderV2ex(container, FIXTURE, state, null)
     const author = container.querySelector('.gm-sp-v2ex-author')!
-    expect(author.classList.contains('gm-sp-v2ex-author-pos')).toBe(false)
-    expect(author.classList.contains('gm-sp-v2ex-author-neg')).toBe(false)
+    expect(author.classList.contains('gm-sp-author-pos')).toBe(false)
+    expect(author.classList.contains('gm-sp-author-neg')).toBe(false)
     const title = container.querySelector('.gm-sp-item-title')!
-    expect(title.querySelector('.gm-sp-v2ex-author-pos')).toBeNull()
-    expect(title.querySelector('.gm-sp-v2ex-author-neg')).toBeNull()
+    expect(title.querySelector('.gm-sp-author-pos')).toBeNull()
+    expect(title.querySelector('.gm-sp-author-neg')).toBeNull()
   })
 
   test('renders empty state when no topics', () => {

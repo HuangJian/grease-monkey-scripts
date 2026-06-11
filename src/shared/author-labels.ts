@@ -1,7 +1,9 @@
 /** GM storage key used by v2ex-time-saver */
 export const AUTHOR_TAGS_KEY = 'author_tags'
-/** localStorage key shared across scripts for author tag data */
+/** localStorage key shared across scripts for v2ex author tag data */
 export const AUTHOR_TAGS_LS_KEY = 'gm:v2ex:author-tags'
+/** localStorage key shared across scripts for reddit author tag data */
+export const REDDIT_AUTHOR_TAGS_LS_KEY = 'gm:reddit:author-tags'
 
 export type TagRecord = {
   url: string
@@ -86,6 +88,35 @@ export function tagColor(score: number): string {
   if (score > 0) return 'darkgreen'
   if (score < 0) return 'red'
   return 'gray'
+}
+
+/** Returns the CSS class string for an author's total score */
+export function authorClass(totalScore: number): string {
+  return totalScore > 0 ? ' gm-sp-author-pos' : totalScore < 0 ? ' gm-sp-author-neg' : ''
+}
+
+/** Returns CSS class for an individual tag record's score */
+export function tagClass(score: number): string {
+  return score > 0 ? ' gm-sp-author-pos' : score < 0 ? ' gm-sp-author-neg' : ''
+}
+
+/** Builds the HTML for #tag spans appended to a title, given an author's tags */
+export function buildAuthorTagHtml(
+  tags: AuthorTags | undefined,
+  escapeFn: (s: string) => string,
+): string {
+  if (!tags) return ''
+  const entries = Object.entries(tags)
+  if (entries.length === 0) return ''
+  return (
+    ' ' +
+    entries
+      .map(([name, rec]) => {
+        const cls = tagClass(rec.score)
+        return `<span class="gm-sp-author-tag${cls}">#${escapeFn(name)}</span>`
+      })
+      .join(' ')
+  )
 }
 
 export function parseAuthorTagMap(value: unknown): AuthorTagMap {

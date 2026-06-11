@@ -1,5 +1,9 @@
-import type { AuthorTagMap } from '../../shared/author-labels'
-import { getTotalScore } from '../../shared/author-labels'
+import {
+  authorClass,
+  buildAuthorTagHtml,
+  getTotalScore,
+  type AuthorTagMap,
+} from '../../shared/author-labels'
 import type { Runtime } from '../../runtime'
 import { escapeHtml, escapeUrl } from '../../utils'
 import type { V2exState } from './state'
@@ -37,28 +41,9 @@ function buildTopicItemHtml(
   const readClass = state.isRead(topic.id) ? ' gm-sp-item-read' : ''
   const username = topic.member.username
   const authorText = username ? `@${escapeHtml(username)}` : ''
-  const authorScore = username ? getTotalScore(authorTagMap[username]) : 0
-  const authorClass =
-    authorScore > 0 ? ' gm-sp-v2ex-author-pos' : authorScore < 0 ? ' gm-sp-v2ex-author-neg' : ''
-  let titleSuffix = ''
-  if (username) {
-    const tags = authorTagMap[username]
-    if (tags) {
-      titleSuffix =
-        ' ' +
-        Object.entries(tags)
-          .map(([name, rec]) => {
-            const scoreCls =
-              rec.score > 0
-                ? ' gm-sp-v2ex-author-pos'
-                : rec.score < 0
-                  ? ' gm-sp-v2ex-author-neg'
-                  : ''
-            return `<span class="gm-sp-v2ex-author-tag${scoreCls}">#${escapeHtml(name)}</span>`
-          })
-          .join(' ')
-    }
-  }
+  const authorTags = username ? authorTagMap[username] : undefined
+  const ac = authorClass(authorTags ? getTotalScore(authorTags) : 0)
+  const titleSuffix = buildAuthorTagHtml(authorTags, escapeHtml)
   const titleHtml = `<a class="gm-sp-item-title" href="${escapeUrl(topic.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(topic.title)}${titleSuffix}</a>`
   const replyCount = formatReplyCount(topic.replies, state.getReadReplies(topic.id))
   return `<li class="gm-sp-list-item gm-sp-list-item-flex${readClass}" data-topic-id="${topic.id}" data-replies="${topic.replies}">
@@ -67,7 +52,7 @@ function buildTopicItemHtml(
       ${titleHtml}
       <span class="gm-sp-item-meta">
         <span class="gm-sp-v2ex-node">${escapeHtml(topic.node.title)}</span>
-        <span class="gm-sp-v2ex-author${authorClass}">${authorText}</span>
+        <span class="gm-sp-v2ex-author${ac}">${authorText}</span>
       </span>
       <button class="gm-sp-item-hide" title="隐藏该主题">×</button>
     </li>`

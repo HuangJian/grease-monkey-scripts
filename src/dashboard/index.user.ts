@@ -8,6 +8,8 @@
 // @match        https://v2ex.com/*
 // @match        https://*.v2ex.com/*
 // @match        https://github.com/*
+// @match        https://reddit.com/*
+// @match        https://*.reddit.com/*
 // @grant        GM.getValue
 // @grant        GM.setValue
 // @grant        GM_addValueChangeListener

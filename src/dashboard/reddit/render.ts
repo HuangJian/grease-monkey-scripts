@@ -1,3 +1,9 @@
+import {
+  authorClass,
+  buildAuthorTagHtml,
+  getTotalScore,
+  type AuthorTagMap,
+} from '../../shared/author-labels'
 import { escapeHtml, escapeUrl } from '../../utils'
 import { COLLAPSE_THRESHOLD, type ExpandCollapse } from './expand-collapse'
 import type { RedditState } from './state'
@@ -17,16 +23,22 @@ function sourceBadge(created: number): { icon: string; title: string } {
   return isToday ? { icon: '🌅', title: '今日主题' } : { icon: '⏳', title: '历史主题' }
 }
 
-function buildItemHtml(post: RedditPost, state: RedditState): string {
+function buildItemHtml(post: RedditPost, state: RedditState, authorTagMap: AuthorTagMap): string {
   const readClass = state.isRead(post.id) ? ' gm-sp-item-read' : ''
   const badge = sourceBadge(post.created)
-  const titleHtml = `<a class="gm-sp-item-title" href="${escapeUrl(post.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(post.title)}</a>`
+  const author = post.author
+  const authorTags = author ? authorTagMap[author] : undefined
+  const ac = authorClass(authorTags ? getTotalScore(authorTags) : 0)
+  const titleSuffix = buildAuthorTagHtml(authorTags, escapeHtml)
+  const titleHtml = `<a class="gm-sp-item-title" href="${escapeUrl(post.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(post.title)}${titleSuffix}</a>`
+  const authorText = author ? `@${escapeHtml(author)}` : ''
   const commentCount = formatCommentCount(post.numComments, state.getReadReplies(post.id))
   return `<li class="gm-sp-list-item gm-sp-list-item-flex${readClass}" data-post-id="${post.id}" data-num-comments="${post.numComments}">
         <span class="gm-sp-reddit-source" title="${badge.title}">${badge.icon}</span>
         <span class="gm-sp-item-count" title="评论数">${commentCount}</span>
         ${titleHtml}
         <span class="gm-sp-reddit-score" title="得分">${post.score}</span>
+        <span class="gm-sp-reddit-author${ac}">${authorText}</span>
         <button class="gm-sp-item-hide" title="隐藏该主题">×</button>
       </li>`
 }
@@ -37,6 +49,7 @@ export function renderReddit(
   state: RedditState,
   runtime: Runtime | null,
   expandCollapse: ExpandCollapse,
+  authorTagMap: AuthorTagMap = {},
 ): void {
   container.replaceChildren()
   if (!data || Object.keys(data).length === 0) {
@@ -56,7 +69,7 @@ export function renderReddit(
       const isActive = active.has(sub)
       const collapsedClass = isActive ? '' : ' gm-sp-reddit-section-collapsed'
       const caretClass = showCaret ? ' gm-sp-reddit-caret-visible' : ''
-      const listHtml = visiblePosts.map((p) => buildItemHtml(p, state)).join('')
+      const listHtml = visiblePosts.map((p) => buildItemHtml(p, state, authorTagMap)).join('')
       return `<section class="gm-sp-reddit-section${collapsedClass}" data-sub="${escapeHtml(sub)}">
         <h3 class="gm-sp-reddit-sub-title" data-sub="${escapeHtml(sub)}">
           <span class="gm-sp-reddit-caret${caretClass}">▾</span>

@@ -10,6 +10,7 @@ import { createExpandCollapse } from '../../../../src/dashboard/reddit/expand-co
 import { renderReddit } from '../../../../src/dashboard/reddit/render'
 import { createRedditState, type RedditState } from '../../../../src/dashboard/reddit/state'
 import type { RedditPost } from '../../../../src/dashboard/reddit/types'
+import type { AuthorTagMap } from '../../../../src/shared/author-labels'
 import { createRuntime, type TestRuntime } from '../../../runtime'
 
 const NOW = Date.now() - 60_000
@@ -107,6 +108,56 @@ describe('renderReddit', () => {
     expect(badge.getAttribute('title')).toBe('今日主题')
     expect(item.querySelector('.gm-sp-item-count')!.textContent).toBe('56')
     expect(item.querySelector('.gm-sp-reddit-score')!.textContent).toBe('1234')
+    expect(item.querySelector('.gm-sp-reddit-author')!.textContent).toBe('@u')
+  })
+
+  test('adds pos class and tags for highly-rated author', () => {
+    const tags: AuthorTagMap = { u: { 智者: { url: 'c/1', score: 3 } } }
+    const data: Record<string, RedditPost[]> = { aww: [makePost({ id: 'a1' })] }
+    renderReddit(container, data, state, null, createExpandCollapse(), tags)
+    const author = container.querySelector('.gm-sp-reddit-author')!
+    expect(author.classList.contains('gm-sp-author-pos')).toBe(true)
+    const title = container.querySelector('.gm-sp-item-title')!
+    const tagSpan = title.querySelector('.gm-sp-author-tag')!
+    expect(tagSpan.textContent).toBe('#智者')
+    expect(tagSpan.classList.contains('gm-sp-author-pos')).toBe(true)
+  })
+
+  test('adds neg class and tags for lowly-rated author', () => {
+    const tags: AuthorTagMap = { u: { 若婴: { url: 'c/1', score: -2 } } }
+    const data: Record<string, RedditPost[]> = { aww: [makePost({ id: 'a1' })] }
+    renderReddit(container, data, state, null, createExpandCollapse(), tags)
+    const author = container.querySelector('.gm-sp-reddit-author')!
+    expect(author.classList.contains('gm-sp-author-neg')).toBe(true)
+    const title = container.querySelector('.gm-sp-item-title')!
+    const tagSpan = title.querySelector('.gm-sp-author-tag')!
+    expect(tagSpan.textContent).toBe('#若婴')
+    expect(tagSpan.classList.contains('gm-sp-author-neg')).toBe(true)
+  })
+
+  test('shows tag without pos/neg for neutral-score author', () => {
+    const tags: AuthorTagMap = { u: { 智者: { url: 'c/1', score: 0 } } }
+    const data: Record<string, RedditPost[]> = { aww: [makePost({ id: 'a1' })] }
+    renderReddit(container, data, state, null, createExpandCollapse(), tags)
+    const author = container.querySelector('.gm-sp-reddit-author')!
+    expect(author.classList.contains('gm-sp-author-pos')).toBe(false)
+    expect(author.classList.contains('gm-sp-author-neg')).toBe(false)
+    const title = container.querySelector('.gm-sp-item-title')!
+    const tagSpan = title.querySelector('.gm-sp-author-tag')!
+    expect(tagSpan.textContent).toBe('#智者')
+    expect(tagSpan.classList.contains('gm-sp-author-pos')).toBe(false)
+    expect(tagSpan.classList.contains('gm-sp-author-neg')).toBe(false)
+  })
+
+  test('no tags or author class for unscored author', () => {
+    const data: Record<string, RedditPost[]> = { aww: [makePost({ id: 'a1' })] }
+    renderReddit(container, data, state, null, createExpandCollapse())
+    const author = container.querySelector('.gm-sp-reddit-author')!
+    expect(author.textContent).toBe('@u')
+    expect(author.classList.contains('gm-sp-author-pos')).toBe(false)
+    expect(author.classList.contains('gm-sp-author-neg')).toBe(false)
+    const title = container.querySelector('.gm-sp-item-title')!
+    expect(title.querySelector('.gm-sp-author-tag')).toBeNull()
   })
 
   test('keeps full title (CSS handles overflow truncation)', () => {

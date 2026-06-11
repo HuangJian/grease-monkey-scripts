@@ -341,15 +341,15 @@
   flex: 0 0 auto;
 }
 
-.gm-sp-v2ex-author-pos {
+.gm-sp-author-pos {
   color: #60a5fa;
 }
 
-.gm-sp-v2ex-author-neg {
+.gm-sp-author-neg {
   text-decoration: line-through;
 }
 
-.gm-sp-v2ex-author-tag {
+.gm-sp-author-tag {
   display: inline-block;
   background: #f3f4f6;
   padding: 1px 4px;
@@ -1273,6 +1273,13 @@
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   color: #6b7280;
+}
+
+.gm-sp-reddit-author {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: #6b7280;
+  white-space: nowrap;
 }
 
 .gm-sp-card[data-source='browse'] .gm-sp-tab-panel[data-tab-id='reddit'] .gm-sp-card-body {

@@ -1,3 +1,8 @@
+import {
+  REDDIT_AUTHOR_TAGS_LS_KEY,
+  type AuthorTagMap,
+  parseAuthorTagMap,
+} from '../../shared/author-labels'
 import type { Runtime } from '../../runtime'
 import { loadConfigSection } from '../config'
 import type { Source } from '../types'
@@ -15,6 +20,26 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
   const state = createRedditState()
   const expandCollapse = createExpandCollapse()
   let runtimeRef: Runtime | null = null
+  let authorTagMap: AuthorTagMap = {}
+
+  async function syncAuthorTags(runtime: Runtime): Promise<void> {
+    try {
+      const host = runtime.location.hostname
+      const isReddit = host === 'reddit.com' || host.endsWith('.reddit.com')
+      if (isReddit) {
+        const raw = localStorage.getItem(REDDIT_AUTHOR_TAGS_LS_KEY)
+        if (raw) {
+          authorTagMap = parseAuthorTagMap(JSON.parse(raw))
+          await runtime.setValue(REDDIT_AUTHOR_TAGS_LS_KEY, authorTagMap)
+          return
+        }
+      }
+      const stored = await runtime.getValue<unknown>(REDDIT_AUTHOR_TAGS_LS_KEY, null)
+      authorTagMap = stored ? parseAuthorTagMap(stored) : {}
+    } catch {
+      authorTagMap = {}
+    }
+  }
 
   return {
     id: 'reddit',
@@ -27,6 +52,7 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
       const fresh = await loadFreshRedditOptions(runtime, options)
       console.debug('[gm-dashboard] reddit.fetch start subs=', fresh.subreddits)
       await state.loadFromStorage(runtime)
+      await syncAuthorTags(runtime)
       const [fetchResult, history] = await Promise.all([
         fetchReddit(runtime, fresh),
         state.loadHistory(runtime),
@@ -53,10 +79,18 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
       return visible
     },
     render(container, data, ctx) {
-      renderReddit(container, data, state, runtimeRef ?? ctx?.runtime ?? null, expandCollapse)
+      renderReddit(
+        container,
+        data,
+        state,
+        runtimeRef ?? ctx?.runtime ?? null,
+        expandCollapse,
+        authorTagMap,
+      )
     },
     async loadState(runtime) {
       await state.loadFromStorage(runtime)
+      await syncAuthorTags(runtime)
     },
     createEditor() {
       return createRedditEditor(options)

@@ -1,5 +1,5 @@
 import type { Runtime } from '../runtime'
-import type { AuthorTagMap } from '../shared/author-labels'
+import { REDDIT_AUTHOR_TAGS_LS_KEY, type AuthorTagMap } from '../shared/author-labels'
 import {
   addTag,
   getTotalScore,
@@ -54,6 +54,11 @@ export async function createRedditApp(runtime: Runtime) {
 
   function persist(): void {
     void runtime.setValue(STORAGE_KEY, authorTagMap)
+    try {
+      localStorage.setItem(REDDIT_AUTHOR_TAGS_LS_KEY, JSON.stringify(authorTagMap))
+    } catch {
+      /* localStorage may be unavailable */
+    }
   }
 
   function tagAuthor(username: string, commentId: string, tag: string, delta: number): void {
