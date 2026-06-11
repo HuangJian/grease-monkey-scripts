@@ -206,11 +206,16 @@ test suite depend on live network availability.
 
 ### Code Quality Guidelines
 
-#### Module Organization
+#### Split Files
 
-- **One concern per module.** If a file exceeds ~150 lines or mixes unrelated
-  exports (data logic, network calls, UI factories, DOM mutations), split it.
-- **No circular dependencies.**
+- **When a file exceeds ~150 lines or mixes unrelated concerns, turn it into a
+  folder.** Keep the original public API in an `index.ts` that re-exports from
+  internal files. Extract each behavior cluster into its own file (e.g.
+  `tokenize.ts`, `parse.ts`, `match.ts` instead of one `query.ts`). Internal
+  helpers stay as private imports within the folder — only the public surface
+  goes through `index.ts`.
+
+#### No Circular Dependencies
 
 #### Code Style
 
@@ -268,9 +273,14 @@ test suite depend on live network availability.
 
 ## Git & Commit Rules
 
-- **Do Not Auto-Commit**: Under no circumstances should the agent perform a `git commit` automatically. Always stage changes (`git add`) and present the changes to the user for inspection and manual confirmation first. Only execute `git commit` after the user has explicitly requested/approved it.
-- **Commit Message**: Must clearly describe the changes made and their rationale, concise and clear, preferably not exceeding 20 lines.
-- **Never Commit Planning Docs**: `*.task.md` and `*.plan.md` are scratchpads for design work-in-progress, not part of the project. The agent must never stage them, propose commits that include them, or reference them in commit messages. The user can commit them manually if they want; the agent's default is to skip. If a planning doc needs to influence a future commit, distill the decision into the commit body or a code comment first.
+The user manages commits themselves. When asked to prepare a commit:
+
+1. Run `bun run check` to ensure all checks pass first.
+2. Stage intended files with `git add`, excluding `*.task.md` and `*.plan.md`.
+3. Draft a commit message — concise, clear, ≤20 lines, describing what changed and why.
+4. Show the commit message and wait for explicit user approval.
+5. On hook rejection, fix the issue and create a new commit (never amend).
+6. When asked for a PR, use `gh` and return the URL.
 
 ## Communication
 
