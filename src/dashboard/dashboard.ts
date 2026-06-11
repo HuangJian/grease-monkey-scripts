@@ -181,12 +181,14 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
 
   async function runOpportunisticRefresh(): Promise<void> {
     const now = Date.now()
+    const stale: Source<unknown>[] = []
     for (const source of sources) {
       const cached = await loadCache<unknown>(runtime, source.id)
       if (isStale(cached, source.ttlMs, now)) {
-        await refreshSource(source.id)
+        stale.push(source)
       }
     }
+    await Promise.all(stale.map((s) => refreshSource(s.id)))
   }
 
   function mount(): void {
@@ -346,6 +348,12 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
         },
         { timeout: 5000 },
       )
+      setInterval(() => void runOpportunisticRefresh(), 60_000)
+      runtime.document.addEventListener('visibilitychange', () => {
+        if (runtime.document.visibilityState === 'visible') {
+          void runOpportunisticRefresh()
+        }
+      })
     },
     open,
     close,
