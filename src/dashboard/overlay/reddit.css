@@ -1,0 +1,114 @@
+.gm-sp-reddit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.gm-sp-reddit-section {
+  border-top: 1px solid #f3f4f6;
+  padding: 4px 0;
+}
+
+.gm-sp-reddit-section:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.gm-sp-reddit-sub-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2328;
+  margin: 0 0 4px;
+  padding: 2px 0;
+  user-select: none;
+}
+
+.gm-sp-reddit-mark-all-read {
+  cursor: pointer;
+  background: none;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: 11px;
+  color: #6b7280;
+  padding: 0 4px;
+  border-radius: 3px;
+  margin-left: auto;
+  line-height: 1.6;
+}
+
+.gm-sp-reddit-mark-all-read:hover {
+  color: #1d4ed8;
+  border-color: #e5e7eb;
+}
+
+.gm-sp-reddit-section:has(> .gm-sp-reddit-sub-title .gm-sp-reddit-caret-visible) {
+  cursor: pointer;
+}
+
+.gm-sp-reddit-caret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-size: 28px;
+  line-height: 1;
+  color: #374151;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition:
+    background 0.12s,
+    transform 0.15s;
+}
+
+.gm-sp-reddit-caret-visible:hover {
+  background: #e5e7eb;
+}
+
+.gm-sp-reddit-section-collapsed > .gm-sp-reddit-sub-title .gm-sp-reddit-caret {
+  transform: rotate(-90deg);
+}
+
+.gm-sp-reddit-section-collapsed > .gm-sp-list {
+  display: none;
+}
+
+.gm-sp-reddit-section-collapsed > .gm-sp-reddit-sub-title {
+  margin-bottom: 0;
+}
+
+.gm-sp-reddit-source {
+  flex: 0 0 auto;
+  font-size: 10px;
+  cursor: help;
+}
+
+.gm-sp-reddit-source:empty {
+  display: none;
+}
+
+.gm-sp-reddit-score {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: #6b7280;
+}
+
+.gm-sp-reddit-author {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.gm-sp-re-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  min-height: 24px;
+  padding: 4px 0;
+}

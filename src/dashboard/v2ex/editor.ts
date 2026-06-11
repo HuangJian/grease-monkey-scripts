@@ -91,7 +91,7 @@ ${formFields
     (f) =>
       `        <label class="gm-sp-editor-row">
           <span>${f.label}</span>
-          <input type="number"${f.min !== undefined ? ` min="${f.min}"` : ''}${f.max !== undefined ? ` max="${f.max}"` : ''}${f.placeholder !== undefined ? ` placeholder="${f.placeholder}"` : ''} />
+          <input type="number" class="gm-sp-input"${f.min !== undefined ? ` min="${f.min}"` : ''}${f.max !== undefined ? ` max="${f.max}"` : ''}${f.placeholder !== undefined ? ` placeholder="${f.placeholder}"` : ''} />
         </label>`,
   )
   .join('\n')}

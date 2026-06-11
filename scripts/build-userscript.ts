@@ -1,5 +1,5 @@
 import { mkdir, readFile, unlink, writeFile, opendir, stat } from 'node:fs/promises'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { $ } from 'bun'
 
@@ -62,6 +62,32 @@ async function restoreSourceFiles(originals: Map<string, string>): Promise<void>
   for (const [path, content] of originals) {
     await writeFile(path, content, 'utf8')
   }
+}
+
+async function composeOverlayCss(tsPath: string): Promise<string> {
+  const content = await readFile(tsPath, 'utf8')
+  const match = content.match(/OVERLAY_CSS_FILES\s*=\s*\[([\s\S]*?)\]\s*as\s+const/)
+  if (!match) {
+    throw new Error(`Could not parse OVERLAY_CSS_FILES export in ${tsPath}`)
+  }
+  const fileEntries = match[1]!
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .map((s) => {
+      const m = s.match(/^'([^']+)'$/)
+      if (!m) throw new Error(`Expected string literal in OVERLAY_CSS_FILES, got: ${s}`)
+      return m[1]!
+    })
+
+  const baseDir = dirname(tsPath)
+  const parts: string[] = []
+  for (const file of fileEntries) {
+    const fullPath = resolve(baseDir, file)
+    const css = await readFile(fullPath, 'utf8')
+    parts.push(css.trim())
+  }
+  return parts.join('\n\n')
 }
 
 function minifyCss(css: string): string {
@@ -136,7 +162,9 @@ async function buildUserScript(
     bundle = await readFile(temporaryOutfile, 'utf8')
 
     if (buildMeta.css && buildMeta.placeholder) {
-      const css = await readFile(buildMeta.css, 'utf8')
+      const css = buildMeta.css.endsWith('.ts')
+        ? await composeOverlayCss(buildMeta.css)
+        : await readFile(buildMeta.css, 'utf8')
       const processedCss = mode.debug ? css.trim() : minifyCss(css)
       const escapedCss = processedCss.replace(/`/g, '\\`').replace(/\$/g, '\\$')
       bundle = bundle.replace(buildMeta.placeholder, escapedCss)

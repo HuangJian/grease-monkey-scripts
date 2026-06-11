@@ -233,6 +233,13 @@ test suite depend on live network availability.
   ~100 chars, extract the dynamic content into a named variable before the
   template: `const content = longExpression(); html = \`<span>${content}</span>\``.
 
+#### CSS
+
+- **Use primitive classes first.** Reach for `gm-sp-btn`, `gm-sp-btn-icon`, `gm-sp-btn-primary`, `gm-sp-input`, and `gm-sp-error-box` from `primitives.css` when creating controls. Only add a thin feature-specific class for extras (padding, layout) that the primitive doesn't set.
+- **Primitives omit feature-specific values.** A primitive like `gm-sp-btn` sets border, background, and color but not padding or font-size. The feature class supplies those. Don't add speculative properties to primitives; keep them minimal.
+- **Keep old classes when adopting primitives.** Add `gm-sp-btn` alongside an existing button class rather than replacing it. Remove the old class only when every property it provides is confirmed present in the primitive cascade.
+- **Put new CSS in the right file.** Tokens → `tokens.css`. Primitives → `primitives.css`. Overlay shell and grid → `layout.css`. Card chrome, lists, tabs → `card.css`. Editor dialogs and forms → `editor.css`. Feature-specific → `weather.css`, `novels.css`, `reddit.css`, `tnews.css`, `xit.css`.
+
 #### Logging
 
 - **Use `console.debug` for ad-hoc troubleshooting.** Stripped from the prod

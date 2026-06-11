@@ -50,7 +50,7 @@ export function renderCardChrome(container: HTMLElement, options: CardChromeOpti
 
   const editIcon = edit?.sourceTitle === 'xit' ? '✏' : '⚙'
   const editButtonHtml = edit
-    ? `<button type="button" class="gm-sp-edit" aria-label="edit"><span class="gm-sp-edit-icon">${editIcon}</span></button>`
+    ? `<button type="button" class="gm-sp-btn gm-sp-btn-icon gm-sp-edit" data-action="edit" aria-label="edit"><span class="gm-sp-edit-icon">${editIcon}</span></button>`
     : ''
 
   let headerHtml: string
@@ -67,7 +67,7 @@ export function renderCardChrome(container: HTMLElement, options: CardChromeOpti
         <span class="gm-sp-card-updated">
           ${formatRelativeTime(cached?.fetchedAt ?? null, now)}
         </span>
-        <button type="button" class="gm-sp-refresh" aria-label="refresh">
+        <button type="button" class="gm-sp-btn gm-sp-btn-icon gm-sp-refresh" data-action="refresh" aria-label="refresh">
           <span class="gm-sp-refresh-icon">↻</span>
         </button>
         ${editButtonHtml}
@@ -76,7 +76,9 @@ export function renderCardChrome(container: HTMLElement, options: CardChromeOpti
   }
 
   const errorText = cached?.error ?? ''
-  const errorClasses = `gm-sp-card-error${cached?.error ? ' gm-sp-error' : ''}`
+  const errorClasses = cached?.error
+    ? 'gm-sp-card-error gm-sp-error-box'
+    : 'gm-sp-card-error gm-sp-hidden'
   container.insertAdjacentHTML(
     'beforeend',
     `${headerHtml}

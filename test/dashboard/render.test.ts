@@ -108,7 +108,7 @@ describe('renderCard', () => {
       onRefresh: () => Promise.resolve(),
       onRevert: () => {},
     })
-    expect(container.querySelector('.gm-sp-error')!.textContent).toBe('boom')
+    expect(container.querySelector('.gm-sp-error-box')!.textContent).toBe('boom')
   })
 
   test('refresh button triggers onRefresh callback', () => {

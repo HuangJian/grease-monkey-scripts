@@ -21,10 +21,10 @@ export function showEditForm(
 
   const formFragment = card.ownerDocument.createRange().createContextualFragment(
     `<div class="gm-sp-xit-save-form">
-      <input type="text" class="gm-sp-xit-save-name" placeholder="Name" value="${filter.name}">
-      <input type="text" class="gm-sp-xit-save-query" placeholder="Query" value="${filter.query}">
-      <button type="button" class="gm-sp-xit-save-confirm">Save</button>
-      <button type="button" class="gm-sp-xit-save-cancel">Cancel</button>
+      <input type="text" class="gm-sp-input gm-sp-xit-save-name" placeholder="Name" value="${filter.name}">
+      <input type="text" class="gm-sp-input gm-sp-xit-save-query" placeholder="Query" value="${filter.query}">
+      <button type="button" class="gm-sp-btn gm-sp-xit-save-confirm">Save</button>
+      <button type="button" class="gm-sp-btn gm-sp-xit-save-cancel">Cancel</button>
     </div>`,
   )
   const formEl = formFragment.firstElementChild as HTMLElement

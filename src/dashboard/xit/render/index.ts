@@ -34,14 +34,14 @@ export function renderXit(
       const searchInput = card.querySelector('.gm-sp-xit-header-search') as HTMLInputElement | null
       const filtersPanel = card.querySelector('.gm-sp-xit-header-filters') as HTMLElement | null
       const tagsEl = card.querySelector('.gm-sp-xit-tags') as HTMLElement | null
-      const errorEl = card.querySelector('.gm-sp-error') as HTMLElement | null
+      const errorEl = card.querySelector('.gm-sp-xit-query-error-box') as HTMLElement | null
 
       if (searchInput && filtersPanel) {
         const showFilters = () => {
-          filtersPanel.classList.remove('hidden')
+          filtersPanel.classList.remove('gm-sp-hidden')
         }
         const hideFilters = () => {
-          filtersPanel.classList.add('hidden')
+          filtersPanel.classList.add('gm-sp-hidden')
         }
 
         searchInput.addEventListener('focus', showFilters)
@@ -62,13 +62,13 @@ export function renderXit(
 
         searchInput.insertAdjacentHTML(
           'afterend',
-          '<button type="button" class="gm-sp-edit" aria-label="clear">\u00d7</button>',
+          '<button type="button" class="gm-sp-btn gm-sp-btn-icon gm-sp-edit" data-action="clear-query" aria-label="clear">\u00d7</button>',
         )
         const clearBtn = searchInput.nextElementSibling as HTMLButtonElement
 
         clearBtn.insertAdjacentHTML(
           'afterend',
-          '<button type="button" class="gm-sp-edit" aria-label="save filter">+</button>',
+          '<button type="button" class="gm-sp-btn gm-sp-btn-icon gm-sp-edit" data-action="save-filter" aria-label="save filter">+</button>',
         )
         const saveBtn = clearBtn.nextElementSibling as HTMLButtonElement
 
@@ -85,10 +85,10 @@ export function renderXit(
           removeSaveForm()
           const formFragment = container.ownerDocument.createRange().createContextualFragment(
             `<div class="gm-sp-xit-save-form">
-              <input type="text" class="gm-sp-xit-save-name" placeholder="Name">
-              <input type="text" class="gm-sp-xit-save-query" placeholder="Query" value="${query}">
-              <button type="button" class="gm-sp-xit-save-confirm">Save</button>
-              <button type="button" class="gm-sp-xit-save-cancel">Cancel</button>
+              <input type="text" class="gm-sp-input gm-sp-xit-save-name" placeholder="Name">
+              <input type="text" class="gm-sp-input gm-sp-xit-save-query" placeholder="Query" value="${query}">
+              <button type="button" class="gm-sp-btn gm-sp-xit-save-confirm">Save</button>
+              <button type="button" class="gm-sp-btn gm-sp-xit-save-cancel">Cancel</button>
             </div>`,
           )
           saveFormEl = formFragment.firstElementChild as HTMLElement
@@ -145,7 +145,7 @@ export function renderXit(
           searchInput.classList.remove('gm-sp-xit-query-error')
           if (errorEl) {
             errorEl.textContent = ''
-            errorEl.classList.add('hidden')
+            errorEl.classList.add('gm-sp-hidden')
           }
           removeSaveForm()
           renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl, options.openEditor)
@@ -164,14 +164,14 @@ export function renderXit(
             searchInput.classList.remove('gm-sp-xit-query-error')
             if (errorEl) {
               errorEl.textContent = ''
-              errorEl.classList.add('hidden')
+              errorEl.classList.add('gm-sp-hidden')
             }
           } else {
             state.error = result.error
             searchInput.classList.add('gm-sp-xit-query-error')
             if (errorEl) {
               errorEl.textContent = result.error
-              errorEl.classList.remove('hidden')
+              errorEl.classList.remove('gm-sp-hidden')
             }
           }
 
@@ -207,6 +207,6 @@ export function renderXit(
   const card = container.parentElement
   const tagsEl = card?.querySelector('.gm-sp-xit-tags') as HTMLElement | null
   const searchInput = card?.querySelector('.gm-sp-xit-header-search') as HTMLInputElement | null
-  const errorEl = card?.querySelector('.gm-sp-error') as HTMLElement | null
+  const errorEl = card?.querySelector('.gm-sp-xit-query-error-box') as HTMLElement | null
   renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl, options.openEditor)
 }

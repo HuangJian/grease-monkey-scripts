@@ -26,7 +26,7 @@
 // @connect      rsshub.rssforever.com
 // ==/UserScript==
 // ==build.meta==
-// css: src/dashboard/overlay/overlay.css
+// css: src/dashboard/overlay/styles.ts
 // placeholder: /*{{DASHBOARD_CSS}}*/
 // ==/build.meta==
 

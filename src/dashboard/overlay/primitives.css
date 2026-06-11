@@ -1,0 +1,60 @@
+.gm-sp-hidden {
+  display: none !important;
+}
+
+.gm-sp-btn {
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--gm-sp-text-md);
+  line-height: 1;
+  color: #374151;
+  background: transparent;
+  border: 1px solid var(--gm-sp-color-border-strong);
+  border-radius: var(--gm-sp-radius-md);
+}
+
+.gm-sp-btn:hover {
+  background: var(--gm-sp-color-bg);
+  border-color: #9ca3af;
+}
+
+.gm-sp-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.gm-sp-btn-icon {
+  padding: 2px 7px;
+}
+
+.gm-sp-btn-primary {
+  background: var(--gm-sp-color-primary);
+  border-color: var(--gm-sp-color-primary);
+  color: #ffffff;
+}
+
+.gm-sp-btn-primary:hover {
+  background: var(--gm-sp-color-primary-hover);
+  border-color: var(--gm-sp-color-primary-hover);
+}
+
+.gm-sp-input {
+  font: inherit;
+  min-width: 0;
+  color: inherit;
+  background: var(--gm-sp-color-bg);
+  border: 1px solid var(--gm-sp-color-border-strong);
+  border-radius: var(--gm-sp-radius-md);
+  padding: 6px 8px;
+}
+
+.gm-sp-input:focus {
+  outline: none;
+  border-color: var(--gm-sp-color-primary);
+}
+
+.gm-sp-error-box {
+  color: var(--gm-sp-color-danger);
+  background: var(--gm-sp-color-danger-bg);
+  border: 1px solid var(--gm-sp-color-danger-border);
+}

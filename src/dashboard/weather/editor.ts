@@ -47,22 +47,22 @@ async function renderWeatherEditor(
       <div class="gm-sp-editor-form">
         <label class="gm-sp-editor-row">
           <span>城市名</span>
-          <input type="text" class="gm-sp-we-city-label" placeholder="北京" />
+          <input type="text" class="gm-sp-input gm-sp-we-city-label" placeholder="北京" />
         </label>
         <label class="gm-sp-editor-row">
           <span>CMA 站点 ID</span>
           <input type="text" inputmode="numeric" pattern="\\d{5}"
-                 class="gm-sp-we-cma" placeholder="54511（可选）" />
+                 class="gm-sp-input gm-sp-we-cma" placeholder="54511（可选）" />
         </label>
         <label class="gm-sp-editor-row">
           <span>纬度</span>
-          <input type="number" step="any" class="gm-sp-we-lat" placeholder="39.9042" />
+          <input type="number" step="any" class="gm-sp-input gm-sp-we-lat" placeholder="39.9042" />
         </label>
         <label class="gm-sp-editor-row">
           <span>经度</span>
-          <input type="number" step="any" class="gm-sp-we-lon" placeholder="116.4074" />
+          <input type="number" step="any" class="gm-sp-input gm-sp-we-lon" placeholder="116.4074" />
         </label>
-        <button type="button" class="gm-sp-editor-btn" data-action="add">添加城市</button>
+        <button type="button" class="gm-sp-btn gm-sp-editor-btn" data-action="add">添加城市</button>
       </div>
       <div class="gm-sp-editor-error" hidden></div>
     </div>`,

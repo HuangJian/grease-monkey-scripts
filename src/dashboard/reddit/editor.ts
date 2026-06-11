@@ -69,8 +69,8 @@ async function renderRedditEditor(
         <div class="gm-sp-editor-label">Subreddit 列表</div>
         <div class="gm-sp-re-list"></div>
         <div class="gm-sp-editor-add-row">
-          <input type="text" class="gm-sp-editor-input" placeholder="r/funny 或 funny" />
-          <button type="button" class="gm-sp-editor-btn" data-action="add">添加</button>
+          <input type="text" class="gm-sp-input gm-sp-editor-input" placeholder="r/funny 或 funny" />
+          <button type="button" class="gm-sp-btn gm-sp-editor-btn" data-action="add">添加</button>
         </div>
       </div>
       <div class="gm-sp-editor-form">

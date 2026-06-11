@@ -270,7 +270,7 @@ describe('renderTabsCard', () => {
       ['novels', cached(null, 1, 'network error')],
     ])
     renderOnce({ container, runtime, root, group, caches, activeTabId: 'novels' })
-    expect(container.querySelector('.gm-sp-error')!.textContent).toBe('network error')
+    expect(container.querySelector('.gm-sp-error-box')!.textContent).toBe('network error')
   })
 
   test('clicking edit opens dialog with editor; editor.onRevert fires onEdit', () => {

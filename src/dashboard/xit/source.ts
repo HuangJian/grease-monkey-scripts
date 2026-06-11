@@ -30,14 +30,14 @@ export function createXitSource(
     ttlMs: 24 * 3600 * 1000, // Large TTL, manually saved
     placement,
     headerContent: `<div class="gm-sp-xit-header-row">
-        <span class="gm-sp-xit-filter-name hidden"></span>
-        <input type="text" class="gm-sp-xit-header-search" placeholder="🔍 查询: [ ] !>2 #urgent today" />
+        <span class="gm-sp-xit-filter-name gm-sp-hidden"></span>
+        <input type="text" class="gm-sp-input gm-sp-xit-header-search" placeholder="🔍 查询: [ ] !>2 #urgent today" />
       </div>
-      <div class="gm-sp-xit-header-filters hidden">
+      <div class="gm-sp-xit-header-filters gm-sp-hidden">
         <div class="gm-sp-xit-saved-filters"></div>
         <div class="gm-sp-xit-tags"></div>
       </div>
-      <div class="gm-sp-error hidden"></div>`,
+      <div class="gm-sp-xit-query-error-box gm-sp-error-box gm-sp-hidden"></div>`,
     hideDefaultHeader: true,
     dialogTitle:
       '<a href="https://xit.jotaen.net/" target="_blank" rel="noopener">[x]it! 语法规范</a>',

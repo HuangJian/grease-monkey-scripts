@@ -18,8 +18,8 @@ export function showEditorDialog(
         <div class="gm-sp-editor-dialog-header">
           <span class="gm-sp-editor-dialog-title">${title}</span>
           <div class="gm-sp-editor-dialog-actions">
-            <button type="button" class="gm-sp-editor-btn gm-sp-editor-dialog-save">保存</button>
-            <button type="button" class="gm-sp-editor-btn gm-sp-editor-dialog-cancel">取消</button>
+            <button type="button" class="gm-sp-editor-btn gm-sp-btn gm-sp-btn-primary gm-sp-editor-dialog-save">保存</button>
+            <button type="button" class="gm-sp-editor-btn gm-sp-btn gm-sp-editor-dialog-cancel">取消</button>
           </div>
         </div>
         <div class="gm-sp-editor-dialog-body"></div>

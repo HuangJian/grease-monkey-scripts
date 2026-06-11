@@ -17,10 +17,10 @@ function updateFilterNameDisplay(
   const match = store.filters.find((f) => f.query === currentQuery)
   if (match) {
     nameSpan.textContent = match.name
-    nameSpan.classList.remove('hidden')
+    nameSpan.classList.remove('gm-sp-hidden')
     searchInput.classList.add('gm-sp-xit-header-search-with-name')
   } else {
-    nameSpan.classList.add('hidden')
+    nameSpan.classList.add('gm-sp-hidden')
     searchInput.classList.remove('gm-sp-xit-header-search-with-name')
   }
 }
@@ -83,7 +83,7 @@ export function renderSavedFilters(
           searchInput.classList.remove('gm-sp-xit-query-error')
           if (errorEl) {
             errorEl.textContent = ''
-            errorEl.classList.add('hidden')
+            errorEl.classList.add('gm-sp-hidden')
           }
           renderListAndTags(wrapper, lines, tagsEl, searchInput, errorEl, options.openEditor)
           renderSavedFilters(card, wrapper, lines, options)

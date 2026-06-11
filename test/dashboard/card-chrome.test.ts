@@ -62,12 +62,12 @@ describe('renderCardChrome', () => {
   test('shows error block only when cached.error is set', () => {
     const { container, runtime, root } = setup()
     const noErr = renderCardChrome(container, baseOpts({ runtime, root }))
-    expect(noErr.body.parentElement!.querySelector('.gm-sp-error')).toBeNull()
+    expect(noErr.body.parentElement!.querySelector('.gm-sp-error-box')).toBeNull()
     const withErr = renderCardChrome(
       container,
       baseOpts({ runtime, root, cached: cached({ fetchedAt: 1, error: 'boom' }) }),
     )
-    const errBlock = withErr.body.parentElement!.querySelector('.gm-sp-error')
+    const errBlock = withErr.body.parentElement!.querySelector('.gm-sp-error-box')
     expect(errBlock).not.toBeNull()
     expect(errBlock!.textContent).toBe('boom')
   })

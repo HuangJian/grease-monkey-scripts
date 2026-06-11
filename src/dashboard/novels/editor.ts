@@ -97,13 +97,13 @@ async function renderNovelsEditor(
       <div class="gm-sp-editor-form-stacked">
         <label class="gm-sp-editor-row">
           <span>书库 URL</span>
-          <input type="url" class="gm-sp-ne-url" placeholder="https://www.sudugu.org/166/" />
+          <input type="url" class="gm-sp-input gm-sp-ne-url" placeholder="https://www.sudugu.org/166/" />
         </label>
         <label class="gm-sp-editor-row">
           <span>别名（可选）</span>
-          <input type="text" class="gm-sp-ne-alias" placeholder="九龙夺嫡" />
+          <input type="text" class="gm-sp-input gm-sp-ne-alias" placeholder="九龙夺嫡" />
         </label>
-        <button type="button" class="gm-sp-editor-btn" data-action="add">添加书库</button>
+        <button type="button" class="gm-sp-btn gm-sp-editor-btn" data-action="add">添加书库</button>
       </div>
       <div class="gm-sp-editor-advanced">
 ${advancedFields

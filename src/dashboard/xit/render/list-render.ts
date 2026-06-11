@@ -149,13 +149,13 @@ export function renderListAndTags(
           searchInput.classList.remove('gm-sp-xit-query-error')
           if (errorEl) {
             errorEl.textContent = ''
-            errorEl.classList.add('hidden')
+            errorEl.classList.add('gm-sp-hidden')
           }
         } else {
           searchInput.classList.add('gm-sp-xit-query-error')
           if (errorEl) {
             errorEl.textContent = result.error
-            errorEl.classList.remove('hidden')
+            errorEl.classList.remove('gm-sp-hidden')
           }
         }
 

@@ -1,0 +1,39 @@
+:host {
+  all: initial;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--gm-sp-color-text);
+
+  --gm-sp-color-text: #1f2328;
+  --gm-sp-color-text-muted: #6b7280;
+  --gm-sp-color-text-soft: #9ca3af;
+  --gm-sp-color-border: #e5e7eb;
+  --gm-sp-color-border-strong: #d1d5db;
+  --gm-sp-color-bg: #ffffff;
+  --gm-sp-color-bg-subtle: #f9fafb;
+  --gm-sp-color-bg-muted: #f3f4f6;
+  --gm-sp-color-primary: #2563eb;
+  --gm-sp-color-primary-hover: #1d4ed8;
+  --gm-sp-color-danger: #b91c1c;
+  --gm-sp-color-danger-bg: #fef2f2;
+  --gm-sp-color-danger-border: #fecaca;
+
+  --gm-sp-radius-sm: 4px;
+  --gm-sp-radius-md: 6px;
+  --gm-sp-radius-lg: 10px;
+  --gm-sp-radius-xl: 12px;
+  --gm-sp-radius-pill: 999px;
+
+  --gm-sp-text-xs: 10px;
+  --gm-sp-text-sm: 11px;
+  --gm-sp-text-md: 12px;
+  --gm-sp-text-lg: 13px;
+
+  --gm-sp-gap-1: 4px;
+  --gm-sp-gap-2: 6px;
+  --gm-sp-gap-3: 8px;
+  --gm-sp-gap-4: 12px;
+}

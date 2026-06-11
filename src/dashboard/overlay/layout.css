@@ -1,0 +1,128 @@
+.gm-sp-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 0;
+  z-index: 2147483647;
+}
+
+.gm-sp-modal {
+  width: 100%;
+  height: 100%;
+  background: #ffffff;
+  padding: 14px 18px 16px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.gm-sp-corner-close {
+  position: absolute;
+  left: 10px;
+  top: 12px;
+  width: 13px;
+  height: 13px;
+  border: 0;
+  border-radius: 50%;
+  background: #ff5f57;
+  color: transparent;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+}
+
+.gm-sp-corner-close:hover {
+  color: #1f2328;
+  opacity: 1;
+}
+
+.gm-sp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.gm-sp-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.gm-sp-close {
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  font-size: 22px;
+  line-height: 1;
+  color: #6b7280;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.gm-sp-close:hover {
+  background: #f3f4f6;
+  color: #1f2328;
+}
+
+.gm-sp-cards {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(512px, 1fr);
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.gm-sp-cards-main,
+.gm-sp-cards-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.gm-sp-cards-side {
+  min-width: 512px;
+}
+
+.gm-sp-cards-main > .gm-sp-card {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.gm-sp-cards-side > .gm-sp-card {
+  flex: 0 0 auto;
+}
+
+.gm-sp-cards-side > .gm-sp-card[data-source='xit'] {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: none;
+  overflow: hidden;
+}
+
+@media (max-width: 640px) {
+  .gm-sp-cards {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .gm-sp-cards-side > .gm-sp-card {
+    max-height: none;
+  }
+}

@@ -76,22 +76,22 @@ async function renderTnewsEditor(
         <div class="gm-sp-editor-label">Feed URL 列表</div>
         <div class="gm-sp-tne-feeds"></div>
         <div class="gm-sp-editor-add-row">
-          <input type="text" class="gm-sp-editor-input" placeholder="https://rsshub.app/telegram/channel/<name>" />
-          <button type="button" class="gm-sp-editor-btn" data-action="add-feed">添加</button>
+          <input type="text" class="gm-sp-input gm-sp-tne-feed-input" placeholder="https://rsshub.app/telegram/channel/<name>" />
+          <button type="button" class="gm-sp-btn gm-sp-editor-btn" data-action="add-feed">添加</button>
         </div>
       </div>
       <div class="gm-sp-editor-section">
         <div class="gm-sp-editor-label">RSSHub 镜像 hostname</div>
         <div class="gm-sp-tne-mirrors"></div>
         <div class="gm-sp-editor-add-row">
-          <input type="text" class="gm-sp-editor-input" placeholder="rsshub.example.com" />
-          <button type="button" class="gm-sp-editor-btn" data-action="add-mirror">添加</button>
+          <input type="text" class="gm-sp-input gm-sp-tne-mirror-input" placeholder="rsshub.example.com" />
+          <button type="button" class="gm-sp-btn gm-sp-editor-btn" data-action="add-mirror">添加</button>
         </div>
       </div>
       <div class="gm-sp-editor-form">
         <label class="gm-sp-editor-row">
           <span>TTL（分钟）</span>
-          <input type="number" min="1" step="1" class="gm-sp-tne-ttl" />
+          <input type="number" min="1" step="1" class="gm-sp-input gm-sp-tne-ttl" />
         </label>
       </div>
       <div class="gm-sp-editor-error" hidden></div>
@@ -99,10 +99,10 @@ async function renderTnewsEditor(
   )
 
   const feedsEl = container.querySelector('.gm-sp-tne-feeds') as HTMLDivElement
-  const feedInputEl = container.querySelector('.gm-sp-editor-input') as HTMLInputElement
+  const feedInputEl = container.querySelector('.gm-sp-tne-feed-input') as HTMLInputElement
   const feedAddBtn = container.querySelector('[data-action="add-feed"]') as HTMLButtonElement
   const mirrorsEl = container.querySelector('.gm-sp-tne-mirrors') as HTMLDivElement
-  const mirrorInputEl = container.querySelector('.gm-sp-editor-input') as HTMLInputElement
+  const mirrorInputEl = container.querySelector('.gm-sp-tne-mirror-input') as HTMLInputElement
   const mirrorAddBtn = container.querySelector('[data-action="add-mirror"]') as HTMLButtonElement
   const ttlInput = container.querySelector('.gm-sp-tne-ttl') as HTMLInputElement
   const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
