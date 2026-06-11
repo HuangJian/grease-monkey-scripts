@@ -1,6 +1,5 @@
 import type { Runtime } from '../../runtime'
 import type { SourceEditorResult } from '../types'
-import { htmlToElement } from '../../utils'
 import { handleEscapeKey } from '../shortcut'
 
 export function showEditorDialog(
@@ -13,8 +12,7 @@ export function showEditorDialog(
     close: () => void,
   ) => SourceEditorResult | Promise<SourceEditorResult>,
 ): () => void {
-  const backdrop = htmlToElement<HTMLDivElement>(
-    document,
+  const dialogFragment = document.createRange().createContextualFragment(
     `<div class="gm-sp-editor-dialog">
       <div class="gm-sp-editor-dialog-panel">
         <div class="gm-sp-editor-dialog-header">
@@ -28,6 +26,7 @@ export function showEditorDialog(
       </div>
     </div>`,
   )
+  const backdrop = dialogFragment.firstElementChild as HTMLDivElement
 
   const panel = backdrop.querySelector('.gm-sp-editor-dialog-panel') as HTMLDivElement
   const body = backdrop.querySelector('.gm-sp-editor-dialog-body') as HTMLDivElement

@@ -1,9 +1,3 @@
-export function htmlToElement<T extends Element = Element>(document: Document, html: string): T {
-  const template = document.createElement('template')
-  template.innerHTML = html.trim()
-  return template.content.firstChild as T
-}
-
 export function htmlToDocument(html: string, domParser: DOMParser): Document {
   return domParser.parseFromString(html, 'text/html')
 }

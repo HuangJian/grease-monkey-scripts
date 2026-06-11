@@ -23,12 +23,11 @@ export function createCollapseExpandButtons(
   discussionCount: number,
   onclick: (evt: Event) => void,
 ): [HTMLButtonElement, HTMLButtonElement] {
-  const temp = runtime.document.createElement('div')
-  temp.insertAdjacentHTML('beforeend', collapseIconSvg)
-  const collapseBtn = temp.firstElementChild as HTMLButtonElement
-  temp.innerHTML = ''
-  temp.insertAdjacentHTML('beforeend', expandIconSvg)
-  const expandBtn = temp.firstElementChild as HTMLButtonElement
+  const range = runtime.document.createRange()
+  const collapseBtn = range.createContextualFragment(collapseIconSvg)
+    .firstElementChild as HTMLButtonElement
+  const expandBtn = range.createContextualFragment(expandIconSvg)
+    .firstElementChild as HTMLButtonElement
 
   collapseBtn.onclick = onclick
   expandBtn.onclick = onclick

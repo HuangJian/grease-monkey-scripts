@@ -110,29 +110,24 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
       runtimeRef ??= ctx?.runtime ?? null
     },
     customizeHeader(titleContainer, _data) {
-      const doc = titleContainer.ownerDocument
-      const wrap = doc.createElement('span')
-      wrap.className = 'gm-sp-date-filter'
-
-      const select = doc.createElement('select')
-      select.className = 'gm-sp-date-filter-select'
-      for (const opt of DATE_OPTIONS) {
-        const el = doc.createElement('option')
-        el.value = opt
-        el.textContent = opt
-        if (opt === dateFilter) el.selected = true
-        select.appendChild(el)
-      }
-
+      titleContainer.insertAdjacentHTML(
+        'beforeend',
+        `<span class="gm-sp-date-filter">
+          <select class="gm-sp-date-filter-select">
+            ${DATE_OPTIONS.map(
+              (opt) =>
+                `<option value="${opt}"${opt === dateFilter ? ' selected' : ''}>${opt}</option>`,
+            ).join('')}
+          </select>
+        </span>`,
+      )
+      const select = titleContainer.querySelector<HTMLSelectElement>('.gm-sp-date-filter-select')!
       select.addEventListener('change', () => {
         dateFilter = select.value as DateFilter
         if (lastContainer && lastData !== undefined) {
           doRender(lastContainer, lastData)
         }
       })
-
-      wrap.appendChild(select)
-      titleContainer.appendChild(wrap)
     },
     async loadState(runtime) {
       await state.loadFromStorage(runtime)

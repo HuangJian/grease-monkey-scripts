@@ -24,11 +24,8 @@ export function mountOverlay(document: Document): OverlayHandle {
   host.id = 'gm-dashboard'
   const root = host.attachShadow({ mode: 'closed' })
   roots.set(host, root)
-  const style = document.createElement('style')
-  style.textContent = OVERLAY_CSS
-  root.appendChild(style)
-  const template = document.createElement('template')
-  template.innerHTML = `<div class="gm-sp-backdrop">
+  root.innerHTML = `<style>${OVERLAY_CSS}</style>
+    <div class="gm-sp-backdrop">
       <div class="gm-sp-modal">
         <button type="button" class="gm-sp-corner-close" aria-label="close">×</button>
         <div class="gm-sp-cards">
@@ -37,7 +34,6 @@ export function mountOverlay(document: Document): OverlayHandle {
         </div>
       </div>
     </div>`
-  root.appendChild(template.content)
   const backdrop = root.querySelector('.gm-sp-backdrop')!
   const modal = root.querySelector('.gm-sp-modal')!
   const closeBtn = root.querySelector('.gm-sp-corner-close')!
