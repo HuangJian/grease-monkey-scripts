@@ -1,6 +1,7 @@
 import type { Runtime } from '../../runtime'
 import { loadConfigSection } from '../config'
 import type { Source } from '../types'
+import { WeatherComponent } from './component'
 import { createWeatherEditor } from './editor'
 import { fetchWeatherAll } from './api'
 import { renderWeather, customizeWeatherHeader } from './render'
@@ -26,6 +27,7 @@ export function createWeatherSource(options: WeatherSourceOptions): Source<Weath
       const cities = await loadFreshWeatherCities(runtime, options.cities)
       return fetchWeatherAll(runtime, cities)
     },
+    RenderComponent: (props) => <WeatherComponent {...props} />,
     render(container, data) {
       renderWeather(container, data)
     },

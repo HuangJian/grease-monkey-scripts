@@ -1,5 +1,4 @@
 import { render } from 'preact'
-import { h } from 'preact'
 import type { Runtime } from '../../runtime'
 import type { CardGroup } from '../card-group'
 import type { CachedSource } from '../types'
@@ -19,5 +18,5 @@ export type TabsCardOptions = {
 
 export function renderTabsCard(container: HTMLElement, options: TabsCardOptions): void {
   container.dataset['source'] = options.group.id
-  render(h(TabsCard, options), container)
+  render(<TabsCard {...options} />, container)
 }

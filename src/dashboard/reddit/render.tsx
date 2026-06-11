@@ -1,0 +1,28 @@
+import { render } from 'preact'
+import type { AuthorTagMap } from '../../shared/author-labels'
+import type { Runtime } from '../../runtime'
+import { RedditComponent } from './component'
+import type { ExpandCollapse } from './expand-collapse'
+import type { RedditState } from './state'
+import type { RedditRenderData } from './source'
+
+export function renderReddit(
+  container: HTMLElement,
+  data: RedditRenderData | null,
+  state: RedditState,
+  runtime: Runtime | null,
+  expandCollapse: ExpandCollapse,
+  authorTagMap: AuthorTagMap = {},
+): void {
+  render(null, container)
+  render(
+    <RedditComponent
+      data={data}
+      state={state}
+      runtime={runtime ?? undefined}
+      expandCollapse={expandCollapse}
+      authorTagMap={authorTagMap}
+    />,
+    container,
+  )
+}

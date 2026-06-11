@@ -2,6 +2,7 @@ import type { Runtime } from '../../runtime'
 import { estimateByteSize } from '../cache'
 import type { Source, TabLabel } from '../types'
 import { RETENTION_MS } from './constants'
+import { TnewsComponent } from './component'
 import { createTnewsEditor, loadFreshTnewsOptions } from './editor'
 import { fetchTnews } from './fetcher'
 import { filterByRetention, mergeByLink, sortByPubDateDesc } from './parser'
@@ -24,6 +25,9 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 1,
+    RenderComponent: ({ data, root, runtime }) => (
+      <TnewsComponent data={data} root={root} runtime={runtime} state={state} now={Date.now()} />
+    ),
     getTabLabel(data) {
       return tnewsTabLabel(data, state)
     },

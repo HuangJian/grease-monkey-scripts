@@ -1,3 +1,4 @@
+import { render } from 'preact'
 import type { Runtime } from '../../runtime'
 import { escapeHtml } from '../../utils'
 import { loadConfigSection, validateConfig } from '../config'
@@ -90,34 +91,36 @@ async function renderNovelsEditor(
     { prop: 'maxLatestWindow', label: '章节窗口', min: 1, errorMsg: '章节窗口必须是 ≥1 的整数' },
   ]
 
-  container.insertAdjacentHTML(
-    'beforeend',
-    `<div class="gm-sp-editor">
-      <div class="gm-sp-editor-list"></div>
+  const advancedChildren = advancedFields.map((f) => (
+    <label class="gm-sp-editor-row">
+      <span>{f.label}</span>
+      <input type="number" min={f.min} />
+    </label>
+  ))
+  render(
+    <div class="gm-sp-editor">
+      <div class="gm-sp-editor-list" />
       <div class="gm-sp-editor-form-stacked">
         <label class="gm-sp-editor-row">
           <span>书库 URL</span>
-          <input type="url" class="gm-sp-input gm-sp-ne-url" placeholder="https://www.sudugu.org/166/" />
+          <input
+            type="url"
+            class="gm-sp-input gm-sp-ne-url"
+            placeholder="https://www.sudugu.org/166/"
+          />
         </label>
         <label class="gm-sp-editor-row">
           <span>别名（可选）</span>
           <input type="text" class="gm-sp-input gm-sp-ne-alias" placeholder="九龙夺嫡" />
         </label>
-        <button type="button" class="gm-sp-btn gm-sp-editor-btn" data-action="add">添加书库</button>
+        <button type="button" class="gm-sp-btn gm-sp-editor-btn" data-action="add">
+          添加书库
+        </button>
       </div>
-      <div class="gm-sp-editor-advanced">
-${advancedFields
-  .map(
-    (f) =>
-      `        <label class="gm-sp-editor-row">
-          <span>${f.label}</span>
-          <input type="number"${f.min !== undefined ? ` min="${f.min}"` : ''} />
-        </label>`,
-  )
-  .join('\n')}
-      </div>
-      <div class="gm-sp-editor-error" hidden></div>
-    </div>`,
+      <div class="gm-sp-editor-advanced">{...advancedChildren}</div>
+      <div class="gm-sp-editor-error" hidden />
+    </div>,
+    container,
   )
 
   const listEl = container.querySelector('.gm-sp-editor-list') as HTMLDivElement

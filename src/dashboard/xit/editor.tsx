@@ -1,3 +1,4 @@
+import { render } from 'preact'
 import { loadCache, saveCache } from '../cache'
 import type { SourceEditor, SourceEditorResult } from '../types'
 import { renderXitPreview } from './render'
@@ -18,13 +19,21 @@ export function createXitEditor(): SourceEditor {
     pendingLineIndex = null
 
     container.classList.add('gm-sp-xit-editor-dual')
-    container.insertAdjacentHTML(
-      'beforeend',
-      `<div class="gm-sp-xit-editor-pane">
-        <textarea class="gm-sp-xit-editor-textarea" spellcheck="false"></textarea>
-      </div>
-      <div class="gm-sp-xit-editor-pane gm-sp-xit-editor-preview"></div>`,
-    )
+    {
+      const wrapper = document.createElement('div')
+      render(
+        <div>
+          <div class="gm-sp-xit-editor-pane">
+            <textarea class="gm-sp-xit-editor-textarea" spellcheck={false} />
+          </div>
+          <div class="gm-sp-xit-editor-pane gm-sp-xit-editor-preview" />
+        </div>,
+        wrapper,
+      )
+      while (wrapper.firstChild) {
+        container.appendChild(wrapper.firstChild)
+      }
+    }
 
     const textarea = container.querySelector('.gm-sp-xit-editor-textarea') as HTMLTextAreaElement
     const preview = container.querySelector('.gm-sp-xit-editor-preview') as HTMLElement

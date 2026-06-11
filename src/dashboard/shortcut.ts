@@ -29,8 +29,6 @@ export function createDoubleShiftHandler(
 
 export function handleEscapeKey(e: KeyboardEvent, root: ShadowRoot, onClose: () => void): void {
   if (e.key !== 'Escape') return
-  const active = root.activeElement
-  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return
   e.stopPropagation()
   onClose()
 }

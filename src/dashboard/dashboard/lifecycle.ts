@@ -1,11 +1,13 @@
 import type { Runtime } from '../../runtime'
 import { mountOverlay, type OverlayHandle } from '../overlay/mount'
-import { handleEscapeKey } from '../shortcut'
 import type { CardGroup } from '../card-group'
 import type { CachedSource } from '../types'
 import { renderCard } from '../overlay/render'
 import { renderTabsCard } from '../overlay/tabs-render'
 import { isTabsGroup } from './group-renderer'
+import { render } from 'preact'
+import { h } from 'preact'
+import { OverlayShell } from '../overlay/overlay-shell'
 
 export type MountDeps = {
   runtime: Runtime
@@ -21,32 +23,30 @@ export function mountDashboard(deps: MountDeps): OverlayHandle {
   const onBackdropClick = (e: Event) => {
     if (e.target === newHandle.backdrop) deps.dashboard.close()
   }
-  const onKeydown = (e: KeyboardEvent) => {
-    if (newHandle.root.querySelector('.gm-sp-editor-dialog')) return
-    handleEscapeKey(e, newHandle.root, () => deps.dashboard.close())
-  }
-  const stopKeyboardLeak = (e: Event) => {
-    const target = e.target as Element | null
-    const tag = target?.tagName
-    if (tag === 'INPUT' || tag === 'TEXTAREA') e.stopPropagation()
-  }
+  const shellContainer = deps.runtime.document.createElement('div')
+  newHandle.root.appendChild(shellContainer)
+  render(
+    h(OverlayShell, {
+      root: newHandle.root,
+      document: deps.runtime.document,
+      onClose: () => deps.dashboard.close(),
+    }),
+    shellContainer,
+  )
   newHandle.closeBtn.addEventListener('click', () => deps.dashboard.close())
-  newHandle.root.addEventListener('keydown', stopKeyboardLeak)
-  newHandle.root.addEventListener('keyup', stopKeyboardLeak)
   newHandle.backdrop.addEventListener('click', onBackdropClick)
-  deps.runtime.document.addEventListener('keydown', onKeydown, { capture: true })
   const origUnmount = newHandle.unmount.bind(newHandle)
   newHandle.unmount = () => {
-    deps.runtime.document.removeEventListener('keydown', onKeydown, { capture: true })
-    newHandle.root.removeEventListener('keydown', stopKeyboardLeak)
-    newHandle.root.removeEventListener('keyup', stopKeyboardLeak)
+    render(null, shellContainer)
+    shellContainer.remove()
     origUnmount()
   }
   const now = Date.now()
   for (const group of deps.cardGroups) {
     const container = group.placement === 'side' ? newHandle.sideCards : newHandle.mainCards
-    container.insertAdjacentHTML('beforeend', '<div class="gm-sp-card"></div>')
-    const card = container.lastElementChild as HTMLElement
+    const card = document.createElement('div')
+    card.className = 'gm-sp-card'
+    container.appendChild(card)
     if (isTabsGroup(group)) {
       const activeTabId = deps.activeTabByGroup.get(group.id) ?? group.tabs[0]!.id
       const emptyCaches = new Map<string, CachedSource<unknown> | null>()

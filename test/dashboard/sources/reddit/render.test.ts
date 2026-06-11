@@ -40,6 +40,7 @@ describe('renderReddit', () => {
 
   beforeEach(() => {
     dom = makeDom()
+    globalThis.document = dom.window.document
     container = dom.window.document.createElement('div')
     state = createRedditState()
   })
@@ -285,6 +286,7 @@ describe('renderReddit sub collapse', () => {
 
   beforeEach(() => {
     dom = makeDom()
+    globalThis.document = dom.window.document
     container = dom.window.document.createElement('div')
     state = createRedditState()
   })
@@ -362,6 +364,7 @@ describe('renderReddit reply count formatting', () => {
 
   beforeEach(() => {
     dom = makeDom()
+    globalThis.document = dom.window.document
     container = dom.window.document.createElement('div')
     state = createRedditState()
   })

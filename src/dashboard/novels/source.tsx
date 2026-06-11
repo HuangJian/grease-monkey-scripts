@@ -1,6 +1,7 @@
 import type { Runtime } from '../../runtime'
 import { CACHE_KEY, CACHE_SCHEMA_VERSION, CONFIG_KEY } from '../types'
 import type { Source, TabLabel } from '../types'
+import { NovelsComponent } from './component'
 import { createNovelsEditor } from './editor'
 import { fetchNovels } from './fetcher'
 import { renderNovels } from './render'
@@ -17,6 +18,16 @@ export function createNovelsSource(
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 2,
+    RenderComponent: ({ data, root }) => (
+      <NovelsComponent
+        data={data}
+        root={root}
+        runtime={runtime}
+        onMarkSeen={(bookUrl) => {
+          void markSeen(runtime, bookUrl, data)
+        }}
+      />
+    ),
     getTabLabel(data) {
       return novelsTabLabel(data)
     },

@@ -68,13 +68,22 @@ export function TabsCard({
   })
 
   const panels = group.tabs.map((tab) => {
-    const activeClass = tab.id === activeTab.id ? ' gm-sp-tab-panel-active' : ''
-    return <div class={`gm-sp-tab-panel${activeClass}`} role="tabpanel" data-tab-id={tab.id} />
+    const isActive = tab.id === activeTab.id
+    const activeClass = isActive ? ' gm-sp-tab-panel-active' : ''
+    const cached = caches.get(tab.id) ?? null
+    const data = cached?.data ?? null
+    const Comp = tab.RenderComponent
+    return (
+      <div class={`gm-sp-tab-panel${activeClass}`} role="tabpanel" data-tab-id={tab.id}>
+        {Comp ? <Comp data={data as never} root={root} runtime={runtime} /> : null}
+      </div>
+    )
   })
 
   useLayoutEffect(() => {
     if (!bodyRef.current) return
     for (const tab of group.tabs) {
+      if (tab.RenderComponent) continue
       const panel = bodyRef.current.querySelector(`[data-tab-id="${tab.id}"]`) as HTMLElement | null
       if (!panel) continue
       const cached = caches.get(tab.id) ?? null
@@ -84,7 +93,7 @@ export function TabsCard({
   })
 
   useLayoutEffect(() => {
-    if (!activeTab.customizeHeader) return
+    if (activeTab.RenderComponent || !activeTab.customizeHeader) return
     const data = activeCached?.data ?? null
     const header = bodyRef.current?.closest('.gm-sp-card')?.querySelector('.gm-sp-card-title')
     if (header) activeTab.customizeHeader(header as HTMLElement, data)

@@ -1,3 +1,4 @@
+import { render } from 'preact'
 import { escapeHtml } from '../../utils'
 import type { SourceEditor, SourceEditorResult } from '../types'
 import { bindErrorBox, readNumberFields, saveConfigSection } from '../editor-helpers'
@@ -69,23 +70,34 @@ async function renderTnewsEditor(
   const feeds: string[] = [...fresh.feeds]
   const mirrors: string[] = [...fresh.mirrors]
 
-  container.insertAdjacentHTML(
-    'beforeend',
-    `<div class="gm-sp-editor">
+  render(
+    <div class="gm-sp-editor">
       <div class="gm-sp-editor-section">
         <div class="gm-sp-editor-label">Feed URL 列表</div>
-        <div class="gm-sp-tne-feeds"></div>
+        <div class="gm-sp-tne-feeds" />
         <div class="gm-sp-editor-add-row">
-          <input type="text" class="gm-sp-input gm-sp-tne-feed-input" placeholder="https://rsshub.app/telegram/channel/<name>" />
-          <button type="button" class="gm-sp-btn gm-sp-editor-btn" data-action="add-feed">添加</button>
+          <input
+            type="text"
+            class="gm-sp-input gm-sp-tne-feed-input"
+            placeholder="https://rsshub.app/telegram/channel/<name>"
+          />
+          <button type="button" class="gm-sp-btn gm-sp-editor-btn" data-action="add-feed">
+            添加
+          </button>
         </div>
       </div>
       <div class="gm-sp-editor-section">
         <div class="gm-sp-editor-label">RSSHub 镜像 hostname</div>
-        <div class="gm-sp-tne-mirrors"></div>
+        <div class="gm-sp-tne-mirrors" />
         <div class="gm-sp-editor-add-row">
-          <input type="text" class="gm-sp-input gm-sp-tne-mirror-input" placeholder="rsshub.example.com" />
-          <button type="button" class="gm-sp-btn gm-sp-editor-btn" data-action="add-mirror">添加</button>
+          <input
+            type="text"
+            class="gm-sp-input gm-sp-tne-mirror-input"
+            placeholder="rsshub.example.com"
+          />
+          <button type="button" class="gm-sp-btn gm-sp-editor-btn" data-action="add-mirror">
+            添加
+          </button>
         </div>
       </div>
       <div class="gm-sp-editor-form">
@@ -94,8 +106,9 @@ async function renderTnewsEditor(
           <input type="number" min="1" step="1" class="gm-sp-input gm-sp-tne-ttl" />
         </label>
       </div>
-      <div class="gm-sp-editor-error" hidden></div>
-    </div>`,
+      <div class="gm-sp-editor-error" hidden />
+    </div>,
+    container,
   )
 
   const feedsEl = container.querySelector('.gm-sp-tne-feeds') as HTMLDivElement

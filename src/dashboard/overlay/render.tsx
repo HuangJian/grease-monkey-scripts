@@ -1,5 +1,4 @@
 import { render } from 'preact'
-import { h } from 'preact'
 import type { Runtime } from '../../runtime'
 import type { CachedSource, Source } from '../types'
 import { Card } from '../ui/card'
@@ -19,5 +18,5 @@ export type CardOptions<T> = {
 export function renderCard<T>(container: HTMLElement, options: CardOptions<T>): void {
   const { source, onRevert } = options
   container.dataset['source'] = source.id
-  render(h(Card, { ...options, onRevert }), container)
+  render(<Card {...options} onRevert={onRevert} />, container)
 }

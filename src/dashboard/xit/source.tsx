@@ -1,7 +1,7 @@
 import type { Runtime } from '../../runtime'
 import type { Source } from '../types'
-import { showEditorDialog } from '../overlay/editor'
-import { createXitEditor, setPendingLineIndex } from './editor'
+import { XitComponent } from './component'
+import { createXitEditor } from './editor'
 import { renderXit } from './render'
 import type { XitData } from './types'
 
@@ -20,7 +20,7 @@ export const DEFAULT_XIT_TEXT = `xit (xit 语法规范):
 
 export function createXitSource(
   options: { placement?: 'main' | 'side' } | undefined,
-  runtime: Runtime,
+  _runtime: Runtime,
 ): Source<XitData> {
   const placement = options?.placement ?? 'main'
 
@@ -41,48 +41,17 @@ export function createXitSource(
     hideDefaultHeader: true,
     dialogTitle:
       '<a href="https://xit.jotaen.net/" target="_blank" rel="noopener">[x]it! 语法规范</a>',
+    RenderComponent: ({ data, root, runtime: r }) => (
+      <XitComponent data={data} root={root} runtime={r} />
+    ),
     async fetch(runtimeArg, prevData) {
       if (prevData?.text) {
         return prevData
       }
       return { text: DEFAULT_XIT_TEXT }
     },
-    render(container, data, ctx) {
-      renderXit(container, data, {
-        runtime,
-        onSaveText: (newText) => {
-          const next = {
-            data: { text: newText },
-            fetchedAt: Date.now(),
-          }
-          const KEY_PREFIX = 'dashboard:v1'
-          const cacheKey = `${KEY_PREFIX}:xit`
-          void runtime.setValue(cacheKey, {
-            ...next,
-            schemaVersion: 2,
-            byteSize: new Blob([JSON.stringify(next)]).size,
-          })
-        },
-        openEditor(lineIndex) {
-          if (ctx?.root && ctx?.runtime) {
-            setPendingLineIndex(lineIndex ?? null)
-            showEditorDialog(
-              container.ownerDocument,
-              ctx.root,
-              '<a href="https://xit.jotaen.net/" target="_blank" rel="noopener">[x]it! 语法规范</a>',
-              ctx.runtime,
-              async (dialogBody, dialogClose) => {
-                const editor = createXitEditor()
-                return editor(dialogBody, {
-                  runtime: ctx.runtime!,
-                  onRevert: () => {},
-                  close: dialogClose,
-                })
-              },
-            )
-          }
-        },
-      })
+    render(container, data) {
+      renderXit(container, data)
     },
     createEditor() {
       return createXitEditor()

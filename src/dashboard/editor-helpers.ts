@@ -133,16 +133,15 @@ export function bindChipList<T>(args: ChipListArgs<T>): ChipListHandle {
     args.listEl.replaceChildren()
     const items = args.getItems()
     if (items.length === 0) {
-      args.listEl.insertAdjacentHTML(
-        'beforeend',
-        `<div class="${args.emptyClass}">${args.emptyText}</div>`,
-      )
+      const el = document.createElement('div')
+      el.className = args.emptyClass
+      el.textContent = args.emptyText
+      args.listEl.appendChild(el)
       return
     }
-    args.listEl.insertAdjacentHTML(
-      'beforeend',
-      items.map((item, i) => args.renderChip(item, i)).join(''),
-    )
+    const tmp = document.createElement('div')
+    tmp.innerHTML = items.map((item, i) => args.renderChip(item, i)).join('')
+    while (tmp.firstChild) args.listEl.appendChild(tmp.firstChild)
     args.listEl.querySelectorAll<HTMLElement>(args.removeSelector).forEach((el, i) => {
       el.addEventListener('click', () => {
         const next = args.getItems().filter((_, idx) => idx !== i)

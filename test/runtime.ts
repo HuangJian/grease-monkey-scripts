@@ -1,6 +1,10 @@
 import { JSDOM } from 'jsdom'
 import type { Runtime, ValueChangeListener } from '../src/runtime'
 
+// Make Preact state updates synchronous in tests
+import { options as preactOptions } from 'preact'
+preactOptions.debounceRendering = (fn: () => void) => fn()
+
 export function createDom(html: string, url = 'https://www.v2ex.com/t/123'): JSDOM {
   return new JSDOM(html, { url })
 }

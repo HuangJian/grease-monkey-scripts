@@ -1,4 +1,5 @@
 import type { ComponentChildren } from 'preact'
+import { render } from 'preact'
 import { useEffect, useRef } from 'preact/hooks'
 import type { Runtime } from '../../runtime'
 import type { CachedSource } from '../types'
@@ -79,11 +80,20 @@ export function CardChrome({
       const row = headerRef.current.querySelector('.gm-sp-xit-header-row')
       if (row && !row.querySelector('.gm-sp-edit')) {
         const icon = edit.sourceTitle === 'xit' ? '\u270F' : '\u2699'
-        row.insertAdjacentHTML(
-          'beforeend',
-          `<button type="button" class="gm-sp-btn gm-sp-btn-icon gm-sp-edit" data-action="edit" aria-label="edit"><span class="gm-sp-edit-icon">${icon}</span></button>`,
+        const tmp = document.createElement('div')
+        render(
+          <button
+            type="button"
+            class="gm-sp-btn gm-sp-btn-icon gm-sp-edit"
+            aria-label="edit"
+            onClick={handleEdit}
+          >
+            <span class="gm-sp-edit-icon">{icon}</span>
+          </button>,
+          tmp,
         )
-        row.querySelector('.gm-sp-edit')!.addEventListener('click', handleEdit)
+        const btn = tmp.firstElementChild as HTMLElement
+        if (btn) row.appendChild(btn)
       }
     }
   })

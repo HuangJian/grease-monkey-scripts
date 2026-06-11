@@ -1,3 +1,4 @@
+import type { ComponentType } from 'preact'
 import type { Runtime } from '../runtime'
 
 export const KEY_PREFIX = 'dashboard:v1'
@@ -92,6 +93,12 @@ export type SourceEditor = (
 
 export type TabLabel = { label: string; badge?: string | number | null }
 
+export type SourceComponentProps<T> = {
+  data: T | null
+  root?: ShadowRoot
+  runtime?: Runtime
+}
+
 export type Source<T> = {
   readonly id: string
   readonly title: string
@@ -103,6 +110,8 @@ export type Source<T> = {
   readonly headerContent?: string
   readonly hideDefaultHeader?: boolean
   readonly dialogTitle?: string
+  /** If set, Card renders this instead of calling render() + customizeHeader() */
+  readonly RenderComponent?: ComponentType<SourceComponentProps<any>>
   fetch(runtime: Runtime, prevData?: T): Promise<T>
   render(
     container: HTMLElement,

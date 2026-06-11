@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { JSDOM } from 'jsdom'
 import { renderNovels } from '../../../src/dashboard/novels/render'
 import type { NovelBook, NovelData } from '../../../src/dashboard/novels/types'
+// oxlint-disable-next-line no-unassigned-import
+import '../../runtime'
 
 function dom(): JSDOM {
   return new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
@@ -30,6 +32,7 @@ let markedSeen: string[]
 beforeEach(() => {
   const d = dom()
   document = d.window.document
+  globalThis.document = document
   root = document.getElementById('root')!
   markedSeen = []
 })

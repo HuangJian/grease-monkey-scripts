@@ -1,6 +1,7 @@
 import type { Runtime } from '../../runtime'
 import { loadConfigSection, validateConfig } from '../config'
 import { bindErrorBox, readNumberFields, saveConfigSection } from '../editor-helpers'
+import { renderEditorForm, type EditorFieldDef } from '../ui/editor-form'
 import type { SourceEditor, SourceEditorResult } from '../types'
 import type { V2exSourceOptions } from './types'
 
@@ -47,14 +48,7 @@ async function renderV2exEditor(
 ): Promise<SourceEditorResult> {
   const fresh = await loadFreshV2exOptions(ctx.runtime, options)
 
-  const formFields: {
-    prop: string
-    label: string
-    min: number
-    max?: number
-    placeholder?: string
-    errorMsg: string
-  }[] = [
+  const formFields: EditorFieldDef[] = [
     { prop: 'ttlMinutes', label: 'TTL（分钟）', min: 1, errorMsg: 'TTL 必须是 ≥1 的整数' },
     { prop: 'minItems', label: '最少条数', min: 1, errorMsg: '最少条数必须是 ≥1 的整数' },
     {
@@ -82,32 +76,14 @@ async function renderV2exEditor(
     },
   ]
 
-  container.insertAdjacentHTML(
-    'beforeend',
-    `<div class="gm-sp-editor">
-      <div class="gm-sp-editor-form">
-${formFields
-  .map(
-    (f) =>
-      `        <label class="gm-sp-editor-row">
-          <span>${f.label}</span>
-          <input type="number" class="gm-sp-input"${f.min !== undefined ? ` min="${f.min}"` : ''}${f.max !== undefined ? ` max="${f.max}"` : ''}${f.placeholder !== undefined ? ` placeholder="${f.placeholder}"` : ''} />
-        </label>`,
+  const { errorEl } = renderEditorForm(
+    container,
+    formFields,
+    fresh as unknown as Record<string, unknown>,
   )
-  .join('\n')}
-      </div>
-      <div class="gm-sp-editor-error" hidden></div>
-    </div>`,
-  )
-
   const numberInputs = container.querySelectorAll<HTMLInputElement>(
     '.gm-sp-editor-form input[type="number"]',
   )
-  for (let i = 0; i < formFields.length; i++) {
-    numberInputs[i].value = String((fresh as Record<string, unknown>)[formFields[i].prop])
-  }
-
-  const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
   const error = bindErrorBox(errorEl)
 
   return {

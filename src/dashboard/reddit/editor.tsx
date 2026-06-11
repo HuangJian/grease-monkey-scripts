@@ -1,3 +1,4 @@
+import { render } from 'preact'
 import type { Runtime } from '../../runtime'
 import { escapeHtml } from '../../utils'
 import { validateConfig } from '../config'
@@ -52,32 +53,32 @@ async function renderRedditEditor(
       errorMsg: '衰减半衰期必须是 0.1~30 之间',
     },
   ]
-  const formHtml = formFields
-    .map(
-      (f) =>
-        `          <label class="gm-sp-editor-row">
-            <span>${f.label}</span>
-            <input type="number"${f.min !== undefined ? ` min="${f.min}"` : ''}${f.max !== undefined ? ` max="${f.max}"` : ''} />
-          </label>`,
-    )
-    .join('\n')
-
-  container.insertAdjacentHTML(
-    'beforeend',
-    `<div class="gm-sp-editor">
+  const formChildren = formFields.map((f) => (
+    <label class="gm-sp-editor-row">
+      <span>{f.label}</span>
+      <input type="number" min={f.min} max={f.max} />
+    </label>
+  ))
+  render(
+    <div class="gm-sp-editor">
       <div class="gm-sp-editor-section">
         <div class="gm-sp-editor-label">Subreddit 列表</div>
-        <div class="gm-sp-re-list"></div>
+        <div class="gm-sp-re-list" />
         <div class="gm-sp-editor-add-row">
-          <input type="text" class="gm-sp-input gm-sp-editor-input" placeholder="r/funny 或 funny" />
-          <button type="button" class="gm-sp-btn gm-sp-editor-btn" data-action="add">添加</button>
+          <input
+            type="text"
+            class="gm-sp-input gm-sp-editor-input"
+            placeholder="r/funny 或 funny"
+          />
+          <button type="button" class="gm-sp-btn gm-sp-editor-btn" data-action="add">
+            添加
+          </button>
         </div>
       </div>
-      <div class="gm-sp-editor-form">
-${formHtml}
-      </div>
-      <div class="gm-sp-editor-error" hidden></div>
-    </div>`,
+      <div class="gm-sp-editor-form">{...formChildren}</div>
+      <div class="gm-sp-editor-error" hidden />
+    </div>,
+    container,
   )
 
   const listEl = container.querySelector('.gm-sp-re-list') as HTMLDivElement

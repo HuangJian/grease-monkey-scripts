@@ -6,6 +6,7 @@ import {
 import type { Runtime } from '../../runtime'
 import { loadConfigSection } from '../config'
 import type { Source } from '../types'
+import { RedditComponent } from './component'
 import { createExpandCollapse } from './expand-collapse'
 import { createRedditEditor } from './editor'
 import { fetchReddit } from './fetcher'
@@ -78,6 +79,16 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
       await state.saveToStorage(runtime)
       return visible
     },
+    RenderComponent: ({ data, root, runtime }) => (
+      <RedditComponent
+        data={data}
+        root={root}
+        runtime={runtime}
+        state={state}
+        expandCollapse={expandCollapse}
+        authorTagMap={authorTagMap}
+      />
+    ),
     render(container, data, ctx) {
       renderReddit(
         container,

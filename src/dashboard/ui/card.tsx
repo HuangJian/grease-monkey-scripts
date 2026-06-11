@@ -34,17 +34,18 @@ export function Card<T>({
   onRefresh,
   onRevert,
 }: CardProps<T>) {
+  const Comp = source.RenderComponent
+  const data = (cached?.data ?? null) as T | null
+
   const bodyRef = useRef<HTMLDivElement | null>(null)
 
   useLayoutEffect(() => {
-    if (!bodyRef.current) return
-    const data = (cached?.data ?? null) as T | null
+    if (Comp || !bodyRef.current) return
     source.render(bodyRef.current, data, { root, runtime })
   })
 
   useLayoutEffect(() => {
-    if (!source.customizeHeader) return
-    const data = (cached?.data ?? null) as T | null
+    if (Comp || !source.customizeHeader) return
     const header = bodyRef.current?.closest('.gm-sp-card')?.querySelector('.gm-sp-card-title')
     if (header) source.customizeHeader(header as HTMLElement, data)
   })
@@ -59,11 +60,17 @@ export function Card<T>({
       title={<span class="gm-sp-card-title-text">{source.title}</span>}
       onRefresh={onRefresh}
       edit={buildEdit(source as unknown as Source<unknown>, onRevert)}
-      headerContent={source.headerContent}
-      hideDefaultHeader={source.hideDefaultHeader}
-      bodyRef={(el) => {
-        bodyRef.current = el
-      }}
-    />
+      headerContent={Comp ? undefined : source.headerContent}
+      hideDefaultHeader={Comp ? false : source.hideDefaultHeader}
+      bodyRef={
+        Comp
+          ? undefined
+          : (el) => {
+              bodyRef.current = el
+            }
+      }
+    >
+      {Comp ? <Comp data={data} root={root} runtime={runtime} /> : null}
+    </CardChrome>
   )
 }

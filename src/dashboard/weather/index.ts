@@ -17,5 +17,5 @@ export { buildAirQualityUrl, parseAirQuality, fetchAirQuality } from './air-qual
 export { parseWeather } from './parser'
 export { buildWeatherUrl, fetchWeather, fetchWeatherAll } from './api'
 export { requestJson, requestText } from './http'
-export { renderWeather, customizeWeatherHeader, remainingHours } from './render'
+export { renderWeather, customizeWeatherHeader } from './render'
 export { createWeatherEditor } from './editor'

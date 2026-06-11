@@ -71,15 +71,14 @@ describe('renderTnews', () => {
     const root = getRoot(dom)
     const li = root.querySelector<HTMLElement>('.gm-sp-list-item')!
     const row = li.querySelector<HTMLElement>('.gm-sp-tnews-row')!
-    const body = li.querySelector<HTMLElement>('.gm-sp-tnews-body')!
-    expect(body.hidden).toBe(true)
     expect(li.classList.contains('gm-sp-list-item-expanded')).toBe(false)
+    expect(root.querySelector('.gm-sp-tnews-body')).toBeNull()
     row.click()
-    expect(body.hidden).toBe(false)
+    expect(root.querySelector<HTMLElement>('.gm-sp-tnews-body')!.hidden).toBe(false)
     expect(li.classList.contains('gm-sp-list-item-expanded')).toBe(true)
     expect(state.isExpanded('https://t.me/a/1')).toBe(true)
     row.click()
-    expect(body.hidden).toBe(true)
+    expect(root.querySelector('.gm-sp-tnews-body')).toBeNull()
     expect(state.isExpanded('https://t.me/a/1')).toBe(false)
   })
 
@@ -211,7 +210,10 @@ describe('renderTnews', () => {
       }),
     ]
     renderTnews(getRoot(dom), items, state, runtime, NOW)
-    const body = getRoot(dom).querySelector<HTMLElement>('.gm-sp-tnews-body')!
+    const root = getRoot(dom)
+    const row = root.querySelector<HTMLElement>('.gm-sp-tnews-row')!
+    row.click()
+    const body = root.querySelector<HTMLElement>('.gm-sp-tnews-body')!
     expect(body.innerHTML).toContain('<p>safe body</p>')
     expect(body.innerHTML).toContain('src="https://x/i.png"')
   })
