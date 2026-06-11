@@ -30,6 +30,10 @@ function stripLeadingSymbols(s: string): string {
   return s.replace(/^[\p{S}\p{M}]+/u, '')
 }
 
+function stripImgSizeAttrs(html: string): string {
+  return html.replace(/\s+(?:width|height)="[^"]*"/gi, '')
+}
+
 function buildItemHtml(item: TnewsItem, state: TnewsState, now: number): string {
   const expanded = state.isExpanded(item.id)
   const readClass = state.isRead(item.id) ? ' gm-sp-item-read' : ''
@@ -42,7 +46,7 @@ function buildItemHtml(item: TnewsItem, state: TnewsState, now: number): string 
       <span class="gm-sp-tnews-title" title="${escapeAttr(titleText)}">${escapeText(titleText)}</span>
       <button type="button" class="gm-sp-item-hide" aria-label="hide">×</button>
     </span>
-    <div class="gm-sp-tnews-body"${expanded ? '' : ' hidden'}>${item.descriptionHtml}</div>
+    <div class="gm-sp-tnews-body"${expanded ? '' : ' hidden'}>${stripImgSizeAttrs(item.descriptionHtml)}</div>
   </li>`
 }
 

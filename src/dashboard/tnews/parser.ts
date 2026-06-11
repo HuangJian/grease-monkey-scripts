@@ -196,6 +196,10 @@ function sanitizeAttrs(el: Element, tag: string): void {
       }
     }
     if (tag === 'img') {
+      if (name === 'width' || name === 'height') {
+        el.removeAttribute(attr.name)
+        continue
+      }
       if (name === 'src' && DANGEROUS_HREF_PREFIXES.test(attr.value)) {
         el.removeAttribute(attr.name)
       }

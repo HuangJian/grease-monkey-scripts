@@ -128,15 +128,15 @@ describe('sanitizeHtml', () => {
     const out = sanitizeHtml('<p style="color:red">x</p>', parser)
     expect(out).toBe('<p>x</p>')
   })
-  test('keeps img src, alt, width, height; strips style', () => {
+  test('keeps img src and alt; strips width, height, style', () => {
     const out = sanitizeHtml(
       '<img src="https://x/a.jpg" width="100" height="50" style="border:0" alt="hi"/>',
       parser,
     )
     expect(out).toContain('src="https://x/a.jpg"')
     expect(out).toContain('alt="hi"')
-    expect(out).toContain('width="100"')
-    expect(out).toContain('height="50"')
+    expect(out).not.toContain('width=')
+    expect(out).not.toContain('height=')
     expect(out).not.toContain('style=')
   })
   test('removes javascript: and data: and vbscript: hrefs', () => {
@@ -171,10 +171,10 @@ describe('sanitizeHtml', () => {
     )
   })
 
-  test('keeps img width and height', () => {
+  test('strips img width and height', () => {
     const out = sanitizeHtml('<img src="https://x/a.jpg" width="200" height="100"/>', parser)
-    expect(out).toContain('width="200"')
-    expect(out).toContain('height="100"')
+    expect(out).not.toContain('width=')
+    expect(out).not.toContain('height=')
   })
 })
 
