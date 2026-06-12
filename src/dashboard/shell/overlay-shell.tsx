@@ -1,5 +1,4 @@
 import { useLayoutEffect } from 'preact/hooks'
-import { handleEscapeKey } from '../shortcut'
 
 export type OverlayShellProps = {
   root: ShadowRoot
@@ -10,8 +9,10 @@ export type OverlayShellProps = {
 export function OverlayShell({ root, document: doc, onClose }: OverlayShellProps) {
   useLayoutEffect(() => {
     const onKeydown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
       if (root.querySelector('.gm-sp-editor-dialog')) return
-      handleEscapeKey(e, root, onClose)
+      e.stopPropagation()
+      onClose()
     }
     const stopKeyboardLeak = (e: Event) => {
       const target = e.target as Element | null

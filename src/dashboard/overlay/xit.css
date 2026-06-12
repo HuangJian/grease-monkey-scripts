@@ -1,9 +1,3 @@
-.gm-sp-card-header-custom {
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-
 .gm-sp-xit-header-row {
   display: flex;
   align-items: center;
@@ -49,11 +43,6 @@
 .gm-sp-xit-header-search:focus {
   outline: none;
   border-color: #2563eb;
-}
-
-.gm-sp-card-header-custom .gm-sp-edit-icon {
-  display: inline-block;
-  transform: rotate(120deg);
 }
 
 .gm-sp-xit-header-filters {

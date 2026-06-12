@@ -97,6 +97,7 @@ export type SourceComponentProps<T> = {
   data: T | null
   root?: ShadowRoot
   runtime?: Runtime
+  onNotify?: () => void
 }
 
 export type Source<T> = {
@@ -107,8 +108,6 @@ export type Source<T> = {
   readonly groupId?: string
   readonly order?: number
   readonly getTabLabel?: (data: any) => TabLabel
-  readonly headerContent?: string
-  readonly hideDefaultHeader?: boolean
   readonly dialogTitle?: string
   /** If set, Card renders this instead of calling render() + customizeHeader() */
   readonly RenderComponent?: ComponentType<SourceComponentProps<any>>

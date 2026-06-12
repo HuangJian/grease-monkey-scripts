@@ -1,8 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 import { JSDOM } from 'jsdom'
-import { formatRelativeTime, renderCard } from '../../src/dashboard/overlay/render'
+import { render } from 'preact'
+import { h } from 'preact'
+import { formatRelativeTime } from '../../src/dashboard/card/chrome'
+import { RenderCard } from '../../src/dashboard/card/card'
 import type { Source } from '../../src/dashboard/types'
 import { CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/dashboard/types'
+import type { CardOptions } from '../../src/dashboard/card/card'
 import { createRuntime } from '../runtime'
 
 function stubSource(): Source<{ msg: string }> {
@@ -31,21 +35,26 @@ function suppressConsoleError(fn: () => void): void {
   }
 }
 
+function renderCard(container: HTMLElement, opts: CardOptions<unknown>): void {
+  container.dataset['source'] = opts.source.id
+  render(h(RenderCard, opts), container)
+}
+
 describe('formatRelativeTime', () => {
-  test('returns 从未更新 when null', () => {
-    expect(formatRelativeTime(null, 1_000_000)).toBe('从未更新')
+  test('returns \u4ECE\u672A\u66F4\u65B0 when null', () => {
+    expect(formatRelativeTime(null, 1_000_000)).toBe('\u4ECE\u672A\u66F4\u65B0')
   })
-  test('returns 刚刚 for < 1 min', () => {
-    expect(formatRelativeTime(1_000_000 - 30_000, 1_000_000)).toBe('刚刚')
+  test('returns \u521A\u521A for < 1 min', () => {
+    expect(formatRelativeTime(1_000_000 - 30_000, 1_000_000)).toBe('\u521A\u521A')
   })
-  test('returns N 分钟前 for minutes', () => {
-    expect(formatRelativeTime(1_000_000 - 5 * 60_000, 1_000_000)).toBe('5 分钟前')
+  test('returns N \u5206\u949F\u524D for minutes', () => {
+    expect(formatRelativeTime(1_000_000 - 5 * 60_000, 1_000_000)).toBe('5 \u5206\u949F\u524D')
   })
-  test('returns N 小时前 for hours', () => {
-    expect(formatRelativeTime(1_000_000 - 2 * 3_600_000, 1_000_000)).toBe('2 小时前')
+  test('returns N \u5C0F\u65F6\u524D for hours', () => {
+    expect(formatRelativeTime(1_000_000 - 2 * 3_600_000, 1_000_000)).toBe('2 \u5C0F\u65F6\u524D')
   })
-  test('returns N 天前 for days', () => {
-    expect(formatRelativeTime(1_000_000 - 3 * 86_400_000, 1_000_000)).toBe('3 天前')
+  test('returns N \u5929\u524D for days', () => {
+    expect(formatRelativeTime(1_000_000 - 3 * 86_400_000, 1_000_000)).toBe('3 \u5929\u524D')
   })
 })
 
@@ -92,7 +101,9 @@ describe('renderCard', () => {
       onRefresh: () => Promise.resolve(),
       onRevert: () => {},
     })
-    expect(container.querySelector('.gm-sp-card-stale')!.textContent).toBe('数据陈旧')
+    expect(container.querySelector('.gm-sp-card-stale')!.textContent).toBe(
+      '\u6570\u636E\u9648\u65E7',
+    )
   })
 
   test('shows error block when cached.error is set', () => {

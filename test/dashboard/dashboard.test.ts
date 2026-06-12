@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { JSDOM } from 'jsdom'
-import { createDashboard, isHostAllowed } from '../../src/dashboard/dashboard'
+import { createDashboard, isHostAllowed } from '../../src/dashboard/app'
 import { DEFAULT_CONFIG, validateConfig } from '../../src/dashboard/config'
-import { getMountedRoot } from '../../src/dashboard/overlay/mount'
+import { getMountedRoot } from '../../src/dashboard/shell/mount'
 import {
   CACHE_KEY,
   CACHE_SCHEMA_VERSION,

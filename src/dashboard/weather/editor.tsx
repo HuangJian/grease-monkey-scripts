@@ -1,14 +1,10 @@
+import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { render } from 'preact'
-import type { Runtime } from '../../runtime'
 import { escapeHtml } from '../../utils'
 import { loadConfigSection, validateConfig } from '../config'
-import { bindChipList, bindErrorBox, saveConfigSection } from '../editor-helpers'
-import type { SourceEditor, SourceEditorResult } from '../types'
+import { saveConfigSection } from '../editor-helpers'
+import type { SourceEditor, SourceEditorContext, SourceEditorResult } from '../types'
 import type { WeatherCity, WeatherSourceOptions } from './types'
-
-export function createWeatherEditor(options: WeatherSourceOptions): SourceEditor {
-  return (container, ctx) => renderWeatherEditor(container, options, ctx)
-}
 
 function coerceWeatherOptions(
   raw: Record<string, unknown>,
@@ -23,8 +19,8 @@ function coerceWeatherOptions(
   }
 }
 
-async function loadFreshWeatherOptions(
-  runtime: Runtime,
+async function loadFreshOptions(
+  runtime: import('../../runtime').Runtime,
   fallback: WeatherSourceOptions,
 ): Promise<WeatherSourceOptions> {
   return loadConfigSection(runtime, 'weather', fallback, (raw) =>
@@ -32,124 +28,183 @@ async function loadFreshWeatherOptions(
   )
 }
 
-async function renderWeatherEditor(
-  container: HTMLElement,
-  options: WeatherSourceOptions,
-  ctx: { runtime: Runtime; onRevert: () => void; close: () => void },
-): Promise<SourceEditorResult> {
-  const fresh = await loadFreshWeatherOptions(ctx.runtime, options)
+type WeatherEditorFormProps = {
+  fresh: WeatherSourceOptions
+  ctx: SourceEditorContext
+  handleRef: { current: SourceEditorResult | null }
+}
 
-  const cities: WeatherCity[] = fresh.cities.map((c) => ({ ...c }))
+function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
+  const [cities, setCities] = useState<WeatherCity[]>(() => fresh.cities.map((c) => ({ ...c })))
+  const [error, setError] = useState('')
+  const labelRef = useRef<HTMLInputElement>(null)
+  const cmaRef = useRef<HTMLInputElement>(null)
+  const latRef = useRef<HTMLInputElement>(null)
+  const lonRef = useRef<HTMLInputElement>(null)
 
-  render(
+  const handleAdd = useCallback(() => {
+    setError('')
+    const label = labelRef.current?.value.trim()
+    const cma = cmaRef.current?.value.trim()
+    const lat = Number(latRef.current?.value)
+    const lon = Number(lonRef.current?.value)
+    if (!label) {
+      setError('请输入城市名')
+      return
+    }
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      setError('经纬度必须是有限数字')
+      return
+    }
+    if (cma && !/^\d{5}$/.test(cma)) {
+      setError('CMA 站点 ID 必须是 5 位数字')
+      return
+    }
+    const city: WeatherCity = cma
+      ? { cityLabel: label, latitude: lat, longitude: lon, cmaStationId: cma }
+      : { cityLabel: label, latitude: lat, longitude: lon }
+    setCities((prev) => [...prev, city])
+    if (labelRef.current) labelRef.current.value = ''
+    if (cmaRef.current) cmaRef.current.value = ''
+    if (latRef.current) latRef.current.value = ''
+    if (lonRef.current) lonRef.current.value = ''
+  }, [])
+
+  const handleAddKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        handleAdd()
+      }
+    },
+    [handleAdd],
+  )
+
+  const removeCity = useCallback((i: number) => {
+    setCities((prev) => prev.filter((_, j) => j !== i))
+  }, [])
+
+  useLayoutEffect(() => {
+    handleRef.current = {
+      render() {},
+      save() {
+        setError('')
+        if (cities.length === 0) {
+          setError('至少保留一个城市')
+          return
+        }
+        void saveConfigSection({
+          runtime: ctx.runtime,
+          sectionKey: 'weather',
+          section: { cities, ttlMinutes: fresh.ttlMinutes } satisfies WeatherSourceOptions,
+          validate: validateConfig,
+          onError: (msg) => setError(msg),
+          onSuccess: () => ctx.close(),
+        })
+      },
+      cancel() {
+        ctx.close()
+      },
+    }
+  }, [cities])
+
+  return (
     <div class="gm-sp-editor">
-      <div class="gm-sp-editor-list" />
+      <div class="gm-sp-editor-list">
+        {cities.length === 0 ? (
+          <div class="gm-sp-editor-empty">尚未添加城市</div>
+        ) : (
+          cities.map((city, i) => (
+            <div class="gm-sp-editor-item" key={i}>
+              <span class="gm-sp-editor-item-label">{escapeHtml(city.cityLabel)}</span>
+              <span class="gm-sp-editor-item-coord">
+                {city.latitude.toFixed(4)}, {city.longitude.toFixed(4)}
+              </span>
+              {city.cmaStationId && (
+                <span class="gm-sp-editor-item-cma">CMA {escapeHtml(city.cmaStationId)}</span>
+              )}
+              <button
+                type="button"
+                class="gm-sp-item-remove"
+                aria-label="remove"
+                onClick={() => removeCity(i)}
+              >
+                ×
+              </button>
+            </div>
+          ))
+        )}
+      </div>
       <div class="gm-sp-editor-form">
         <label class="gm-sp-editor-row">
           <span>城市名</span>
-          <input type="text" class="gm-sp-input gm-sp-we-city-label" placeholder="北京" />
+          <input
+            ref={labelRef}
+            type="text"
+            class="gm-sp-input gm-sp-we-city-label"
+            placeholder="北京"
+            onKeyDown={handleAddKeyDown}
+          />
         </label>
         <label class="gm-sp-editor-row">
           <span>CMA 站点 ID</span>
           <input
+            ref={cmaRef}
             type="text"
             inputmode="numeric"
             pattern="\d{5}"
             class="gm-sp-input gm-sp-we-cma"
             placeholder="54511（可选）"
+            onKeyDown={handleAddKeyDown}
           />
         </label>
         <label class="gm-sp-editor-row">
           <span>纬度</span>
-          <input type="number" step="any" class="gm-sp-input gm-sp-we-lat" placeholder="39.9042" />
+          <input
+            ref={latRef}
+            type="number"
+            step="any"
+            class="gm-sp-input gm-sp-we-lat"
+            placeholder="39.9042"
+            onKeyDown={handleAddKeyDown}
+          />
         </label>
         <label class="gm-sp-editor-row">
           <span>经度</span>
-          <input type="number" step="any" class="gm-sp-input gm-sp-we-lon" placeholder="116.4074" />
+          <input
+            ref={lonRef}
+            type="number"
+            step="any"
+            class="gm-sp-input gm-sp-we-lon"
+            placeholder="116.4074"
+            onKeyDown={handleAddKeyDown}
+          />
         </label>
-        <button type="button" class="gm-sp-btn gm-sp-editor-btn" data-action="add">
+        <button
+          type="button"
+          class="gm-sp-btn gm-sp-editor-btn"
+          data-action="add"
+          onClick={handleAdd}
+        >
           添加城市
         </button>
       </div>
-      <div class="gm-sp-editor-error" hidden />
-    </div>,
-    container,
+      <div class="gm-sp-editor-error" hidden={!error}>
+        {error}
+      </div>
+    </div>
   )
+}
 
-  const listEl = container.querySelector('.gm-sp-editor-list') as HTMLDivElement
-  const labelInput = container.querySelector('.gm-sp-we-city-label') as HTMLInputElement
-  const latInput = container.querySelector('.gm-sp-we-lat') as HTMLInputElement
-  const lonInput = container.querySelector('.gm-sp-we-lon') as HTMLInputElement
-  const cmaInput = container.querySelector('.gm-sp-we-cma') as HTMLInputElement
-  const addBtn = container.querySelector('[data-action="add"]') as HTMLButtonElement
-  const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
-
-  const error = bindErrorBox(errorEl)
-
-  const chipList = bindChipList<WeatherCity>({
-    listEl,
-    addBtn,
-    inputs: [labelInput, cmaInput],
-    getItems: () => cities,
-    setItems: (next) => {
-      cities.length = 0
-      cities.push(...next)
-    },
-    renderChip: (city, i) => {
-      const coord = `${city.latitude.toFixed(4)}, ${city.longitude.toFixed(4)}`
-      const cma = city.cmaStationId ? `CMA ${escapeHtml(city.cmaStationId)}` : ''
-      return `<div class="gm-sp-editor-item" data-index="${i}">
-          <span class="gm-sp-editor-item-label">${escapeHtml(city.cityLabel)}</span>
-          <span class="gm-sp-editor-item-coord">${coord}</span>
-          <span class="gm-sp-editor-item-cma">${cma}</span>
-          <button type="button" class="gm-sp-item-remove" aria-label="remove">×</button>
-        </div>`
-    },
-    removeSelector: '.gm-sp-item-remove',
-    tryAdd: () => {
-      const cityLabel = labelInput.value.trim()
-      const lat = Number(latInput.value)
-      const lon = Number(lonInput.value)
-      const cmaStationId = cmaInput.value.trim()
-      if (!cityLabel) return { ok: false, error: '请输入城市名' }
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-        return { ok: false, error: '经纬度必须是有限数字' }
-      }
-      if (cmaStationId && !/^\d{5}$/.test(cmaStationId)) {
-        return { ok: false, error: 'CMA 站点 ID 必须是 5 位数字' }
-      }
-      const city: WeatherCity = cmaStationId
-        ? { cityLabel, latitude: lat, longitude: lon, cmaStationId }
-        : { cityLabel, latitude: lat, longitude: lon }
-      return { ok: true, item: city }
-    },
-    showError: (msg) => error.show(msg),
-    clearError: () => error.clear(),
-    emptyText: '尚未添加城市',
-    emptyClass: 'gm-sp-editor-empty',
-  })
-
-  chipList.render()
-
-  return {
-    render() {},
-    cancel() {
-      ctx.close()
-    },
-    save() {
-      error.clear()
-      if (cities.length === 0) {
-        error.show('至少保留一个城市')
-        return
-      }
-      void saveConfigSection({
-        runtime: ctx.runtime,
-        sectionKey: 'weather',
-        section: { cities, ttlMinutes: fresh.ttlMinutes },
-        validate: validateConfig,
-        onError: (msg) => error.show(msg),
-        onSuccess: () => ctx.close(),
-      })
-    },
+export function createWeatherEditor(options: WeatherSourceOptions): SourceEditor {
+  return async (container, ctx): Promise<SourceEditorResult> => {
+    const fresh = await loadFreshOptions(ctx.runtime, options)
+    const handleRef: { current: SourceEditorResult | null } = { current: null }
+    render(<WeatherEditorForm fresh={fresh} ctx={ctx} handleRef={handleRef} />, container)
+    return {
+      render: () => handleRef.current?.render?.(),
+      save: () => handleRef.current?.save?.(),
+      cancel: () => handleRef.current?.cancel?.(),
+    }
   }
 }

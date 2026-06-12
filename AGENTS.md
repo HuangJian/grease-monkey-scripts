@@ -132,7 +132,11 @@ test/
 
 src/<script-name>/
   index.user.ts     Userscript metadata and startup entry.
-  app.ts            Testable behavior, DOM logic, and script-specific types.
+  app/              Orchestration: lifecycle, group rendering, refresh, config.
+  card/             Card chrome, tabs, render entry points.
+  shell/            Overlay shell, mount, editor dialog.
+  types.ts          Script-specific types.
+  <feature>/        Feature modules (tnews, xit, weather, novels, ...).
 
 test/<script-name>/
   *.test.ts         Bun tests, usually with jsdom for DOM behavior.
@@ -145,8 +149,17 @@ Keep `index.user.ts` thin. It should contain the userscript metadata block and
 call into testable modules. Keep direct access to `window`, `document`, `GM.*`,
 `GM_xmlhttpRequest`, `prompt`, and `location` inside the runtime adapter.
 
-Types that are used by a single script live in that script's `app.ts`.
+Types that are used by a single script live in that script's `types.ts`.
 Shared types (`Runtime`, `RequestDetails`) live in `src/runtime.ts`.
+
+Simple scripts that don't need subdirectories can stay flat:
+
+```text
+src/<script-name>/
+  index.user.ts     Userscript metadata and startup entry.
+  index.ts          Orchestration and testable behavior.
+  types.ts          Script-specific types.
+```
 
 ### Build Rules
 
@@ -178,9 +191,10 @@ Shared types (`Runtime`, `RequestDetails`) live in `src/runtime.ts`.
 
 Userscripts run inside pages owned by other sites. Be conservative:
 
-- Preserve native site handlers. Use `addEventListener` when augmenting
-  behavior; avoid overwriting `onclick`, `onmousedown`, or similar properties
-  unless replacing behavior is explicitly intended.
+- Preserve native site handlers. Use `addEventListener` when augmenting native
+  site elements; avoid overwriting `onclick`, `onmousedown`, or similar properties
+  unless replacing behavior is explicitly intended. Within script-owned Preact
+  trees, use Preact event props (`onClick`, `onInput`) instead.
 - Avoid duplicating real DOM nodes with the same `id`.
 - When showing repeated or secondary content, prefer lightweight references or
   read-only clones that remove `id` attributes and script-owned controls.
@@ -219,6 +233,10 @@ test suite depend on live network availability.
 
 #### Code Style
 
+- **Preact event props within Preact trees.** Use `onClick`, `onInput`, `onKeyDown`,
+  `onScroll` instead of `addEventListener`. Only use native `addEventListener` for
+  document-level events (escape key, pointer tracking) or when augmenting native
+  site handlers.
 - **`addEventListener` over `onclick`/`onmousedown`** to preserve native site
   handlers.
 - **`textContent` over `innerHTML`** when matching visible text.
@@ -260,6 +278,37 @@ test suite depend on live network availability.
 - **Prefix debug output** with a stable tag like `[gm-dashboard]` (or
   `[gm-<script>]`) so it can be filtered in DevTools and so a leftover line is
   easy to attribute.
+
+#### Preact-native Pattern
+
+All UI code uses Preact components and hooks. Avoid imperative DOM construction
+(`createContextualFragment`, `createElement`, `innerHTML`, `querySelector` after
+render) in favor of JSX, `useRef`, `useState`, and Preact event props.
+
+**Principles:**
+
+- **JSX for DOM construction.** Use JSX templates instead of `createContextualFragment`
+  or `createElement` chains. Only fall back to `insertAdjacentHTML` outside Preact
+  trees (e.g. when augmenting native site DOM).
+- **`useRef` for DOM refs.** Attach `ref={ref}` to elements instead of `querySelector`
+  after render.
+- **`useState` for mutable data.** Lists, fields, errors live in `useState`. Mutate
+  via `setState`, never via `.push()` / `.splice()` on mutable arrays.
+- **Preact event props.** `onClick`, `onInput`, `onKeyDown`, `onScroll` instead of
+  `addEventListener`. Only use native `addEventListener` for document-level events
+  (escape key, pointer tracking) or when augmenting native site handlers.
+- **`useLayoutEffect` + `handleRef`** for exposing imperative APIs from components
+  to factory callers. The ref is populated synchronously during `render()`, so the
+  factory can read `handleRef.current!` immediately after render returns.
+- **`useLayoutEffect` cleanup** for document-level event listeners or side effects.
+  Return a cleanup function that removes the listener.
+- **Event delegation.** Use `onClick` on parent elements with
+  `e.target === e.currentTarget` for backdrop/overlay click handling.
+- **`data-action` attributes for test selectors.** Add `data-action="add"`,
+  `data-action="add-feed"` etc. on buttons so tests can find them without coupling
+  to class names.
+- **Keep class names stable.** Preserve existing CSS class names and structure —
+  tests and styles depend on them.
 
 #### Dependency Direction
 

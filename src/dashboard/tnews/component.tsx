@@ -1,5 +1,5 @@
-import { useRef, useState } from 'preact/hooks'
-import { formatRelativeTime } from '../overlay/card-chrome'
+import { useState } from 'preact/hooks'
+import { formatRelativeTime } from '../card/chrome'
 import type { SourceComponentProps } from '../types'
 import type { TnewsState } from './state'
 import type { TnewsItem } from './types'
@@ -40,23 +40,16 @@ export type TnewsComponentProps = SourceComponentProps<TnewsItem[]> & {
   now: number
 }
 
-export function TnewsComponent({ data, runtime, state, now }: TnewsComponentProps) {
-  const rootRef = useRef<HTMLDivElement>(null)
+export function TnewsComponent({
+  data,
+  runtime,
+  state,
+  now,
+  onNotify: notify,
+}: TnewsComponentProps) {
   const [, forceUpdate] = useState(0)
 
   const items = data ?? []
-
-  function updateBadge() {
-    const card = rootRef.current?.closest('.gm-sp-card')
-    if (!card) return
-    const badge = card.querySelector<HTMLElement>(
-      '.gm-sp-tab[data-tab-id="tnews"] .gm-sp-tab-badge',
-    )
-    if (!badge) return
-    const unread = items.filter((it) => !state.isRead(it.id)).length
-    badge.textContent = String(unread)
-    badge.hidden = unread === 0
-  }
 
   function handleRowClick(item: TnewsItem) {
     state.markRead(item.id)
@@ -68,7 +61,7 @@ export function TnewsComponent({ data, runtime, state, now }: TnewsComponentProp
     }
     state.toggleExpanded(item.id)
     if (runtime) void state.saveToStorage(runtime)
-    updateBadge()
+    notify?.()
     forceUpdate((n) => n + 1)
   }
 
@@ -83,14 +76,14 @@ export function TnewsComponent({ data, runtime, state, now }: TnewsComponentProp
 
   if (items.length === 0) {
     return (
-      <div class="gm-sp-tnews" ref={rootRef}>
+      <div class="gm-sp-tnews">
         <div class="gm-sp-empty">暂无数据</div>
       </div>
     )
   }
 
   return (
-    <div class="gm-sp-tnews" ref={rootRef}>
+    <div class="gm-sp-tnews">
       <ol class="gm-sp-list">
         {items.map((item) => {
           if (state.isHidden(item.id)) return null

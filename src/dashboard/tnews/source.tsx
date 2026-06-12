@@ -25,9 +25,7 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 1,
-    RenderComponent: ({ data, root, runtime }) => (
-      <TnewsComponent data={data} root={root} runtime={runtime} state={state} now={Date.now()} />
-    ),
+    RenderComponent: (props) => <TnewsComponent {...props} state={state} now={Date.now()} />,
     getTabLabel(data) {
       return tnewsTabLabel(data, state)
     },

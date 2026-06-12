@@ -8,7 +8,7 @@ import { editConfig } from './config-editor'
 import { mountDashboard } from './lifecycle'
 import { bootstrapShortcut } from './shortcut-bootstrap'
 import { bootstrapSync } from './sync-bootstrap'
-import type { OverlayHandle } from '../overlay/mount'
+import type { OverlayHandle } from '../shell/mount'
 
 export { isHostAllowed } from './host-allowlist'
 

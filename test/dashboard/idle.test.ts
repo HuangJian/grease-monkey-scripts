@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { JSDOM } from 'jsdom'
-import { createDashboard } from '../../src/dashboard/dashboard'
+import { createDashboard } from '../../src/dashboard/app'
 import { DEFAULT_CONFIG } from '../../src/dashboard/config'
 import { CACHE_KEY, CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/dashboard/types'
 import { createRuntime, type TestRuntime } from '../runtime'

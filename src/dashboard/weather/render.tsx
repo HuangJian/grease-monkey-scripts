@@ -13,7 +13,6 @@ export function renderWeather(container: HTMLElement, data: WeatherData | null):
 function renderPanels(data: WeatherData | null, idx: number): void {
   const container = bodyEl
   if (!container) return
-  render(null, container)
   const entries = data?.entries ?? []
   if (entries.length === 0) {
     render(
@@ -32,14 +31,15 @@ export function customizeWeatherHeader(
   data: WeatherData | null,
 ): void {
   titleEl = titleContainer
-  renderTabs(titleContainer, data, 0)
+  renderTabs(data, 0)
 }
 
-function renderTabs(titleContainer: HTMLElement, data: WeatherData | null, idx: number): void {
+function renderTabs(data: WeatherData | null, idx: number): void {
+  const container = titleEl
+  if (!container) return
   const entries = data?.entries ?? []
-  render(null, titleContainer)
   if (entries.length === 0) {
-    titleContainer.textContent = '天气'
+    container.textContent = '天气'
     return
   }
   render(
@@ -47,19 +47,10 @@ function renderTabs(titleContainer: HTMLElement, data: WeatherData | null, idx: 
       entries={entries}
       activeIndex={idx}
       onTabChange={(i: number) => {
-        if (bodyEl) {
-          bodyEl.querySelectorAll<HTMLElement>('.gm-sp-panel').forEach((p, j) => {
-            p.classList.toggle('gm-sp-panel-active', j === i)
-          })
-        }
-        if (titleEl) {
-          titleEl.querySelectorAll<HTMLElement>('.gm-sp-tab').forEach((t, j) => {
-            t.classList.toggle('gm-sp-tab-active', j === i)
-            t.setAttribute('aria-selected', String(j === i))
-          })
-        }
+        renderPanels(data, i)
+        renderTabs(data, i)
       }}
     />,
-    titleContainer,
+    container,
   )
 }

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { JSDOM } from 'jsdom'
-import { mountOverlay, getMountedRoot } from '../../src/dashboard/overlay/mount'
+import { mountOverlay, getMountedRoot } from '../../src/dashboard/shell/mount'
 import { createRuntime, type TestRuntime } from '../runtime'
 
 function makeDom(): JSDOM {

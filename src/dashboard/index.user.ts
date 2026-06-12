@@ -35,7 +35,7 @@
 //   1. 在上方 @connect 区添加对应 hostname
 //   2. 在「编辑仪表盘配置」中把镜像 hostname 加到 tnews.mirrors 数组
 
-import { startDashboard } from './dashboard'
+import { startDashboard } from './app'
 import { createBrowserRuntime } from '../runtime'
 
 void startDashboard(createBrowserRuntime())

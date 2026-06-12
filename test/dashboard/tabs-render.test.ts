@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { JSDOM } from 'jsdom'
-import { renderTabsCard } from '../../src/dashboard/overlay/tabs-render'
+import { render } from 'preact'
+import { h } from 'preact'
+import { TabsCard } from '../../src/dashboard/card/tabs-card'
 import type { CardGroup } from '../../src/dashboard/card-group'
 import { CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/dashboard/types'
 import { createRuntime } from '../runtime'
@@ -62,26 +64,30 @@ function renderOnce(opts: {
   let tabChanges: string[] = []
   let refreshes: string[] = []
   let edits: string[] = []
-  renderTabsCard(opts.container, {
-    group: opts.group,
-    caches: opts.caches,
-    now: opts.now ?? 1_000_000,
-    runtime: opts.runtime,
-    root: opts.root,
-    activeTabId: opts.activeTabId,
-    onTabChange: (id) => {
-      tabChanges.push(id)
-      opts.onTabChange?.(id)
-    },
-    onRefresh: async (id) => {
-      refreshes.push(id)
-      await opts.onRefresh?.(id)
-    },
-    onEdit: (id) => {
-      edits.push(id)
-      opts.onEdit?.(id)
-    },
-  })
+  opts.container.dataset['source'] = opts.group.id
+  render(
+    h(TabsCard, {
+      group: opts.group,
+      caches: opts.caches,
+      now: opts.now ?? 1_000_000,
+      runtime: opts.runtime,
+      root: opts.root,
+      activeTabId: opts.activeTabId,
+      onTabChange: (id) => {
+        tabChanges.push(id)
+        opts.onTabChange?.(id)
+      },
+      onRefresh: async (id) => {
+        refreshes.push(id)
+        await opts.onRefresh?.(id)
+      },
+      onEdit: (id) => {
+        edits.push(id)
+        opts.onEdit?.(id)
+      },
+    }),
+    opts.container,
+  )
   return { tabChanges, refreshes, edits }
 }
 
@@ -246,17 +252,21 @@ describe('renderTabsCard', () => {
     const group: CardGroup = browseGroup([v2ex, novels])
     renderOnce({ container, runtime, root, group, caches: new Map(), activeTabId: 'v2ex' })
     expect(container.querySelector('.gm-sp-edit')).toBeNull()
-    renderTabsCard(container, {
-      group,
-      caches: new Map(),
-      now: 1_000_000,
-      runtime,
-      root,
-      activeTabId: 'novels',
-      onTabChange: () => {},
-      onRefresh: async () => {},
-      onEdit: () => {},
-    })
+    container.dataset['source'] = group.id
+    render(
+      h(TabsCard, {
+        group,
+        caches: new Map(),
+        now: 1_000_000,
+        runtime,
+        root,
+        activeTabId: 'novels',
+        onTabChange: () => {},
+        onRefresh: async () => {},
+        onEdit: () => {},
+      }),
+      container,
+    )
     expect(container.querySelector('.gm-sp-edit')).not.toBeNull()
   })
 

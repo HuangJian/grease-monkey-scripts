@@ -1,13 +1,13 @@
-import type { Runtime } from '../../runtime'
-import { mountOverlay, type OverlayHandle } from '../overlay/mount'
-import type { CardGroup } from '../card-group'
-import type { CachedSource } from '../types'
-import { renderCard } from '../overlay/render'
-import { renderTabsCard } from '../overlay/tabs-render'
-import { isTabsGroup } from './group-renderer'
 import { render } from 'preact'
 import { h } from 'preact'
-import { OverlayShell } from '../overlay/overlay-shell'
+import type { Runtime } from '../../runtime'
+import { mountOverlay, type OverlayHandle } from '../shell/mount'
+import type { CardGroup } from '../card-group'
+import type { CachedSource } from '../types'
+import { RenderCard } from '../card/card'
+import { TabsCard } from '../card/tabs-card'
+import { isTabsGroup } from './group-renderer'
+import { OverlayShell } from '../shell/overlay-shell'
 
 export type MountDeps = {
   runtime: Runtime
@@ -51,34 +51,42 @@ export function mountDashboard(deps: MountDeps): OverlayHandle {
       const activeTabId = deps.activeTabByGroup.get(group.id) ?? group.tabs[0]!.id
       const emptyCaches = new Map<string, CachedSource<unknown> | null>()
       for (const tab of group.tabs) emptyCaches.set(tab.id, null)
-      renderTabsCard(card, {
-        group,
-        caches: emptyCaches,
-        now,
-        runtime: deps.runtime,
-        root: newHandle.root,
-        activeTabId,
-        onTabChange: (tabId) => {
-          deps.activeTabByGroup.set(group.id, tabId)
-          deps.renderGroupById(group.id)
-        },
-        onRefresh: (sourceId) => deps.dashboard.refreshSource(sourceId),
-        onEdit: (sourceId) => {
-          deps.renderGroupById(deps.groupForSource.get(sourceId)?.id ?? group.id)
-        },
-      })
+      card.dataset['source'] = group.id
+      render(
+        h(TabsCard, {
+          group,
+          caches: emptyCaches,
+          now,
+          runtime: deps.runtime,
+          root: newHandle.root,
+          activeTabId,
+          onTabChange: (tabId) => {
+            deps.activeTabByGroup.set(group.id, tabId)
+            deps.renderGroupById(group.id)
+          },
+          onRefresh: (sourceId) => deps.dashboard.refreshSource(sourceId),
+          onEdit: (sourceId) => {
+            deps.renderGroupById(deps.groupForSource.get(sourceId)?.id ?? group.id)
+          },
+        }),
+        card,
+      )
     } else {
       const source = group.tabs[0]!
-      renderCard(card, {
-        source,
-        cached: null,
-        ttlMs: source.ttlMs,
-        now,
-        runtime: deps.runtime,
-        root: newHandle.root,
-        onRefresh: () => deps.dashboard.refreshSource(source.id),
-        onRevert: () => deps.renderGroupById(group.id),
-      })
+      card.dataset['source'] = source.id
+      render(
+        h(RenderCard, {
+          source,
+          cached: null,
+          ttlMs: source.ttlMs,
+          now,
+          runtime: deps.runtime,
+          root: newHandle.root,
+          onRefresh: () => deps.dashboard.refreshSource(source.id),
+          onRevert: () => deps.renderGroupById(group.id),
+        }),
+        card,
+      )
     }
   }
   return newHandle

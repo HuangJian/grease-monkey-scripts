@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 import { escapeHtml } from '../../utils'
 import type { SourceComponentProps } from '../types'
-import { showEditorDialog } from '../overlay/editor'
+import { showEditorDialog } from '../shell/editor'
 import { createXitEditor, setPendingLineIndex } from './editor'
 import {
   loadFilters,
@@ -336,21 +336,21 @@ function ListContent({
   lines: XitLine[]
   openEditor?: (lineIndex?: number) => void
 }) {
-  const listRef = useRef<HTMLDivElement>(null)
+  function handleDblClick(e: MouseEvent) {
+    const item = (e.target as HTMLElement).closest('.gm-sp-xit-item') as HTMLElement | null
+    if (item) {
+      const idx = Number(item.dataset['lineIndex'])
+      if (!Number.isNaN(idx)) openEditor?.(idx)
+    }
+  }
 
-  useEffect(() => {
-    if (!listRef.current) return
-    listRef.current.querySelectorAll<HTMLElement>('.gm-sp-xit-item').forEach((itemEl) => {
-      itemEl.addEventListener('dblclick', () => {
-        const idx = Number(itemEl.dataset['lineIndex'])
-        if (!Number.isNaN(idx) && openEditor) {
-          openEditor(idx)
-        }
-      })
-    })
-  })
-
-  return <div ref={listRef} dangerouslySetInnerHTML={{ __html: linesToHtml(lines) }} />
+  return (
+    <div
+      class="gm-sp-xit-list"
+      onDblClick={handleDblClick}
+      dangerouslySetInnerHTML={{ __html: linesToHtml(lines) }}
+    />
+  )
 }
 
 function SaveForm({

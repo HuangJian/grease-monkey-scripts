@@ -1,10 +1,12 @@
+import { render } from 'preact'
+import { h } from 'preact'
 import type { Runtime } from '../../runtime'
 import { loadCache } from '../cache'
 import type { CachedSource } from '../types'
 import type { CardGroup } from '../card-group'
-import { renderCard } from '../overlay/render'
-import { renderTabsCard } from '../overlay/tabs-render'
-import type { OverlayHandle } from '../overlay/mount'
+import { RenderCard } from '../card/card'
+import { TabsCard } from '../card/tabs-card'
+import type { OverlayHandle } from '../shell/mount'
 
 export type GroupRendererDeps = {
   runtime: Runtime
@@ -47,40 +49,48 @@ export async function renderGroup(
   const caches = await readGroupCaches(deps.runtime, group)
   const activeTabId = deps.activeTabByGroup.get(group.id) ?? group.tabs[0]!.id
   if (isTabsGroup(group)) {
-    renderTabsCard(card, {
-      group,
-      caches,
-      now: Date.now(),
-      runtime: deps.runtime,
-      root,
-      activeTabId,
-      onTabChange: (tabId) => {
-        deps.activeTabByGroup.set(group.id, tabId)
-        void renderGroupById(group.id, groupById, groupForSource, deps)
-      },
-      onRefresh: (sourceId) => deps.refreshSource(sourceId),
-      onEdit: (sourceId) => {
-        void renderGroupById(
-          groupForSource.get(sourceId)?.id ?? group.id,
-          groupById,
-          groupForSource,
-          deps,
-        )
-      },
-    })
+    card.dataset['source'] = group.id
+    render(
+      h(TabsCard, {
+        group,
+        caches,
+        now: Date.now(),
+        runtime: deps.runtime,
+        root,
+        activeTabId,
+        onTabChange: (tabId) => {
+          deps.activeTabByGroup.set(group.id, tabId)
+          void renderGroupById(group.id, groupById, groupForSource, deps)
+        },
+        onRefresh: (sourceId) => deps.refreshSource(sourceId),
+        onEdit: (sourceId) => {
+          void renderGroupById(
+            groupForSource.get(sourceId)?.id ?? group.id,
+            groupById,
+            groupForSource,
+            deps,
+          )
+        },
+      }),
+      card,
+    )
   } else {
     const source = group.tabs[0]!
     const cached = caches.get(source.id) ?? null
-    renderCard(card, {
-      source,
-      cached,
-      ttlMs: source.ttlMs,
-      now: Date.now(),
-      runtime: deps.runtime,
-      root,
-      onRefresh: () => deps.refreshSource(source.id),
-      onRevert: () => deps.revertGroup(group.id),
-    })
+    card.dataset['source'] = source.id
+    render(
+      h(RenderCard, {
+        source,
+        cached,
+        ttlMs: source.ttlMs,
+        now: Date.now(),
+        runtime: deps.runtime,
+        root,
+        onRefresh: () => deps.refreshSource(source.id),
+        onRevert: () => deps.revertGroup(group.id),
+      }),
+      card,
+    )
   }
 }
 
