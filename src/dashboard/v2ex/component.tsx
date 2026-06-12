@@ -6,21 +6,26 @@ import type { SourceComponentProps } from '../types'
 import type { V2exState } from './state'
 import type { V2exTopic } from './types'
 
-const DATE_OPTIONS = ['全部', '今天', '昨天', '前天'] as const
-type DateFilter = (typeof DATE_OPTIONS)[number]
+const DATE_OPTIONS = ['全', '今', '昨', '前', '早'] as const
+export type DateFilter = (typeof DATE_OPTIONS)[number]
 
-function dateFilterBounds(filter: DateFilter, now: number): { start: number; end?: number } | null {
-  if (filter === '全部') return null
+function dateFilterBounds(
+  filter: DateFilter,
+  now: number,
+): { start?: number; end?: number } | null {
+  if (filter === '全') return null
   const todayStart = new Date(now)
   todayStart.setUTCHours(0, 0, 0, 0)
   const ts = todayStart.getTime()
   switch (filter) {
-    case '今天':
+    case '今':
       return { start: ts }
-    case '昨天':
+    case '昨':
       return { start: ts - 86400000, end: ts }
-    case '前天':
+    case '前':
       return { start: ts - 172800000, end: ts - 86400000 }
+    case '早':
+      return { end: ts - 172800000 }
     default:
       return null
   }
@@ -31,7 +36,7 @@ function applyDateFilter(data: V2exTopic[] | null, filter: DateFilter): V2exTopi
   if (!bounds || !data) return data
   return data.filter((t) => {
     if (t.created === undefined) return false
-    if (t.created < bounds.start) return false
+    if (bounds.start !== undefined && t.created < bounds.start) return false
     if (bounds.end !== undefined && t.created >= bounds.end) return false
     return true
   })
@@ -67,17 +72,15 @@ export type V2exDateFilterProps = {
 export function V2exDateFilter({ dateFilter, onChange }: V2exDateFilterProps) {
   return (
     <div class="gm-sp-date-filter">
-      <select
-        class="gm-sp-date-filter-select"
-        value={dateFilter}
-        onChange={(e) => onChange((e.target as HTMLSelectElement).value as DateFilter)}
-      >
-        {DATE_OPTIONS.map((opt) => (
-          <option value={opt} selected={opt === dateFilter}>
-            {opt}
-          </option>
-        ))}
-      </select>
+      {DATE_OPTIONS.map((opt) => (
+        <button
+          type="button"
+          class={`gm-sp-date-filter-btn${dateFilter === opt ? ' gm-sp-date-filter-btn-active' : ''}`}
+          onClick={() => onChange(opt)}
+        >
+          {opt}
+        </button>
+      ))}
     </div>
   )
 }

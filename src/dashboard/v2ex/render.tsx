@@ -19,7 +19,7 @@ export function renderV2ex(
       state={state}
       runtime={runtime!}
       authorTagMap={authorTagMap}
-      dateFilter="全部"
+      dateFilter="全"
     />,
     container,
   )
