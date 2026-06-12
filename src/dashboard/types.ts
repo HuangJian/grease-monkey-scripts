@@ -1,4 +1,4 @@
-import type { ComponentType } from 'preact'
+import type { ComponentType, VNode } from 'preact'
 import type { Runtime } from '../runtime'
 
 export const KEY_PREFIX = 'dashboard:v1'
@@ -122,7 +122,7 @@ export type Source<T> = {
   readonly groupId?: string
   readonly order?: number
   readonly getTabLabel?: (data: any) => TabLabel
-  readonly dialogTitle?: string
+  readonly dialogTitle?: string | VNode
   readonly hideHeaderActions?: boolean
   readonly RenderHeader?: ComponentType<SourceHeaderProps<any>>
   readonly RenderComponent?: ComponentType<SourceComponentProps<any>>

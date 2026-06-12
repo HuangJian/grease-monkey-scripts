@@ -55,8 +55,11 @@ export function createXitSource(
     placement,
     headerState,
     hideHeaderActions: true,
-    dialogTitle:
-      '<a href="https://xit.jotaen.net/" target="_blank" rel="noopener">[x]it! 语法规范</a>',
+    dialogTitle: (
+      <a href="https://xit.jotaen.net/" target="_blank" rel="noopener">
+        [x]it! 语法规范
+      </a>
+    ),
     RenderHeader: (props: SourceHeaderProps<XitData>) => (
       <XitHeaderControls
         {...props}

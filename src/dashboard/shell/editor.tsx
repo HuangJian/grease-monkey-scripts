@@ -4,11 +4,12 @@ import type { SourceEditorResult } from '../types'
 import { handleEscapeKey } from '../shortcut'
 import { render } from 'preact'
 import { h } from 'preact'
+import type { VNode } from 'preact'
 
 type EditorDialogProps = {
   document: Document
   root: ShadowRoot
-  title: string
+  title: string | VNode
   onClose: () => void
   renderEditor: (
     container: HTMLElement,
@@ -54,7 +55,12 @@ function EditorDialog({ document, root, title, onClose, renderEditor }: EditorDi
     >
       <div class="gm-sp-editor-dialog-panel" ref={panelRef} tabIndex={-1}>
         <div class="gm-sp-editor-dialog-header">
-          <span class="gm-sp-editor-dialog-title">{title}</span>
+          <span
+            class="gm-sp-editor-dialog-title"
+            {...(typeof title === 'string' ? { dangerouslySetInnerHTML: { __html: title } } : {})}
+          >
+            {typeof title !== 'string' ? title : undefined}
+          </span>
           <div class="gm-sp-editor-dialog-actions">
             <button
               type="button"
@@ -85,7 +91,7 @@ function EditorDialog({ document, root, title, onClose, renderEditor }: EditorDi
 export function showEditorDialog(
   document: Document,
   root: ShadowRoot,
-  title: string,
+  title: string | VNode,
   _runtime: Runtime,
   renderEditor: (
     container: HTMLElement,

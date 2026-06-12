@@ -348,7 +348,9 @@ export function XitBody({
       showEditorDialog(
         document,
         root,
-        '<a href="https://xit.jotaen.net/" target="_blank" rel="noopener">[x]it! 语法规范</a>',
+        <a href="https://xit.jotaen.net/" target="_blank" rel="noopener">
+          [x]it! 语法规范
+        </a>,
         runtime,
         async (dialogBody, dialogClose) => {
           const editor = createXitEditor()
