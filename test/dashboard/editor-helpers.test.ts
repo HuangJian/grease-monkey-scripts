@@ -1,24 +1,17 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
 import { bindChipList, readNumberFields } from '../../src/dashboard/editor-helpers'
 
-function makeDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
-    url: 'https://example.com/',
-  })
-}
-
-let document: Document
 let root: HTMLElement
 
 beforeEach(() => {
-  const d = makeDom()
-  document = d.window.document
-  root = document.getElementById('root')!
+  root = document.createElement('div')
+  root.id = 'root'
+  document.body.appendChild(root)
 })
 
 afterEach(() => {
   root.replaceChildren()
+  root.remove()
 })
 
 describe('readNumberFields', () => {

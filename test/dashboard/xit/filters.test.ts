@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from 'bun:test'
-import { createDom, createRuntime, type TestRuntime } from '../../runtime'
+import { createRuntime, type TestRuntime } from '../../runtime'
 import {
   loadFilters,
   addFilter,
@@ -11,8 +11,7 @@ import {
 import type { NamedFilterStore } from '../../../src/dashboard/xit/types'
 
 function setup() {
-  const dom = createDom('<div></div>')
-  const runtime = createRuntime(dom)
+  const runtime = createRuntime()
   return { runtime }
 }
 

@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
 import { createV2exEditor } from '../../../../src/dashboard/v2ex/editor'
 import type { V2exSourceOptions } from '../../../../src/dashboard/v2ex/types'
 import { CONFIG_KEY } from '../../../../src/dashboard/types'
@@ -12,10 +11,6 @@ const DEFAULTS: V2exSourceOptions = {
   elbowDropRatio: 0.4,
   minReplies: 5,
   ageHalfLifeDays: 2,
-}
-
-function makeDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><head></head><body></body></html>')
 }
 
 async function mount(
@@ -34,19 +29,17 @@ async function mount(
 }
 
 describe('createV2exEditor', () => {
-  let dom: JSDOM
   let runtime: TestRuntime
   let container: HTMLElement
 
   beforeEach(() => {
-    dom = makeDom()
-    runtime = createRuntime(dom)
-    container = dom.window.document.createElement('div')
-    dom.window.document.body.appendChild(container)
+    runtime = createRuntime()
+    container = document.createElement('div')
+    document.body.appendChild(container)
   })
 
   afterEach(() => {
-    dom.window.document.body.innerHTML = ''
+    document.body.innerHTML = ''
   })
 
   test('cancel calls close', async () => {

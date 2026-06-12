@@ -1,22 +1,18 @@
 import { describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createTnewsSource } from '../../../../src/dashboard/tnews/source'
 import { validateConfig } from '../../../../src/dashboard/config'
 import type { RequestDetails } from '../../../../src/runtime'
-import { createRuntime, type TestRuntime } from '../../../runtime'
+import { createRuntime, XmlDOMParser, type TestRuntime } from '../../../runtime'
 
 function loadFixture(): string {
   return readFileSync(join(import.meta.dir, '..', '..', 'fixtures', 'tnews-sample.xml'), 'utf8')
 }
 
-function makeDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><body></body></html>')
-}
-
-function makeRuntime(dom: JSDOM, handler: (d: RequestDetails) => void): TestRuntime {
-  const base = createRuntime(dom)
+function makeRuntime(handler: (d: RequestDetails) => void): TestRuntime {
+  const base = createRuntime()
+  base.DOMParser = XmlDOMParser
   return { ...base, request: (d: RequestDetails) => handler(d) }
 }
 
@@ -42,8 +38,7 @@ describe('createTnewsSource.fetch', () => {
   test('uses feeds/mirrors from CONFIG_KEY when present, not closure options', async () => {
     const fixture = loadFixture()
     const fetched: string[] = []
-    const dom = makeDom()
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       fetched.push(d.url)
       d.onload({ responseText: fixture, status: 200 })
     })
@@ -58,8 +53,7 @@ describe('createTnewsSource.fetch', () => {
   test('falls back to closure options when CONFIG_KEY has no tnews', async () => {
     const fixture = loadFixture()
     const fetched: string[] = []
-    const dom = makeDom()
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       fetched.push(d.url)
       d.onload({ responseText: fixture, status: 200 })
     })
@@ -79,8 +73,7 @@ describe('createTnewsSource.fetch', () => {
       <pubDate>${new Date(now - 30 * 60 * 1000).toUTCString()}</pubDate>
       <description><![CDATA[<p>newer version</p>]]></description></item>
     </channel></rss>`
-    const dom = makeDom()
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       d.onload({ responseText: freshXml, status: 200 })
     })
     const { source, state } = createTnewsSource(DEFAULT_OPTS)
@@ -123,8 +116,7 @@ describe('createTnewsSource.fetch', () => {
       <pubDate>${new Date(Date.now() - 1 * 3600 * 1000).toUTCString()}</pubDate>
       <description><![CDATA[<p>new</p>]]></description></item>
     </channel></rss>`
-    const dom = makeDom()
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       d.onload({
         responseText: d.url.includes('x/') ? oldXml : recentXml,
         status: 200,

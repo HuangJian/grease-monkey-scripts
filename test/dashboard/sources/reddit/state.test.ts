@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
 import { CACHE_KEY, CACHE_SCHEMA_VERSION, type CachedSource } from '../../../../src/dashboard/types'
 import { createRedditState, type RedditState } from '../../../../src/dashboard/reddit/state'
 import type { RedditPost, StoredHistoryPost } from '../../../../src/dashboard/reddit/types'
@@ -8,10 +7,6 @@ import { createRuntime, type TestRuntime } from '../../../runtime'
 const TOPIC_STATE_TTL_MS = 72 * 60 * 60 * 1000
 const HISTORY_TTL_MS = 72 * 60 * 60 * 1000
 const NOW = Date.now() - 60_000
-
-function makeDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><body></body></html>')
-}
 
 function makePost(over: Partial<RedditPost>): RedditPost {
   return {
@@ -46,7 +41,7 @@ describe('createRedditState', () => {
   let state: RedditState
 
   beforeEach(() => {
-    runtime = createRuntime(makeDom())
+    runtime = createRuntime()
     state = createRedditState()
   })
 

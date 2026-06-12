@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
+import { within } from '@testing-library/preact'
 import { createV2exSource } from '../../../../src/dashboard/v2ex/source'
 import type { V2exSourceOptions, V2exTopic } from '../../../../src/dashboard/v2ex/types'
 import type { RequestDetails } from '../../../../src/runtime'
@@ -13,12 +13,6 @@ const DEFAULTS: V2exSourceOptions = {
   elbowDropRatio: 0.4,
   minReplies: 5,
   ageHalfLifeDays: 2,
-}
-
-function makeDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><body></body></html>', {
-    url: 'https://www.v2ex.com/',
-  })
 }
 
 describe('createV2exSource', () => {
@@ -43,8 +37,8 @@ describe('createV2exSource', () => {
   })
 
   test('render does not throw and renders items', () => {
-    const dom = makeDom()
-    const container = dom.window.document.createElement('div')
+    const container = document.createElement('div')
+    document.body.appendChild(container)
     const source = createV2exSource(DEFAULTS)
     const data: V2exTopic[] = [
       {
@@ -58,13 +52,12 @@ describe('createV2exSource', () => {
       },
     ]
     source.render(container, data)
-    expect(container.querySelectorAll('.gm-sp-list-item')).toHaveLength(1)
+    expect(within(container).getAllByRole('listitem')).toHaveLength(1)
   })
 
   test('fetch wires fetcher + state and returns visible topics', async () => {
-    const dom = makeDom()
     const runtime: TestRuntime = {
-      ...createRuntime(dom),
+      ...createRuntime(),
       request: (d: RequestDetails) => {
         if (d.url.includes('hot.json')) {
           d.onload({ responseText: '[]' })
@@ -81,9 +74,8 @@ describe('createV2exSource', () => {
   })
 
   test('fetch drops hidden topics from the result', async () => {
-    const dom = makeDom()
     const runtime: TestRuntime = {
-      ...createRuntime(dom),
+      ...createRuntime(),
       request: (d: RequestDetails) => {
         if (d.url.includes('hot.json')) {
           d.onload({

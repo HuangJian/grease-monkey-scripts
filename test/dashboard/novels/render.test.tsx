@@ -1,15 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
+import { cleanup, within } from '@testing-library/preact'
 import { renderNovels } from '../../../src/dashboard/novels/render'
 import type { NovelBook, NovelData } from '../../../src/dashboard/novels/types'
 // oxlint-disable-next-line no-unassigned-import
 import '../../runtime'
-
-function dom(): JSDOM {
-  return new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
-    url: 'https://example.com/',
-  })
-}
 
 function chapter(url: string, title: string, postedAt?: number) {
   return postedAt != null ? { url, title, postedAt } : { url, title }
@@ -26,18 +20,18 @@ function book(
 }
 
 let root: HTMLElement
-let document: Document
 let markedSeen: string[]
 
 beforeEach(() => {
-  const d = dom()
-  document = d.window.document
-  globalThis.document = document
-  root = document.getElementById('root')!
+  globalThis.location.href = 'https://example.com/'
+  root = document.createElement('div')
+  root.id = 'root'
+  document.body.appendChild(root)
   markedSeen = []
 })
 
 afterEach(() => {
+  cleanup()
   root.replaceChildren()
 })
 
@@ -52,12 +46,12 @@ function ctx() {
 describe('renderNovels', () => {
   test('empty data shows empty state', () => {
     renderNovels(root, null, ctx())
-    expect(root.textContent).toContain('尚未添加小说')
+    expect(within(root).getByText(/尚未添加小说/)).not.toBeNull()
   })
 
   test('empty books array shows empty state', () => {
     renderNovels(root, { books: [] }, ctx())
-    expect(root.textContent).toContain('尚未添加小说')
+    expect(within(root).getByText(/尚未添加小说/)).not.toBeNull()
   })
 
   test('book with new chapters lists them and triggers markSeen on click', () => {
@@ -75,9 +69,9 @@ describe('renderNovels', () => {
       ],
     }
     renderNovels(root, data, ctx())
-    const items = root.querySelectorAll('.gm-sp-novels-chapter')
+    const items = within(root).getAllByRole('listitem')
     expect(items.length).toBe(2)
-    const link = items[0]!.querySelector('a.gm-sp-novels-chapter-link') as HTMLAnchorElement
+    const link = within(items[0]!).getByRole('link') as HTMLAnchorElement
     expect(link.href).toBe('https://www.sudugu.org/166/c2.html')
     link.click()
     expect(markedSeen).toEqual(['https://www.sudugu.org/166/'])
@@ -100,16 +94,12 @@ describe('renderNovels', () => {
       ],
     }
     renderNovels(root, data, ctx())
-    const status = root.querySelector('.gm-sp-novels-book-status')!
-    expect(status.textContent).toBe('无更新')
-    const readItems = root.querySelectorAll('.gm-sp-novels-chapter')
+    expect(within(root).getByText('无更新')).not.toBeNull()
+    const readItems = within(root).getAllByRole('listitem')
     expect(readItems.length).toBe(1)
-    expect(readItems[0]!.querySelector('.gm-sp-novels-chapter-time')!.textContent).toContain(
-      '【已读】',
-    )
-    expect(readItems[0]!.querySelector('.gm-sp-novels-chapter-title')!.textContent).not.toContain(
-      '【已读】',
-    )
+    expect(within(readItems[0]!).getByText(/已读/)).not.toBeNull()
+    const titleEl = within(readItems[0]!).getByText('第2章') as HTMLElement
+    expect(titleEl.textContent).not.toContain('【已读】')
   })
 
   test('book with more than 5 new chapters starts folded and expands on click', () => {
@@ -127,9 +117,9 @@ describe('renderNovels', () => {
       ],
     }
     renderNovels(root, data, ctx())
-    const list = root.querySelector('.gm-sp-list')!
+    const list = within(root).getByRole('list')
     expect(list.classList.contains('gm-sp-novels-chapters-folded')).toBe(true)
-    const toggle = root.querySelector('.gm-sp-novels-book-toggle') as HTMLButtonElement
+    const toggle = within(root).getByRole('button', { name: /章未读/ }) as HTMLButtonElement
     expect(toggle.textContent).toContain('6')
     toggle.click()
     expect(list.classList.contains('gm-sp-novels-chapters-folded')).toBe(false)
@@ -151,8 +141,8 @@ describe('renderNovels', () => {
       ],
     }
     renderNovels(root, data, ctx())
-    expect(root.querySelector('.gm-sp-novels-book-toggle')).toBeNull()
-    expect(root.querySelectorAll('.gm-sp-novels-chapter').length).toBe(5)
+    expect(within(root).queryByRole('button', { name: /章未读/ })).toBeNull()
+    expect(within(root).getAllByRole('listitem').length).toBe(5)
   })
 
   test('chapter without postedAt shows "刚刚更新"', () => {
@@ -167,8 +157,7 @@ describe('renderNovels', () => {
       ],
     }
     renderNovels(root, data, ctx())
-    const time = root.querySelector('.gm-sp-novels-chapter-time')!
-    expect(time.textContent).toBe('刚刚更新')
+    expect(within(root).getByText('刚刚更新')).not.toBeNull()
   })
 
   test('unknown site shows warning and is not clickable as chapter', () => {
@@ -184,11 +173,9 @@ describe('renderNovels', () => {
       ],
     }
     renderNovels(root, data, ctx())
-    const block = root.querySelector('.gm-sp-novels-book-unknown')!
-    expect(block).not.toBeNull()
-    expect(root.querySelector('.gm-sp-novels-book-error')!.textContent).toBe('未知站点，暂不支持')
-    expect(root.querySelector('.gm-sp-novels-book-status')!.textContent).toBe('未知站点')
-    expect(root.querySelectorAll('.gm-sp-novels-chapter').length).toBe(0)
+    expect(within(root).getByText('未知站点')).not.toBeNull()
+    expect(within(root).getByText('未知站点，暂不支持')).not.toBeNull()
+    expect(within(root).queryAllByRole('listitem').length).toBe(0)
   })
 
   test('first-time failure shows error note', () => {
@@ -204,8 +191,8 @@ describe('renderNovels', () => {
       ],
     }
     renderNovels(root, data, ctx())
-    expect(root.querySelector('.gm-sp-novels-book-status')!.textContent).toBe('加载失败')
-    expect(root.querySelector('.gm-sp-novels-book-error')!.textContent).toBe('network error')
+    expect(within(root).getByText('加载失败')).not.toBeNull()
+    expect(within(root).getByText('network error')).not.toBeNull()
   })
 
   test('refresh failure with prev chapters shows chapter count and error note', () => {
@@ -222,10 +209,9 @@ describe('renderNovels', () => {
       ],
     }
     renderNovels(root, data, ctx())
-    expect(root.querySelector('.gm-sp-novels-book-status')!.textContent).toBe('1 章新')
-    expect(root.querySelectorAll('.gm-sp-novels-chapter').length).toBe(1)
-    const err = root.querySelector('.gm-sp-novels-book-error') as HTMLElement
-    expect(err.textContent).toContain('timeout')
+    expect(within(root).getByText('1 章新')).not.toBeNull()
+    expect(within(root).getAllByRole('listitem').length).toBe(1)
+    expect(within(root).getByText(/timeout/)).not.toBeNull()
   })
 
   test('read books appear after unread books', () => {
@@ -250,10 +236,10 @@ describe('renderNovels', () => {
       ],
     }
     renderNovels(root, data, ctx())
-    const blocks = root.querySelectorAll('.gm-sp-novels-book')
-    expect(blocks.length).toBe(2)
-    expect(blocks[0]!.querySelector('.gm-sp-novels-book-title')!.textContent).toBe('有更新')
-    expect(blocks[1]!.querySelector('.gm-sp-novels-book-title')!.textContent).toBe('已读完')
+    const titles = within(root).getAllByRole('link', { name: /(?:有更新|已读完)/ })
+    expect(titles.length).toBe(2)
+    expect(titles[0]!.textContent).toBe('有更新')
+    expect(titles[1]!.textContent).toBe('已读完')
   })
 
   test('clicking any chapter link marks the book as seen', () => {
@@ -273,10 +259,10 @@ describe('renderNovels', () => {
       ],
     }
     renderNovels(root, data, ctx())
-    const links = root.querySelectorAll<HTMLAnchorElement>('a.gm-sp-novels-chapter-link')
-    expect(links.length).toBe(2)
-    links[0]!.click()
-    links[1]!.click()
+    const items = within(root).getAllByRole('listitem')
+    expect(items.length).toBe(2)
+    within(items[0]!).getByRole('link').click()
+    within(items[1]!).getByRole('link').click()
     expect(markedSeen).toEqual(['https://www.sudugu.org/166/', 'https://www.sudugu.org/166/'])
   })
 })

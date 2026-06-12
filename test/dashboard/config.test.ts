@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
 import {
   DEFAULT_CONFIG,
   deepMerge,
@@ -63,14 +62,12 @@ describe('deepMerge', () => {
 
 describe('loadConfig', () => {
   test('returns DEFAULT_CONFIG when nothing stored', async () => {
-    const dom = new JSDOM('<html></html>')
-    const runtime = createRuntime(dom)
+    const runtime = createRuntime()
     const cfg = await loadConfig(runtime)
     expect(cfg).toEqual(DEFAULT_CONFIG)
   })
   test('merges user override with defaults', async () => {
-    const dom = new JSDOM('<html></html>')
-    const runtime = createRuntime(dom)
+    const runtime = createRuntime()
     runtime.stores[CONFIG_KEY] = {
       weather: { cities: [{ latitude: 31.2, longitude: 121.5, cityLabel: 'SH' }] },
     }
@@ -90,35 +87,30 @@ describe('loadConfigSection', () => {
   })
 
   test('returns fallback when nothing stored', async () => {
-    const dom = new JSDOM('<html></html>')
-    const runtime = createRuntime(dom)
+    const runtime = createRuntime()
     const out = await loadConfigSection(runtime, 'v2ex', fallback, coerce)
     expect(out).toEqual(fallback)
   })
   test('returns fallback when section key is missing', async () => {
-    const dom = new JSDOM('<html></html>')
-    const runtime = createRuntime(dom)
+    const runtime = createRuntime()
     runtime.stores[CONFIG_KEY] = { weather: {} }
     const out = await loadConfigSection(runtime, 'v2ex', fallback, coerce)
     expect(out).toEqual(fallback)
   })
   test('returns fallback when section is not a plain object', async () => {
-    const dom = new JSDOM('<html></html>')
-    const runtime = createRuntime(dom)
+    const runtime = createRuntime()
     runtime.stores[CONFIG_KEY] = { v2ex: [1, 2, 3] }
     const out = await loadConfigSection(runtime, 'v2ex', fallback, coerce)
     expect(out).toEqual(fallback)
   })
   test('passes section through coerce and returns coerced result', async () => {
-    const dom = new JSDOM('<html></html>')
-    const runtime = createRuntime(dom)
+    const runtime = createRuntime()
     runtime.stores[CONFIG_KEY] = { v2ex: { minItems: 5, maxItems: 50, extra: 'ignored' } }
     const out = await loadConfigSection(runtime, 'v2ex', fallback, coerce)
     expect(out).toEqual({ minItems: 5, maxItems: 50 })
   })
   test('returns fallback when runtime.getValue throws', async () => {
-    const dom = new JSDOM('<html></html>')
-    const base = createRuntime(dom)
+    const base = createRuntime()
     const failingRuntime = { ...base, getValue: () => Promise.reject(new Error('boom')) }
     const out = await loadConfigSection(failingRuntime as never, 'v2ex', fallback, coerce)
     expect(out).toEqual(fallback)
@@ -127,19 +119,16 @@ describe('loadConfigSection', () => {
 
 describe('cache load/save', () => {
   test('loadCache returns null for missing data', async () => {
-    const dom = new JSDOM('<html></html>')
-    const runtime = createRuntime(dom)
+    const runtime = createRuntime()
     expect(await loadCache<unknown>(runtime, 'v2ex')).toBeNull()
   })
   test('loadCache returns null for malformed entries', async () => {
-    const dom = new JSDOM('<html></html>')
-    const runtime = createRuntime(dom)
+    const runtime = createRuntime()
     runtime.stores[CACHE_KEY('v2ex')] = { data: 'x' }
     expect(await loadCache<unknown>(runtime, 'v2ex')).toBeNull()
   })
   test('loadCache returns null when schemaVersion is missing or mismatched', async () => {
-    const dom = new JSDOM('<html></html>')
-    const runtime = createRuntime(dom)
+    const runtime = createRuntime()
     runtime.stores[CACHE_KEY('v2ex')] = { fetchedAt: 1234 }
     expect(await loadCache<unknown>(runtime, 'v2ex')).toBeNull()
     runtime.stores[CACHE_KEY('v2ex')] = {
@@ -149,8 +138,7 @@ describe('cache load/save', () => {
     expect(await loadCache<unknown>(runtime, 'v2ex')).toBeNull()
   })
   test('saveCache then loadCache round-trips with schemaVersion + byteSize', async () => {
-    const dom = new JSDOM('<html></html>')
-    const runtime = createRuntime(dom)
+    const runtime = createRuntime()
     const result = await saveCache<{ a: number }>(runtime, 'v2ex', {
       data: { a: 1 },
       fetchedAt: 1234,
@@ -164,8 +152,7 @@ describe('cache load/save', () => {
     expect(loaded!.fetchedAt).toBe(1234)
   })
   test('saveCache writes payloads of any size', async () => {
-    const dom = new JSDOM('<html></html>')
-    const runtime = createRuntime(dom)
+    const runtime = createRuntime()
     const big = 'x'.repeat(60 * 1024)
     const result = await saveCache<{ s: string }>(runtime, 'v2ex', {
       data: { s: big },

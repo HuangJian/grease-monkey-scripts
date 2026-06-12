@@ -1,9 +1,13 @@
-import { JSDOM } from 'jsdom'
 import type { Runtime, ValueChangeListener } from '../src/runtime'
+import { JSDOM } from 'jsdom'
 
 // Make Preact state updates synchronous in tests
 import { options as preactOptions } from 'preact'
 preactOptions.debounceRendering = (fn: () => void) => fn()
+
+// happy-dom's DOMParser can't parse XML with CDATA sections (RSS feeds).
+// Provide a JSDOM-based DOMParser class for tests that parse XML.
+export const XmlDOMParser = new JSDOM('').window.DOMParser as typeof DOMParser
 
 export function createDom(html: string, url = 'https://www.v2ex.com/t/123'): JSDOM {
   return new JSDOM(html, { url })
@@ -31,9 +35,11 @@ if (
   }
 }
 
-export function createRuntime(dom: JSDOM): TestRuntime {
-  // Preact needs global document for DOM element creation
-  globalThis.document = dom.window.document as unknown as Document
+export function createRuntime(dom?: JSDOM): TestRuntime {
+  const doc = dom?.window.document ?? globalThis.document
+  const loc = dom?.window.location ?? globalThis.location
+  const DOMParserCtor = dom?.window.DOMParser ?? globalThis.DOMParser
+  const MutationObs = dom?.window.MutationObserver ?? globalThis.MutationObserver
   const stores: Record<string, unknown> = {}
   const listeners: Map<string, ValueChangeListener[]> = new Map()
   const menuCommands: MenuCommand[] = []
@@ -42,10 +48,10 @@ export function createRuntime(dom: JSDOM): TestRuntime {
   let lastRequest: TestRuntime['lastRequest'] = null
   let nextId = 1
   const runtime: TestRuntime = {
-    document: dom.window.document,
-    location: dom.window.location,
-    DOMParser: dom.window.DOMParser,
-    MutationObserver: dom.window.MutationObserver,
+    document: doc,
+    location: loc,
+    DOMParser: DOMParserCtor,
+    MutationObserver: MutationObs,
     stores,
     listeners,
     menuCommands,

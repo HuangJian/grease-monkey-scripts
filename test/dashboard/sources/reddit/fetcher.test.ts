@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fetchReddit } from '../../../../src/dashboard/reddit/fetcher'
@@ -25,12 +24,6 @@ function defaultRedditOpts(over: Partial<RedditSourceOptions> = {}): RedditSourc
   }
 }
 
-function makeDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><body></body></html>', {
-    url: 'https://www.v2ex.com/',
-  })
-}
-
 function loadFixture(): unknown {
   const text = readFileSync(
     join(import.meta.dir, '..', '..', 'fixtures', 'reddit-popular.json'),
@@ -39,17 +32,16 @@ function loadFixture(): unknown {
   return JSON.parse(text)
 }
 
-function makeRuntime(dom: JSDOM, handler: (d: RequestDetails) => void): Runtime {
-  const base = createRuntime(dom)
+function makeRuntime(handler: (d: RequestDetails) => void): Runtime {
+  const base = createRuntime()
   return { ...base, request: (d: RequestDetails) => handler(d) }
 }
 
 describe('fetchReddit', () => {
   test('fetches one sub, returns per-sub result', async () => {
-    const dom = makeDom()
     const json = loadFixture()
     const calls: RequestDetails[] = []
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       calls.push(d)
       d.onload({ responseText: JSON.stringify(json) })
     })
@@ -61,10 +53,9 @@ describe('fetchReddit', () => {
     expect(calls[0]!.url).toContain('/r/popular/hot.json')
   })
   test('sends custom User-Agent and forwards session cookies (anonymous: false)', async () => {
-    const dom = makeDom()
     const json = loadFixture()
     let captured: RequestDetails | undefined
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       captured = d
       d.onload({ responseText: JSON.stringify(json) })
     })
@@ -73,7 +64,6 @@ describe('fetchReddit', () => {
     expect(captured!.headers?.['User-Agent']).toMatch(/^web:grease-monkey-dashboard:/)
   })
   test('fetches multiple subs in parallel and returns separate buckets per sub', async () => {
-    const dom = makeDom()
     const popular = {
       data: {
         children: [
@@ -110,7 +100,7 @@ describe('fetchReddit', () => {
         ],
       },
     }
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       if (d.url.includes('/r/funny/')) {
         d.onload({ responseText: JSON.stringify(funny) })
       } else {
@@ -127,9 +117,8 @@ describe('fetchReddit', () => {
     expect(bySub.get('funny')![0]!.id).toBe('funny1')
   })
   test('parser populates created field on parsed posts', async () => {
-    const dom = makeDom()
     const json = loadFixture()
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       d.onload({ responseText: JSON.stringify(json) })
     })
     const result = await fetchReddit(runtime, defaultRedditOpts())
@@ -141,9 +130,8 @@ describe('fetchReddit', () => {
     }
   })
   test('single sub failure: returns posts from successful sub, no throw', async () => {
-    const dom = makeDom()
     const json = loadFixture()
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       if (d.url.includes('/r/askscience/')) d.onerror?.()
       else d.onload({ responseText: JSON.stringify(json) })
     })
@@ -156,17 +144,15 @@ describe('fetchReddit', () => {
     expect(result.partialErrors.some((e) => e.includes('askscience'))).toBe(true)
   })
   test('all subs fail: throws aggregate error', async () => {
-    const dom = makeDom()
-    const runtime = makeRuntime(dom, (d) => d.onerror?.())
+    const runtime = makeRuntime((d) => d.onerror?.())
     await expect(
       fetchReddit(runtime, defaultRedditOpts({ subreddits: ['a', 'b'] })),
     ).rejects.toThrow(/all subs failed/)
   })
   test('429 first call with Retry-After triggers one retry', async () => {
-    const dom = makeDom()
     const json = loadFixture()
     let calls = 0
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       calls++
       if (calls === 1) {
         d.onload({ responseText: '', status: 429, responseHeaders: 'retry-after: 0' })
@@ -179,16 +165,14 @@ describe('fetchReddit', () => {
     expect(result.posts[0]!.posts.length).toBeGreaterThan(0)
   })
   test('429 on both attempts on same host: throws http 429', async () => {
-    const dom = makeDom()
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       d.onload({ responseText: '', status: 429, responseHeaders: 'retry-after: 0' })
     })
     await expect(fetchReddit(runtime, defaultRedditOpts())).rejects.toThrow(/http 429/)
   })
   test('http 500 on first call: no retry, throws', async () => {
-    const dom = makeDom()
     let calls = 0
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       calls++
       d.onload({ responseText: '', status: 500 })
     })
@@ -196,10 +180,9 @@ describe('fetchReddit', () => {
     expect(calls).toBe(1)
   })
   test('normalizes subreddit names before fetching', async () => {
-    const dom = makeDom()
     const json = loadFixture()
     const urls: string[] = []
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       urls.push(d.url)
       d.onload({ responseText: JSON.stringify(json) })
     })
@@ -209,10 +192,9 @@ describe('fetchReddit', () => {
     expect(urls).toHaveLength(2)
   })
   test('dedupes repeated sub names in config', async () => {
-    const dom = makeDom()
     const json = loadFixture()
     const urls: string[] = []
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       urls.push(d.url)
       d.onload({ responseText: JSON.stringify(json) })
     })
@@ -223,10 +205,9 @@ describe('fetchReddit', () => {
     expect(urls).toHaveLength(1)
   })
   test('falls back to www.reddit.com when old.reddit.com returns 403', async () => {
-    const dom = makeDom()
     const json = loadFixture()
     const urls: string[] = []
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       urls.push(d.url)
       if (d.url.includes('old.reddit.com')) {
         d.onload({ responseText: '', status: 403 })
@@ -241,8 +222,7 @@ describe('fetchReddit', () => {
     expect(urls[1]).toContain('www.reddit.com')
   })
   test('both hosts 403: throws http 403', async () => {
-    const dom = makeDom()
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       d.onload({ responseText: '', status: 403 })
     })
     await expect(fetchReddit(runtime, defaultRedditOpts())).rejects.toThrow(/http 403/)

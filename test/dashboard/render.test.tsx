@@ -1,7 +1,7 @@
-import { describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
-import { render } from 'preact'
-import { h } from 'preact'
+import { describe, expect, test, afterEach } from 'bun:test'
+import { render, cleanup, within } from '@testing-library/preact'
+
+afterEach(cleanup)
 import { formatRelativeTime } from '../../src/dashboard/card/chrome'
 import { RenderCard } from '../../src/dashboard/card/card'
 import type { Source } from '../../src/dashboard/types'
@@ -35,111 +35,97 @@ function suppressConsoleError(fn: () => void): void {
   }
 }
 
-function renderCard(container: HTMLElement, opts: CardOptions<unknown>): void {
-  container.dataset['source'] = opts.source.id
-  render(h(RenderCard, opts), container)
+function renderCard(opts: CardOptions<unknown>): HTMLElement {
+  const { container } = render(<RenderCard {...(opts as CardOptions<unknown>)} />)
+  const el = container as unknown as HTMLElement
+  el.dataset['source'] = opts.source.id
+  return el
 }
 
 describe('formatRelativeTime', () => {
-  test('returns \u4ECE\u672A\u66F4\u65B0 when null', () => {
-    expect(formatRelativeTime(null, 1_000_000)).toBe('\u4ECE\u672A\u66F4\u65B0')
+  test('returns 从未更新 when null', () => {
+    expect(formatRelativeTime(null, 1_000_000)).toBe('从未更新')
   })
-  test('returns \u521A\u521A for < 1 min', () => {
-    expect(formatRelativeTime(1_000_000 - 30_000, 1_000_000)).toBe('\u521A\u521A')
+  test('returns 刚刚 for < 1 min', () => {
+    expect(formatRelativeTime(1_000_000 - 30_000, 1_000_000)).toBe('刚刚')
   })
-  test('returns N \u5206\u949F\u524D for minutes', () => {
-    expect(formatRelativeTime(1_000_000 - 5 * 60_000, 1_000_000)).toBe('5 \u5206\u949F\u524D')
+  test('returns N 分钟前 for minutes', () => {
+    expect(formatRelativeTime(1_000_000 - 5 * 60_000, 1_000_000)).toBe('5 分钟前')
   })
-  test('returns N \u5C0F\u65F6\u524D for hours', () => {
-    expect(formatRelativeTime(1_000_000 - 2 * 3_600_000, 1_000_000)).toBe('2 \u5C0F\u65F6\u524D')
+  test('returns N 小时前 for hours', () => {
+    expect(formatRelativeTime(1_000_000 - 2 * 3_600_000, 1_000_000)).toBe('2 小时前')
   })
-  test('returns N \u5929\u524D for days', () => {
-    expect(formatRelativeTime(1_000_000 - 3 * 86_400_000, 1_000_000)).toBe('3 \u5929\u524D')
+  test('returns N 天前 for days', () => {
+    expect(formatRelativeTime(1_000_000 - 3 * 86_400_000, 1_000_000)).toBe('3 天前')
   })
 })
 
 describe('renderCard', () => {
-  function setup() {
-    const dom = new JSDOM('<html><body><div id="c"></div></body></html>')
-    const container = dom.window.document.getElementById('c') as HTMLElement
-    const runtime = createRuntime(dom)
-    const root = dom.window.document.createElement('div') as unknown as ShadowRoot
-    return { dom, container, runtime, root }
-  }
-
   test('renders title, data, and never shows badge for fresh data', () => {
-    const { container, runtime, root } = setup()
     const source = stubSource()
     const now = 1_000_000
-    renderCard(container, {
+    const container = renderCard({
       source,
       cached: cached({ data: { msg: 'hello' }, fetchedAt: now - 1_000 }),
       ttlMs: 60_000,
       now,
-      runtime,
-      root,
+      runtime: createRuntime(),
+      root: document.createElement('div') as unknown as ShadowRoot,
       onRefresh: () => Promise.resolve(),
       onRevert: () => {},
     })
     expect(container.dataset['source']).toBe('stub')
-    expect(container.querySelector('.gm-sp-card-title-text')!.textContent).toBe('Stub Source')
-    expect(container.querySelector('.gm-sp-card-stale')).toBeNull()
-    expect(container.querySelector('.gm-sp-card-body')!.textContent).toBe('hello')
+    expect(within(container).getByText('Stub Source')).not.toBeNull()
+    expect(within(container).queryByText('数据陈旧')).toBeNull()
+    expect(within(container).getByText('hello')).not.toBeNull()
   })
 
   test('shows stale badge when cache is very old', () => {
-    const { container, runtime, root } = setup()
     const source = stubSource()
     const now = 1_000_000
-    renderCard(container, {
+    const container = renderCard({
       source,
       cached: cached({ data: { msg: 'stale' }, fetchedAt: now - 60 * 60_000 * 4 }),
       ttlMs: 60_000,
       now,
-      runtime,
-      root,
+      runtime: createRuntime(),
+      root: document.createElement('div') as unknown as ShadowRoot,
       onRefresh: () => Promise.resolve(),
       onRevert: () => {},
     })
-    expect(container.querySelector('.gm-sp-card-stale')!.textContent).toBe(
-      '\u6570\u636E\u9648\u65E7',
-    )
+    expect(within(container).getByText('数据陈旧')).not.toBeNull()
   })
 
   test('shows error block when cached.error is set', () => {
-    const { container, runtime, root } = setup()
-    const source = stubSource()
-    renderCard(container, {
-      source,
+    const container = renderCard({
+      source: stubSource(),
       cached: cached({ fetchedAt: 1, error: 'boom' }),
       ttlMs: 60_000,
       now: 1_000_000,
-      runtime,
-      root,
+      runtime: createRuntime(),
+      root: document.createElement('div') as unknown as ShadowRoot,
       onRefresh: () => Promise.resolve(),
       onRevert: () => {},
     })
-    expect(container.querySelector('.gm-sp-error-box')!.textContent).toBe('boom')
+    expect(within(container).getByText('boom')).not.toBeNull()
   })
 
   test('refresh button triggers onRefresh callback', () => {
-    const { container, runtime, root } = setup()
-    const source = stubSource()
     let refreshes = 0
-    renderCard(container, {
-      source,
+    const container = renderCard({
+      source: stubSource(),
       cached: cached({ data: { msg: 'x' }, fetchedAt: 1_000_000 }),
       ttlMs: 60_000,
       now: 1_000_000,
-      runtime,
-      root,
+      runtime: createRuntime(),
+      root: document.createElement('div') as unknown as ShadowRoot,
       onRefresh: () => {
         refreshes++
         return Promise.resolve()
       },
       onRevert: () => {},
     })
-    const btn = container.querySelector('.gm-sp-refresh') as HTMLButtonElement
+    const btn = within(container).getByRole('button') as HTMLButtonElement
     btn.click()
     expect(refreshes).toBe(1)
     expect(btn.classList.contains('gm-sp-refresh-loading')).toBe(true)
@@ -147,23 +133,21 @@ describe('renderCard', () => {
   })
 
   test('refresh button removes loading class after onRefresh resolves', async () => {
-    const { container, runtime, root } = setup()
-    const source = stubSource()
     let resolveRefresh: () => void = () => {}
-    renderCard(container, {
-      source,
+    const container = renderCard({
+      source: stubSource(),
       cached: cached({ data: { msg: 'x' }, fetchedAt: 1_000_000 }),
       ttlMs: 60_000,
       now: 1_000_000,
-      runtime,
-      root,
+      runtime: createRuntime(),
+      root: document.createElement('div') as unknown as ShadowRoot,
       onRefresh: () =>
         new Promise<void>((resolve) => {
           resolveRefresh = resolve
         }),
       onRevert: () => {},
     })
-    const btn = container.querySelector('.gm-sp-refresh') as HTMLButtonElement
+    const btn = within(container).getByRole('button') as HTMLButtonElement
     btn.click()
     expect(btn.classList.contains('gm-sp-refresh-loading')).toBe(true)
     resolveRefresh()
@@ -173,23 +157,21 @@ describe('renderCard', () => {
   })
 
   test('refresh button removes loading class even when onRefresh rejects', async () => {
-    const { container, runtime, root } = setup()
-    const source = stubSource()
     let rejectRefresh: (e: Error) => void = () => {}
-    renderCard(container, {
-      source,
+    const container = renderCard({
+      source: stubSource(),
       cached: cached({ data: { msg: 'x' }, fetchedAt: 1_000_000 }),
       ttlMs: 60_000,
       now: 1_000_000,
-      runtime,
-      root,
+      runtime: createRuntime(),
+      root: document.createElement('div') as unknown as ShadowRoot,
       onRefresh: () =>
         new Promise<void>((_resolve, reject) => {
           rejectRefresh = reject
         }),
       onRevert: () => {},
     })
-    const btn = container.querySelector('.gm-sp-refresh') as HTMLButtonElement
+    const btn = within(container).getByRole('button') as HTMLButtonElement
     btn.click()
     expect(btn.classList.contains('gm-sp-refresh-loading')).toBe(true)
     suppressConsoleError(() => rejectRefresh(new Error('boom')))
@@ -199,22 +181,22 @@ describe('renderCard', () => {
   })
 
   test('omits edit button when source has no createEditor', () => {
-    const { container, runtime, root } = setup()
-    renderCard(container, {
+    const container = renderCard({
       source: stubSource(),
       cached: null,
       ttlMs: 60_000,
       now: 1_000_000,
-      runtime,
-      root,
+      runtime: createRuntime(),
+      root: document.createElement('div') as unknown as ShadowRoot,
       onRefresh: () => Promise.resolve(),
       onRevert: () => {},
     })
-    expect(container.querySelector('.gm-sp-edit')).toBeNull()
+    expect(within(container).queryByRole('button', { name: '⚙' })).toBeNull()
   })
 
   test('shows edit button and opens dialog when source has createEditor', () => {
-    const { container, runtime, root } = setup()
+    const root = document.createElement('div') as unknown as ShadowRoot
+    document.body.appendChild(root as unknown as HTMLElement)
     const source: Source<{ msg: string }> = {
       id: 'edit',
       title: 'E',
@@ -228,22 +210,21 @@ describe('renderCard', () => {
         return { render() {}, cancel() {}, save() {} }
       },
     }
-    renderCard(container, {
+    const container = renderCard({
       source,
       cached: cached({ data: { msg: 'real-data' }, fetchedAt: 1_000_000 }),
       ttlMs: 60_000,
       now: 1_000_000,
-      runtime,
+      runtime: createRuntime(),
       root,
       onRefresh: () => Promise.resolve(),
       onRevert: () => {},
     })
-    expect(container.querySelector('.gm-sp-edit')).not.toBeNull()
-    expect(container.querySelector('.gm-sp-card-body')!.textContent).toBe('real-data')
-    ;(container.querySelector('.gm-sp-edit') as HTMLButtonElement).click()
-    expect(container.querySelector('.gm-sp-card-body')!.textContent).toBe('real-data')
-    const dialog = (root as unknown as HTMLElement).querySelector('.gm-sp-editor-dialog')
-    expect(dialog).not.toBeNull()
-    expect(dialog!.querySelector('.gm-sp-editor-dialog-body')!.textContent).toBe('editor-body')
+    expect(within(container).getByRole('button', { name: '⚙' })).not.toBeNull()
+    expect(within(container).getByText('real-data')).not.toBeNull()
+    ;(within(container).getByRole('button', { name: '⚙' }) as HTMLButtonElement).click()
+    expect(within(container).getByText('real-data')).not.toBeNull()
+    expect(within(root as unknown as HTMLElement).getByText('保存')).not.toBeNull()
+    expect(within(root as unknown as HTMLElement).getByText('editor-body')).not.toBeNull()
   })
 })

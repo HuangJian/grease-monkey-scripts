@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
 import {
   CACHE_KEY,
   CACHE_SCHEMA_VERSION,
@@ -10,10 +9,6 @@ import { createItemState, removeItemFromCacheById } from '../../src/dashboard/it
 import { createRuntime, type TestRuntime } from '../runtime'
 
 const TTL_MS = 10 * 60 * 1000
-
-function makeDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><body></body></html>')
-}
 
 function makeItem(
   over: { id: string } & Record<string, unknown>,
@@ -32,7 +27,7 @@ describe('createItemState (string IDs)', () => {
   let state: ReturnType<typeof createItemState<string>>
 
   beforeEach(() => {
-    runtime = createRuntime(makeDom())
+    runtime = createRuntime()
     state = createItemState<string>({
       storageKey: STATE_KEY('test'),
       ttlMs: TTL_MS,
@@ -192,7 +187,7 @@ describe('createItemState (number IDs)', () => {
   let state: ReturnType<typeof createItemState<number>>
 
   beforeEach(() => {
-    runtime = createRuntime(makeDom())
+    runtime = createRuntime()
     state = createItemState<number>({
       storageKey: STATE_KEY('numtest'),
       ttlMs: TTL_MS,
@@ -228,7 +223,7 @@ describe('removeItemFromCacheById', () => {
   let runtime: TestRuntime
 
   beforeEach(() => {
-    runtime = createRuntime(makeDom())
+    runtime = createRuntime()
   })
 
   test('removes item from array-shaped cache', async () => {

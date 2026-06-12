@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
@@ -14,12 +13,13 @@ import {
 } from '../../../../src/dashboard/tnews/parser'
 import type { TnewsItem } from '../../../../src/dashboard/tnews/types'
 
+import { XmlDOMParser } from '../../../runtime'
+
 function loadFixture(): string {
   return readFileSync(join(import.meta.dir, '..', '..', 'fixtures', 'tnews-sample.xml'), 'utf8')
 }
 
-const dom = new JSDOM('<!doctype html><html><body></body></html>')
-const domParser: DOMParser = new dom.window.DOMParser() as unknown as DOMParser
+const domParser: DOMParser = new XmlDOMParser()
 
 describe('normalizeLink', () => {
   test('lowercases host', () => {

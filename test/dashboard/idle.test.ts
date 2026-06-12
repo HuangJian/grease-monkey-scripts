@@ -1,27 +1,19 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
 import { createDashboard } from '../../src/dashboard/app'
 import { DEFAULT_CONFIG } from '../../src/dashboard/config'
 import { CACHE_KEY, CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/dashboard/types'
 import { createRuntime, type TestRuntime } from '../runtime'
 
-function makeDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><head></head><body></body></html>', {
-    url: 'https://www.v2ex.com/',
-  })
-}
-
 describe('opportunistic idle refresh', () => {
-  let dom: JSDOM
   let runtime: TestRuntime
 
   beforeEach(() => {
-    dom = makeDom()
-    runtime = createRuntime(dom)
+    globalThis.location.href = 'https://www.v2ex.com/'
+    runtime = createRuntime()
   })
 
   afterEach(() => {
-    dom.window.document.body.innerHTML = ''
+    document.body.innerHTML = ''
   })
 
   test('start() schedules an idle callback that refreshes stale sources', async () => {

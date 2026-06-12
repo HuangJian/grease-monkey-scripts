@@ -1,27 +1,23 @@
 import { describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fetchTnews } from '../../../../src/dashboard/tnews/fetcher'
 import type { RequestDetails } from '../../../../src/runtime'
-import { createRuntime, type TestRuntime } from '../../../runtime'
+import { createRuntime, XmlDOMParser, type TestRuntime } from '../../../runtime'
 
 function loadFixture(): string {
   return readFileSync(join(import.meta.dir, '..', '..', 'fixtures', 'tnews-sample.xml'), 'utf8')
 }
 
-function makeDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><body></body></html>')
-}
-
-function makeRuntime(dom: JSDOM, handler: (d: RequestDetails) => void): TestRuntime {
-  const base = createRuntime(dom)
+function makeRuntime(handler: (d: RequestDetails) => void): TestRuntime {
+  const base = createRuntime()
+  base.DOMParser = XmlDOMParser
   return { ...base, request: (d: RequestDetails) => handler(d) }
 }
 
 describe('fetchTnews', () => {
   test('throws when no feeds configured', async () => {
-    const runtime = makeRuntime(makeDom(), () => {})
+    const runtime = makeRuntime(() => {})
     await expect(fetchTnews(runtime, { feeds: [], mirrors: [] })).rejects.toThrow(
       /no feeds configured/,
     )
@@ -30,7 +26,7 @@ describe('fetchTnews', () => {
   test('returns items from a single feed', async () => {
     const fixture = loadFixture()
     const fetched: string[] = []
-    const runtime = makeRuntime(makeDom(), (d) => {
+    const runtime = makeRuntime((d) => {
       fetched.push(d.url)
       d.onload({ responseText: fixture, status: 200 })
     })
@@ -46,7 +42,7 @@ describe('fetchTnews', () => {
   test('tries mirrors when primary rsshub.app URL fails', async () => {
     const fixture = loadFixture()
     const fetched: string[] = []
-    const runtime = makeRuntime(makeDom(), (d) => {
+    const runtime = makeRuntime((d) => {
       fetched.push(d.url)
       if (d.url.startsWith('https://rsshub.app/')) {
         d.onerror?.()
@@ -69,7 +65,7 @@ describe('fetchTnews', () => {
   test('stops at first successful mirror', async () => {
     const fixture = loadFixture()
     const fetched: string[] = []
-    const runtime = makeRuntime(makeDom(), (d) => {
+    const runtime = makeRuntime((d) => {
       fetched.push(d.url)
       if (d.url.includes('mirror-a')) {
         d.onload({ responseText: fixture, status: 200 })
@@ -87,7 +83,7 @@ describe('fetchTnews', () => {
 
   test('does not try mirrors for non-rsshub URLs', async () => {
     const fetched: string[] = []
-    const runtime = makeRuntime(makeDom(), (d) => {
+    const runtime = makeRuntime((d) => {
       fetched.push(d.url)
       d.onerror?.()
     })
@@ -101,7 +97,7 @@ describe('fetchTnews', () => {
   })
 
   test('throws when all feeds fail', async () => {
-    const runtime = makeRuntime(makeDom(), (d) => {
+    const runtime = makeRuntime((d) => {
       d.onerror?.()
     })
     await expect(
@@ -114,7 +110,7 @@ describe('fetchTnews', () => {
 
   test('partial failure: one feed ok, one fails → returns items, no throw', async () => {
     const fixture = loadFixture()
-    const runtime = makeRuntime(makeDom(), (d) => {
+    const runtime = makeRuntime((d) => {
       if (d.url.includes('ok.com')) {
         d.onload({ responseText: fixture, status: 200 })
         return
@@ -140,7 +136,7 @@ describe('fetchTnews', () => {
       <pubDate>Mon, 06 Jan 2025 10:00:00 GMT</pubDate>
       <description><![CDATA[<p>new</p>]]></description></item>
     </channel></rss>`
-    const runtime = makeRuntime(makeDom(), (d) => {
+    const runtime = makeRuntime((d) => {
       if (d.url.includes('feed-a')) d.onload({ responseText: old, status: 200 })
       else d.onload({ responseText: recent, status: 200 })
     })
@@ -155,7 +151,7 @@ describe('fetchTnews', () => {
 
   test('preserves query string when substituting mirror hostname', async () => {
     const fetched: string[] = []
-    const runtime = makeRuntime(makeDom(), (d) => {
+    const runtime = makeRuntime((d) => {
       fetched.push(d.url)
       if (d.url.startsWith('https://rsshub.app/')) {
         d.onerror?.()
@@ -174,7 +170,7 @@ describe('fetchTnews', () => {
   })
 
   test('rejects primary URL with non-2xx status', async () => {
-    const runtime = makeRuntime(makeDom(), (d) => {
+    const runtime = makeRuntime((d) => {
       d.onload({ responseText: 'bad', status: 503 })
     })
     await expect(

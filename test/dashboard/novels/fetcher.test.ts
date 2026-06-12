@@ -1,16 +1,9 @@
 import { describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
 import { fetchNovels, mergeTail } from '../../../src/dashboard/novels/fetcher'
 import type { NovelAdapter } from '../../../src/dashboard/novels/adapters/types'
 import type { NovelBook, NovelChapter, NovelEntry } from '../../../src/dashboard/novels/types'
 import type { RequestDetails } from '../../../src/runtime'
 import { createRuntime, type TestRuntime } from '../../runtime'
-
-function makeDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><body></body></html>', {
-    url: 'https://www.sudugu.org/',
-  })
-}
 
 function chapter(url: string, title = url, postedAt?: number): NovelChapter {
   return postedAt !== undefined ? { url, title, postedAt } : { url, title }
@@ -54,8 +47,8 @@ type FakeServer = {
   setError(url: string): void
 }
 
-function makeServer(dom: JSDOM): FakeServer {
-  const runtime = createRuntime(dom)
+function makeServer(): FakeServer {
+  const runtime = createRuntime()
   const responses = new Map<string, string>()
   const errors = new Set<string>()
   const hits: string[] = []
@@ -90,8 +83,7 @@ const URL_OTHER = 'https://other.example/book/1/'
 
 describe('fetchNovels', () => {
   test('single-page book: only home request, returns latest three', async () => {
-    const dom = makeDom()
-    const server = makeServer(dom)
+    const server = makeServer()
     server.setResponse(
       URL_166,
       homeHtml({
@@ -114,8 +106,7 @@ describe('fetchNovels', () => {
   })
 
   test('initialSeenUrl applies when no prev', async () => {
-    const dom = makeDom()
-    const server = makeServer(dom)
+    const server = makeServer()
     server.setResponse(
       URL_166,
       homeHtml({
@@ -135,8 +126,7 @@ describe('fetchNovels', () => {
   })
 
   test('initialSeenUrl picks index N when more chapters than threshold', async () => {
-    const dom = makeDom()
-    const server = makeServer(dom)
+    const server = makeServer()
     server.setResponse(
       URL_12,
       homeHtml({
@@ -156,8 +146,7 @@ describe('fetchNovels', () => {
   })
 
   test('preserves prev lastSeenChapterUrl across refresh', async () => {
-    const dom = makeDom()
-    const server = makeServer(dom)
+    const server = makeServer()
     server.setResponse(
       URL_166,
       homeHtml({
@@ -182,8 +171,7 @@ describe('fetchNovels', () => {
   })
 
   test('supplements with tail page when prevSeen falls outside latest three', async () => {
-    const dom = makeDom()
-    const server = makeServer(dom)
+    const server = makeServer()
     server.setResponse(
       URL_12,
       homeHtml({
@@ -231,8 +219,7 @@ describe('fetchNovels', () => {
   })
 
   test('skips tail page when prevSeen is within latest three', async () => {
-    const dom = makeDom()
-    const server = makeServer(dom)
+    const server = makeServer()
     server.setResponse(
       URL_12,
       homeHtml({
@@ -259,8 +246,7 @@ describe('fetchNovels', () => {
   })
 
   test('unknown site returns siteId=unknown with error and preserves prev fields', async () => {
-    const dom = makeDom()
-    const server = makeServer(dom)
+    const server = makeServer()
     const prev: NovelBook = {
       url: URL_OTHER,
       siteId: 'unknown',
@@ -280,16 +266,14 @@ describe('fetchNovels', () => {
   })
 
   test('unknown site without prev uses alias or hostname', async () => {
-    const dom = makeDom()
-    const server = makeServer(dom)
+    const server = makeServer()
     const books = await fetchNovels(server.runtime, [{ url: URL_OTHER, alias: '神书' }], [])
     expect(books[0]!.title).toBe('神书')
     expect(books[0]!.siteId).toBe('unknown')
   })
 
   test('network error preserves prev data and records error message', async () => {
-    const dom = makeDom()
-    const server = makeServer(dom)
+    const server = makeServer()
     server.setError(URL_166)
     const prev: NovelBook = {
       url: URL_166,
@@ -307,8 +291,7 @@ describe('fetchNovels', () => {
   })
 
   test('first-time failure has empty chapters and fallback title', async () => {
-    const dom = makeDom()
-    const server = makeServer(dom)
+    const server = makeServer()
     server.setError(URL_166)
     const books = await fetchNovels(server.runtime, [{ url: URL_166, alias: '神书' }], [])
     expect(books[0]!.error).toMatch(/network error/)
@@ -317,8 +300,7 @@ describe('fetchNovels', () => {
   })
 
   test('runs same-host entries serially', async () => {
-    const dom = makeDom()
-    const server = makeServer(dom)
+    const server = makeServer()
     const callOrder: string[] = []
     server.runtime.request = ((d: RequestDetails) => {
       callOrder.push(d.url)
@@ -349,8 +331,7 @@ describe('fetchNovels', () => {
   })
 
   test('runs different-host entries in parallel (cross-host start interleaves)', async () => {
-    const dom = makeDom()
-    const server = makeServer(dom)
+    const server = makeServer()
     let pending = 0
     let maxPending = 0
     server.runtime.request = ((d: RequestDetails) => {
@@ -392,8 +373,7 @@ describe('fetchNovels', () => {
   })
 
   test('preserves config order in result', async () => {
-    const dom = makeDom()
-    const server = makeServer(dom)
+    const server = makeServer()
     server.setResponse(
       'https://www.sudugu.org/a/',
       homeHtml({

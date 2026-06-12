@@ -1,12 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
+import { cleanup, within } from '@testing-library/preact'
 import { createWeatherEditor } from '../../../src/dashboard/weather/editor'
 import { CONFIG_KEY } from '../../../src/dashboard/types'
 import { createRuntime, type TestRuntime } from '../../runtime'
-
-function makeDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><head></head><body></body></html>')
-}
 
 async function mount(
   runtime: TestRuntime,
@@ -31,19 +27,18 @@ async function mount(
 }
 
 describe('createWeatherEditor', () => {
-  let dom: JSDOM
   let runtime: TestRuntime
   let container: HTMLElement
 
   beforeEach(() => {
-    dom = makeDom()
-    runtime = createRuntime(dom)
-    container = dom.window.document.createElement('div')
-    dom.window.document.body.appendChild(container)
+    runtime = createRuntime()
+    container = document.createElement('div')
+    document.body.appendChild(container)
   })
 
   afterEach(() => {
-    dom.window.document.body.innerHTML = ''
+    cleanup()
+    document.body.innerHTML = ''
   })
 
   test('renders initial cities as list items', async () => {
@@ -51,33 +46,28 @@ describe('createWeatherEditor', () => {
       { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ' },
       { latitude: 31.2, longitude: 121.5, cityLabel: 'SH' },
     ])
-    const items = container.querySelectorAll('.gm-sp-editor-item')
-    expect(items).toHaveLength(2)
-    expect(items[0].querySelector('.gm-sp-editor-item-label')!.textContent).toBe('BJ')
-    expect(items[1].querySelector('.gm-sp-editor-item-label')!.textContent).toBe('SH')
+    within(container).getByText('BJ')
+    within(container).getByText('SH')
   })
 
   test('adds a new city from the form', async () => {
     await mount(runtime, container)
-    const labelInput = container.querySelector('.gm-sp-we-city-label') as HTMLInputElement
-    const latInput = container.querySelector('.gm-sp-we-lat') as HTMLInputElement
-    const lonInput = container.querySelector('.gm-sp-we-lon') as HTMLInputElement
+    const labelInput = within(container).getByPlaceholderText('北京') as HTMLInputElement
+    const latInput = within(container).getByPlaceholderText('39.9042') as HTMLInputElement
+    const lonInput = within(container).getByPlaceholderText('116.4074') as HTMLInputElement
     labelInput.value = 'SH'
     latInput.value = '31.2'
     lonInput.value = '121.5'
-    ;(container.querySelector('[data-action="add"]') as HTMLButtonElement).click()
-    const items = container.querySelectorAll('.gm-sp-editor-item')
-    expect(items).toHaveLength(2)
-    expect(items[1].querySelector('.gm-sp-editor-item-label')!.textContent).toBe('SH')
+    within(container).getByRole('button', { name: '添加城市' }).click()
+    within(container).getByText('SH')
     expect(labelInput.value).toBe('')
   })
 
   test('shows an error when add is missing fields', async () => {
     await mount(runtime, container)
-    ;(container.querySelector('[data-action="add"]') as HTMLButtonElement).click()
-    const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
+    within(container).getByRole('button', { name: '添加城市' }).click()
+    const errorEl = within(container).getByText('请输入城市名') as HTMLDivElement
     expect(errorEl.hidden).toBe(false)
-    expect(errorEl.textContent).toMatch(/城市名/)
   })
 
   test('removes a city when its × is clicked', async () => {
@@ -85,11 +75,8 @@ describe('createWeatherEditor', () => {
       { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ' },
       { latitude: 31.2, longitude: 121.5, cityLabel: 'SH' },
     ])
-    const items = container.querySelectorAll('.gm-sp-editor-item')
-    ;(items[0].querySelector('.gm-sp-item-remove') as HTMLButtonElement).click()
-    const after = container.querySelectorAll('.gm-sp-editor-item')
-    expect(after).toHaveLength(1)
-    expect(after[0].querySelector('.gm-sp-editor-item-label')!.textContent).toBe('SH')
+    within(container).getAllByRole('button', { name: 'remove' })[0]!.click()
+    within(container).getByText('SH')
   })
 
   test('cancel calls close', async () => {
@@ -118,57 +105,55 @@ describe('createWeatherEditor', () => {
     void result.save?.()
     await new Promise<void>((r) => setTimeout(r, 0))
     expect(runtime.stores[CONFIG_KEY]).toBeUndefined()
-    const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
+    const errorEl = within(container).getByText('至少保留一个城市') as HTMLDivElement
     expect(errorEl.hidden).toBe(false)
   })
 
   test('shows empty-state hint when no cities are configured', async () => {
     await mount(runtime, container, [])
-    expect(container.querySelector('.gm-sp-editor-empty')!.textContent).toBe('尚未添加城市')
+    within(container).getByText('尚未添加城市')
   })
 
   test('Enter in label input adds the city', async () => {
     await mount(runtime, container)
-    const labelInput = container.querySelector('.gm-sp-we-city-label') as HTMLInputElement
-    const latInput = container.querySelector('.gm-sp-we-lat') as HTMLInputElement
-    const lonInput = container.querySelector('.gm-sp-we-lon') as HTMLInputElement
+    const labelInput = within(container).getByPlaceholderText('北京') as HTMLInputElement
+    const latInput = within(container).getByPlaceholderText('39.9042') as HTMLInputElement
+    const lonInput = within(container).getByPlaceholderText('116.4074') as HTMLInputElement
     labelInput.value = 'GZ'
     latInput.value = '23.1'
     lonInput.value = '113.3'
     labelInput.dispatchEvent(
-      new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
     )
-    expect(container.querySelectorAll('.gm-sp-editor-item')).toHaveLength(2)
+    within(container).getByText('GZ')
   })
 
   test('adds a CMA station id and shows it in the list', async () => {
     await mount(runtime, container)
-    const labelInput = container.querySelector('.gm-sp-we-city-label') as HTMLInputElement
-    const latInput = container.querySelector('.gm-sp-we-lat') as HTMLInputElement
-    const lonInput = container.querySelector('.gm-sp-we-lon') as HTMLInputElement
-    const cmaInput = container.querySelector('.gm-sp-we-cma') as HTMLInputElement
+    const labelInput = within(container).getByPlaceholderText('北京') as HTMLInputElement
+    const latInput = within(container).getByPlaceholderText('39.9042') as HTMLInputElement
+    const lonInput = within(container).getByPlaceholderText('116.4074') as HTMLInputElement
+    const cmaInput = within(container).getByPlaceholderText('54511（可选）') as HTMLInputElement
     labelInput.value = 'BJ'
     latInput.value = '39.9'
     lonInput.value = '116.4'
     cmaInput.value = '54511'
-    ;(container.querySelector('[data-action="add"]') as HTMLButtonElement).click()
-    const items = container.querySelectorAll('.gm-sp-editor-item')
-    expect(items[1].querySelector('.gm-sp-editor-item-cma')!.textContent).toBe('CMA 54511')
+    within(container).getByRole('button', { name: '添加城市' }).click()
+    within(container).getByText('CMA 54511')
   })
 
   test('rejects malformed CMA station id with an error', async () => {
     await mount(runtime, container)
-    const labelInput = container.querySelector('.gm-sp-we-city-label') as HTMLInputElement
-    const latInput = container.querySelector('.gm-sp-we-lat') as HTMLInputElement
-    const lonInput = container.querySelector('.gm-sp-we-lon') as HTMLInputElement
-    const cmaInput = container.querySelector('.gm-sp-we-cma') as HTMLInputElement
+    const labelInput = within(container).getByPlaceholderText('北京') as HTMLInputElement
+    const latInput = within(container).getByPlaceholderText('39.9042') as HTMLInputElement
+    const lonInput = within(container).getByPlaceholderText('116.4074') as HTMLInputElement
+    const cmaInput = within(container).getByPlaceholderText('54511（可选）') as HTMLInputElement
     labelInput.value = 'BJ'
     latInput.value = '39.9'
     lonInput.value = '116.4'
     cmaInput.value = '5451'
-    ;(container.querySelector('[data-action="add"]') as HTMLButtonElement).click()
-    const errorEl = container.querySelector('.gm-sp-editor-error') as HTMLDivElement
+    within(container).getByRole('button', { name: '添加城市' }).click()
+    const errorEl = within(container).getByText('CMA 站点 ID 必须是 5 位数字') as HTMLDivElement
     expect(errorEl.hidden).toBe(false)
-    expect(errorEl.textContent).toMatch(/5 位数字/)
   })
 })

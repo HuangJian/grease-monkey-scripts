@@ -1,17 +1,10 @@
 import { describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseChapterLabel, suduguAdapter } from '../../../../src/dashboard/novels/adapters/sudugu'
 
 function loadFixture(name: string): string {
   return readFileSync(join(import.meta.dir, '..', '__fixtures__', name), 'utf8')
-}
-
-function makeDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><body></body></html>', {
-    url: 'https://www.sudugu.org/',
-  })
 }
 
 const NOW_2026_06_03 = new Date(2026, 5, 3, 12, 0, 0).getTime()
@@ -70,23 +63,21 @@ describe('parseChapterLabel', () => {
 
 describe('suduguAdapter.parseHome', () => {
   test('extracts book title without 字数 prefix', () => {
-    const dom = makeDom()
     const html = loadFixture('sudugu-166.html')
     const { title } = suduguAdapter.parseHome(
       html,
       'https://www.sudugu.org/166/',
-      new dom.window.DOMParser(),
+      new DOMParser(),
       NOW_2026_06_03,
     )
     expect(title).toBe('九龙夺嫡，我真不想当太子')
   })
   test('extracts latest three chapters with absolute urls and labels', () => {
-    const dom = makeDom()
     const html = loadFixture('sudugu-166.html')
     const { latestThree } = suduguAdapter.parseHome(
       html,
       'https://www.sudugu.org/166/',
-      new dom.window.DOMParser(),
+      new DOMParser(),
       NOW_2026_06_03,
     )
     expect(latestThree).toHaveLength(3)
@@ -97,34 +88,31 @@ describe('suduguAdapter.parseHome', () => {
     expect(latestThree[2]!.title).toBe('第796章 父皇，你别无选择')
   })
   test('detects lastPageNumber = 1 when no pagination exists', () => {
-    const dom = makeDom()
     const html = loadFixture('sudugu-166.html')
     const { lastPageNumber } = suduguAdapter.parseHome(
       html,
       'https://www.sudugu.org/166/',
-      new dom.window.DOMParser(),
+      new DOMParser(),
       NOW_2026_06_03,
     )
     expect(lastPageNumber).toBe(1)
   })
   test('detects lastPageNumber > 1 when pagination exists', () => {
-    const dom = makeDom()
     const html = loadFixture('sudugu-12-home.html')
     const { lastPageNumber } = suduguAdapter.parseHome(
       html,
       'https://www.sudugu.org/12/',
-      new dom.window.DOMParser(),
+      new DOMParser(),
       NOW_2026_06_03,
     )
     expect(lastPageNumber).toBe(2)
   })
   test('extracts title and latest three for paginated book', () => {
-    const dom = makeDom()
     const html = loadFixture('sudugu-12-home.html')
     const { title, latestThree } = suduguAdapter.parseHome(
       html,
       'https://www.sudugu.org/12/',
-      new dom.window.DOMParser(),
+      new DOMParser(),
       NOW_2026_06_03,
     )
     expect(title).toBe('龙藏')
@@ -133,11 +121,10 @@ describe('suduguAdapter.parseHome', () => {
     expect(latestThree[0]!.title).toBe('第1302章 敌人和朋友')
   })
   test('returns empty result for empty html', () => {
-    const dom = makeDom()
     const result = suduguAdapter.parseHome(
       '',
       'https://www.sudugu.org/166/',
-      new dom.window.DOMParser(),
+      new DOMParser(),
       NOW_2026_06_03,
     )
     expect(result.title).toBeNull()
@@ -148,12 +135,11 @@ describe('suduguAdapter.parseHome', () => {
 
 describe('suduguAdapter.parseChapterList', () => {
   test('extracts all chapter URLs and titles from tail page', () => {
-    const dom = makeDom()
     const html = loadFixture('sudugu-12-tail.html')
     const chapters = suduguAdapter.parseChapterList(
       html,
       'https://www.sudugu.org/12/p-2.html',
-      new dom.window.DOMParser(),
+      new DOMParser(),
     )
     expect(chapters.length).toBeGreaterThan(100)
     const last = chapters[chapters.length - 1]!
@@ -164,13 +150,8 @@ describe('suduguAdapter.parseChapterList', () => {
     }
   })
   test('returns empty for empty html', () => {
-    const dom = makeDom()
     expect(
-      suduguAdapter.parseChapterList(
-        '',
-        'https://www.sudugu.org/12/p-2.html',
-        new dom.window.DOMParser(),
-      ),
+      suduguAdapter.parseChapterList('', 'https://www.sudugu.org/12/p-2.html', new DOMParser()),
     ).toEqual([])
   })
 })

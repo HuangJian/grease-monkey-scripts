@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fetchV2ex } from '../../../../src/dashboard/v2ex/fetcher'
@@ -49,19 +48,13 @@ const DEFAULT_COUNT_OPTS: V2exCountOptions = {
   ageHalfLifeDays: 2,
 }
 
-function makeRuntime(dom: JSDOM, handler: (d: RequestDetails) => void): Runtime {
-  const base = createRuntime(dom)
+function makeRuntime(handler: (d: RequestDetails) => void): Runtime {
+  const base = createRuntime()
   return { ...base, request: (d: RequestDetails) => handler(d) }
 }
 
 function loadPageFixture(): string {
   return readFileSync(join(import.meta.dir, '..', '..', 'fixtures', 'v2ex-hot-page.html'), 'utf8')
-}
-
-function makeDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><body></body></html>', {
-    url: 'https://www.v2ex.com/',
-  })
 }
 
 describe('fetchV2ex', () => {
@@ -70,9 +63,8 @@ describe('fetchV2ex', () => {
   })
 
   test('resolves with merged topics from both sources', async () => {
-    const dom = makeDom()
     const html = loadPageFixture()
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       if (d.url.includes('hot.json')) {
         d.onload({ responseText: JSON.stringify(FIXTURE) })
       } else {
@@ -80,43 +72,40 @@ describe('fetchV2ex', () => {
       }
     })
     const state = createV2exState()
-    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
+    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
     expect(topics.length).toBeGreaterThan(0)
     const ids = topics.map((t) => t.id)
     expect(ids).toContain(1217291)
   })
 
   test('uses anonymous: true on both calls', async () => {
-    const dom = makeDom()
     const captured: RequestDetails[] = []
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       captured.push(d)
       d.onload({ responseText: '[]' })
     })
     const state = createV2exState()
-    await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
+    await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
     expect(captured).toHaveLength(2)
     for (const c of captured) expect(c.anonymous).toBe(true)
   })
 
   test('rejects with combined error when both sources fail', async () => {
-    const dom = makeDom()
-    const runtime = makeRuntime(dom, (d) => d.onerror?.())
+    const runtime = makeRuntime((d) => d.onerror?.())
     const state = createV2exState()
-    await expect(
-      fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state),
-    ).rejects.toThrow(/v2ex api/)
+    await expect(fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)).rejects.toThrow(
+      /v2ex api/,
+    )
   })
 
   test('falls back to page when api fails', async () => {
-    const dom = makeDom()
     const html = loadPageFixture()
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       if (d.url.includes('hot.json')) d.onerror?.()
       else d.onload({ responseText: html })
     })
     const state = createV2exState()
-    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
+    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
     const pageTopic = topics.find((t) => t.id === 1217291)
     expect(pageTopic).toBeDefined()
     // Fixture topic created 2026-06-02 → auto-promoted to 'api' (today > 2026-06-02)
@@ -124,7 +113,6 @@ describe('fetchV2ex', () => {
   })
 
   test('auto-promotes page-only topics from previous days to api source', async () => {
-    const dom = makeDom()
     const yesterday = new Date()
     yesterday.setUTCDate(yesterday.getUTCDate() - 1)
     yesterday.setUTCHours(12, 0, 0, 0)
@@ -136,19 +124,18 @@ describe('fetchV2ex', () => {
       .replace(/\.\d+/, '')
     const html = `<html><body><div class="cell item"><a class="topic-link" href="/t/9999">Yesterday topic</a><span class="topic_info"><span title="${yesterdayStr}">1 day ago</span></span><span class="count_orange">50</span></div></body></html>`
 
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       if (d.url.includes('hot.json')) d.onload({ responseText: '[]' })
       else d.onload({ responseText: html })
     })
     const state = createV2exState()
-    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
+    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
     const promoted = topics.find((t) => t.id === 9999)
     expect(promoted).toBeDefined()
     expect(promoted!.sources).toEqual(['api'])
   })
 
   test('does not promote today page-only topics', async () => {
-    const dom = makeDom()
     const today = new Date()
     today.setUTCHours(12, 0, 0, 0)
 
@@ -159,20 +146,19 @@ describe('fetchV2ex', () => {
       .replace(/\.\d+/, '')
     const html = `<html><body><div class="cell item"><a class="topic-link" href="/t/8888">Today topic</a><span class="topic_info"><span title="${todayStr}">1 hour ago</span></span><span class="count_orange">10</span></div></body></html>`
 
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       if (d.url.includes('hot.json')) d.onload({ responseText: '[]' })
       else d.onload({ responseText: html })
     })
     const state = createV2exState()
-    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
+    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
     const notPromoted = topics.find((t) => t.id === 8888)
     expect(notPromoted).toBeDefined()
     expect(notPromoted!.sources).toEqual(['page'])
   })
 
   test('falls back to api when page fails', async () => {
-    const dom = makeDom()
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       if (d.url.includes('hot.json')) {
         d.onload({ responseText: JSON.stringify(FIXTURE) })
       } else {
@@ -180,14 +166,13 @@ describe('fetchV2ex', () => {
       }
     })
     const state = createV2exState()
-    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
+    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
     const apiTopic = topics.find((t) => t.id === 1)
     expect(apiTopic).toBeDefined()
     expect(apiTopic!.sources).toEqual(['api'])
   })
 
   test('marks cross-source topics when both have the same id', async () => {
-    const dom = makeDom()
     const html = loadPageFixture()
     const sharedTopic = {
       id: 1217291,
@@ -198,7 +183,7 @@ describe('fetchV2ex', () => {
       node: { title: 'n' },
       sources: [],
     }
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       if (d.url.includes('hot.json')) {
         d.onload({ responseText: JSON.stringify([sharedTopic]) })
       } else {
@@ -206,14 +191,13 @@ describe('fetchV2ex', () => {
       }
     })
     const state = createV2exState()
-    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
+    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
     const shared = topics.find((t) => t.id === 1217291)
     expect(shared).toBeDefined()
     expect(shared!.sources).toEqual(['api', 'page'])
   })
 
   test('filters out topics with replies below minReplies', async () => {
-    const dom = makeDom()
     const lowReplyTopic = {
       id: 999,
       title: 'Low reply',
@@ -223,7 +207,7 @@ describe('fetchV2ex', () => {
       node: { title: 'n' },
       sources: [] as const,
     }
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       if (d.url.includes('hot.json')) {
         d.onload({ responseText: JSON.stringify([FIXTURE[0], lowReplyTopic]) })
       } else {
@@ -234,15 +218,14 @@ describe('fetchV2ex', () => {
     const topics = await fetchV2ex(
       runtime,
       { ...DEFAULT_COUNT_OPTS, minReplies: 5 },
-      new dom.window.DOMParser(),
+      new DOMParser(),
       state,
     )
     expect(topics.every((t) => t.replies >= 5)).toBe(true)
   })
 
   test('saves history when api succeeds', async () => {
-    const dom = makeDom()
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       if (d.url.includes('hot.json')) {
         d.onload({ responseText: JSON.stringify(FIXTURE) })
       } else {
@@ -250,27 +233,25 @@ describe('fetchV2ex', () => {
       }
     })
     const state = createV2exState()
-    await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
+    await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
     const history = await state.loadHistory(runtime)
     expect(history).toHaveLength(3)
     expect(history.map((t) => t.id).sort()).toEqual([1, 2, 3])
   })
 
   test('does not save history when api fails', async () => {
-    const dom = makeDom()
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       if (d.url.includes('hot.json')) d.onerror?.()
       else d.onload({ responseText: '[]' })
     })
     const state = createV2exState()
-    await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
+    await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
     const history = await state.loadHistory(runtime)
     expect(history).toEqual([])
   })
 
   test('merges historical topics not present in current sources', async () => {
-    const dom = makeDom()
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       if (d.url.includes('hot.json')) d.onload({ responseText: JSON.stringify(FIXTURE) })
       else d.onload({ responseText: '[]' })
     })
@@ -287,7 +268,7 @@ describe('fetchV2ex', () => {
       },
     ]
     const state = createV2exState()
-    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new dom.window.DOMParser(), state)
+    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
     const historical = topics.find((t) => t.id === 500)
     expect(historical).toBeDefined()
     expect(historical!.sources).toEqual(['api'])

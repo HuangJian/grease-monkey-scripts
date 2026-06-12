@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
+import { cleanup, within } from '@testing-library/preact'
 import { createDashboard, isHostAllowed } from '../../src/dashboard/app'
 import { DEFAULT_CONFIG, validateConfig } from '../../src/dashboard/config'
 import { getMountedRoot } from '../../src/dashboard/shell/mount'
@@ -11,30 +11,24 @@ import {
 } from '../../src/dashboard/types'
 import { createRuntime, type TestRuntime } from '../runtime'
 
-function shadowOf(dom: JSDOM, id = 'gm-dashboard'): ShadowRoot {
-  const host = dom.window.document.getElementById(id) as HTMLElement
+function shadowOf(id = 'gm-dashboard'): ShadowRoot {
+  const host = document.getElementById(id) as HTMLElement
   const root = host.shadowRoot ?? getMountedRoot(host)
   if (!root) throw new Error(`no shadow root for #${id}`)
   return root
 }
 
-function makeDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><head></head><body></body></html>', {
-    url: 'https://www.v2ex.com/',
-  })
-}
-
 describe('createDashboard', () => {
-  let dom: JSDOM
   let runtime: TestRuntime
 
   beforeEach(() => {
-    dom = makeDom()
-    runtime = createRuntime(dom)
+    globalThis.location.href = 'https://www.v2ex.com/'
+    runtime = createRuntime()
   })
 
   afterEach(() => {
-    dom.window.document.documentElement.innerHTML = ''
+    cleanup()
+    document.documentElement.innerHTML = ''
   })
 
   test('start() registers two menu commands', () => {
@@ -51,10 +45,10 @@ describe('createDashboard', () => {
     const dashboard = createDashboard(runtime, { config })
     dashboard.start()
     await dashboard.open()
-    const host = dom.window.document.getElementById('gm-dashboard')
+    const host = document.getElementById('gm-dashboard')
     expect(host).not.toBeNull()
     expect(host!.shadowRoot).toBeNull()
-    const shadow = shadowOf(dom)
+    const shadow = shadowOf()
     expect(shadow.querySelector('.gm-sp-header')).toBeNull()
     const cards = shadow.querySelectorAll('.gm-sp-card')
     expect(cards.length).toBe(2)
@@ -80,12 +74,12 @@ describe('createDashboard', () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     await dashboard.open()
-    const shadow = shadowOf(dom)
+    const shadow = shadowOf()
     const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
     const v2exPanel = browseCard.querySelector(
       '.gm-sp-tab-panel[data-tab-id="v2ex"]',
     ) as HTMLElement
-    expect(v2exPanel.querySelector('.gm-sp-item-title')!.textContent).toBe('cached')
+    expect(within(v2exPanel).getByText('cached')).not.toBeNull()
   })
 
   test('bugfix: open() applies read state from storage on initial render', async () => {
@@ -118,7 +112,7 @@ describe('createDashboard', () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     await dashboard.open()
-    const shadow = shadowOf(dom)
+    const shadow = shadowOf()
     const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
     const v2exPanel = browseCard.querySelector(
       '.gm-sp-tab-panel[data-tab-id="v2ex"]',
@@ -153,15 +147,15 @@ describe('createDashboard', () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     await dashboard.open()
-    const shadow = shadowOf(dom)
+    const shadow = shadowOf()
     const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
     const redditPanel = browseCard.querySelector(
       '.gm-sp-tab-panel[data-tab-id="reddit"]',
     ) as HTMLElement
     expect(redditPanel).not.toBeNull()
-    expect(redditPanel.querySelector('.gm-sp-item-title')!.textContent).toBe('cached-reddit')
-    expect(redditPanel.querySelector('.gm-sp-item-count')!.textContent).toBe('42')
-    expect(redditPanel.querySelector('.gm-sp-reddit-score')!.textContent).toBe('999')
+    expect(within(redditPanel).getByText('cached-reddit')).not.toBeNull()
+    expect(within(redditPanel).getByText('42')).not.toBeNull()
+    expect(within(redditPanel).getByText('999')).not.toBeNull()
   })
 
   test('browse card defaults to v2ex tab and shows a badge on novels tab when books have updates', async () => {
@@ -185,22 +179,21 @@ describe('createDashboard', () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     await dashboard.open()
-    const shadow = shadowOf(dom)
+    const shadow = shadowOf()
     const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
-    const tabs = browseCard.querySelectorAll('.gm-sp-tab')
+    const tabs = within(browseCard).getAllByRole('tab')
     expect(tabs[0]!.classList.contains('gm-sp-tab-active')).toBe(true)
-    const badge = tabs[2]!.querySelector('.gm-sp-tab-badge') as HTMLElement
+    const badge = within(tabs[2]!).getByText('1') as HTMLElement
     expect(badge.hidden).toBe(false)
-    expect(badge.textContent).toBe('1')
   })
 
   test('clicking the novels tab activates its panel', async () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     await dashboard.open()
-    const shadow = shadowOf(dom)
+    const shadow = shadowOf()
     const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
-    ;(browseCard.querySelectorAll('.gm-sp-tab')[1] as HTMLButtonElement).click()
+    ;(within(browseCard).getAllByRole('tab')[1] as HTMLButtonElement).click()
     await new Promise((r) => setTimeout(r, 0))
     const panels = browseCard.querySelectorAll('.gm-sp-tab-panel')
     expect(panels[1]!.classList.contains('gm-sp-tab-panel-active')).toBe(true)
@@ -211,17 +204,17 @@ describe('createDashboard', () => {
     dashboard.start()
     await dashboard.open()
     dashboard.close()
-    expect(dom.window.document.getElementById('gm-dashboard')).toBeNull()
+    expect(document.getElementById('gm-dashboard')).toBeNull()
   })
 
   test('clicking backdrop closes the overlay', async () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     await dashboard.open()
-    const shadow = shadowOf(dom)
+    const shadow = shadowOf()
     const backdrop = shadow.querySelector('.gm-sp-backdrop')!
-    backdrop.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
-    expect(dom.window.document.getElementById('gm-dashboard')).toBeNull()
+    backdrop.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(document.getElementById('gm-dashboard')).toBeNull()
   })
 
   test('remote change listener re-renders the matching card', async () => {
@@ -244,12 +237,12 @@ describe('createDashboard', () => {
     }
     runtime.simulateRemoteChange(CACHE_KEY('v2ex'), newCache)
     await new Promise((r) => setTimeout(r, 0))
-    const shadow = shadowOf(dom)
+    const shadow = shadowOf()
     const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
     const v2exPanel = browseCard.querySelector(
       '.gm-sp-tab-panel[data-tab-id="v2ex"]',
     ) as HTMLElement
-    expect(v2exPanel.querySelector('.gm-sp-item-title')!.textContent).toBe('live-update')
+    expect(within(v2exPanel).getByText('live-update')).not.toBeNull()
   })
 
   test('refreshSource acquires lock, fetches, persists cache', async () => {
@@ -304,12 +297,12 @@ describe('createDashboard', () => {
     dashboard.start()
     await dashboard.open()
     await dashboard.refreshSource('v2ex')
-    const shadow = shadowOf(dom)
+    const shadow = shadowOf()
     const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
     const v2exPanel = browseCard.querySelector(
       '.gm-sp-tab-panel[data-tab-id="v2ex"]',
     ) as HTMLElement
-    expect(v2exPanel.querySelector('.gm-sp-empty')!.textContent).toBe('暂无数据')
+    expect(within(v2exPanel).getByText('暂无数据')).not.toBeNull()
   })
 
   test('refreshSource skips fetch when lock is held', async () => {
@@ -357,23 +350,21 @@ describe('createDashboard', () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     const dispatchShift = () => {
-      dom.window.document.dispatchEvent(
-        new dom.window.KeyboardEvent('keydown', { key: 'Shift', bubbles: true }),
-      )
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', bubbles: true }))
     }
     dispatchShift()
     dispatchShift()
-    expect(dom.window.document.getElementById('gm-dashboard')).not.toBeNull()
+    expect(document.getElementById('gm-dashboard')).not.toBeNull()
   })
 
   test('Esc closes the overlay', async () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     await dashboard.open()
-    dom.window.document.dispatchEvent(
-      new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
     )
-    expect(dom.window.document.getElementById('gm-dashboard')).toBeNull()
+    expect(document.getElementById('gm-dashboard')).toBeNull()
   })
 
   test('editConfig merges and persists user override', () => {

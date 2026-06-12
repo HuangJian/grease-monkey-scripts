@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
 import { CACHE_KEY, CACHE_SCHEMA_VERSION, type CachedSource } from '../../../../src/dashboard/types'
 import {
   createV2exState,
@@ -11,10 +10,6 @@ import { createRuntime, type TestRuntime } from '../../../runtime'
 
 const TOPIC_STATE_TTL_MS = 72 * 60 * 60 * 1000
 const TOPICS_HISTORY_TTL_MS = 72 * 60 * 60 * 1000
-
-function makeDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><body></body></html>')
-}
 
 function makeTopic(over: Partial<V2exTopic>): V2exTopic {
   return {
@@ -47,7 +42,7 @@ describe('createV2exState', () => {
   let state: V2exState
 
   beforeEach(() => {
-    runtime = createRuntime(makeDom())
+    runtime = createRuntime()
     state = createV2exState()
   })
 

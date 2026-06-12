@@ -1,13 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
+import { cleanup, within } from '@testing-library/preact'
 import { createRedditEditor } from '../../../../src/dashboard/reddit/editor'
 import { CONFIG_KEY } from '../../../../src/dashboard/types'
 import type { RedditSourceOptions } from '../../../../src/dashboard/reddit/types'
 import { createRuntime, type TestRuntime } from '../../../runtime'
-
-function makeDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><head></head><body></body></html>')
-}
 
 const DEFAULTS: RedditSourceOptions = {
   ttlMinutes: 30,
@@ -32,73 +28,68 @@ async function mount(
 }
 
 describe('createRedditEditor', () => {
-  let dom: JSDOM
   let runtime: TestRuntime
   let container: HTMLElement
 
   beforeEach(() => {
-    dom = makeDom()
-    runtime = createRuntime(dom)
-    container = dom.window.document.createElement('div')
-    dom.window.document.body.appendChild(container)
+    runtime = createRuntime()
+    container = document.createElement('div')
+    document.body.appendChild(container)
   })
 
   afterEach(() => {
-    dom.window.document.body.innerHTML = ''
+    cleanup()
+    document.body.innerHTML = ''
   })
 
   test('renders initial subreddits as chips', async () => {
     await mount(runtime, container, { ...DEFAULTS, subreddits: ['funny', 'aww'] })
-    const chips = container.querySelectorAll('.gm-sp-editor-chip')
-    expect(chips.length).toBe(2)
-    expect(container.querySelectorAll('.gm-sp-editor-chip-label')[0]!.textContent).toBe('r/funny')
-    expect(container.querySelectorAll('.gm-sp-editor-chip-label')[1]!.textContent).toBe('r/aww')
+    expect(within(container).getByText('r/funny')).not.toBeNull()
+    expect(within(container).getByText('r/aww')).not.toBeNull()
   })
 
   test('adds a valid subreddit', async () => {
     await mount(runtime, container)
-    const input = container.querySelector('.gm-sp-editor-input') as HTMLInputElement
-    const addBtn = container.querySelector('[data-action="add"]') as HTMLButtonElement
+    const input = within(container).getByPlaceholderText(/r\/funny/) as HTMLInputElement
+    const addBtn = within(container).getByRole('button', { name: '添加' }) as HTMLButtonElement
     input.value = 'pics'
     addBtn.click()
-    expect(container.querySelectorAll('.gm-sp-editor-chip').length).toBe(2)
-    expect(container.querySelectorAll('.gm-sp-editor-chip-label')[1]!.textContent).toBe('r/pics')
+    expect(within(container).getByText('r/popular')).not.toBeNull()
+    expect(within(container).getByText('r/pics')).not.toBeNull()
     expect(input.value).toBe('')
   })
 
   test('Enter on input also adds the subreddit', async () => {
     await mount(runtime, container)
-    const input = container.querySelector('.gm-sp-editor-input') as HTMLInputElement
+    const input = within(container).getByPlaceholderText(/r\/funny/) as HTMLInputElement
     input.value = 'gifs'
-    input.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', cancelable: true }))
-    expect(container.querySelectorAll('.gm-sp-editor-chip').length).toBe(2)
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true }))
+    expect(within(container).getByText('r/gifs')).not.toBeNull()
   })
 
   test('rejects empty subreddit name', async () => {
     await mount(runtime, container)
-    ;(container.querySelector('[data-action="add"]') as HTMLButtonElement).click()
-    const err = container.querySelector('.gm-sp-editor-error') as HTMLElement
-    expect(err.hidden).toBe(false)
-    expect(err.textContent).toContain('subreddit')
+    ;(within(container).getByRole('button', { name: '添加' }) as HTMLButtonElement).click()
+    expect(within(container).getByText('请输入有效的 subreddit 名称')).not.toBeNull()
   })
 
   test('rejects duplicate subreddit', async () => {
     await mount(runtime, container, { ...DEFAULTS, subreddits: ['popular'] })
-    const input = container.querySelector('.gm-sp-editor-input') as HTMLInputElement
-    const addBtn = container.querySelector('[data-action="add"]') as HTMLButtonElement
+    const input = within(container).getByPlaceholderText(/r\/funny/) as HTMLInputElement
+    const addBtn = within(container).getByRole('button', { name: '添加' }) as HTMLButtonElement
     input.value = 'popular'
     addBtn.click()
-    const err = container.querySelector('.gm-sp-editor-error') as HTMLElement
-    expect(err.textContent).toContain('已在列表中')
+    expect(within(container).getByText(/已在列表中/)).not.toBeNull()
   })
 
   test('removes a subreddit when the × button is clicked', async () => {
     await mount(runtime, container, { ...DEFAULTS, subreddits: ['a', 'b', 'c'] })
-    const removeBtns = container.querySelectorAll<HTMLButtonElement>('.gm-sp-editor-chip-remove')
+    const removeBtns = within(container).getAllByRole('button', { name: 'remove' })
     removeBtns[1]!.click()
-    expect(container.querySelectorAll('.gm-sp-editor-chip').length).toBe(2)
-    expect(container.querySelectorAll('.gm-sp-editor-chip-label')[0]!.textContent).toBe('r/a')
-    expect(container.querySelectorAll('.gm-sp-editor-chip-label')[1]!.textContent).toBe('r/c')
+    expect(within(container).queryAllByRole('button', { name: 'remove' }).length).toBe(2)
+    expect(within(container).getByText('r/a')).not.toBeNull()
+    expect(within(container).getByText('r/c')).not.toBeNull()
+    expect(within(container).queryByText('r/b')).toBeNull()
   })
 
   test('cancel calls close', async () => {
@@ -132,21 +123,18 @@ describe('createRedditEditor', () => {
   test('save rejects when subreddits list is empty', async () => {
     const { result } = await mount(runtime, container, { ...DEFAULTS, subreddits: [] })
     void result.save?.()
-    const err = container.querySelector('.gm-sp-editor-error') as HTMLElement
-    expect(err.hidden).toBe(false)
-    expect(err.textContent).toContain('subreddit')
+    expect(within(container).getByText('至少添加一个 subreddit')).not.toBeNull()
     expect(runtime.stores[CONFIG_KEY]).toBeUndefined()
   })
 
-  const inputs = (sel: string) => container.querySelectorAll<HTMLInputElement>(sel)
+  const inputs = (c: HTMLElement) => within(c).queryAllByRole('spinbutton')
 
   test('save rejects invalid TTL', async () => {
     const { result } = await mount(runtime, container)
-    const ttl = inputs('.gm-sp-editor-form input[type="number"]')[0]
-    ttl.value = '0'
+    const ns = inputs(container)
+    ;(ns[0] as HTMLInputElement).value = '0'
     void result.save?.()
-    const err = container.querySelector('.gm-sp-editor-error') as HTMLElement
-    expect(err.textContent).toContain('TTL')
+    expect(within(container).getByText('TTL 必须是 ≥1 的整数')).not.toBeNull()
     expect(runtime.stores[CONFIG_KEY]).toBeUndefined()
   })
 
@@ -155,9 +143,7 @@ describe('createRedditEditor', () => {
       reddit: { ...DEFAULTS, subreddits: ['fromStorage'] },
     }
     await mount(runtime, container, { ...DEFAULTS, subreddits: ['fallback'] })
-    expect(container.querySelectorAll('.gm-sp-editor-chip-label')[0]!.textContent).toBe(
-      'r/fromstorage',
-    )
+    expect(within(container).getByText('r/fromstorage')).not.toBeNull()
   })
 
   test('prefills number fields with fresh options', async () => {
@@ -171,19 +157,19 @@ describe('createRedditEditor', () => {
       minCutoffScore: 300,
       ageHalfLifeDays: 3,
     })
-    const ns = inputs('.gm-sp-editor-form input[type="number"]')
-    expect(ns[0].value).toBe('45')
-    expect(ns[1].value).toBe('7')
-    expect(ns[2].value).toBe('2')
-    expect(ns[3].value).toBe('0.2')
-    expect(ns[4].value).toBe('0.5')
-    expect(ns[5].value).toBe('300')
-    expect(ns[6].value).toBe('3')
+    const ns = inputs(container)
+    expect((ns[0] as HTMLInputElement).value).toBe('45')
+    expect((ns[1] as HTMLInputElement).value).toBe('7')
+    expect((ns[2] as HTMLInputElement).value).toBe('2')
+    expect((ns[3] as HTMLInputElement).value).toBe('0.2')
+    expect((ns[4] as HTMLInputElement).value).toBe('0.5')
+    expect((ns[5] as HTMLInputElement).value).toBe('300')
+    expect((ns[6] as HTMLInputElement).value).toBe('3')
   })
 
   test('saves ageHalfLifeDays to config', async () => {
     const { result } = await mount(runtime, container)
-    const halfLife = inputs('.gm-sp-editor-form input[type="number"]')[6]
+    const halfLife = inputs(container)[6] as HTMLInputElement
     halfLife.value = '5'
     void result.save?.()
     await new Promise<void>((r) => setTimeout(r, 0))
@@ -193,27 +179,28 @@ describe('createRedditEditor', () => {
 
   test('rejects ageHalfLifeDays out of range', async () => {
     const { result } = await mount(runtime, container)
-    const halfLife = inputs('.gm-sp-editor-form input[type="number"]')[6]
+    const halfLife = inputs(container)[6] as HTMLInputElement
     halfLife.value = '50'
     void result.save?.()
-    const err = container.querySelector('.gm-sp-editor-error') as HTMLElement
-    expect(err.textContent).toContain('衰减半衰期')
+    expect(within(container).getByText('衰减半衰期必须是 0.1~30 之间')).not.toBeNull()
     expect(runtime.stores[CONFIG_KEY]).toBeUndefined()
   })
 
   test('reorder chips via drag updates state and re-renders', async () => {
     await mount(runtime, container, { ...DEFAULTS, subreddits: ['a', 'b', 'c'] })
-    const labelsBefore = Array.from(
-      container.querySelectorAll<HTMLElement>('.gm-sp-editor-chip-label'),
-    ).map((el) => el.textContent)
+    const labelsBefore = within(container)
+      .getAllByText(/r\//)
+      .map((el) => el.textContent)
     expect(labelsBefore).toEqual(['r/a', 'r/b', 'r/c'])
 
-    const chips = container.querySelectorAll<HTMLElement>('.gm-sp-editor-chip')
+    const chips = within(container)
+      .queryAllByRole('button', { name: 'remove' })
+      .map((btn) => btn.closest('.gm-sp-editor-chip')!)
     const sourceChip = chips[0]!
     const targetChip = chips[2]!
     const handle = sourceChip.querySelector('.gm-sp-editor-chip-drag')!
 
-    const down = new dom.window.PointerEvent('pointerdown', {
+    const down = new PointerEvent('pointerdown', {
       bubbles: true,
       button: 0,
       clientX: 0,
@@ -222,19 +209,19 @@ describe('createRedditEditor', () => {
     handle.dispatchEvent(down)
 
     const rect = targetChip.getBoundingClientRect()
-    const move = new dom.window.PointerEvent('pointermove', {
+    const move = new PointerEvent('pointermove', {
       bubbles: true,
       clientX: 0,
       clientY: rect.bottom + 5,
     })
-    dom.window.document.dispatchEvent(move)
+    document.dispatchEvent(move)
 
-    const up = new dom.window.PointerEvent('pointerup', { bubbles: true })
-    dom.window.document.dispatchEvent(up)
+    const up = new PointerEvent('pointerup', { bubbles: true })
+    document.dispatchEvent(up)
 
-    const labelsAfter = Array.from(
-      container.querySelectorAll<HTMLElement>('.gm-sp-editor-chip-label'),
-    ).map((el) => el.textContent)
+    const labelsAfter = within(container)
+      .getAllByText(/r\//)
+      .map((el) => el.textContent)
     expect(labelsAfter).toEqual(['r/b', 'r/c', 'r/a'])
   })
 })

@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
 import { parseCmaNow, parseCmaPage } from '../../../src/dashboard/weather/cma'
 
 const FIXTURE_HTML = readFileSync(
@@ -13,7 +12,7 @@ const FIXTURE_NOW = JSON.parse(
 ) as unknown
 
 function makeDOMParser(): typeof DOMParser {
-  return new JSDOM('').window.DOMParser
+  return DOMParser
 }
 
 describe('parseCmaPage', () => {

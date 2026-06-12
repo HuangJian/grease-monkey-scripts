@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
@@ -55,12 +54,6 @@ function loadPageFixture(): string {
   return readFileSync(join(import.meta.dir, '..', '..', 'fixtures', 'v2ex-hot-page.html'), 'utf8')
 }
 
-function makeDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><body></body></html>', {
-    url: 'https://www.v2ex.com/',
-  })
-}
-
 describe('parseV2ex', () => {
   test('parses valid array', () => {
     const topics = parseV2ex(FIXTURE, 10)
@@ -91,20 +84,17 @@ describe('parseV2ex', () => {
 
 describe('parseV2exHotPage', () => {
   test('returns empty for empty html', () => {
-    const dom = makeDom()
-    expect(parseV2exHotPage('', 10, new dom.window.DOMParser())).toEqual([])
+    expect(parseV2exHotPage('', 10, new DOMParser())).toEqual([])
   })
   test('parses well-formed rows from fixture', () => {
-    const dom = makeDom()
-    const topics = parseV2exHotPage(loadPageFixture(), 50, new dom.window.DOMParser())
+    const topics = parseV2exHotPage(loadPageFixture(), 50, new DOMParser())
     const ids = topics.map((t) => t.id)
     expect(ids).toContain(1217291)
     expect(ids).toContain(1217230)
     expect(topics.length).toBeGreaterThanOrEqual(2)
   })
   test('extracts absolute url, author, node, replies', () => {
-    const dom = makeDom()
-    const topics = parseV2exHotPage(loadPageFixture(), 50, new dom.window.DOMParser())
+    const topics = parseV2exHotPage(loadPageFixture(), 50, new DOMParser())
     const topic = topics.find((t) => t.id === 1217291)!
     expect(topic.url).toBe('https://www.v2ex.com/t/1217291#reply210')
     expect(topic.title).toBe('跟老婆在一起十年了')
@@ -115,36 +105,31 @@ describe('parseV2exHotPage', () => {
     expect(topic.created).toBeDefined()
   })
   test('handles missing node gracefully', () => {
-    const dom = makeDom()
-    const topics = parseV2exHotPage(loadPageFixture(), 50, new dom.window.DOMParser())
+    const topics = parseV2exHotPage(loadPageFixture(), 50, new DOMParser())
     const topic = topics.find((t) => t.id === 1217200)
     expect(topic).toBeDefined()
     expect(topic!.node.title).toBe('')
     expect(topic!.replies).toBe(42)
   })
   test('handles missing replies count as 0', () => {
-    const dom = makeDom()
-    const topics = parseV2exHotPage(loadPageFixture(), 50, new dom.window.DOMParser())
+    const topics = parseV2exHotPage(loadPageFixture(), 50, new DOMParser())
     const topic = topics.find((t) => t.id === 1217199)
     expect(topic).toBeDefined()
     expect(topic!.replies).toBe(0)
   })
   test('skips rows with non-topic-link href', () => {
-    const dom = makeDom()
-    const topics = parseV2exHotPage(loadPageFixture(), 50, new dom.window.DOMParser())
+    const topics = parseV2exHotPage(loadPageFixture(), 50, new DOMParser())
     expect(topics.some((t) => t.title === '不是 /t/ 链接的帖子')).toBe(false)
   })
   test('ignores Top 10 box rows (only .cell.item rows)', () => {
-    const dom = makeDom()
-    const topics = parseV2exHotPage(loadPageFixture(), 50, new dom.window.DOMParser())
+    const topics = parseV2exHotPage(loadPageFixture(), 50, new DOMParser())
     for (const t of topics) {
       expect(t.replies).toBeGreaterThanOrEqual(0)
     }
     expect(topics.find((t) => t.id === 1217291)?.replies).toBe(210)
   })
   test('respects maxItems', () => {
-    const dom = makeDom()
-    const topics = parseV2exHotPage(loadPageFixture(), 2, new dom.window.DOMParser())
+    const topics = parseV2exHotPage(loadPageFixture(), 2, new DOMParser())
     expect(topics).toHaveLength(2)
   })
 })

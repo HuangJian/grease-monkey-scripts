@@ -1,19 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
 import { createDashboard } from '../../src/dashboard/app'
 import { DEFAULT_CONFIG } from '../../src/dashboard/config'
 import { getMountedRoot } from '../../src/dashboard/shell/mount'
 import { CACHE_KEY, CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/dashboard/types'
 import { createRuntime, type TestRuntime } from '../runtime'
 
-function makeDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><head></head><body></body></html>', {
-    url: 'https://www.v2ex.com/',
-  })
-}
-
-function shadowOf(dom: JSDOM, id = 'gm-dashboard'): ShadowRoot {
-  const host = dom.window.document.getElementById(id) as HTMLElement
+function shadowOf(id = 'gm-dashboard'): ShadowRoot {
+  const host = document.getElementById(id) as HTMLElement
   if (!host) throw new Error('host not mounted')
   const root = getMountedRoot(host)
   if (!root) throw new Error(`no shadow root for #${id}`)
@@ -21,16 +14,15 @@ function shadowOf(dom: JSDOM, id = 'gm-dashboard'): ShadowRoot {
 }
 
 describe('cross-tab broadcast', () => {
-  let dom: JSDOM
   let runtime: TestRuntime
 
   beforeEach(() => {
-    dom = makeDom()
-    runtime = createRuntime(dom)
+    globalThis.location.href = 'https://www.v2ex.com/'
+    runtime = createRuntime()
   })
 
   afterEach(() => {
-    dom.window.document.body.innerHTML = ''
+    document.body.innerHTML = ''
   })
 
   test('setValue alone does NOT fire the local listener', () => {
@@ -56,7 +48,7 @@ describe('cross-tab broadcast', () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     await dashboard.open()
-    const shadow = shadowOf(dom)
+    const shadow = shadowOf()
     // The dashboard's own listener is registered, but setValue (called inside
     // refreshSource) must not fire it. We assert the card updates *anyway*
     // because refreshSource re-renders explicitly.
@@ -87,7 +79,7 @@ describe('cross-tab broadcast', () => {
     }
     runtime.simulateRemoteChange(CACHE_KEY('v2ex'), newCache)
     await new Promise((r) => setTimeout(r, 0))
-    const shadow = shadowOf(dom)
+    const shadow = shadowOf()
     const v2exPanel = shadow.querySelector(
       '[data-source="browse"] .gm-sp-tab-panel[data-tab-id="v2ex"]',
     ) as HTMLElement
@@ -119,7 +111,7 @@ describe('cross-tab broadcast', () => {
     }
     runtime.simulateRemoteChange(CACHE_KEY('reddit'), newCache)
     await new Promise((r) => setTimeout(r, 0))
-    const shadow = shadowOf(dom)
+    const shadow = shadowOf()
     const redditPanel = shadow.querySelector(
       '[data-source="browse"] .gm-sp-tab-panel[data-tab-id="reddit"]',
     ) as HTMLElement

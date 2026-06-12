@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { within } from '@testing-library/preact'
 import { validateConfig } from '../../../../src/dashboard/config'
 import { createRedditSource } from '../../../../src/dashboard/reddit/source'
 import { STATE_KEY } from '../../../../src/dashboard/types'
@@ -27,12 +27,6 @@ function defaultRedditOpts(over: Partial<RedditSourceOptions> = {}): RedditSourc
   }
 }
 
-function makeDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><body></body></html>', {
-    url: 'https://www.v2ex.com/',
-  })
-}
-
 function loadFixture(): unknown {
   const text = readFileSync(
     join(import.meta.dir, '..', '..', 'fixtures', 'reddit-popular.json'),
@@ -41,8 +35,8 @@ function loadFixture(): unknown {
   return JSON.parse(text)
 }
 
-function makeRuntime(dom: JSDOM, handler: (d: RequestDetails) => void): TestRuntime {
-  const base = createRuntime(dom)
+function makeRuntime(handler: (d: RequestDetails) => void): TestRuntime {
+  const base = createRuntime()
   return { ...base, request: (d: RequestDetails) => handler(d) }
 }
 
@@ -60,10 +54,9 @@ describe('createRedditSource', () => {
 
 describe('createRedditSource.fetch reads fresh config', () => {
   test('fetch uses subreddits from CONFIG_KEY, not stale closure options', async () => {
-    const dom = makeDom()
     const json = loadFixture()
     const fetchedUrls: string[] = []
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       fetchedUrls.push(d.url)
       d.onload({ responseText: JSON.stringify(json) })
     })
@@ -79,10 +72,9 @@ describe('createRedditSource.fetch reads fresh config', () => {
   })
 
   test('fetch falls back to closure options when CONFIG_KEY has no reddit config', async () => {
-    const dom = makeDom()
     const json = loadFixture()
     const fetchedUrls: string[] = []
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       fetchedUrls.push(d.url)
       d.onload({ responseText: JSON.stringify(json) })
     })
@@ -92,9 +84,8 @@ describe('createRedditSource.fetch reads fresh config', () => {
   })
 
   test('fetch returns a Map keyed by sub', async () => {
-    const dom = makeDom()
     const json = loadFixture()
-    const runtime = makeRuntime(dom, (d) => {
+    const runtime = makeRuntime((d) => {
       d.onload({ responseText: JSON.stringify(json) })
     })
     const source = createRedditSource(defaultRedditOpts({ subreddits: ['funny', 'aww'] }))
@@ -109,11 +100,11 @@ describe('createRedditSource.fetch reads fresh config', () => {
 
 describe('createRedditSource.render uses ctx.runtime when runtimeRef is null', () => {
   test('bugfix: clicking title persists read state even if fetch() was never called', () => {
-    const dom = makeDom()
-    const runtime = createRuntime(dom)
+    const runtime = createRuntime()
     const source = createRedditSource(defaultRedditOpts())
 
-    const container = dom.window.document.createElement('div')
+    const container = document.createElement('div')
+    document.body.appendChild(container)
     const data: Record<string, RedditPost[]> = {
       aww: [
         {
@@ -132,7 +123,7 @@ describe('createRedditSource.render uses ctx.runtime when runtimeRef is null', (
     // Simulate mount flow: render before any fetch() call
     source.render(container, data, { root: undefined, runtime })
 
-    const link = container.querySelector('.gm-sp-item-title') as HTMLAnchorElement
+    const link = within(container).getByRole('link', { name: 'test post' }) as HTMLAnchorElement
     link.click()
 
     // The mark should be saved to storage via ctx.runtime

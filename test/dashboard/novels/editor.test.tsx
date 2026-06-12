@@ -1,29 +1,24 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
+import { cleanup, within } from '@testing-library/preact'
 import { createNovelsEditor } from '../../../src/dashboard/novels/editor'
 import { CONFIG_KEY } from '../../../src/dashboard/types'
 import { createRuntime, type TestRuntime } from '../../runtime'
 import type { NovelEntry } from '../../../src/dashboard/novels/types'
-
-function dom(): JSDOM {
-  return new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
-    url: 'https://example.com/',
-  })
-}
 
 let runtime: TestRuntime
 let root: HTMLElement
 let closed: boolean
 
 beforeEach(() => {
-  const d = dom()
-  runtime = createRuntime(d)
-  root = d.window.document.createElement('div')
-  d.window.document.body.appendChild(root)
+  globalThis.location.href = 'https://example.com/'
+  runtime = createRuntime()
+  root = document.createElement('div')
+  document.body.appendChild(root)
   closed = false
 })
 
 afterEach(() => {
+  cleanup()
   root.replaceChildren()
 })
 
@@ -54,7 +49,7 @@ async function mountEditor(entries: NovelEntry[], cachedTitles: Map<string, stri
 describe('createNovelsEditor', () => {
   test('renders empty list when no entries', async () => {
     await mountEditor([])
-    expect(root.querySelector('.gm-sp-editor-empty')!.textContent).toContain('尚未添加')
+    expect(within(root).getByText(/尚未添加/)).not.toBeNull()
   })
 
   test('renders existing entries with title from cache', async () => {
@@ -62,71 +57,72 @@ describe('createNovelsEditor', () => {
       [{ url: 'https://www.sudugu.org/166/' }],
       new Map([['https://www.sudugu.org/166/', '九龙夺嫡']]),
     )
-    const items = root.querySelectorAll('.gm-sp-editor-item')
+    const items = within(root).queryAllByText('九龙夺嫡')
     expect(items.length).toBe(1)
-    expect(items[0]!.querySelector('.gm-sp-editor-item-label')!.textContent).toBe('九龙夺嫡')
+    expect(items[0]!.textContent).toBe('九龙夺嫡')
   })
 
   test('uses alias when no cached title', async () => {
     await mountEditor([{ url: 'https://www.sudugu.org/166/', alias: '神书' }])
-    expect(root.querySelector('.gm-sp-editor-item-label')!.textContent).toBe('神书')
+    expect(within(root).getByText('神书')).not.toBeNull()
   })
 
   test('shows unknown-site warning for unregistered hostnames', async () => {
     await mountEditor([{ url: 'https://other.example/x/' }])
-    const warn = root.querySelector('.gm-sp-ne-item-warn') as HTMLElement
+    const warn = within(root).getByText('未知站点') as HTMLElement
     expect(warn.hidden).toBe(false)
-    expect(warn.textContent).toContain('未知站点')
   })
 
   test('hides unknown-site warning for registered hostnames', async () => {
     await mountEditor([{ url: 'https://www.sudugu.org/166/' }])
-    const warn = root.querySelector('.gm-sp-ne-item-warn') as HTMLElement
+    const warn = within(root).getByText('未知站点') as HTMLElement
     expect(warn.hidden).toBe(true)
   })
 
   test('adds a valid URL to the list', async () => {
     await mountEditor([])
-    const urlInput = root.querySelector('.gm-sp-ne-url') as HTMLInputElement
-    const aliasInput = root.querySelector('.gm-sp-ne-alias') as HTMLInputElement
-    const addBtn = root.querySelector('[data-action="add"]') as HTMLButtonElement
+    const urlInput = within(root).getByPlaceholderText(
+      'https://www.sudugu.org/166/',
+    ) as HTMLInputElement
+    const aliasInput = within(root).getByPlaceholderText('九龙夺嫡') as HTMLInputElement
+    const addBtn = within(root).getByRole('button', { name: '添加书库' }) as HTMLButtonElement
     urlInput.value = 'https://www.sudugu.org/12/'
     aliasInput.value = '龙藏'
     addBtn.click()
     await new Promise((r) => setTimeout(r, 0))
-    expect(root.querySelectorAll('.gm-sp-editor-item').length).toBe(1)
-    expect(root.querySelector('.gm-sp-editor-item-label')!.textContent).toBe('龙藏')
+    expect(within(root).queryAllByText('龙藏').length).toBe(1)
+    expect(within(root).getByText('龙藏').textContent).toBe('龙藏')
   })
 
   test('rejects empty URL', async () => {
     await mountEditor([])
-    ;(root.querySelector('[data-action="add"]') as HTMLButtonElement).click()
+    ;(within(root).getByRole('button', { name: '添加书库' }) as HTMLButtonElement).click()
     await new Promise((r) => setTimeout(r, 0))
-    const err = root.querySelector('.gm-sp-editor-error') as HTMLElement
-    expect(err.hidden).toBe(false)
-    expect(err.textContent).toContain('URL')
+    expect(within(root).getByText('请输入书库 URL')).not.toBeNull()
   })
 
   test('rejects duplicate URL', async () => {
     await mountEditor([{ url: 'https://www.sudugu.org/166/' }])
-    const urlInput = root.querySelector('.gm-sp-ne-url') as HTMLInputElement
-    const addBtn = root.querySelector('[data-action="add"]') as HTMLButtonElement
+    const urlInput = within(root).getByPlaceholderText(
+      'https://www.sudugu.org/166/',
+    ) as HTMLInputElement
+    const addBtn = within(root).getByRole('button', { name: '添加书库' }) as HTMLButtonElement
     urlInput.value = 'https://www.sudugu.org/166/'
     addBtn.click()
     await new Promise((r) => setTimeout(r, 0))
-    const err = root.querySelector('.gm-sp-editor-error') as HTMLElement
-    expect(err.textContent).toContain('已在列表中')
+    expect(within(root).getByText(/已在列表中/)).not.toBeNull()
   })
 
   test('rejects invalid URL', async () => {
     await mountEditor([])
-    const urlInput = root.querySelector('.gm-sp-ne-url') as HTMLInputElement
-    const addBtn = root.querySelector('[data-action="add"]') as HTMLButtonElement
+    const urlInput = within(root).getByPlaceholderText(
+      'https://www.sudugu.org/166/',
+    ) as HTMLInputElement
+    const addBtn = within(root).getByRole('button', { name: '添加书库' }) as HTMLButtonElement
     urlInput.value = 'not-a-url'
     addBtn.click()
     await new Promise((r) => setTimeout(r, 0))
-    const err = root.querySelector('.gm-sp-editor-error') as HTMLElement
-    expect(err.textContent).toContain('无效')
+    expect(within(root).getByText(/无效/)).not.toBeNull()
   })
 
   test('removes an entry when the × button is clicked', async () => {
@@ -134,12 +130,12 @@ describe('createNovelsEditor', () => {
       { url: 'https://www.sudugu.org/166/' },
       { url: 'https://www.sudugu.org/12/' },
     ])
-    expect(root.querySelectorAll('.gm-sp-editor-item').length).toBe(2)
-    const removeBtns = root.querySelectorAll<HTMLButtonElement>('.gm-sp-item-remove')
+    expect(within(root).getAllByRole('button', { name: 'remove' }).length).toBe(2)
+    const removeBtns = within(root).getAllByRole('button', { name: 'remove' })
     removeBtns[0]!.click()
     await new Promise((r) => setTimeout(r, 0))
-    expect(root.querySelectorAll('.gm-sp-editor-item').length).toBe(1)
-    expect(root.querySelector('.gm-sp-ne-item-url')!.textContent).toContain('12/')
+    expect(within(root).getAllByRole('button', { name: 'remove' }).length).toBe(1)
+    expect(within(root).getAllByText('https://www.sudugu.org/12/').length).toBeGreaterThanOrEqual(1)
   })
 
   test('cancel button triggers close', async () => {
@@ -162,14 +158,11 @@ describe('createNovelsEditor', () => {
 
   test('save rejects invalid TTL', async () => {
     const result = await mountEditor([])
-    const inputs = root.querySelectorAll<HTMLInputElement>(
-      '.gm-sp-editor-advanced input[type="number"]',
-    )
-    inputs[0]!.value = '0'
+    const inputs = within(root).queryAllByRole('spinbutton')
+    ;(inputs[0] as HTMLInputElement).value = '0'
     void result.save?.()
     await new Promise((r) => setTimeout(r, 0))
-    const err = root.querySelector('.gm-sp-editor-error') as HTMLElement
-    expect(err.textContent).toContain('TTL')
+    expect(within(root).getByText('TTL 必须是 ≥1 的整数')).not.toBeNull()
   })
 
   test('allows saving an entry with unknown host', async () => {
