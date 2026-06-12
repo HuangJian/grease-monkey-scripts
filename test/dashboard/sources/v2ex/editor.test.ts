@@ -6,10 +6,9 @@ import { createRuntime, type TestRuntime } from '../../../runtime'
 
 const DEFAULTS: V2exSourceOptions = {
   ttlMinutes: 30,
-  minItems: 10,
-  displayRatio: 0.1,
-  elbowDropRatio: 0.4,
-  minReplies: 5,
+  historyDays: 7,
+  todayMinReplies: 10,
+  olderMinReplies: 20,
   ageHalfLifeDays: 2,
 }
 
@@ -77,14 +76,14 @@ describe('createV2exEditor', () => {
     expect(stored['reddit']).toBeDefined()
     expect((stored['weather'] as { cities: unknown[] }).cities).toHaveLength(1)
     expect((stored['reddit'] as { subreddits: string[] }).subreddits).toEqual(['popular', 'aww'])
-    expect((stored['v2ex'] as { minItems: number }).minItems).toBe(10)
+    expect((stored['v2ex'] as { historyDays: number }).historyDays).toBe(7)
   })
 
   test('save with no existing config creates fresh entry', async () => {
     const { result } = await mount(runtime, container)
     void result.save?.()
     await new Promise<void>((r) => setTimeout(r, 0))
-    const stored = runtime.stores[CONFIG_KEY] as { v2ex: { minItems: number } }
-    expect(stored.v2ex.minItems).toBe(10)
+    const stored = runtime.stores[CONFIG_KEY] as { v2ex: { historyDays: number } }
+    expect(stored.v2ex.historyDays).toBe(7)
   })
 })

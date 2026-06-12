@@ -12,10 +12,9 @@ export type V2exTopic = {
 }
 
 export type V2exCountOptions = {
-  minItems: number
-  displayRatio: number
-  elbowDropRatio: number
-  minReplies: number
+  historyDays: number
+  todayMinReplies: number
+  olderMinReplies: number
   ageHalfLifeDays: number
 }
 

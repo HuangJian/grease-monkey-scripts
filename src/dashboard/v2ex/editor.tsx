@@ -16,16 +16,19 @@ type FormField = {
 
 const FORM_FIELDS: FormField[] = [
   { prop: 'ttlMinutes', label: 'TTL（分钟）', min: 1, errorMsg: 'TTL 必须是 ≥1 的整数' },
-  { prop: 'minItems', label: '最少条数', min: 1, errorMsg: '最少条数必须是 ≥1 的整数' },
-  { prop: 'displayRatio', label: '显示比例', min: 0, max: 1, errorMsg: '显示比例必须是 0~1 之间' },
+  { prop: 'historyDays', label: '保留天数', min: 1, errorMsg: '保留天数必须是 ≥1 的整数' },
   {
-    prop: 'elbowDropRatio',
-    label: '拐点跌幅',
+    prop: 'todayMinReplies',
+    label: '今日最低回复',
     min: 0,
-    max: 1,
-    errorMsg: '拐点跌幅必须是 0~1 之间',
+    errorMsg: '今日最低回复必须 ≥0',
   },
-  { prop: 'minReplies', label: '回复阈值', min: 0, errorMsg: '回复阈值必须 ≥0' },
+  {
+    prop: 'olderMinReplies',
+    label: '历史最低回复',
+    min: 0,
+    errorMsg: '历史最低回复必须 ≥0',
+  },
   {
     prop: 'ageHalfLifeDays',
     label: '衰减半衰期（天）',
@@ -43,17 +46,18 @@ function coerceV2exOptions(
   return {
     ttlMinutes:
       typeof raw['ttlMinutes'] === 'number' ? (raw['ttlMinutes'] as number) : fallback.ttlMinutes,
-    minItems: typeof raw['minItems'] === 'number' ? (raw['minItems'] as number) : fallback.minItems,
-    displayRatio:
-      typeof raw['displayRatio'] === 'number'
-        ? (raw['displayRatio'] as number)
-        : fallback.displayRatio,
-    elbowDropRatio:
-      typeof raw['elbowDropRatio'] === 'number'
-        ? (raw['elbowDropRatio'] as number)
-        : fallback.elbowDropRatio,
-    minReplies:
-      typeof raw['minReplies'] === 'number' ? (raw['minReplies'] as number) : fallback.minReplies,
+    historyDays:
+      typeof raw['historyDays'] === 'number'
+        ? (raw['historyDays'] as number)
+        : fallback.historyDays,
+    todayMinReplies:
+      typeof raw['todayMinReplies'] === 'number'
+        ? (raw['todayMinReplies'] as number)
+        : fallback.todayMinReplies,
+    olderMinReplies:
+      typeof raw['olderMinReplies'] === 'number'
+        ? (raw['olderMinReplies'] as number)
+        : fallback.olderMinReplies,
     ageHalfLifeDays:
       typeof raw['ageHalfLifeDays'] === 'number'
         ? (raw['ageHalfLifeDays'] as number)
@@ -108,11 +112,10 @@ function V2exEditorForm({ fresh, ctx, handleRef }: V2exEditorFormProps) {
         if (nums === null) return
         const v2ex: V2exSourceOptions = {
           ttlMinutes: Math.round(nums[0]),
-          minItems: Math.round(nums[1]),
-          displayRatio: nums[2],
-          elbowDropRatio: nums[3],
-          minReplies: Math.round(nums[4]),
-          ageHalfLifeDays: nums[5],
+          historyDays: Math.round(nums[1]),
+          todayMinReplies: Math.round(nums[2]),
+          olderMinReplies: Math.round(nums[3]),
+          ageHalfLifeDays: nums[4],
         }
         void saveConfigSection({
           runtime: ctx.runtime,

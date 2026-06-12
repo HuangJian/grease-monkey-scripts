@@ -3,14 +3,13 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   computeSortScore,
-  dynamicV2exCount,
   mergeV2exTopics,
   parseCreatedFromTitle,
   parseV2ex,
   parseV2exHotPage,
   sortByDecayedScore,
 } from '../../../../src/dashboard/v2ex/parser'
-import type { V2exCountOptions, V2exTopic } from '../../../../src/dashboard/v2ex/types'
+import type { V2exTopic } from '../../../../src/dashboard/v2ex/types'
 
 const FIXTURE = [
   {
@@ -41,14 +40,6 @@ const FIXTURE = [
     sources: [] as const,
   },
 ]
-
-const DEFAULT_COUNT_OPTS: V2exCountOptions = {
-  minItems: 10,
-  displayRatio: 0.1,
-  elbowDropRatio: 0.4,
-  minReplies: 5,
-  ageHalfLifeDays: 2,
-}
 
 function loadPageFixture(): string {
   return readFileSync(join(import.meta.dir, '..', '..', 'fixtures', 'v2ex-hot-page.html'), 'utf8')
@@ -245,46 +236,6 @@ describe('mergeV2exTopics', () => {
     const t100 = merged.find((t) => t.id === 100)!
     expect(t100.sources).toEqual(['api', 'page'])
     expect(t100.replies).toBe(40)
-  })
-})
-
-describe('dynamicV2exCount', () => {
-  test('returns 0 for empty input', () => {
-    expect(dynamicV2exCount([], DEFAULT_COUNT_OPTS)).toBe(0)
-  })
-  test('returns minItems when leader is 0 or invalid', () => {
-    expect(dynamicV2exCount([0, 0, 0], DEFAULT_COUNT_OPTS)).toBe(DEFAULT_COUNT_OPTS.minItems)
-    expect(dynamicV2exCount([NaN, 1], DEFAULT_COUNT_OPTS)).toBe(DEFAULT_COUNT_OPTS.minItems)
-  })
-  test('cuts at elbow when there is a sharp drop', () => {
-    const replies = [200, 180, 150, 120, 30, 20, 10]
-    const result = dynamicV2exCount(replies, DEFAULT_COUNT_OPTS)
-    expect(result).toBe(10)
-  })
-  test('threshold drives the count when there is no elbow', () => {
-    const replies = [100, 80, 50, 30, 20, 10, 5, 3, 2, 1, 0]
-    expect(dynamicV2exCount(replies, DEFAULT_COUNT_OPTS)).toBe(11)
-  })
-  test('clamps to min when distribution is flat', () => {
-    const replies = [5, 5, 5, 5, 5, 5, 5, 5]
-    expect(dynamicV2exCount(replies, DEFAULT_COUNT_OPTS)).toBe(DEFAULT_COUNT_OPTS.minItems)
-  })
-  test('weak leader falls back to min via clamp', () => {
-    expect(dynamicV2exCount([3, 0, 0, 0, 0, 0, 0, 0, 0, 0], DEFAULT_COUNT_OPTS)).toBe(
-      DEFAULT_COUNT_OPTS.minItems,
-    )
-  })
-  test('honors custom minItems', () => {
-    const replies = [100, 80, 50, 30, 20, 10, 5, 3]
-    const opts = { ...DEFAULT_COUNT_OPTS, minItems: 3 }
-    const result = dynamicV2exCount(replies, opts)
-    expect(result).toBeGreaterThanOrEqual(3)
-  })
-  test('minReplies raises the threshold floor', () => {
-    const replies = [50, 20, 10, 8, 5, 5, 5]
-    const opts = { ...DEFAULT_COUNT_OPTS, minReplies: 20, displayRatio: 0.1 }
-    const result = dynamicV2exCount(replies, opts)
-    expect(result).toBeLessThanOrEqual(15)
   })
 })
 

@@ -69,10 +69,9 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
       const allTopics = await fetchV2ex(
         runtime,
         {
-          minItems: options.minItems,
-          displayRatio: options.displayRatio,
-          elbowDropRatio: options.elbowDropRatio,
-          minReplies: options.minReplies,
+          historyDays: options.historyDays,
+          todayMinReplies: options.todayMinReplies,
+          olderMinReplies: options.olderMinReplies,
           ageHalfLifeDays: options.ageHalfLifeDays,
         },
         new runtime.DOMParser(),

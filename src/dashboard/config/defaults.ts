@@ -7,11 +7,9 @@ export const DEFAULT_CONFIG: Config = {
   },
   v2ex: {
     ttlMinutes: 30,
-    minItems: 10,
-    maxItems: Number.POSITIVE_INFINITY,
-    displayRatio: 0.1,
-    elbowDropRatio: 0.4,
-    minReplies: 5,
+    historyDays: 7,
+    todayMinReplies: 10,
+    olderMinReplies: 20,
     ageHalfLifeDays: 2,
   },
   reddit: {

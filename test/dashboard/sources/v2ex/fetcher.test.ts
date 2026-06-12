@@ -41,10 +41,9 @@ const FIXTURE = [
 ]
 
 const DEFAULT_COUNT_OPTS: V2exCountOptions = {
-  minItems: 10,
-  displayRatio: 0.1,
-  elbowDropRatio: 0.4,
-  minReplies: 5,
+  historyDays: 7,
+  todayMinReplies: 10,
+  olderMinReplies: 20,
   ageHalfLifeDays: 2,
 }
 
@@ -197,7 +196,7 @@ describe('fetchV2ex', () => {
     expect(shared!.sources).toEqual(['api', 'page'])
   })
 
-  test('filters out topics with replies below minReplies', async () => {
+  test('filters out today page topics with replies below todayMinReplies', async () => {
     const lowReplyTopic = {
       id: 999,
       title: 'Low reply',
@@ -206,10 +205,11 @@ describe('fetchV2ex', () => {
       member: { username: 'u' },
       node: { title: 'n' },
       sources: [] as const,
+      created: Date.now(),
     }
     const runtime = makeRuntime((d) => {
       if (d.url.includes('hot.json')) {
-        d.onload({ responseText: JSON.stringify([FIXTURE[0], lowReplyTopic]) })
+        d.onload({ responseText: JSON.stringify([FIXTURE[0]]) })
       } else {
         d.onload({ responseText: JSON.stringify([FIXTURE[0], lowReplyTopic]) })
       }
@@ -217,11 +217,11 @@ describe('fetchV2ex', () => {
     const state = createV2exState()
     const topics = await fetchV2ex(
       runtime,
-      { ...DEFAULT_COUNT_OPTS, minReplies: 5 },
+      { ...DEFAULT_COUNT_OPTS, todayMinReplies: 5 },
       new DOMParser(),
       state,
     )
-    expect(topics.every((t) => t.replies >= 5)).toBe(true)
+    expect(topics.find((t) => t.id === 999)).toBeUndefined()
   })
 
   test('saves history when api succeeds', async () => {
@@ -234,7 +234,7 @@ describe('fetchV2ex', () => {
     })
     const state = createV2exState()
     await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
-    const history = await state.loadHistory(runtime)
+    const history = await state.loadHistory(runtime, 7)
     expect(history).toHaveLength(3)
     expect(history.map((t) => t.id).sort()).toEqual([1, 2, 3])
   })
@@ -246,7 +246,7 @@ describe('fetchV2ex', () => {
     })
     const state = createV2exState()
     await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
-    const history = await state.loadHistory(runtime)
+    const history = await state.loadHistory(runtime, 7)
     expect(history).toEqual([])
   })
 
@@ -261,7 +261,7 @@ describe('fetchV2ex', () => {
         id: 500,
         title: 'historical',
         url: 'https://www.v2ex.com/t/500',
-        replies: 5,
+        replies: 25,
         member: { username: 'h' },
         node: { title: 'hn' },
         created: Date.now() - 24 * 60 * 60 * 1000,

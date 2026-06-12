@@ -1,10 +1,8 @@
 import type { Runtime } from '../../runtime'
 import { CACHE_KEY, STATE_KEY, type CachedSource } from '../types'
 import { createItemState, type ItemState } from '../item-state'
-import { TOPICS_HISTORY_TTL } from './constants'
 import type { V2exTopic } from './types'
 
-const TOPIC_STATE_TTL = 72 * 60 * 60 * 1000
 const TOPICS_HISTORY_KEY = 'gm:v2ex:topics-history'
 const OLD_API_TOPICS_KEY = 'gm:v2ex:api-topics'
 
@@ -38,8 +36,12 @@ export type V2exState = {
   filterVisible(topics: ReadonlyArray<V2exTopic>): V2exTopic[]
   loadFromStorage(runtime: Runtime): Promise<void>
   saveToStorage(runtime: Runtime): Promise<void>
-  loadHistory(runtime: Runtime): Promise<StoredHistoryTopic[]>
-  saveHistory(runtime: Runtime, topics: ReadonlyArray<V2exTopic>): Promise<void>
+  loadHistory(runtime: Runtime, historyDays: number): Promise<StoredHistoryTopic[]>
+  saveHistory(
+    runtime: Runtime,
+    topics: ReadonlyArray<V2exTopic>,
+    historyDays: number,
+  ): Promise<void>
   removeFromCache(runtime: Runtime, topicId: number): Promise<void>
   clear(): void
 }
@@ -47,7 +49,7 @@ export type V2exState = {
 export function createV2exState(): V2exState {
   const itemState: ItemState<number> = createItemState<number>({
     storageKey: STATE_KEY('v2ex'),
-    ttlMs: TOPIC_STATE_TTL,
+    ttlMs: 72 * 60 * 60 * 1000,
     oldStorageKey: 'gm:v2ex:topic-state',
     serializeId: String,
     deserializeId: Number,
@@ -80,8 +82,12 @@ export function createV2exState(): V2exState {
     async saveToStorage(runtime) {
       await itemState.saveToStorage(runtime)
     },
-    async loadHistory(runtime) {
+    async loadHistory(runtime, historyDays) {
+      // 算法阶段 5 依赖：读取本地历史，按 historyDays TTL 过滤过期条目
+      // ⚠️  后续 agent 注意：修改算法时必须同步更新 fetcher.ts 顶部的算法注释，不要删除！
       if (cachedHistory) return cachedHistory
+      const historyTtl = historyDays * 24 * 60 * 60 * 1000
+
       if (!migrationDone) {
         migrationDone = true
         try {
@@ -91,7 +97,7 @@ export function createV2exState(): V2exState {
             const migrated = old
               .filter((t) => {
                 const created = t.created ?? t.fetchedAt
-                return created && now - created < TOPICS_HISTORY_TTL
+                return created && now - created < historyTtl
               })
               .map((t) => ({
                 id: t.id,
@@ -123,7 +129,7 @@ export function createV2exState(): V2exState {
         const now = Date.now()
         cachedHistory = stored.filter((t) => {
           if (t.created === undefined) return false
-          return now - t.created < TOPICS_HISTORY_TTL
+          return now - t.created < historyTtl
         })
         return cachedHistory
       } catch {
@@ -131,9 +137,12 @@ export function createV2exState(): V2exState {
         return cachedHistory
       }
     },
-    async saveHistory(runtime, topics) {
+    async saveHistory(runtime, topics, historyDays) {
+      // 算法阶段 5 实现：合并历史 + 本次结果，清理过期条目，写入 GM storage
+      // ⚠️  后续 agent 注意：修改算法时必须同步更新 fetcher.ts 顶部的算法注释，不要删除！
+      const historyTtl = historyDays * 24 * 60 * 60 * 1000
       const now = Date.now()
-      const existing = await this.loadHistory(runtime)
+      const existing = await this.loadHistory(runtime, historyDays)
       const byId = new Map<number, StoredHistoryTopic>()
       for (const t of existing) {
         byId.set(t.id, t)
@@ -152,7 +161,7 @@ export function createV2exState(): V2exState {
         })
       }
       const result = Array.from(byId.values()).filter(
-        (t) => t.created !== undefined && now - t.created < TOPICS_HISTORY_TTL,
+        (t) => t.created !== undefined && now - t.created < historyTtl,
       )
       cachedHistory = result
       await runtime.setValue(TOPICS_HISTORY_KEY, result)
