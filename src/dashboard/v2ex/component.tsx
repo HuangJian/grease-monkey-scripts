@@ -59,13 +59,42 @@ function sourceBadge(topic: V2exTopic): { icon: string; title: string } | null {
   return null
 }
 
+export type V2exDateFilterProps = {
+  dateFilter: DateFilter
+  onChange: (filter: DateFilter) => void
+}
+
+export function V2exDateFilter({ dateFilter, onChange }: V2exDateFilterProps) {
+  return (
+    <div class="gm-sp-date-filter">
+      <select
+        class="gm-sp-date-filter-select"
+        value={dateFilter}
+        onChange={(e) => onChange((e.target as HTMLSelectElement).value as DateFilter)}
+      >
+        {DATE_OPTIONS.map((opt) => (
+          <option value={opt} selected={opt === dateFilter}>
+            {opt}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 export type V2exComponentProps = SourceComponentProps<V2exTopic[]> & {
   state: V2exState
   authorTagMap: AuthorTagMap
+  dateFilter: DateFilter
 }
 
-export function V2exComponent({ data, runtime, state, authorTagMap }: V2exComponentProps) {
-  const [dateFilter, setDateFilter] = useState<DateFilter>('全部')
+export function V2exComponent({
+  data,
+  runtime,
+  state,
+  authorTagMap,
+  dateFilter,
+}: V2exComponentProps) {
   const [, forceUpdate] = useState(0)
 
   const visible = data ? state.filterVisible(applyDateFilter(data, dateFilter) ?? []) : null
@@ -95,19 +124,6 @@ export function V2exComponent({ data, runtime, state, authorTagMap }: V2exCompon
 
   return (
     <div class="gm-sp-v2ex">
-      <div class="gm-sp-date-filter">
-        <select
-          class="gm-sp-date-filter-select"
-          value={dateFilter}
-          onChange={(e) => setDateFilter((e.target as HTMLSelectElement).value as DateFilter)}
-        >
-          {DATE_OPTIONS.map((opt) => (
-            <option value={opt} selected={opt === dateFilter}>
-              {opt}
-            </option>
-          ))}
-        </select>
-      </div>
       <ol class="gm-sp-list">
         {visible.map((topic) => {
           const badge = sourceBadge(topic)

@@ -1,5 +1,6 @@
 import { describe, expect, test, afterEach } from 'bun:test'
 import { render, cleanup, within } from '@testing-library/preact'
+import { useLayoutEffect, useRef } from 'preact/hooks'
 
 afterEach(cleanup)
 import { TabsCard } from '../../src/dashboard/card/tabs-card'
@@ -22,16 +23,23 @@ function makeSource(opts: {
   getTabLabel?: (data: any) => TabLabel
   createEditor?: () => (container: HTMLElement, ctx: { onRevert: () => void }) => void
 }): Source<unknown> {
+  const renderFn =
+    opts.render ??
+    ((container: HTMLElement, data: unknown) => {
+      container.textContent = data == null ? 'empty' : 'data'
+    })
   return {
     id: opts.id,
     title: opts.title,
     ttlMs: 60_000,
     fetch: () => Promise.resolve(null as never),
-    render:
-      opts.render ??
-      ((container, data) => {
-        container.textContent = data == null ? 'empty' : 'data'
-      }),
+    RenderComponent: (props: { data: unknown }) => {
+      const ref = useRef<HTMLDivElement>(null)
+      useLayoutEffect(() => {
+        if (ref.current) renderFn(ref.current, props.data)
+      })
+      return <div ref={ref} />
+    },
     getTabLabel: opts.getTabLabel,
     createEditor: opts.createEditor as Source<unknown>['createEditor'],
   }

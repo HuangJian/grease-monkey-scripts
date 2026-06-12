@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useRef } from 'preact/hooks'
 import { escapeHtml } from '../../utils'
-import type { SourceComponentProps } from '../types'
+import type { SourceComponentProps, SourceHeaderProps } from '../types'
 import { showEditorDialog } from '../shell/editor'
 import { createXitEditor, setPendingLineIndex } from './editor'
 import {
@@ -11,109 +11,300 @@ import {
   addFilter,
   updateFilter,
 } from './filters'
-import { parseXitText } from './parser'
 import { parseQuery, filterItems } from './query'
 import { getDueDateStatus } from './render/due-date'
 import { linesToHtml } from './render/list-render'
 import type { XitData, XitLine, XitItem, NamedFilterStore, NamedFilter } from './types'
 
-export function XitComponent({ data, root, runtime }: SourceComponentProps<XitData>) {
-  const text = data?.text ?? ''
-  const lines = parseXitText(text)
-  const tagCounts = getTagCounts(lines)
+export type XitHeaderState = {
+  lines: XitLine[]
+  tagCounts: Map<string, number>
+  query: string
+  queryError: string | null
+  filterStore: NamedFilterStore | null
+  showFilters: boolean
+  saveForm: { name: string; q: string } | null
+  editFilter: NamedFilter | null
+}
 
-  const [query, setQuery] = useState('')
-  const [queryError, setQueryError] = useState<string | null>(null)
-  const [filterStore, setFilterStore] = useState<NamedFilterStore | null>(null)
-  const [showFilters, setShowFilters] = useState(false)
-  const [saveForm, setSaveForm] = useState<{ name: string; q: string } | null>(null)
-  const [editFilter, setEditFilter] = useState<NamedFilter | null>(null)
-
-  const rootRef = useRef<HTMLDivElement>(null)
+export function XitHeaderControls({
+  data: _data,
+  runtime,
+  headerState,
+  onHeaderChange,
+  onEdit: _onEdit,
+}: SourceHeaderProps<XitData> & {
+  headerState: XitHeaderState
+  onHeaderChange?: () => void
+}) {
   const searchRef = useRef<HTMLInputElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const hs = headerState
 
   useEffect(() => {
     if (runtime) {
       loadFilters(runtime).then((store) => {
-        setFilterStore(store)
+        hs.filterStore = store
         const defaultFilter = getDefaultFilter(store)
-        if (defaultFilter && !query && searchRef.current) {
-          setQuery(defaultFilter.query)
+        if (defaultFilter && !hs.query && searchRef.current) {
+          hs.query = defaultFilter.query
           searchRef.current.value = defaultFilter.query
         }
+        onHeaderChange?.()
       })
     }
   }, [])
 
-  useEffect(() => {
-    if (!saveForm && !editFilter && searchRef.current) {
-      searchRef.current.focus()
-    }
-  }, [saveForm, editFilter])
-
   function onSearchInput(value: string) {
-    setQuery(value)
+    hs.query = value
     const result = parseQuery(value)
-    setQueryError(result.ok ? null : result.error)
+    hs.queryError = result.ok ? null : result.error
+    onHeaderChange?.()
   }
 
   function onClear() {
-    setQuery('')
-    setQueryError(null)
+    hs.query = ''
+    hs.queryError = null
     if (searchRef.current) searchRef.current.value = ''
     searchRef.current?.focus()
+    onHeaderChange?.()
   }
 
   function onSaveFilter(name: string, q: string) {
     if (!runtime || !name || !q) return
     addFilter(runtime, name, q).then(() => {
-      setSaveForm(null)
-      loadFilters(runtime).then(setFilterStore)
+      hs.saveForm = null
+      loadFilters(runtime).then((store) => {
+        hs.filterStore = store
+        onHeaderChange?.()
+      })
     })
   }
 
   function onFilterStar(filterId: string) {
     if (!runtime) return
     setDefaultFilter(runtime, filterId).then(() => {
-      loadFilters(runtime).then(setFilterStore)
+      loadFilters(runtime).then((store) => {
+        hs.filterStore = store
+        onHeaderChange?.()
+      })
     })
   }
 
   function onFilterEdit(filter: NamedFilter, newName: string, newQuery: string) {
     if (!runtime || !newName || !newQuery) return
     updateFilter(runtime, filter.id, { name: newName, query: newQuery }).then(() => {
-      setEditFilter(null)
-      loadFilters(runtime).then(setFilterStore)
+      hs.editFilter = null
+      loadFilters(runtime).then((store) => {
+        hs.filterStore = store
+        onHeaderChange?.()
+      })
     })
   }
 
   function onFilterDelete(filterId: string) {
     if (!runtime) return
     deleteFilter(runtime, filterId).then(() => {
-      loadFilters(runtime).then(setFilterStore)
+      loadFilters(runtime).then((store) => {
+        hs.filterStore = store
+        onHeaderChange?.()
+      })
     })
   }
 
   function onFilterClick(filter: NamedFilter) {
-    setQuery(filter.query)
-    setQueryError(null)
+    hs.query = filter.query
+    hs.queryError = null
     if (searchRef.current) searchRef.current.value = filter.query
     searchRef.current?.focus()
+    onHeaderChange?.()
   }
 
   function onTagClick(tag: string) {
     const tagQuery = `#${tag}`
     let newQuery: string
-    if (query.includes(tagQuery)) {
-      newQuery = query.replace(tagQuery, '').replace(/\s+/g, ' ').trim()
+    if (hs.query.includes(tagQuery)) {
+      newQuery = hs.query.replace(tagQuery, '').replace(/\s+/g, ' ').trim()
     } else {
-      newQuery = query ? `${query} ${tagQuery}` : tagQuery
+      newQuery = hs.query ? `${hs.query} ${tagQuery}` : tagQuery
     }
-    setQuery(newQuery)
+    hs.query = newQuery
     if (searchRef.current) searchRef.current.value = newQuery
     const result = parseQuery(newQuery)
-    setQueryError(result.ok ? null : result.error)
+    hs.queryError = result.ok ? null : result.error
+    onHeaderChange?.()
   }
+
+  function handleBlur(e: FocusEvent) {
+    const target = e.relatedTarget as Node | null
+    if (!rootRef.current?.contains(target) && !rootRef.current?.parentElement?.contains(target)) {
+      hs.showFilters = false
+      hs.saveForm = null
+      hs.editFilter = null
+      onHeaderChange?.()
+    }
+  }
+
+  const filterName = hs.filterStore?.filters.find((f) => f.query === hs.query)?.name ?? null
+  const displaySavedFilters = hs.filterStore?.filters ?? []
+  const sortedTags = Array.from(hs.tagCounts.entries()).sort((a, b) => b[1] - a[1])
+
+  return (
+    <>
+      <div class="gm-sp-xit-header-row" ref={rootRef}>
+        {filterName && (
+          <span class="gm-sp-xit-filter-name" onClick={() => searchRef.current?.focus()}>
+            {filterName}
+          </span>
+        )}
+        <span class="gm-sp-xit-input-wrap">
+          <input
+            ref={searchRef}
+            type="text"
+            class={`gm-sp-input gm-sp-xit-header-search${filterName ? ' gm-sp-xit-header-search-with-name' : ''}${hs.queryError ? ' gm-sp-xit-query-error' : ''}`}
+            placeholder="🔍 查询: [ ] !>2 #urgent today"
+            defaultValue={hs.query}
+            onInput={(e) => onSearchInput((e.target as HTMLInputElement).value)}
+            onFocus={() => {
+              hs.showFilters = true
+              onHeaderChange?.()
+            }}
+            onBlur={handleBlur}
+          />
+          {hs.query && (
+            <button type="button" class="gm-sp-xit-clear-btn" aria-label="clear" onClick={onClear}>
+              ×
+            </button>
+          )}
+        </span>
+        <button
+          type="button"
+          class="gm-sp-btn gm-sp-btn-icon gm-sp-edit"
+          aria-label="save filter"
+          onClick={() => {
+            if (hs.query) {
+              hs.saveForm = { name: '', q: hs.query }
+              onHeaderChange?.()
+            }
+          }}
+        >
+          +
+        </button>
+      </div>
+
+      {hs.showFilters && (
+        <div
+          class="gm-sp-xit-header-row gm-sp-xit-header-filters"
+          onMouseDown={(e) => {
+            if ((e.target as HTMLElement).tagName !== 'INPUT') e.preventDefault()
+          }}
+        >
+          {displaySavedFilters.length > 0 && (
+            <div class="gm-sp-xit-saved-filters">
+              {displaySavedFilters.map((f) => {
+                const isActive = hs.query === f.query
+                const starClass = f.isDefault ? ' gm-sp-xit-saved-filter-star-default' : ''
+                const starChar = f.isDefault ? '\u2605' : '\u2606'
+                return (
+                  <button
+                    type="button"
+                    class={`gm-sp-xit-saved-filter${isActive ? ' gm-sp-xit-saved-filter-active' : ''}`}
+                    data-filter-id={f.id}
+                    onClick={() => onFilterClick(f)}
+                  >
+                    <span class="gm-sp-xit-saved-filter-name">{escapeHtml(f.name)}</span>
+                    <span class="gm-sp-xit-saved-filter-actions">
+                      <span
+                        class={`gm-sp-xit-saved-filter-star${starClass}`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onFilterStar(f.id)
+                        }}
+                      >
+                        {starChar}
+                      </span>
+                      <span
+                        class="gm-sp-xit-saved-filter-edit"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          hs.editFilter = f
+                          onHeaderChange?.()
+                        }}
+                      >
+                        ✏
+                      </span>
+                      <span
+                        class="gm-sp-xit-saved-filter-delete"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onFilterDelete(f.id)
+                        }}
+                      >
+                        ×
+                      </span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {sortedTags.length > 0 && (
+            <div class="gm-sp-xit-tags">
+              {sortedTags.map(([name, count]) => {
+                const isActive = hs.query.includes(`#${name}`)
+                return (
+                  <button
+                    type="button"
+                    class={`gm-sp-xit-tag-chip${isActive ? ' gm-sp-xit-tag-chip-active' : ''}`}
+                    data-tag={name}
+                    onClick={() => onTagClick(name)}
+                  >
+                    #{escapeHtml(name)} <span class="gm-sp-xit-tag-chip-count">{count}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {hs.saveForm && (
+            <SaveForm
+              name={hs.saveForm.name}
+              query={hs.saveForm.q}
+              onSave={(name, q) => onSaveFilter(name, q)}
+              onCancel={() => {
+                hs.saveForm = null
+                onHeaderChange?.()
+              }}
+            />
+          )}
+
+          {hs.editFilter && (
+            <EditForm
+              filter={hs.editFilter}
+              onSave={(name, q) => onFilterEdit(hs.editFilter!, name, q)}
+              onCancel={() => {
+                hs.editFilter = null
+                onHeaderChange?.()
+              }}
+            />
+          )}
+        </div>
+      )}
+    </>
+  )
+}
+
+export function XitBody({
+  data: _data,
+  root,
+  runtime,
+  headerState,
+}: SourceComponentProps<XitData> & { headerState: XitHeaderState }) {
+  const hs = headerState
+  const lines = hs.lines
+  const query = hs.query
+  const queryError = hs.queryError
 
   const isFiltering = query !== ''
   let displayLines: XitLine[] = []
@@ -151,16 +342,6 @@ export function XitComponent({ data, root, runtime }: SourceComponentProps<XitDa
     displayLines = lines
   }
 
-  function handleBlur(e: FocusEvent) {
-    if (!rootRef.current?.contains(e.relatedTarget as Node)) {
-      setShowFilters(false)
-      setSaveForm(null)
-      setEditFilter(null)
-    }
-  }
-
-  const filterName = filterStore?.filters.find((f) => f.query === query)?.name ?? null
-
   function openEditor(lineIndex?: number) {
     if (root && runtime) {
       setPendingLineIndex(lineIndex ?? null)
@@ -181,143 +362,9 @@ export function XitComponent({ data, root, runtime }: SourceComponentProps<XitDa
     }
   }
 
-  const displaySavedFilters = filterStore?.filters ?? []
-
-  const sortedTags = Array.from(tagCounts.entries()).sort((a, b) => b[1] - a[1])
-
   return (
-    <div class="gm-sp-xit" ref={rootRef}>
-      <div class="gm-sp-xit-header-row">
-        {filterName && (
-          <span class="gm-sp-xit-filter-name" onClick={() => searchRef.current?.focus()}>
-            {filterName}
-          </span>
-        )}
-        <input
-          ref={searchRef}
-          type="text"
-          class={`gm-sp-input gm-sp-xit-header-search${filterName ? ' gm-sp-xit-header-search-with-name' : ''}${queryError ? ' gm-sp-xit-query-error' : ''}`}
-          placeholder="🔍 查询: [ ] !>2 #urgent today"
-          defaultValue={query}
-          onInput={(e) => onSearchInput((e.target as HTMLInputElement).value)}
-          onFocus={() => setShowFilters(true)}
-          onBlur={handleBlur}
-        />
-        <button
-          type="button"
-          class="gm-sp-btn gm-sp-btn-icon gm-sp-edit"
-          aria-label="clear"
-          onClick={onClear}
-        >
-          ×
-        </button>
-        <button
-          type="button"
-          class="gm-sp-btn gm-sp-btn-icon gm-sp-edit"
-          aria-label="save filter"
-          onClick={() => {
-            if (query) setSaveForm({ name: '', q: query })
-          }}
-        >
-          +
-        </button>
-      </div>
-
-      {showFilters && (
-        <div
-          class="gm-sp-xit-header-filters"
-          onMouseDown={(e) => {
-            if ((e.target as HTMLElement).tagName !== 'INPUT') e.preventDefault()
-          }}
-        >
-          {displaySavedFilters.length > 0 && (
-            <div class="gm-sp-xit-saved-filters">
-              {displaySavedFilters.map((f) => {
-                const isActive = query === f.query
-                const starClass = f.isDefault ? ' gm-sp-xit-saved-filter-star-default' : ''
-                const starChar = f.isDefault ? '\u2605' : '\u2606'
-                return (
-                  <button
-                    type="button"
-                    class={`gm-sp-xit-saved-filter${isActive ? ' gm-sp-xit-saved-filter-active' : ''}`}
-                    data-filter-id={f.id}
-                    onClick={() => onFilterClick(f)}
-                  >
-                    <span class="gm-sp-xit-saved-filter-name">{escapeHtml(f.name)}</span>
-                    <span class="gm-sp-xit-saved-filter-actions">
-                      <span
-                        class={`gm-sp-xit-saved-filter-star${starClass}`}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onFilterStar(f.id)
-                        }}
-                      >
-                        {starChar}
-                      </span>
-                      <span
-                        class="gm-sp-xit-saved-filter-edit"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setEditFilter(f)
-                        }}
-                      >
-                        ✏
-                      </span>
-                      <span
-                        class="gm-sp-xit-saved-filter-delete"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onFilterDelete(f.id)
-                        }}
-                      >
-                        ×
-                      </span>
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-
-          {sortedTags.length > 0 && (
-            <div class="gm-sp-xit-tags">
-              {sortedTags.map(([name, count]) => {
-                const isActive = query.includes(`#${name}`)
-                return (
-                  <button
-                    type="button"
-                    class={`gm-sp-xit-tag-chip${isActive ? ' gm-sp-xit-tag-chip-active' : ''}`}
-                    data-tag={name}
-                    onClick={() => onTagClick(name)}
-                  >
-                    #{escapeHtml(name)} <span class="gm-sp-xit-tag-chip-count">{count}</span>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-
-          {saveForm && (
-            <SaveForm
-              name={saveForm.name}
-              query={saveForm.q}
-              onSave={(name, q) => onSaveFilter(name, q)}
-              onCancel={() => setSaveForm(null)}
-            />
-          )}
-
-          {editFilter && (
-            <EditForm
-              filter={editFilter}
-              onSave={(name, q) => onFilterEdit(editFilter, name, q)}
-              onCancel={() => setEditFilter(null)}
-            />
-          )}
-        </div>
-      )}
-
+    <div class="gm-sp-xit">
       {queryError && <div class="gm-sp-xit-query-error-box gm-sp-error-box">{queryError}</div>}
-
       <div class="gm-sp-xit-list">
         {displayLines.length === 0 ? (
           <div class="gm-sp-xit-empty">无符合条件的条目</div>
@@ -470,16 +517,4 @@ function EditForm({
       </button>
     </div>
   )
-}
-
-function getTagCounts(lines: XitLine[]): Map<string, number> {
-  const counts = new Map<string, number>()
-  for (const line of lines) {
-    if (line.type === 'item') {
-      for (const tag of line.tags) {
-        counts.set(tag.name, (counts.get(tag.name) ?? 0) + 1)
-      }
-    }
-  }
-  return counts
 }

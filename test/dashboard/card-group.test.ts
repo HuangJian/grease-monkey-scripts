@@ -8,7 +8,6 @@ function source(id: string, overrides: Partial<Source<unknown>> = {}): Source<un
     title: id,
     ttlMs: 60_000,
     fetch: () => Promise.resolve(null),
-    render: () => {},
     ...overrides,
   }
 }

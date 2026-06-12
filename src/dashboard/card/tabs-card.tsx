@@ -1,8 +1,9 @@
-import { useLayoutEffect, useRef } from 'preact/hooks'
+import { useState } from 'preact/hooks'
 import type { Runtime } from '../../runtime'
 import type { CardGroup } from '../card-group'
 import type { CachedSource } from '../types'
-import { EDIT_ICONS, DEFAULT_EDIT_ICON, CardActions } from './chrome'
+import { Tabs, type TabsItem } from './tabs'
+import { RefreshTime, RefreshButton, ConfigButton } from './primitives'
 import { showEditorDialog } from '../shell/editor'
 import { Card } from './card'
 
@@ -29,13 +30,12 @@ export function TabsCard({
   onRefresh: onRefreshCallback,
   onEdit: onEditCallback,
 }: TabsCardProps) {
-  const bodyRef = useRef<HTMLDivElement | null>(null)
+  const [, setHeaderVersion] = useState(0)
   const activeTab = group.tabs.find((t) => t.id === activeTabId) ?? group.tabs[0]!
   const activeCached = caches.get(activeTab.id) ?? null
-  const edit = activeTab.createEditor
-    ? { icon: EDIT_ICONS[activeTab.title] ?? DEFAULT_EDIT_ICON, id: activeTab.id }
-    : undefined
-  const onEdit = edit
+  const activeData = (activeCached?.data ?? null) as unknown
+
+  const onEdit = activeTab.createEditor
     ? () => {
         showEditorDialog(
           document,
@@ -46,7 +46,8 @@ export function TabsCard({
             const editor = activeTab.createEditor!()
             return editor(container, {
               runtime,
-              onRevert: () => onEditCallback(edit.id),
+              onRevert: () => onEditCallback(activeTab.id),
+              refresh: () => void onRefreshCallback(activeTab.id),
               close,
             })
           },
@@ -54,29 +55,51 @@ export function TabsCard({
       }
     : undefined
 
-  const tabButtons = group.tabs.map((tab) => {
+  const tabItems: TabsItem[] = group.tabs.map((tab) => {
     const cached = caches.get(tab.id) ?? null
     const data = cached?.data ?? null
     const labelInfo = tab.getTabLabel ? tab.getTabLabel(data as never) : { label: tab.title }
-    const showBadge = labelInfo.badge != null && labelInfo.badge !== 0 && labelInfo.badge !== ''
-    const badgeHidden = showBadge ? undefined : true
-    const activeClass = tab.id === activeTab.id ? ' gm-sp-tab-active' : ''
-    return (
-      <button
-        type="button"
-        class={`gm-sp-tab${activeClass}`}
-        role="tab"
-        aria-selected={tab.id === activeTab.id}
-        data-tab-id={tab.id}
-        onClick={() => onTabChange(tab.id)}
-      >
-        <span>{labelInfo.label}</span>
-        <span class="gm-sp-tab-badge" hidden={badgeHidden}>
-          {labelInfo.badge}
-        </span>
-      </button>
-    )
+    return {
+      id: tab.id,
+      text: labelInfo.label,
+      badge: labelInfo.badge,
+    }
   })
+
+  const HeaderComp = activeTab.RenderHeader
+
+  const headerProps = {
+    data: activeData,
+    cached: (activeCached ?? null) as CachedSource<unknown> | null,
+    now,
+    ttlMs: activeTab.ttlMs,
+    runtime,
+    root,
+    onRefresh: () => onRefreshCallback(activeTab.id),
+    onEdit,
+    onHeaderChange: activeTab.headerState
+      ? () => {
+          console.debug('[gm-tabs-card] onHeaderChange triggered for', activeTab.id)
+          setHeaderVersion((n) => n + 1)
+        }
+      : undefined,
+  }
+
+  const headerContent = HeaderComp ? <HeaderComp {...headerProps} /> : null
+
+  const header = (
+    <>
+      <Tabs items={tabItems} activeId={activeTabId} onActive={onTabChange} />
+      {headerContent}
+      {!activeTab.hideHeaderActions && (
+        <span class="gm-sp-card-actions">
+          <RefreshTime cached={headerProps.cached} now={now} ttlMs={activeTab.ttlMs} />
+          <RefreshButton onRefresh={() => onRefreshCallback(activeTab.id)} />
+          {onEdit && <ConfigButton onClick={onEdit} />}
+        </span>
+      )}
+    </>
+  )
 
   const panels = group.tabs.map((tab) => {
     const isActive = tab.id === activeTab.id
@@ -97,44 +120,16 @@ export function TabsCard({
             root={root}
             runtime={runtime}
             onNotify={() => onTabChange(activeTab.id)}
+            onHeaderChange={tab.headerState ? () => setHeaderVersion((n) => n + 1) : undefined}
           />
         ) : null}
       </div>
     )
   })
 
-  useLayoutEffect(() => {
-    if (!bodyRef.current) return
-    for (const tab of group.tabs) {
-      if (tab.RenderComponent) continue
-      const panel = bodyRef.current.querySelector(`[data-tab-id="${tab.id}"]`) as HTMLElement | null
-      if (!panel) continue
-      const cached = caches.get(tab.id) ?? null
-      const data = cached?.data ?? null
-      tab.render(panel, data as never, { root, runtime })
-    }
-  })
-
   return (
-    <Card
-      header={
-        <>
-          <div class="gm-sp-tabs" role="tablist">
-            {tabButtons}
-          </div>
-          <CardActions
-            cached={(activeCached ?? null) as { fetchedAt: number } | null}
-            now={now}
-            ttlMs={activeTab.ttlMs}
-            editIcon={edit?.icon}
-            onEdit={onEdit}
-            onRefresh={() => onRefreshCallback(activeTab.id)}
-          />
-        </>
-      }
-      error={activeCached?.error ?? ''}
-    >
-      <div ref={bodyRef}>{panels}</div>
+    <Card header={header} error={activeCached?.error ?? ''}>
+      <div>{panels}</div>
     </Card>
   )
 }

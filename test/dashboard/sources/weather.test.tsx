@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { cleanup, within } from '@testing-library/preact'
+import { render, cleanup, within } from '@testing-library/preact'
+import type { ComponentType } from 'preact'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
@@ -394,6 +395,15 @@ describe('createWeatherSource.render', () => {
     return el
   }
 
+  function renderComponent(
+    container: HTMLElement,
+    source: { RenderComponent?: ComponentType<any> },
+    data: unknown,
+  ) {
+    const Comp = source.RenderComponent!
+    render(<Comp data={data} />, { container })
+  }
+
   function buildData() {
     return {
       entries: [
@@ -424,7 +434,7 @@ describe('createWeatherSource.render', () => {
       cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
       ttlMinutes: 60,
     })
-    source.render(container, null)
+    renderComponent(container, source, null)
     expect(within(container).getByText('--')).not.toBeNull()
   })
 
@@ -438,7 +448,7 @@ describe('createWeatherSource.render', () => {
       cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
       ttlMinutes: 60,
     })
-    source.render(container, buildData())
+    renderComponent(container, source, buildData())
     const aqi = within(container).getByText('42 优') as HTMLElement
     expect(aqi.textContent).toBe('42 优')
     expect(aqi.style.getPropertyValue('--gm-sp-aqi-color')).toBe('#10b981')
@@ -454,7 +464,7 @@ describe('createWeatherSource.render', () => {
     if (data.entries[0]!.status === 'ok') {
       ;(data.entries[0]!.data.current as unknown as { air_quality: null }).air_quality = null
     }
-    source.render(container, data)
+    renderComponent(container, source, data)
     expect(within(container).getByText('--')).not.toBeNull()
   })
 
@@ -468,7 +478,7 @@ describe('createWeatherSource.render', () => {
     if (data.entries[0]!.status === 'ok') {
       data.entries[0]!.cityLabel = '合肥'
     }
-    source.render(container, data)
+    renderComponent(container, source, data)
     expect(within(container).getByText('-2°~5°')).not.toBeNull()
     within(container).getByText('🌡️ 0°')
     within(container).getByText('12.5 km/h')
@@ -489,7 +499,7 @@ describe('createWeatherSource.render', () => {
     if (data.entries[0]!.status === 'ok') {
       ;(data.entries[0]!.data.current as { humidity?: number }).humidity = 65
     }
-    source.render(container, data)
+    renderComponent(container, source, data)
     within(container).getByText('💧 65%')
   })
 
@@ -499,7 +509,7 @@ describe('createWeatherSource.render', () => {
       cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
       ttlMinutes: 60,
     })
-    source.render(container, buildData())
+    renderComponent(container, source, buildData())
     expect(within(container).queryByText(/💧/)).toBeNull()
   })
 
@@ -513,7 +523,7 @@ describe('createWeatherSource.render', () => {
     if (data.entries[0]!.status === 'ok') {
       data.entries[0]!.data.current.wind_direction_10m = 0
     }
-    source.render(container, data)
+    renderComponent(container, source, data)
     const arrow = within(container).getByText('↑') as HTMLElement
     expect(arrow.style.getPropertyValue('--gm-sp-wind-rot')).toBe('180deg')
   })
@@ -528,7 +538,7 @@ describe('createWeatherSource.render', () => {
     if (data.entries[0]!.status === 'ok') {
       data.entries[0]!.data.current.wind_direction_10m = 270
     }
-    source.render(container, data)
+    renderComponent(container, source, data)
     const arrow = within(container).getByText('↑') as HTMLElement
     expect(arrow.style.getPropertyValue('--gm-sp-wind-rot')).toBe('90deg')
   })
@@ -545,7 +555,7 @@ describe('createWeatherSource.render', () => {
       ;(cur.current as { source?: 'open-meteo' | 'cma' }).source = 'cma'
       ;(cur as { cmaUrl?: string }).cmaUrl = 'https://weather.cma.cn/web/weather/54511.html'
     }
-    source.render(container, data)
+    renderComponent(container, source, data)
     const link = within(container).getByRole('link', { name: '气象局' }) as HTMLAnchorElement
     expect(link).not.toBeNull()
     expect(link.getAttribute('href')).toBe('https://weather.cma.cn/web/weather/54511.html')
@@ -562,7 +572,7 @@ describe('createWeatherSource.render', () => {
     if (data.entries[0]!.status === 'ok') {
       ;(data.entries[0]!.data.current as { source?: 'open-meteo' | 'cma' }).source = 'cma'
     }
-    source.render(container, data)
+    renderComponent(container, source, data)
     expect(within(container).queryByText('气象局')).toBeNull()
   })
 
@@ -572,7 +582,7 @@ describe('createWeatherSource.render', () => {
       cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
       ttlMinutes: 60,
     })
-    source.render(container, buildData())
+    renderComponent(container, source, buildData())
     // FIXTURE hourly: 3 entries for 2024-01-15 before 14:00 are skipped,
     // 14:00, 15:00, 23:00 remain (3); 2024-01-16 entries are after current day.
     const times = within(container)
@@ -608,7 +618,7 @@ describe('createWeatherSource.render', () => {
         precipitation_probability: [0, 0, 0, 0, 0, 0, 0, 0],
       }
     }
-    source.render(container, data)
+    renderComponent(container, source, data)
     const times = within(container)
       .getAllByText(/^\d{2}:\d{2}$/)
       .map((e) => e.textContent)
@@ -644,7 +654,7 @@ describe('createWeatherSource.render', () => {
         precipitation_probability: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       }
     }
-    source.render(container, data)
+    renderComponent(container, source, data)
     expect(within(container).getAllByText(/^\d{2}:\d{2}$/)).toHaveLength(8)
   })
 
@@ -675,7 +685,7 @@ describe('createWeatherSource.render', () => {
         precipitation_probability: [0, 0, 0, 0, 0, 0, 0, 0],
       }
     }
-    source.render(container, data)
+    renderComponent(container, source, data)
     expect(within(container).getAllByText(/^\d{2}:\d{2}$/)).toHaveLength(8)
   })
 
@@ -685,7 +695,7 @@ describe('createWeatherSource.render', () => {
       cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
       ttlMinutes: 60,
     })
-    source.render(container, buildData())
+    renderComponent(container, source, buildData())
     const dayLabelEls = within(container).getAllByText(/^\+\d$/)
     expect(dayLabelEls).toHaveLength(3)
     expect(dayLabelEls.map((e) => e.textContent)).toEqual(['+1', '+2', '+3'])
@@ -693,5 +703,82 @@ describe('createWeatherSource.render', () => {
       (el) => within(el.closest('.gm-sp-weather-day') as HTMLElement).getByText(/%$/).textContent,
     )
     expect(dayPrecipEls).toEqual(['10%', '60%', '80%'])
+  })
+
+  test('clicking city tab in header switches body to that city', () => {
+    const container = containerEl()
+    const source = createWeatherSource({
+      cities: [
+        { latitude: 0, longitude: 0, cityLabel: 'BJ' },
+        { latitude: 30, longitude: 120, cityLabel: 'SH' },
+      ],
+      ttlMinutes: 60,
+    })
+
+    const data = {
+      entries: [
+        {
+          status: 'ok' as const,
+          cityLabel: 'BJ',
+          data: {
+            current: { ...FIXTURE.current, temperature_2m: 3 },
+            hourly: FIXTURE.hourly,
+            daily: FIXTURE.daily,
+          },
+        },
+        {
+          status: 'ok' as const,
+          cityLabel: 'SH',
+          data: {
+            current: { ...FIXTURE.current, temperature_2m: 25 },
+            hourly: FIXTURE.hourly,
+            daily: FIXTURE.daily,
+          },
+        },
+      ],
+    }
+
+    function rerender() {
+      const HeaderComp = source.RenderHeader!
+      const BodyComp = source.RenderComponent!
+      render(
+        <div>
+          <HeaderComp
+            data={data}
+            cached={null}
+            now={0}
+            ttlMs={60000}
+            runtime={createRuntime()}
+            root={undefined as any}
+            onRefresh={async () => {}}
+            onHeaderChange={() => rerender()}
+          />
+          <BodyComp
+            data={data}
+            root={undefined as any}
+            runtime={createRuntime()}
+            onHeaderChange={() => rerender()}
+          />
+        </div>,
+        { container },
+      )
+    }
+
+    rerender()
+
+    // Initially: BJ panel active, SH panel hidden
+    const panels = container.querySelectorAll('.gm-sp-panel')
+    expect(panels).toHaveLength(2)
+    expect(panels[0]!.classList.contains('gm-sp-panel-active')).toBe(true)
+    expect(panels[1]!.classList.contains('gm-sp-panel-active')).toBe(false)
+
+    // Click the SH tab
+    const shTab = within(container).getByText(/^SH/)
+    shTab.click()
+
+    // After re-render: SH panel active, BJ panel hidden
+    const panelsAfter = container.querySelectorAll('.gm-sp-panel')
+    expect(panelsAfter[0]!.classList.contains('gm-sp-panel-active')).toBe(false)
+    expect(panelsAfter[1]!.classList.contains('gm-sp-panel-active')).toBe(true)
   })
 })

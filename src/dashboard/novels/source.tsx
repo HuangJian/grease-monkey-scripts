@@ -4,7 +4,6 @@ import type { Source, TabLabel } from '../types'
 import { NovelsComponent } from './component'
 import { createNovelsEditor } from './editor'
 import { fetchNovels } from './fetcher'
-import { renderNovels } from './render'
 import { newChapters } from './state'
 import type { NovelBook, NovelData, NovelEntry, NovelSourceOptions } from './types'
 
@@ -40,13 +39,6 @@ export function createNovelsSource(
       })
       void persistFetchedTitles(runtimeArg, entries, books)
       return { books }
-    },
-    render(container, data) {
-      renderNovels(container, data, {
-        onMarkSeen: (bookUrl) => {
-          void markSeen(runtime, bookUrl, data)
-        },
-      })
     },
     createEditor() {
       return createNovelsEditor({

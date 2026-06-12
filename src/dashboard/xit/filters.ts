@@ -5,6 +5,29 @@ const STORAGE_KEY = 'dashboard:v1:xit-filters'
 
 let nextId = 1
 
+function bumpNextId(store: NamedFilterStore): void {
+  for (const f of store.filters) {
+    const m = /^f(\d+)$/.exec(f.id)
+    if (m) {
+      const n = Number(m[1]) + 1
+      if (n > nextId) nextId = n
+    }
+  }
+}
+
+function deduplicateIds(store: NamedFilterStore): boolean {
+  const seen = new Set<string>()
+  let changed = false
+  for (const f of store.filters) {
+    if (seen.has(f.id)) {
+      f.id = `f${nextId++}`
+      changed = true
+    }
+    seen.add(f.id)
+  }
+  return changed
+}
+
 function emptyStore(): NamedFilterStore {
   return { filters: [] }
 }
@@ -12,6 +35,9 @@ function emptyStore(): NamedFilterStore {
 export async function loadFilters(runtime: Runtime): Promise<NamedFilterStore> {
   const raw = await runtime.getValue<NamedFilterStore | null>(STORAGE_KEY, null)
   if (!raw || !Array.isArray(raw.filters)) return emptyStore()
+  bumpNextId(raw)
+  const changed = deduplicateIds(raw)
+  if (changed) await saveFilters(runtime, raw)
   return raw
 }
 

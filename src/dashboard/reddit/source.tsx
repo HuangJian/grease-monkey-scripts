@@ -10,7 +10,6 @@ import { RedditComponent } from './component'
 import { createExpandCollapse } from './expand-collapse'
 import { createRedditEditor } from './editor'
 import { fetchReddit } from './fetcher'
-import { renderReddit } from './render'
 import { mergeSubPosts, selectPostsPerSub } from './scoring'
 import { createRedditState } from './state'
 import type { RedditPost, RedditSourceOptions } from './types'
@@ -20,7 +19,6 @@ export type RedditRenderData = Record<string, RedditPost[]>
 export function createRedditSource(options: RedditSourceOptions): Source<RedditRenderData> {
   const state = createRedditState()
   const expandCollapse = createExpandCollapse()
-  let runtimeRef: Runtime | null = null
   let authorTagMap: AuthorTagMap = {}
 
   async function syncAuthorTags(runtime: Runtime): Promise<void> {
@@ -49,7 +47,6 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
     groupId: 'browse',
     order: 3,
     async fetch(runtime, _prevData) {
-      runtimeRef = runtime
       const fresh = await loadFreshRedditOptions(runtime, options)
       console.debug('[gm-dashboard] reddit.fetch start subs=', fresh.subreddits)
       await state.loadFromStorage(runtime)
@@ -89,16 +86,6 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
         authorTagMap={authorTagMap}
       />
     ),
-    render(container, data, ctx) {
-      renderReddit(
-        container,
-        data,
-        state,
-        runtimeRef ?? ctx?.runtime ?? null,
-        expandCollapse,
-        authorTagMap,
-      )
-    },
     async loadState(runtime) {
       await state.loadFromStorage(runtime)
       await syncAuthorTags(runtime)

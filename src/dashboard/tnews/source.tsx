@@ -6,7 +6,6 @@ import { TnewsComponent } from './component'
 import { createTnewsEditor, loadFreshTnewsOptions } from './editor'
 import { fetchTnews } from './fetcher'
 import { filterByRetention, mergeByLink, sortByPubDateDesc } from './parser'
-import { renderTnews } from './render'
 import { createTnewsState, type TnewsState } from './state'
 import type { TnewsItem, TnewsSourceOptions } from './types'
 
@@ -18,7 +17,6 @@ export type TnewsHandle = {
 
 export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
   const state: TnewsState = createTnewsState()
-  let runtimeRef: Runtime | null = null
   const source: Source<TnewsItem[]> = {
     id: 'tnews',
     title: '竹新社',
@@ -30,7 +28,6 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
       return tnewsTabLabel(data, state)
     },
     async fetch(runtime, prevData) {
-      runtimeRef = runtime
       const fresh = await loadFreshTnewsOptions(runtime, options)
       await state.loadFromStorage(runtime)
       const result = await fetchTnews(runtime, fresh)
@@ -64,12 +61,7 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
       await state.saveToStorage(runtime)
       return visible
     },
-    render(container, data, ctx) {
-      console.debug('[gm-tnews] render items=', data?.length ?? 0)
-      renderTnews(container, data, state, runtimeRef ?? ctx?.runtime ?? null, Date.now())
-    },
     async loadState(runtime) {
-      runtimeRef = runtime
       await state.loadFromStorage(runtime)
     },
     createEditor() {
@@ -80,7 +72,6 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
     source,
     state,
     async initRuntime(runtime) {
-      runtimeRef = runtime
       await state.loadFromStorage(runtime)
     },
   }

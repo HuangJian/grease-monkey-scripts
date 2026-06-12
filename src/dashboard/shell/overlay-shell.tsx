@@ -11,6 +11,10 @@ export function OverlayShell({ root, document: doc, onClose }: OverlayShellProps
     const onKeydown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       if (root.querySelector('.gm-sp-editor-dialog')) return
+      const tag = (e.target as Element | null)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      const activeTag = root.activeElement?.tagName
+      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') return
       e.stopPropagation()
       onClose()
     }

@@ -248,6 +248,27 @@
   color: #ffffff;
 }
 
+.gm-sp-editor-chip-move {
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  color: #6b7280;
+  font-size: 10px;
+  line-height: 1;
+  padding: 0 2px;
+  border-radius: 3px;
+}
+
+.gm-sp-editor-chip-move:hover:not(:disabled) {
+  background: #e5e7eb;
+  color: #1f2328;
+}
+
+.gm-sp-editor-chip-move:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 .gm-sp-editor-form-stacked,
 .gm-sp-editor-advanced {
   display: flex;

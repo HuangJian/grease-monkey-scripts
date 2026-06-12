@@ -56,11 +56,7 @@ function RedditEditorForm({ fresh, ctx, handleRef }: RedditEditorFormProps) {
     return out
   })
   const inputRef = useRef<HTMLInputElement>(null)
-  const listRef = useRef<HTMLDivElement>(null)
   const advancedRefs = useRef<(HTMLInputElement | null)[]>([])
-  // drag state
-  const dragSrcIdx = useRef<number | null>(null)
-  const draggedChip = useRef<HTMLElement | null>(null)
 
   const onAdvancedChange = useCallback((prop: string, val: number) => {
     setAdvanced((prev) => ({ ...prev, [prop]: val }))
@@ -96,99 +92,23 @@ function RedditEditorForm({ fresh, ctx, handleRef }: RedditEditorFormProps) {
     setSubs((prev) => prev.filter((_, j) => j !== i))
   }, [])
 
-  const reorder = useCallback((src: number, target: number) => {
-    if (src === target) return
+  const moveUp = useCallback((i: number) => {
+    if (i <= 0) return
     setSubs((prev) => {
       const next = [...prev]
-      const moved = next.splice(src, 1)[0]!
-      const insertAt = src < target ? target - 1 : target
-      next.splice(insertAt, 0, moved)
+      ;[next[i - 1], next[i]] = [next[i]!, next[i - 1]!]
       return next
     })
   }, [])
 
-  const onPointerDown = useCallback((idx: number, e: PointerEvent) => {
-    if (e.button !== 0) return
-    e.preventDefault()
-    dragSrcIdx.current = idx
-    const chip = listRef.current?.querySelectorAll<HTMLElement>('.gm-sp-editor-chip')[idx]
-    if (chip) {
-      chip.classList.add('gm-sp-editor-chip-dragging')
-      draggedChip.current = chip
-    }
+  const moveDown = useCallback((i: number) => {
+    setSubs((prev) => {
+      if (i >= prev.length - 1) return prev
+      const next = [...prev]
+      ;[next[i], next[i + 1]] = [next[i + 1]!, next[i]!]
+      return next
+    })
   }, [])
-
-  useLayoutEffect(() => {
-    const list = listRef.current
-    if (!list) return
-
-    const onPointerMove = (e: PointerEvent) => {
-      if (dragSrcIdx.current === null) return
-      const items = list.querySelectorAll<HTMLElement>('.gm-sp-editor-chip')
-      items.forEach((c) =>
-        c.classList.remove('gm-sp-re-chip-drop-before', 'gm-sp-re-chip-drop-after'),
-      )
-      if (items.length === 0) return
-      const rects = Array.from(items, (c) => c.getBoundingClientRect())
-      let hoveredIdx: number | null = null
-      let hoveredPos: 'before' | 'after' | null = null
-      for (let i = 0; i < rects.length; i++) {
-        const r = rects[i]!
-        if (e.clientY >= r.top && e.clientY <= r.bottom) {
-          if (e.clientY < r.top + r.height / 2) {
-            hoveredIdx = i
-            hoveredPos = 'before'
-          } else {
-            hoveredIdx = i
-            hoveredPos = 'after'
-          }
-          break
-        }
-      }
-      if (hoveredIdx === null) {
-        if (e.clientY < rects[0]!.top) {
-          hoveredIdx = 0
-          hoveredPos = 'before'
-        } else if (e.clientY > rects[rects.length - 1]!.bottom) {
-          hoveredIdx = rects.length
-          hoveredPos = 'after'
-        }
-      }
-      if (hoveredIdx !== null && hoveredPos === 'before' && hoveredIdx < items.length) {
-        items[hoveredIdx]!.classList.add('gm-sp-re-chip-drop-before')
-      } else if (hoveredIdx !== null && hoveredPos === 'after' && hoveredIdx > 0) {
-        items[hoveredIdx - 1]!.classList.add('gm-sp-re-chip-drop-after')
-      }
-    }
-
-    const onPointerUp = () => {
-      if (dragSrcIdx.current === null) return
-      if (draggedChip.current) draggedChip.current.classList.remove('gm-sp-editor-chip-dragging')
-      const chips = list.querySelectorAll<HTMLElement>('.gm-sp-editor-chip')
-      let target = dragSrcIdx.current
-      chips.forEach((c, i) => {
-        if (c.classList.contains('gm-sp-re-chip-drop-before')) {
-          target = i
-          return
-        }
-        if (c.classList.contains('gm-sp-re-chip-drop-after')) target = i + 1
-      })
-      chips.forEach((c) =>
-        c.classList.remove('gm-sp-re-chip-drop-before', 'gm-sp-re-chip-drop-after'),
-      )
-      const src = dragSrcIdx.current
-      dragSrcIdx.current = null
-      draggedChip.current = null
-      reorder(src, target)
-    }
-
-    document.addEventListener('pointermove', onPointerMove)
-    document.addEventListener('pointerup', onPointerUp)
-    return () => {
-      document.removeEventListener('pointermove', onPointerMove)
-      document.removeEventListener('pointerup', onPointerUp)
-    }
-  }, [reorder])
 
   useLayoutEffect(() => {
     handleRef.current = {
@@ -226,7 +146,10 @@ function RedditEditorForm({ fresh, ctx, handleRef }: RedditEditorFormProps) {
           section: reddit,
           validate: validateConfig,
           onError: (msg) => setError(msg),
-          onSuccess: () => ctx.close(),
+          onSuccess: () => {
+            ctx.refresh?.()
+            ctx.close()
+          },
         })
       },
       cancel() {
@@ -239,19 +162,30 @@ function RedditEditorForm({ fresh, ctx, handleRef }: RedditEditorFormProps) {
     <div class="gm-sp-editor">
       <div class="gm-sp-editor-section">
         <div class="gm-sp-editor-label">Subreddit 列表</div>
-        <div class="gm-sp-re-list" ref={listRef}>
+        <div class="gm-sp-re-list">
           {subs.length === 0 ? (
             <div class="gm-sp-editor-empty">尚未添加 subreddit</div>
           ) : (
             subs.map((name, i) => (
               <div class="gm-sp-editor-chip" key={i} data-index={i}>
-                <span
-                  class="gm-sp-editor-chip-drag"
-                  style={{ touchAction: 'none' }}
-                  onPointerDown={(e) => onPointerDown(i, e)}
+                <button
+                  type="button"
+                  class="gm-sp-editor-chip-move"
+                  aria-label="move up"
+                  disabled={i === 0}
+                  onClick={() => moveUp(i)}
                 >
-                  ⋮⋮
-                </span>
+                  ▲
+                </button>
+                <button
+                  type="button"
+                  class="gm-sp-editor-chip-move"
+                  aria-label="move down"
+                  disabled={i === subs.length - 1}
+                  onClick={() => moveDown(i)}
+                >
+                  ▼
+                </button>
                 <span class="gm-sp-editor-chip-label">r/{escapeHtml(name)}</span>
                 <button
                   type="button"

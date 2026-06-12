@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { within } from '@testing-library/preact'
+import { render, within } from '@testing-library/preact'
+import { h } from 'preact'
 import { validateConfig } from '../../../../src/dashboard/config'
 import { createRedditSource } from '../../../../src/dashboard/reddit/source'
 import { STATE_KEY } from '../../../../src/dashboard/types'
@@ -121,7 +122,7 @@ describe('createRedditSource.render uses ctx.runtime when runtimeRef is null', (
     }
 
     // Simulate mount flow: render before any fetch() call
-    source.render(container, data, { root: undefined, runtime })
+    render(h(source.RenderComponent!, { data, root: undefined, runtime }), { container })
 
     const link = within(container).getByRole('link', { name: 'test post' }) as HTMLAnchorElement
     link.click()

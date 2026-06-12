@@ -2,7 +2,7 @@ import { describe, expect, test, afterEach } from 'bun:test'
 import { render, cleanup, within } from '@testing-library/preact'
 
 afterEach(cleanup)
-import { formatRelativeTime } from '../../src/dashboard/card/chrome'
+import { formatRelativeTime } from '../../src/dashboard/card/primitives'
 import { RenderCard } from '../../src/dashboard/card/card'
 import type { Source } from '../../src/dashboard/types'
 import { CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/dashboard/types'
@@ -15,9 +15,7 @@ function stubSource(): Source<{ msg: string }> {
     title: 'Stub Source',
     ttlMs: 60_000,
     fetch: () => Promise.resolve({ msg: 'hi' }),
-    render: (container, data) => {
-      container.textContent = data?.msg ?? 'no-data'
-    },
+    RenderComponent: ({ data }) => <span>{(data as { msg: string } | null)?.msg ?? ''}</span>,
   }
 }
 
@@ -202,9 +200,7 @@ describe('renderCard', () => {
       title: 'E',
       ttlMs: 60_000,
       fetch: () => Promise.resolve({ msg: 'x' }),
-      render: (c, d) => {
-        c.textContent = d?.msg ?? ''
-      },
+      RenderComponent: ({ data }) => <span>{(data as { msg: string } | null)?.msg ?? ''}</span>,
       createEditor: () => (c) => {
         c.textContent = 'editor-body'
         return { render() {}, cancel() {}, save() {} }

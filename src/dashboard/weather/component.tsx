@@ -26,10 +26,10 @@ function tabLabelFor(entry: WeatherCityEntry): string {
 
 export type WeatherComponentProps = SourceComponentProps<WeatherData> & {
   activeIndex?: number
-  onTabChange?: (index: number) => void
 }
 
-export function WeatherComponent({ data, activeIndex = 0, onTabChange }: WeatherComponentProps) {
+export function WeatherComponent({ data, activeIndex = 0 }: WeatherComponentProps) {
+  console.debug('[gm-weather-body] render, activeIndex:', activeIndex)
   const entries = data?.entries ?? []
 
   if (entries.length === 0) {
@@ -44,10 +44,24 @@ export function WeatherComponent({ data, activeIndex = 0, onTabChange }: Weather
 
   return (
     <div class="gm-sp-weather">
-      <WeatherTabs entries={entries} activeIndex={safeIndex} onTabChange={onTabChange} />
       <WeatherPanels entries={entries} activeIndex={safeIndex} />
     </div>
   )
+}
+
+export function WeatherHeader({
+  data,
+  activeIndex = 0,
+  onTabChange,
+}: {
+  data?: WeatherData | null
+  activeIndex?: number
+  onTabChange?: (index: number) => void
+}) {
+  const entries = data?.entries ?? []
+  if (entries.length === 0) return null
+  const safeIndex = Math.min(activeIndex, entries.length - 1)
+  return <WeatherTabs entries={entries} activeIndex={safeIndex} onTabChange={onTabChange} />
 }
 
 export function WeatherTabs({

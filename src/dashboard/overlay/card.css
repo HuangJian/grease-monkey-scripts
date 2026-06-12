@@ -11,6 +11,7 @@
 .gm-sp-card-header {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 6px 12px;
   background: #f3f4f6;
@@ -26,6 +27,15 @@
   gap: 8px;
   min-width: 0;
   flex: 1 1 auto;
+}
+
+.gm-sp-refresh-time {
+  font-size: 11px;
+  font-weight: 400;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .gm-sp-card-stale {
@@ -268,7 +278,7 @@
   border: 1px solid #e5e7eb;
   border-radius: 4px;
   background: #f9fafb;
-  color: #9ca3af;
+  color: #374151;
   cursor: pointer;
   outline: none;
   transition:
@@ -279,7 +289,7 @@
 .gm-sp-date-filter-select:hover {
   border-color: #d1d5db;
   background: #ffffff;
-  color: #6b7280;
+  color: #1f2328;
 }
 
 .gm-sp-v2ex-source {

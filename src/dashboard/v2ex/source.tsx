@@ -1,21 +1,22 @@
 import type { Runtime } from '../../runtime'
-import type { Source } from '../types'
+import type { Source, SourceHeaderProps } from '../types'
 import {
   AUTHOR_TAGS_LS_KEY,
   parseAuthorTagMap,
   type AuthorTagMap,
 } from '../../shared/author-labels'
-import { V2exComponent } from './component'
+import { V2exComponent, V2exDateFilter } from './component'
 import { createV2exEditor } from './editor'
 import { fetchV2ex } from './fetcher'
-import { renderV2ex } from './render'
 import { createV2exState } from './state'
 import type { V2exSourceOptions, V2exTopic } from './types'
 
+type DateFilter = '全部' | '今天' | '昨天' | '前天'
+
 export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]> {
   const state = createV2exState()
-  let runtimeRef: Runtime | null = null
   let authorTagMap: AuthorTagMap = {}
+  let dateFilter: DateFilter = '全部'
 
   function isV2exDomain(hostname: string): boolean {
     return hostname === 'v2ex.com' || hostname.endsWith('.v2ex.com')
@@ -40,10 +41,20 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
 
   return {
     id: 'v2ex',
-    title: 'V2EX 热议',
+    title: 'V2EX \u70ED\u8BAE',
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 0,
+    headerState: {},
+    RenderHeader: (props: SourceHeaderProps<V2exTopic[]>) => (
+      <V2exDateFilter
+        dateFilter={dateFilter}
+        onChange={(f) => {
+          dateFilter = f
+          props.onHeaderChange?.()
+        }}
+      />
+    ),
     RenderComponent: ({ data, root, runtime }) => (
       <V2exComponent
         data={data}
@@ -51,10 +62,10 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
         runtime={runtime}
         state={state}
         authorTagMap={authorTagMap}
+        dateFilter={dateFilter}
       />
     ),
     async fetch(runtime, _prevData) {
-      runtimeRef = runtime
       await state.loadFromStorage(runtime)
       await syncAuthorTags(runtime)
       const allTopics = await fetchV2ex(
@@ -72,9 +83,6 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
       const visible = state.filterVisible(allTopics)
       await state.saveToStorage(runtime)
       return visible
-    },
-    render(container, data, ctx) {
-      renderV2ex(container, data, state, runtimeRef ?? ctx?.runtime ?? null, authorTagMap)
     },
     async loadState(runtime) {
       await state.loadFromStorage(runtime)

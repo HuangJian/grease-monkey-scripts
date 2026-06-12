@@ -186,42 +186,27 @@ describe('createRedditEditor', () => {
     expect(runtime.stores[CONFIG_KEY]).toBeUndefined()
   })
 
-  test('reorder chips via drag updates state and re-renders', async () => {
+  test('reorder chips via move buttons updates state and re-renders', async () => {
     await mount(runtime, container, { ...DEFAULTS, subreddits: ['a', 'b', 'c'] })
     const labelsBefore = within(container)
       .getAllByText(/r\//)
       .map((el) => el.textContent)
     expect(labelsBefore).toEqual(['r/a', 'r/b', 'r/c'])
 
-    const chips = within(container)
-      .queryAllByRole('button', { name: 'remove' })
-      .map((btn) => btn.closest('.gm-sp-editor-chip')!)
-    const sourceChip = chips[0]!
-    const targetChip = chips[2]!
-    const handle = sourceChip.querySelector('.gm-sp-editor-chip-drag')!
-
-    const down = new PointerEvent('pointerdown', {
-      bubbles: true,
-      button: 0,
-      clientX: 0,
-      clientY: 0,
-    })
-    handle.dispatchEvent(down)
-
-    const rect = targetChip.getBoundingClientRect()
-    const move = new PointerEvent('pointermove', {
-      bubbles: true,
-      clientX: 0,
-      clientY: rect.bottom + 5,
-    })
-    document.dispatchEvent(move)
-
-    const up = new PointerEvent('pointerup', { bubbles: true })
-    document.dispatchEvent(up)
+    const moveDownBtns = within(container).getAllByRole('button', { name: 'move down' })
+    moveDownBtns[0]!.click()
 
     const labelsAfter = within(container)
       .getAllByText(/r\//)
       .map((el) => el.textContent)
-    expect(labelsAfter).toEqual(['r/b', 'r/c', 'r/a'])
+    expect(labelsAfter).toEqual(['r/b', 'r/a', 'r/c'])
+
+    const moveUpBtns = within(container).getAllByRole('button', { name: 'move up' })
+    moveUpBtns[2]!.click()
+
+    const labelsFinal = within(container)
+      .getAllByText(/r\//)
+      .map((el) => el.textContent)
+    expect(labelsFinal).toEqual(['r/b', 'r/c', 'r/a'])
   })
 })

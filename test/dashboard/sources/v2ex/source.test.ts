@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { within } from '@testing-library/preact'
+import { render, within } from '@testing-library/preact'
+import { h } from 'preact'
 import { createV2exSource } from '../../../../src/dashboard/v2ex/source'
 import type { V2exSourceOptions, V2exTopic } from '../../../../src/dashboard/v2ex/types'
 import type { RequestDetails } from '../../../../src/runtime'
@@ -51,7 +52,7 @@ describe('createV2exSource', () => {
         sources: [],
       },
     ]
-    source.render(container, data)
+    render(h(source.RenderComponent!, { data }), { container })
     expect(within(container).getAllByRole('listitem')).toHaveLength(1)
   })
 

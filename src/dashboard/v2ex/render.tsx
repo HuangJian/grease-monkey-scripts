@@ -14,7 +14,13 @@ export function renderV2ex(
 ): void {
   render(null, container)
   render(
-    <V2exComponent data={data} state={state} runtime={runtime!} authorTagMap={authorTagMap} />,
+    <V2exComponent
+      data={data}
+      state={state}
+      runtime={runtime!}
+      authorTagMap={authorTagMap}
+      dateFilter="全部"
+    />,
     container,
   )
 }

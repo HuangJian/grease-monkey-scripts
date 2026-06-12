@@ -77,6 +77,7 @@ export type Config = {
 export type SourceEditorContext = {
   runtime: Runtime
   onRevert: () => void
+  refresh?: () => void
   close: () => void
 }
 
@@ -98,6 +99,19 @@ export type SourceComponentProps<T> = {
   root?: ShadowRoot
   runtime?: Runtime
   onNotify?: () => void
+  onHeaderChange?: () => void
+}
+
+export type SourceHeaderProps<T> = {
+  data: T | null
+  cached: CachedSource<T> | null
+  now: number
+  ttlMs: number
+  runtime: Runtime
+  root: ShadowRoot
+  onRefresh: () => Promise<void>
+  onEdit?: () => void
+  onHeaderChange?: () => void
 }
 
 export type Source<T> = {
@@ -109,16 +123,12 @@ export type Source<T> = {
   readonly order?: number
   readonly getTabLabel?: (data: any) => TabLabel
   readonly dialogTitle?: string
-  /** If set, Card renders this instead of calling render() + customizeHeader() */
+  readonly hideHeaderActions?: boolean
+  readonly RenderHeader?: ComponentType<SourceHeaderProps<any>>
   readonly RenderComponent?: ComponentType<SourceComponentProps<any>>
+  headerState?: Record<string, unknown>
   fetch(runtime: Runtime, prevData?: T): Promise<T>
-  render(
-    container: HTMLElement,
-    data: T | null,
-    ctx?: { root?: ShadowRoot; runtime?: Runtime },
-  ): void
   loadState?(runtime: Runtime): Promise<void>
-  customizeHeader?(titleContainer: HTMLElement, data: T | null): void
   createEditor?: () => SourceEditor
 }
 

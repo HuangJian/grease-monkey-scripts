@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks'
-import { formatRelativeTime } from '../card/chrome'
+import { formatRelativeTime } from '../card/primitives'
 import type { SourceComponentProps } from '../types'
 import type { TnewsState } from './state'
 import type { TnewsItem } from './types'
@@ -88,7 +88,8 @@ export function TnewsComponent({
         {items.map((item) => {
           if (state.isHidden(item.id)) return null
           const expanded = state.isExpanded(item.id)
-          const readClass = state.isRead(item.id) ? ' gm-sp-item-read' : ''
+          const read = state.isRead(item.id)
+          const readClass = read ? ' gm-sp-item-read' : ''
           const expandedClass = expanded ? ' gm-sp-list-item-expanded' : ''
           const timeText = relativeLabel(item.pubDate, now)
           const titleText = stripLeadingSymbols(item.title || '(无标题)')
