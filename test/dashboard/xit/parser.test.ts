@@ -129,6 +129,23 @@ describe('xit parser', () => {
     ])
   })
 
+  it('should parse ->everyday due date', () => {
+    const text = '[ ] Daily task ->everyday #daily'
+    const parsed = parseXitText(text)
+    expect(parsed.length).toBe(1)
+    const item = parsed[0] as XitItem
+    expect(item.dueDate).toBe('everyday')
+    expect(item.tags).toEqual([{ name: 'daily', value: undefined }])
+  })
+
+  it('should parse -> everyday with space', () => {
+    const text = '[ ] Daily task -> everyday'
+    const parsed = parseXitText(text)
+    expect(parsed.length).toBe(1)
+    const item = parsed[0] as XitItem
+    expect(item.dueDate).toBe('everyday')
+  })
+
   describe('parseDueDate helper', () => {
     it('parses YYYY-MM-DD', () => {
       const d = parseDueDate('2026-06-09')
@@ -169,6 +186,15 @@ describe('xit parser', () => {
       // End of 2026 is December 31st
       expect(d!.getMonth()).toBe(11)
       expect(d!.getDate()).toBe(31)
+    })
+
+    it('parses everyday as today', () => {
+      const d = parseDueDate('everyday')
+      expect(d).not.toBeNull()
+      const now = new Date()
+      expect(d!.getFullYear()).toBe(now.getFullYear())
+      expect(d!.getMonth()).toBe(now.getMonth())
+      expect(d!.getDate()).toBe(now.getDate())
     })
   })
 })

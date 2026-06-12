@@ -22,13 +22,14 @@ function addYears(date: Date, n: number): Date {
 }
 
 export function resolveDateKeyword(
-  kw: 'today' | 'overdue' | 'nodue' | 'thisweek' | 'thismonth' | 'thisyear',
+  kw: 'today' | 'overdue' | 'nodue' | 'thisweek' | 'thismonth' | 'thisyear' | 'everyday',
   offset?: number,
 ): { start: Date; end: Date } | null {
   const today = getTodayStart()
 
   switch (kw) {
-    case 'today': {
+    case 'today':
+    case 'everyday': {
       const d = offset ? addDays(today, offset) : today
       return { start: d, end: addDays(d, 1) }
     }

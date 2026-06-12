@@ -41,9 +41,13 @@ export function renderItemHtml(line: XitItem): string {
   )
 
   desc = desc.replace(
-    /->\s*(\d{4}(?:-\d{2}-\d{2}|-\d{2}|-Q[1-4]|-W\d{1,2})?)/g,
+    /->\s*(everyday|\d{4}(?:-\d{2}-\d{2}|-\d{2}|-Q[1-4]|-W\d{1,2})?)/g,
     (_match, dateStr) => {
       const status = getDueDateStatus(dateStr)
+      if (dateStr === 'everyday') {
+        const icon = line.status !== 'checked' && line.status !== 'obsolete' ? '\u23F0' : ''
+        return token(`<span class="gm-sp-xit-duedate gm-sp-xit-due-today">${icon}</span>`)
+      }
       const display = formatDueDateDisplay(dateStr)
       let icon = ''
       if (line.status !== 'checked' && line.status !== 'obsolete') {
@@ -69,10 +73,13 @@ export function renderItemHtml(line: XitItem): string {
 
   const isCompleted = line.status === 'checked' || line.status === 'obsolete'
   const completedClass = isCompleted ? ' gm-sp-xit-item-completed' : ''
+  const dueToday =
+    !isCompleted && line.dueDate !== null && getDueDateStatus(line.dueDate) === 'today'
+  const boldClass = dueToday ? ' gm-sp-xit-content-bold' : ''
 
   return `<div class="gm-sp-xit-item${completedClass}" data-status="${line.status}" data-line-index="${line.lineIndex}">
     <span class="gm-sp-xit-checkbox" data-status="${line.status}">${escapeHtml(checkboxChar)}</span>
-    <div class="gm-sp-xit-content">${prioHtml}${desc}</div>
+    <div class="gm-sp-xit-content${boldClass}">${prioHtml}${desc}</div>
   </div>`
 }
 

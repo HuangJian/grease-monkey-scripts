@@ -394,6 +394,10 @@
   text-decoration: line-through;
 }
 
+.gm-sp-xit-content-bold {
+  font-weight: 600;
+}
+
 .gm-sp-xit-priority {
   font-weight: 800;
   font-family:

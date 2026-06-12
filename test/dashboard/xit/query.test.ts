@@ -205,6 +205,12 @@ describe('query parser', () => {
       if (r.ok) expect(r.ast).toEqual({ type: 'dateKeyword', value: 'nodue' })
     })
 
+    it('parses everyday', () => {
+      const r = parseQuery('everyday')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'dateKeyword', value: 'everyday' })
+    })
+
     it('parses today+3', () => {
       const r = parseQuery('today+3')
       expect(r.ok).toBe(true)
@@ -471,6 +477,61 @@ describe('filterItems', () => {
       const result = filterItems(pastLines, r.ast)
       expect(result.length).toBe(1)
       expect((result[0] as XitItem).description).toBe('task C')
+    }
+  })
+
+  it('filters by everyday (always matches today)', () => {
+    const everydayItems = items.map((item) =>
+      item.description === 'task A' ? { ...item, dueDate: 'everyday' } : item,
+    )
+    const everydayLines = everydayItems.map((item) => item as any)
+
+    const r = parseQuery('everyday')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      const result = filterItems(everydayLines, r.ast)
+      expect(result.length).toBe(1)
+      expect((result[0] as XitItem).description).toBe('task A')
+    }
+  })
+
+  it('everyday items match >today comparison', () => {
+    const everydayItems = [makeItem({ description: 'everyday task', dueDate: 'everyday' })]
+    const everydayLines = everydayItems.map((item) => item as any)
+
+    const r = parseQuery('>today')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      const result = filterItems(everydayLines, r.ast)
+      // everyday resolves to today, so >today should NOT match (today is not > today)
+      expect(result.length).toBe(0)
+    }
+  })
+
+  it('everyday items match >=today comparison', () => {
+    const everydayItems = [makeItem({ description: 'everyday task', dueDate: 'everyday' })]
+    const everydayLines = everydayItems.map((item) => item as any)
+
+    const r = parseQuery('>=today')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      const result = filterItems(everydayLines, r.ast)
+      // everyday resolves to today, so >=today should match
+      expect(result.length).toBe(1)
+      expect((result[0] as XitItem).description).toBe('everyday task')
+    }
+  })
+
+  it('everyday items match ~today period', () => {
+    const everydayItems = [makeItem({ description: 'everyday task', dueDate: 'everyday' })]
+    const everydayLines = everydayItems.map((item) => item as any)
+
+    const r = parseQuery('~today')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      const result = filterItems(everydayLines, r.ast)
+      expect(result.length).toBe(1)
+      expect((result[0] as XitItem).description).toBe('everyday task')
     }
   })
 

@@ -30,6 +30,7 @@ export function getDueDateStatus(
 }
 
 export function formatDueDateDisplay(dateStr: string): string {
+  if (dateStr === 'everyday') return 'everyday'
   const currentYear = new Date().getFullYear()
   const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr)
   if (ymd) {

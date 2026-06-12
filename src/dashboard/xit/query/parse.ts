@@ -203,7 +203,7 @@ class Parser {
   }
 
   private parseDateKeywordValue(raw: string): { value: DateKeyword; offset?: number } {
-    const match = /^(today|thisweek|thismonth|thisyear|overdue|nodue)([+-]\d+)?$/.exec(raw)
+    const match = /^(today|thisweek|thismonth|thisyear|overdue|nodue|everyday)([+-]\d+)?$/.exec(raw)
     if (!match) {
       throw new Error(`Unknown date keyword "${raw}"`)
     }

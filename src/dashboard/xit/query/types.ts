@@ -9,7 +9,7 @@ export type QueryNode =
   | { type: 'date'; op: '>' | '<' | '>=' | '<=' | '=' | '~'; value: string; offset?: number }
   | {
       type: 'dateKeyword'
-      value: 'today' | 'overdue' | 'nodue' | 'thisweek' | 'thismonth' | 'thisyear'
+      value: 'today' | 'overdue' | 'nodue' | 'thisweek' | 'thismonth' | 'thisyear' | 'everyday'
       offset?: number
     }
   | { type: 'tag'; name: string; value?: string }
@@ -36,4 +36,11 @@ export type TokenType =
 
 export type Token = { type: TokenType; value: string; pos: number }
 
-export type DateKeyword = 'today' | 'overdue' | 'nodue' | 'thisweek' | 'thismonth' | 'thisyear'
+export type DateKeyword =
+  | 'today'
+  | 'overdue'
+  | 'nodue'
+  | 'thisweek'
+  | 'thismonth'
+  | 'thisyear'
+  | 'everyday'

@@ -12,7 +12,15 @@ export const STATUS_CHARS = new Map<string, XitItemStatus>([
 
 const KEYWORDS = new Set(['and', 'or', 'not'])
 
-const DATE_KEYWORDS = new Set(['today', 'thisweek', 'thismonth', 'thisyear', 'overdue', 'nodue'])
+const DATE_KEYWORDS = new Set([
+  'today',
+  'thisweek',
+  'thismonth',
+  'thisyear',
+  'overdue',
+  'nodue',
+  'everyday',
+])
 
 const DATE_OFFSET_RE = /^(today|thisweek|thismonth|thisyear)([+-]\d+)$/
 

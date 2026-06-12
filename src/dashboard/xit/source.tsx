@@ -14,6 +14,7 @@ export const DEFAULT_XIT_TEXT = `xit (xit 语法规范):
 [?] 这是一个有疑问的事项
 [ ] 高优先级任务 !!! #urgent
 [ ] 含有到期日的任务 -> 2026-06-20
+[ ] 每日重复任务 ->everyday #daily
 [ ] 多行描述任务:
     这是任务描述的第二行。
     这是第三行。`

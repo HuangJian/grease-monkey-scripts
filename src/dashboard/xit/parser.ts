@@ -106,8 +106,8 @@ export function parseXitText(text: string): XitLine[] {
  * Post-processes an item description to parse tags and due dates.
  */
 function finalizeItem(item: XitItem): void {
-  // Parse due date: -> YYYY-MM-DD, -> YYYY-MM, -> YYYY-Qx, -> YYYY-Wx, -> YYYY
-  const dueDateRegex = /(?:^|\s)->\s*(\d{4}(?:-\d{2}-\d{2}|-\d{2}|-Q[1-4]|-W\d{1,2})?)\b/
+  // Parse due date: -> everyday, -> YYYY-MM-DD, -> YYYY-MM, -> YYYY-Qx, -> YYYY-Wx, -> YYYY
+  const dueDateRegex = /(?:^|\s)->\s*(everyday|\d{4}(?:-\d{2}-\d{2}|-\d{2}|-Q[1-4]|-W\d{1,2})?)\b/
   const dateMatch = dueDateRegex.exec(item.description)
   if (dateMatch) {
     item.dueDate = dateMatch[1]!
@@ -144,6 +144,12 @@ function finalizeItem(item: XitItem): void {
  */
 export function parseDueDate(dateStr: string): Date | null {
   const trimmed = dateStr.trim()
+
+  // everyday — always resolves to today
+  if (trimmed === 'everyday') {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  }
 
   // YYYY-MM-DD
   const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed)

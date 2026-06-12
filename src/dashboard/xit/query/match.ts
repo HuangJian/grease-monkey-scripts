@@ -8,9 +8,11 @@ function matchDate(item: XitItem, op: string, value: string, offset?: number): b
   const itemDate = parseDueDate(item.dueDate)
   if (!itemDate) return false
 
-  if ((['today', 'thisweek', 'thismonth', 'thisyear'] as const).includes(value as any)) {
+  if (
+    (['today', 'thisweek', 'thismonth', 'thisyear', 'everyday'] as const).includes(value as any)
+  ) {
     const range = resolveDateKeyword(
-      value as 'today' | 'thisweek' | 'thismonth' | 'thisyear',
+      value as 'today' | 'thisweek' | 'thismonth' | 'thisyear' | 'everyday',
       offset,
     )
     if (!range) return false
@@ -60,9 +62,9 @@ function matchDatePeriod(item: XitItem, periodSpec: string, offset?: number): bo
 
   const t = itemDate.getTime()
 
-  if (['today', 'thisweek', 'thismonth', 'thisyear'].includes(periodSpec)) {
+  if (['today', 'thisweek', 'thismonth', 'thisyear', 'everyday'].includes(periodSpec)) {
     const range = resolveDateKeyword(
-      periodSpec as 'today' | 'thisweek' | 'thismonth' | 'thisyear',
+      periodSpec as 'today' | 'thisweek' | 'thismonth' | 'thisyear' | 'everyday',
       offset,
     )
     if (!range) return false
@@ -130,7 +132,7 @@ function matchDatePeriod(item: XitItem, periodSpec: string, offset?: number): bo
 
 function matchDateKeyword(
   item: XitItem,
-  kw: 'today' | 'overdue' | 'nodue' | 'thisweek' | 'thismonth' | 'thisyear',
+  kw: 'today' | 'overdue' | 'nodue' | 'thisweek' | 'thismonth' | 'thisyear' | 'everyday',
   offset?: number,
 ): boolean {
   if (kw === 'nodue') {
