@@ -22,8 +22,8 @@ function renderWithChrome({
     <Card
       header={
         <>
-          <span class="gm-sp-card-title-text">{title}</span>
-          {cachedData && <span class="gm-sp-card-time">{timeAgo}</span>}
+          <span>{title}</span>
+          {cachedData && <span>{timeAgo}</span>}
           {isStale && <span class="gm-sp-card-stale">数据陈旧</span>}
           <button type="button" class="gm-sp-refresh">
             ↻

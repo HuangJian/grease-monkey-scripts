@@ -182,7 +182,7 @@ function ChapterItem({ chapter, onMarkSeen }: { chapter: NovelChapter; onMarkSee
 function ReadChapterItem({ chapter, book }: { chapter: NovelChapter; book: NovelBook }) {
   const timeText = formatPostedAt(chapter.postedAt ?? book.fetchedAt) + '【已读】'
   return (
-    <li class="gm-sp-novels-chapter gm-sp-novels-chapter-read">
+    <li class="gm-sp-novels-chapter">
       <a
         class="gm-sp-novels-chapter-link"
         href={escapeUrl(chapter.url)}

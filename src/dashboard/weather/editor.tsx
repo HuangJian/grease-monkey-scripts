@@ -117,12 +117,10 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
           cities.map((city, i) => (
             <div class="gm-sp-editor-item" key={i}>
               <span class="gm-sp-editor-item-label">{escapeHtml(city.cityLabel)}</span>
-              <span class="gm-sp-editor-item-coord">
+              <span>
                 {city.latitude.toFixed(4)}, {city.longitude.toFixed(4)}
               </span>
-              {city.cmaStationId && (
-                <span class="gm-sp-editor-item-cma">CMA {escapeHtml(city.cmaStationId)}</span>
-              )}
+              {city.cmaStationId && <span>CMA {escapeHtml(city.cmaStationId)}</span>}
               <button
                 type="button"
                 class="gm-sp-item-remove"
@@ -141,7 +139,7 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
           <input
             ref={labelRef}
             type="text"
-            class="gm-sp-input gm-sp-we-city-label"
+            class="gm-sp-input"
             placeholder="北京"
             onKeyDown={handleAddKeyDown}
           />
@@ -153,7 +151,7 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
             type="text"
             inputmode="numeric"
             pattern="\d{5}"
-            class="gm-sp-input gm-sp-we-cma"
+            class="gm-sp-input"
             placeholder="54511（可选）"
             onKeyDown={handleAddKeyDown}
           />
@@ -164,7 +162,7 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
             ref={latRef}
             type="number"
             step="any"
-            class="gm-sp-input gm-sp-we-lat"
+            class="gm-sp-input"
             placeholder="39.9042"
             onKeyDown={handleAddKeyDown}
           />
@@ -175,7 +173,7 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
             ref={lonRef}
             type="number"
             step="any"
-            class="gm-sp-input gm-sp-we-lon"
+            class="gm-sp-input"
             placeholder="116.4074"
             onKeyDown={handleAddKeyDown}
           />

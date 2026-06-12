@@ -74,7 +74,7 @@ export function RenderCard<T>({
   const header: ComponentChildren = (
     <>
       <span class="gm-sp-card-title">
-        <span class="gm-sp-card-title-text">{source.title}</span>
+        <span>{source.title}</span>
       </span>
       <CardActions
         cached={(cached ?? null) as { fetchedAt: number } | null}

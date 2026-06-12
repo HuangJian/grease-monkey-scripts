@@ -144,7 +144,7 @@ function CityBlock({ data }: { data: WeatherCityData }) {
     ) : null
 
   return (
-    <div class="gm-sp-weather-city">
+    <div>
       <div class="gm-sp-weather-summary">
         {rangeText && <span class="gm-sp-weather-range">{rangeText}</span>}
         <span class="gm-sp-weather-chip">🌡️ {Math.round(data.current.apparent_temperature)}°</span>
@@ -199,7 +199,7 @@ function CityBlock({ data }: { data: WeatherCityData }) {
             <div class="gm-sp-weather-day">
               <span class="gm-sp-weather-day-label">+{j}</span>
               <span class="gm-sp-weather-day-icon">{weatherCodeIcon(code)}</span>
-              <span class="gm-sp-weather-day-temp">
+              <span>
                 {Math.round(min)}° / {Math.round(max)}°
               </span>
               <span class="gm-sp-weather-day-precip">{precip}%</span>
@@ -214,7 +214,7 @@ function CityBlock({ data }: { data: WeatherCityData }) {
 
 function WeatherErrorBlock({ error }: { error: string }) {
   return (
-    <div class="gm-sp-weather-city gm-sp-weather-city-error">
+    <div class="gm-sp-weather-city">
       <div class="gm-sp-weather-error">{error}</div>
     </div>
   )

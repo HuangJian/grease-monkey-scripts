@@ -55,7 +55,7 @@ export function CardActions({ cached, now, ttlMs, editIcon, onEdit, onRefresh }:
   return (
     <>
       <span class="gm-sp-card-title">
-        {cached && <span class="gm-sp-card-time">{timeAgo}</span>}
+        {cached && <span>{timeAgo}</span>}
         {isStale && <span class="gm-sp-card-stale">数据陈旧</span>}
       </span>
       <span class="gm-sp-card-actions">

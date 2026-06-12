@@ -70,7 +70,7 @@ export function TabsCard({
         data-tab-id={tab.id}
         onClick={() => onTabChange(tab.id)}
       >
-        <span class="gm-sp-tab-label">{labelInfo.label}</span>
+        <span>{labelInfo.label}</span>
         <span class="gm-sp-tab-badge" hidden={badgeHidden}>
           {labelInfo.badge}
         </span>

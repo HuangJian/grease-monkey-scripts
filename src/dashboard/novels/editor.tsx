@@ -213,7 +213,7 @@ function NovelsEditorForm({ fresh, titleMap, ctx, handleRef }: NovelsEditorFormP
           <input
             ref={urlRef}
             type="url"
-            class="gm-sp-input gm-sp-ne-url"
+            class="gm-sp-input"
             placeholder="https://www.sudugu.org/166/"
             onKeyDown={handleAddKeyDown}
           />
@@ -223,7 +223,7 @@ function NovelsEditorForm({ fresh, titleMap, ctx, handleRef }: NovelsEditorFormP
           <input
             ref={aliasRef}
             type="text"
-            class="gm-sp-input gm-sp-ne-alias"
+            class="gm-sp-input"
             placeholder="九龙夺嫡"
             onKeyDown={handleAddKeyDown}
           />

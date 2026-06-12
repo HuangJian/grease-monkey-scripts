@@ -136,8 +136,8 @@ export function V2exComponent({ data, runtime, state, authorTagMap }: V2exCompon
                 dangerouslySetInnerHTML={{ __html: escapeHtml(topic.title) + titleSuffix }}
               />
               <span class="gm-sp-item-meta">
-                <span class="gm-sp-v2ex-node">{escapeHtml(topic.node.title)}</span>
-                <span class={`gm-sp-v2ex-author${ac}`}>@{escapeHtml(username)}</span>
+                <span>{escapeHtml(topic.node.title)}</span>
+                <span class={ac.trim() || undefined}>@{escapeHtml(username)}</span>
               </span>
               <button class="gm-sp-item-hide" title="隐藏该主题" onClick={() => handleHide(topic)}>
                 ×

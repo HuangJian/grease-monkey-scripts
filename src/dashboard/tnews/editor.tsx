@@ -168,7 +168,7 @@ function TnewsEditorForm({ fresh, ctx, handleRef }: TnewsEditorFormProps) {
           ) : (
             feeds.map((url, i) => (
               <div class="gm-sp-editor-chip" key={i}>
-                <span class="gm-sp-editor-chip-label gm-sp-tne-chip-label">{escapeHtml(url)}</span>
+                <span class="gm-sp-editor-chip-label">{escapeHtml(url)}</span>
                 <button
                   type="button"
                   class="gm-sp-editor-chip-remove"
@@ -185,7 +185,7 @@ function TnewsEditorForm({ fresh, ctx, handleRef }: TnewsEditorFormProps) {
           <input
             ref={feedRef}
             type="text"
-            class="gm-sp-input gm-sp-tne-feed-input"
+            class="gm-sp-input"
             placeholder="https://rsshub.app/telegram/channel/<name>"
             onKeyDown={onFeedKeyDown}
           />
@@ -224,7 +224,7 @@ function TnewsEditorForm({ fresh, ctx, handleRef }: TnewsEditorFormProps) {
           <input
             ref={mirrorRef}
             type="text"
-            class="gm-sp-input gm-sp-tne-mirror-input"
+            class="gm-sp-input"
             placeholder="rsshub.example.com"
             onKeyDown={onMirrorKeyDown}
           />
@@ -246,7 +246,7 @@ function TnewsEditorForm({ fresh, ctx, handleRef }: TnewsEditorFormProps) {
             type="number"
             min="1"
             step="1"
-            class="gm-sp-input gm-sp-tne-ttl"
+            class="gm-sp-input"
             value={ttl}
             onInput={(e) => setTtl(Number((e.target as HTMLInputElement).value))}
           />

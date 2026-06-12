@@ -58,7 +58,7 @@ function EditorDialog({ document, root, title, onClose, renderEditor }: EditorDi
           <div class="gm-sp-editor-dialog-actions">
             <button
               type="button"
-              class="gm-sp-editor-btn gm-sp-btn gm-sp-btn-primary gm-sp-editor-dialog-save"
+              class="gm-sp-editor-btn gm-sp-btn gm-sp-btn-primary"
               onClick={() => {
                 resultRef.current?.save?.()
               }}
@@ -67,7 +67,7 @@ function EditorDialog({ document, root, title, onClose, renderEditor }: EditorDi
             </button>
             <button
               type="button"
-              class="gm-sp-editor-btn gm-sp-btn gm-sp-editor-dialog-cancel"
+              class="gm-sp-editor-btn gm-sp-btn"
               onClick={() => {
                 resultRef.current?.cancel?.()
               }}
