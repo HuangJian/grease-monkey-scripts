@@ -7,13 +7,11 @@ import { createRuntime, type TestRuntime } from '../../../runtime'
 
 const DEFAULTS: RedditSourceOptions = {
   ttlMinutes: 30,
+  historyDays: 7,
+  todayMinComments: 10,
+  olderMinComments: 20,
   ageHalfLifeDays: 2,
   subreddits: ['popular'],
-  minItems: 10,
-  minPerSub: 1,
-  displayRatio: 0.1,
-  elbowDropRatio: 0.4,
-  minCutoffScore: 500,
 }
 
 async function mount(
@@ -150,26 +148,22 @@ describe('createRedditEditor', () => {
     await mount(runtime, container, {
       ...DEFAULTS,
       ttlMinutes: 45,
-      minItems: 7,
-      minPerSub: 2,
-      displayRatio: 0.2,
-      elbowDropRatio: 0.5,
-      minCutoffScore: 300,
+      historyDays: 14,
+      todayMinComments: 5,
+      olderMinComments: 15,
       ageHalfLifeDays: 3,
     })
     const ns = inputs(container)
     expect((ns[0] as HTMLInputElement).value).toBe('45')
-    expect((ns[1] as HTMLInputElement).value).toBe('7')
-    expect((ns[2] as HTMLInputElement).value).toBe('2')
-    expect((ns[3] as HTMLInputElement).value).toBe('0.2')
-    expect((ns[4] as HTMLInputElement).value).toBe('0.5')
-    expect((ns[5] as HTMLInputElement).value).toBe('300')
-    expect((ns[6] as HTMLInputElement).value).toBe('3')
+    expect((ns[1] as HTMLInputElement).value).toBe('14')
+    expect((ns[2] as HTMLInputElement).value).toBe('5')
+    expect((ns[3] as HTMLInputElement).value).toBe('15')
+    expect((ns[4] as HTMLInputElement).value).toBe('3')
   })
 
   test('saves ageHalfLifeDays to config', async () => {
     const { result } = await mount(runtime, container)
-    const halfLife = inputs(container)[6] as HTMLInputElement
+    const halfLife = inputs(container)[4] as HTMLInputElement
     halfLife.value = '5'
     void result.save?.()
     await new Promise<void>((r) => setTimeout(r, 0))
@@ -179,7 +173,7 @@ describe('createRedditEditor', () => {
 
   test('rejects ageHalfLifeDays out of range', async () => {
     const { result } = await mount(runtime, container)
-    const halfLife = inputs(container)[6] as HTMLInputElement
+    const halfLife = inputs(container)[4] as HTMLInputElement
     halfLife.value = '50'
     void result.save?.()
     expect(within(container).getByText('衰减半衰期必须是 0.1~30 之间')).not.toBeNull()

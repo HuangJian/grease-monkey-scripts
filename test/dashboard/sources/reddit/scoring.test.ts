@@ -11,19 +11,13 @@ import type {
 } from '../../../../src/dashboard/reddit/types'
 
 const DEFAULT_COUNT_OPTS: RedditCountOptions = {
-  minItems: 10,
-  minPerSub: 1,
-  displayRatio: 0.1,
-  elbowDropRatio: 0.4,
-  minCutoffScore: 500,
+  historyDays: 7,
+  todayMinComments: 10,
+  olderMinComments: 20,
+  ageHalfLifeDays: 2,
 }
 
-const LOW_FLOOR_OPTS: RedditCountOptions = {
-  ...DEFAULT_COUNT_OPTS,
-  minCutoffScore: 0,
-}
-
-const NOW = 1_700_000_000_000
+const NOW = Date.now()
 
 function post(over: Partial<RedditPost>): RedditPost {
   return {
@@ -163,53 +157,54 @@ describe('mergeSubPosts', () => {
 
 describe('selectPostsPerSub', () => {
   test('returns empty map for empty input', () => {
-    const result = selectPostsPerSub([], { ...LOW_FLOOR_OPTS, ageHalfLifeDays: 2, now: NOW })
+    const result = selectPostsPerSub([], { ...DEFAULT_COUNT_OPTS, now: NOW })
     expect(result.size).toBe(0)
   })
-  test('minPerSub forces at least N posts per sub (when data available)', () => {
-    const big = Array.from({ length: 20 }, (_, i) => post({ id: `big${i}`, score: 5000 - i }))
-    const small = Array.from({ length: 5 }, (_, i) => post({ id: `small${i}`, score: 100 - i }))
-    const result = selectPostsPerSub(
-      [
-        { sub: 'funny', posts: big },
-        { sub: 'niche', posts: small },
-      ],
-      { ...LOW_FLOOR_OPTS, minPerSub: 3, ageHalfLifeDays: 2, now: NOW },
-    )
-    expect(result.get('niche')).toHaveLength(5)
-    expect(result.get('funny')).toHaveLength(20)
-  })
-
-  test('when sub has fewer posts than minPerSub, returns all available', () => {
-    const result = selectPostsPerSub([{ sub: 'x', posts: [post({ id: '1', score: 100 })] }], {
-      ...LOW_FLOOR_OPTS,
-      minPerSub: 5,
-      ageHalfLifeDays: 2,
-      now: NOW,
-    })
-    expect(result.get('x')).toHaveLength(1)
-  })
-  test('applies minCutoffScore as a hard floor', () => {
-    const posts = [post({ id: '1', score: 50 }), post({ id: '2', score: 8000 })]
+  test('filters old posts by olderMinComments threshold', () => {
+    const twoDaysAgo = NOW - 2 * 86_400_000
+    const posts = [
+      post({ id: 'low', numComments: 5, created: twoDaysAgo }),
+      post({ id: 'high', numComments: 30, created: twoDaysAgo }),
+    ]
     const result = selectPostsPerSub([{ sub: 'x', posts }], {
       ...DEFAULT_COUNT_OPTS,
-      minCutoffScore: 1000,
-      ageHalfLifeDays: 2,
+      olderMinComments: 10,
       now: NOW,
     })
-    expect(result.get('x')!.map((p) => p.id)).toEqual(['2'])
+    expect(result.get('x')!.map((p) => p.id)).toEqual(['high'])
+  })
+  test('filters today posts by todayMinComments threshold', () => {
+    const posts = [
+      post({ id: 'today-low', numComments: 0, created: NOW }),
+      post({ id: 'today-high', numComments: 50, created: NOW }),
+    ]
+    const result = selectPostsPerSub([{ sub: 'x', posts }], {
+      ...DEFAULT_COUNT_OPTS,
+      todayMinComments: 10,
+      now: NOW,
+    })
+    expect(result.get('x')!.map((p) => p.id)).toEqual(['today-high'])
   })
   test('sorts by decayed score (older high-score post can beat newer low-score)', () => {
     const twoDaysAgo = NOW - 2 * 86_400_000
     const posts = [
-      post({ id: 'new-low', score: 200, created: NOW }),
-      post({ id: 'old-high', score: 1000, created: twoDaysAgo }),
+      post({ id: 'new-low', score: 200, numComments: 30, created: NOW }),
+      post({ id: 'old-high', score: 1000, numComments: 30, created: twoDaysAgo }),
     ]
     const result = selectPostsPerSub([{ sub: 'x', posts }], {
-      ...LOW_FLOOR_OPTS,
-      ageHalfLifeDays: 2,
+      ...DEFAULT_COUNT_OPTS,
       now: NOW,
     })
     expect(result.get('x')!.map((p) => p.id)).toEqual(['old-high', 'new-low'])
+  })
+  test('no truncation: returns all posts after filtering', () => {
+    const posts = Array.from({ length: 50 }, (_, i) =>
+      post({ id: `p${i}`, score: 100 - i, numComments: 10 }),
+    )
+    const result = selectPostsPerSub([{ sub: 'x', posts }], {
+      ...DEFAULT_COUNT_OPTS,
+      now: NOW,
+    })
+    expect(result.get('x')).toHaveLength(50)
   })
 })

@@ -15,8 +15,12 @@ export type RedditState = {
   filterVisible(posts: ReadonlyArray<RedditPost>): RedditPost[]
   loadFromStorage(runtime: Runtime): Promise<void>
   saveToStorage(runtime: Runtime): Promise<void>
-  loadHistory(runtime: Runtime): Promise<StoredHistoryPost[]>
-  saveHistory(runtime: Runtime, posts: ReadonlyArray<RedditPost>): Promise<void>
+  loadHistory(runtime: Runtime, historyDays: number): Promise<StoredHistoryPost[]>
+  saveHistory(
+    runtime: Runtime,
+    posts: ReadonlyArray<RedditPost>,
+    historyDays: number,
+  ): Promise<void>
   removeFromCache(runtime: Runtime, id: string): Promise<void>
   removeFromHistory(runtime: Runtime, id: string): Promise<void>
   clear(): void
@@ -62,8 +66,9 @@ export function createRedditState(): RedditState {
     async saveToStorage(runtime) {
       await itemState.saveToStorage(runtime)
     },
-    async loadHistory(runtime) {
+    async loadHistory(runtime, historyDays) {
       if (cachedHistory) return cachedHistory
+      const historyTtl = historyDays * 24 * 60 * 60 * 1000
       try {
         const stored = await runtime.getValue<StoredHistoryPost[] | null>(HISTORY_KEY, null)
         if (!stored || !Array.isArray(stored)) {
@@ -73,7 +78,7 @@ export function createRedditState(): RedditState {
         const now = Date.now()
         cachedHistory = stored.filter((t) => {
           if (!Number.isFinite(t.created) || t.created <= 0) return false
-          return now - t.created < TOPIC_STATE_TTL
+          return now - t.created < historyTtl
         })
         return cachedHistory
       } catch {
@@ -81,9 +86,10 @@ export function createRedditState(): RedditState {
         return cachedHistory
       }
     },
-    async saveHistory(runtime, topics) {
+    async saveHistory(runtime, topics, historyDays) {
+      const historyTtl = historyDays * 24 * 60 * 60 * 1000
       const now = Date.now()
-      const existing = await this.loadHistory(runtime)
+      const existing = await this.loadHistory(runtime, historyDays)
       const byId = new Map<string, StoredHistoryPost>()
       for (const t of existing) byId.set(t.id, t)
       for (const t of topics) {
@@ -114,7 +120,7 @@ export function createRedditState(): RedditState {
         }
       }
       const result = Array.from(byId.values()).filter(
-        (t) => Number.isFinite(t.created) && t.created > 0 && now - t.created < TOPIC_STATE_TTL,
+        (t) => Number.isFinite(t.created) && t.created > 0 && now - t.created < historyTtl,
       )
       cachedHistory = result
       await runtime.setValue(HISTORY_KEY, result)
@@ -141,7 +147,7 @@ export function createRedditState(): RedditState {
     },
     async removeFromHistory(runtime, id) {
       try {
-        const existing = await this.loadHistory(runtime)
+        const existing = await this.loadHistory(runtime, 7)
         const filtered = existing.filter((t) => t.id !== id)
         if (filtered.length === existing.length) return
         cachedHistory = filtered

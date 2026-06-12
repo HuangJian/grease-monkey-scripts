@@ -5,8 +5,8 @@ import {
 } from '../../shared/author-labels'
 import type { Runtime } from '../../runtime'
 import { loadConfigSection } from '../config'
-import type { Source } from '../types'
-import { RedditComponent } from './component'
+import type { Source, SourceHeaderProps } from '../types'
+import { RedditComponent, RedditDateFilter, type DateFilter } from './component'
 import { createExpandCollapse } from './expand-collapse'
 import { createRedditEditor } from './editor'
 import { fetchReddit } from './fetcher'
@@ -20,6 +20,7 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
   const state = createRedditState()
   const expandCollapse = createExpandCollapse()
   let authorTagMap: AuthorTagMap = {}
+  let dateFilter: DateFilter = '全'
 
   async function syncAuthorTags(runtime: Runtime): Promise<void> {
     try {
@@ -46,6 +47,16 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 3,
+    headerState: {},
+    RenderHeader: (props: SourceHeaderProps<RedditRenderData>) => (
+      <RedditDateFilter
+        dateFilter={dateFilter}
+        onChange={(f) => {
+          dateFilter = f
+          props.onHeaderChange?.()
+        }}
+      />
+    ),
     async fetch(runtime, _prevData) {
       const fresh = await loadFreshRedditOptions(runtime, options)
       console.debug('[gm-dashboard] reddit.fetch start subs=', fresh.subreddits)
@@ -53,7 +64,7 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
       await syncAuthorTags(runtime)
       const [fetchResult, history] = await Promise.all([
         fetchReddit(runtime, fresh),
-        state.loadHistory(runtime),
+        state.loadHistory(runtime, fresh.historyDays),
       ])
       console.debug(
         '[gm-dashboard] reddit.fetch ok subs=',
@@ -70,9 +81,20 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
       for (const [sub, posts] of selected) {
         visible[sub] = state.filterVisible(posts)
       }
+      const todayStartMs = new Date(now)
+      todayStartMs.setUTCHours(0, 0, 0, 0)
+      const todayMs = todayStartMs.getTime()
       const allFetched: RedditPost[] = []
-      for (const { posts } of fetchResult.posts) allFetched.push(...posts)
-      await state.saveHistory(runtime, allFetched)
+      for (const { posts } of fetchResult.posts) {
+        for (const p of posts) {
+          if (p.created < todayMs) {
+            if (p.numComments >= fresh.olderMinComments) allFetched.push(p)
+          } else {
+            if (p.numComments >= fresh.todayMinComments) allFetched.push(p)
+          }
+        }
+      }
+      await state.saveHistory(runtime, allFetched, fresh.historyDays)
       await state.saveToStorage(runtime)
       return visible
     },
@@ -84,6 +106,7 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
         state={state}
         expandCollapse={expandCollapse}
         authorTagMap={authorTagMap}
+        dateFilter={dateFilter}
       />
     ),
     async loadState(runtime) {
@@ -103,6 +126,18 @@ function coerceRedditOptions(
   return {
     ttlMinutes:
       typeof raw['ttlMinutes'] === 'number' ? (raw['ttlMinutes'] as number) : fallback.ttlMinutes,
+    historyDays:
+      typeof raw['historyDays'] === 'number'
+        ? (raw['historyDays'] as number)
+        : fallback.historyDays,
+    todayMinComments:
+      typeof raw['todayMinComments'] === 'number'
+        ? (raw['todayMinComments'] as number)
+        : fallback.todayMinComments,
+    olderMinComments:
+      typeof raw['olderMinComments'] === 'number'
+        ? (raw['olderMinComments'] as number)
+        : fallback.olderMinComments,
     ageHalfLifeDays:
       typeof raw['ageHalfLifeDays'] === 'number'
         ? (raw['ageHalfLifeDays'] as number)
@@ -111,21 +146,6 @@ function coerceRedditOptions(
       Array.isArray(raw['subreddits']) && (raw['subreddits'] as unknown[]).length > 0
         ? (raw['subreddits'] as unknown[]).map((s) => String(s)).filter((s) => s.length > 0)
         : fallback.subreddits,
-    minItems: typeof raw['minItems'] === 'number' ? (raw['minItems'] as number) : fallback.minItems,
-    minPerSub:
-      typeof raw['minPerSub'] === 'number' ? (raw['minPerSub'] as number) : fallback.minPerSub,
-    displayRatio:
-      typeof raw['displayRatio'] === 'number'
-        ? (raw['displayRatio'] as number)
-        : fallback.displayRatio,
-    elbowDropRatio:
-      typeof raw['elbowDropRatio'] === 'number'
-        ? (raw['elbowDropRatio'] as number)
-        : fallback.elbowDropRatio,
-    minCutoffScore:
-      typeof raw['minCutoffScore'] === 'number'
-        ? (raw['minCutoffScore'] as number)
-        : fallback.minCutoffScore,
   }
 }
 

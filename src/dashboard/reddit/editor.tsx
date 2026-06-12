@@ -16,17 +16,19 @@ const FORM_FIELDS: {
   errorMsg: string
 }[] = [
   { prop: 'ttlMinutes', label: 'TTL（分钟）', min: 1, errorMsg: 'TTL 必须是 ≥1 的整数' },
-  { prop: 'minItems', label: '最少条数', min: 1, errorMsg: '最少条数必须是 ≥1 的整数' },
-  { prop: 'minPerSub', label: '每 sub 至少 N 条', min: 0, errorMsg: '每 sub 至少 N 条必须 ≥0' },
-  { prop: 'displayRatio', label: '显示比例', min: 0, max: 1, errorMsg: '显示比例必须是 0~1 之间' },
+  { prop: 'historyDays', label: '历史保留天数', min: 1, errorMsg: '历史保留天数必须是 ≥1 的整数' },
   {
-    prop: 'elbowDropRatio',
-    label: '拐点跌幅',
+    prop: 'todayMinComments',
+    label: '今日最低评论',
     min: 0,
-    max: 1,
-    errorMsg: '拐点跌幅必须是 0~1 之间',
+    errorMsg: '今日最低评论必须 ≥0',
   },
-  { prop: 'minCutoffScore', label: '最低分数', min: 0, errorMsg: '最低分数必须 ≥0' },
+  {
+    prop: 'olderMinComments',
+    label: '历史最低评论',
+    min: 0,
+    errorMsg: '历史最低评论必须 ≥0',
+  },
   {
     prop: 'ageHalfLifeDays',
     label: '衰减半衰期（天）',
@@ -132,12 +134,10 @@ function RedditEditorForm({ fresh, ctx, handleRef }: RedditEditorFormProps) {
         if (nums === null) return
         const reddit: RedditSourceOptions = {
           ttlMinutes: Math.round(nums[0]),
-          minItems: Math.round(nums[1]),
-          minPerSub: Math.round(nums[2]),
-          displayRatio: nums[3],
-          elbowDropRatio: nums[4],
-          minCutoffScore: Math.round(nums[5]),
-          ageHalfLifeDays: nums[6],
+          historyDays: Math.round(nums[1]),
+          todayMinComments: Math.round(nums[2]),
+          olderMinComments: Math.round(nums[3]),
+          ageHalfLifeDays: nums[4],
           subreddits: [...subs],
         }
         void saveConfigSection({

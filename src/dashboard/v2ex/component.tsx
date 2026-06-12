@@ -31,7 +31,7 @@ function dateFilterBounds(
   }
 }
 
-function applyDateFilter(data: V2exTopic[] | null, filter: DateFilter): V2exTopic[] | null {
+export function applyDateFilter(data: V2exTopic[] | null, filter: DateFilter): V2exTopic[] | null {
   const bounds = dateFilterBounds(filter, Date.now())
   if (!bounds || !data) return data
   return data.filter((t) => {
@@ -67,9 +67,10 @@ function sourceBadge(topic: V2exTopic): { icon: string; title: string } | null {
 export type V2exDateFilterProps = {
   dateFilter: DateFilter
   onChange: (filter: DateFilter) => void
+  onArchive?: () => void
 }
 
-export function V2exDateFilter({ dateFilter, onChange }: V2exDateFilterProps) {
+export function V2exDateFilter({ dateFilter, onChange, onArchive }: V2exDateFilterProps) {
   return (
     <div class="gm-sp-date-filter">
       {DATE_OPTIONS.map((opt) => (
@@ -81,6 +82,16 @@ export function V2exDateFilter({ dateFilter, onChange }: V2exDateFilterProps) {
           {opt}
         </button>
       ))}
+      {onArchive && (
+        <button
+          type="button"
+          class="gm-sp-date-filter-btn gm-sp-archive-btn"
+          title="归档：标记当前视图所有主题为已读"
+          onClick={onArchive}
+        >
+          🧹
+        </button>
+      )}
     </div>
   )
 }

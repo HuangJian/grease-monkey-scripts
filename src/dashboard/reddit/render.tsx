@@ -1,7 +1,7 @@
 import { render } from 'preact'
 import type { AuthorTagMap } from '../../shared/author-labels'
 import type { Runtime } from '../../runtime'
-import { RedditComponent } from './component'
+import { RedditComponent, type DateFilter } from './component'
 import type { ExpandCollapse } from './expand-collapse'
 import type { RedditState } from './state'
 import type { RedditRenderData } from './source'
@@ -13,6 +13,7 @@ export function renderReddit(
   runtime: Runtime | null,
   expandCollapse: ExpandCollapse,
   authorTagMap: AuthorTagMap = {},
+  dateFilter: DateFilter = '全',
 ): void {
   render(null, container)
   render(
@@ -22,6 +23,7 @@ export function renderReddit(
       runtime={runtime ?? undefined}
       expandCollapse={expandCollapse}
       authorTagMap={authorTagMap}
+      dateFilter={dateFilter}
     />,
     container,
   )

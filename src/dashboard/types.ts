@@ -30,14 +30,11 @@ import type { TnewsConfig } from './tnews/types'
 
 export type RedditConfig = {
   ttlMinutes: number
+  historyDays: number
+  todayMinComments: number
+  olderMinComments: number
   ageHalfLifeDays: number
   subreddits: string[]
-  minItems: number
-  maxItems: number
-  minPerSub: number
-  displayRatio: number
-  elbowDropRatio: number
-  minCutoffScore: number
 }
 
 export type Config = {

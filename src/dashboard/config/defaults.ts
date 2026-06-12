@@ -14,14 +14,11 @@ export const DEFAULT_CONFIG: Config = {
   },
   reddit: {
     ttlMinutes: 30,
+    historyDays: 7,
+    todayMinComments: 10,
+    olderMinComments: 20,
     ageHalfLifeDays: 2,
     subreddits: ['popular'],
-    minItems: 10,
-    maxItems: Number.POSITIVE_INFINITY,
-    minPerSub: 1,
-    displayRatio: 0.1,
-    elbowDropRatio: 0.4,
-    minCutoffScore: 500,
   },
   novels: {
     entries: [],

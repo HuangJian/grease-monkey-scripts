@@ -111,9 +111,9 @@ export function validateConfig(value: unknown): ConfigValidation {
     }
     const numFields: Array<[string, number, number]> = [
       ['ttlMinutes', 1, Number.POSITIVE_INFINITY],
-      ['minItems', 1, Number.POSITIVE_INFINITY],
-      ['minPerSub', 0, Number.POSITIVE_INFINITY],
-      ['minCutoffScore', 0, Number.POSITIVE_INFINITY],
+      ['historyDays', 1, Number.POSITIVE_INFINITY],
+      ['todayMinComments', 0, Number.POSITIVE_INFINITY],
+      ['olderMinComments', 0, Number.POSITIVE_INFINITY],
       ['ageHalfLifeDays', 0.1, 30],
     ]
     for (const [name, min, max] of numFields) {
@@ -128,14 +128,6 @@ export function validateConfig(value: unknown): ConfigValidation {
             ok: false,
             error: `reddit.${name} 必须是 ${min}–${Number.isFinite(max) ? max : '∞'} 之间的数`,
           }
-        }
-      }
-    }
-    for (const name of ['displayRatio', 'elbowDropRatio']) {
-      if (name in r) {
-        const n = r[name]
-        if (typeof n !== 'number' || !Number.isFinite(n) || n < 0 || n > 1) {
-          return { ok: false, error: `reddit.${name} 必须是 0–1 之间的有限数` }
         }
       }
     }

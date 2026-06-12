@@ -5,7 +5,7 @@ import {
   parseAuthorTagMap,
   type AuthorTagMap,
 } from '../../shared/author-labels'
-import { V2exComponent, V2exDateFilter, type DateFilter } from './component'
+import { V2exComponent, V2exDateFilter, applyDateFilter, type DateFilter } from './component'
 import { createV2exEditor } from './editor'
 import { fetchV2ex } from './fetcher'
 import { createV2exState } from './state'
@@ -49,6 +49,16 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
         dateFilter={dateFilter}
         onChange={(f) => {
           dateFilter = f
+          props.onHeaderChange?.()
+        }}
+        onArchive={() => {
+          const topics = props.data
+          if (!topics || !state) return
+          const visible = state.filterVisible(applyDateFilter(topics, dateFilter) ?? [])
+          for (const t of visible) {
+            state.markRead(t.id, Date.now(), t.replies)
+          }
+          void state.saveToStorage(props.runtime)
           props.onHeaderChange?.()
         }}
       />

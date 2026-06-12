@@ -7,11 +7,9 @@ import type { Runtime, RequestDetails } from '../../../../src/runtime'
 import { createRuntime } from '../../../runtime'
 
 const DEFAULT_COUNT_OPTS = {
-  minItems: 10,
-  minPerSub: 1,
-  displayRatio: 0.1,
-  elbowDropRatio: 0.4,
-  minCutoffScore: 500,
+  historyDays: 7,
+  todayMinComments: 10,
+  olderMinComments: 20,
   ageHalfLifeDays: 2,
 }
 

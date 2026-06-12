@@ -11,11 +11,9 @@ import type { RequestDetails } from '../../../../src/runtime'
 import { createRuntime, type TestRuntime } from '../../../runtime'
 
 const DEFAULT_COUNT_OPTS = {
-  minItems: 10,
-  minPerSub: 1,
-  displayRatio: 0.1,
-  elbowDropRatio: 0.4,
-  minCutoffScore: 500,
+  historyDays: 7,
+  todayMinComments: 10,
+  olderMinComments: 20,
   ageHalfLifeDays: 2,
 }
 
@@ -139,12 +137,11 @@ describe('validateConfig.reddit', () => {
       validateConfig({
         reddit: {
           ttlMinutes: 30,
+          historyDays: 7,
+          todayMinComments: 10,
+          olderMinComments: 20,
           ageHalfLifeDays: 2,
           subreddits: ['popular'],
-          minItems: 10,
-          displayRatio: 0.1,
-          elbowDropRatio: 0.4,
-          minCutoffScore: 500,
         },
       }),
     ).toEqual({ ok: true })
@@ -155,28 +152,14 @@ describe('validateConfig.reddit', () => {
   test('rejects empty subreddits', () => {
     expect(
       validateConfig({
-        reddit: { subreddits: [], minItems: 1, ttlMinutes: 1, minCutoffScore: 0 },
+        reddit: { subreddits: [], ttlMinutes: 1 },
       }).ok,
     ).toBe(false)
   })
   test('rejects blank subreddit name', () => {
     expect(
       validateConfig({
-        reddit: { subreddits: ['  '], minItems: 1, ttlMinutes: 1, minCutoffScore: 0 },
-      }).ok,
-    ).toBe(false)
-  })
-  test('rejects out-of-range ratio', () => {
-    expect(
-      validateConfig({
-        reddit: {
-          subreddits: ['a'],
-          minItems: 1,
-          ttlMinutes: 30,
-          displayRatio: 1.5,
-          elbowDropRatio: 0.4,
-          minCutoffScore: 0,
-        },
+        reddit: { subreddits: ['  '], ttlMinutes: 1 },
       }).ok,
     ).toBe(false)
   })
@@ -185,25 +168,18 @@ describe('validateConfig.reddit', () => {
       validateConfig({
         reddit: {
           subreddits: ['a'],
-          minItems: 1,
           ttlMinutes: 0,
-          displayRatio: 0.1,
-          elbowDropRatio: 0.4,
-          minCutoffScore: 0,
         },
       }).ok,
     ).toBe(false)
   })
-  test('rejects negative minCutoffScore', () => {
+  test('rejects negative olderMinComments', () => {
     expect(
       validateConfig({
         reddit: {
           subreddits: ['a'],
-          minItems: 1,
           ttlMinutes: 30,
-          displayRatio: 0.1,
-          elbowDropRatio: 0.4,
-          minCutoffScore: -1,
+          olderMinComments: -1,
         },
       }).ok,
     ).toBe(false)
@@ -213,11 +189,7 @@ describe('validateConfig.reddit', () => {
       validateConfig({
         reddit: {
           subreddits: ['a'],
-          minItems: 1,
           ttlMinutes: 30,
-          displayRatio: 0.1,
-          elbowDropRatio: 0.4,
-          minCutoffScore: 0,
           ageHalfLifeDays: 0,
         },
       }).ok,
@@ -226,11 +198,7 @@ describe('validateConfig.reddit', () => {
       validateConfig({
         reddit: {
           subreddits: ['a'],
-          minItems: 1,
           ttlMinutes: 30,
-          displayRatio: 0.1,
-          elbowDropRatio: 0.4,
-          minCutoffScore: 0,
           ageHalfLifeDays: 31,
         },
       }).ok,

@@ -1,5 +1,40 @@
-import { dynamicCount } from '../dynamic-count'
 import type { RedditCountOptions, RedditPost, StoredHistoryPost } from './types'
+
+/**
+ * ══════════════════════════════════════════════════════════════════════════════
+ * Reddit 热门帖子算法（阶段 2–4：融合 + 过滤 + 排序）
+ * ══════════════════════════════════════════════════════════════════════════════
+ *
+ * ⚠️  后续 agent 注意：修改算法时必须同步更新本注释，不要删除！
+ *
+ * ── 阶段 2：双源融合去重 ─────────────────────────────────────────────────
+ *   mergeSubPosts(perSubLive, history) 执行：
+ *   ① 按 sub 分组 live 帖子
+ *   ② 对每个 sub：合并同 id 的 history 条目（取 max(score), max(numComments), min(created)）
+ *   ③ 跨 sub 去重（seenIds）
+ *   ④ 剩余 history 条目匹配到对应 sub
+ *
+ * ── 阶段 3：门槛过滤 ────────────────────────────────────────────────────
+ *   selectPostsPerSub(merged, options) 对每个 sub 执行：
+ *   ① 旧帖子 (created < 今日 0:00)：numComments < olderMinComments → 移除
+ *   ② 今日帖子 (created ≥ 今日 0:00)：无评论门槛（全部保留）
+ *   不做截断，全部返回
+ *
+ * ── 阶段 4：衰减排序 ────────────────────────────────────────────────────
+ *   computeRedditDecayedScore(post, now, halfLifeDays)：
+ *   score = post.score × exp(-days × ln2 / halfLifeDays)
+ *   - days = (now - created) / 86400000
+ *   - created 缺失时 days = 0（视为最新）
+ *   - post.score ≤ 0 → score = 0
+ *   按衰减分数降序排列，不做截断
+ *
+ * ══════════════════════════════════════════════════════════════════════════════
+ */
+
+function getTodayStartMs(): number {
+  const now = new Date()
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+}
 
 export function computeRedditDecayedScore(
   post: RedditPost,
@@ -102,7 +137,6 @@ export function mergeSubPosts(
 }
 
 export type SelectOptions = RedditCountOptions & {
-  ageHalfLifeDays: number
   now: number
 }
 
@@ -110,24 +144,21 @@ export function selectPostsPerSub(
   merged: ReadonlyArray<{ sub: string; posts: RedditPost[] }>,
   options: SelectOptions,
 ): Map<string, RedditPost[]> {
+  const todayStartMs = getTodayStartMs()
   const result = new Map<string, RedditPost[]>()
   for (const { sub, posts } of merged) {
-    const eligible = posts.filter((p) => p.score >= options.minCutoffScore)
-    const sorted = [...eligible].sort((a, b) => {
+    const filtered = posts.filter((p) => {
+      if (p.created < todayStartMs) {
+        return p.numComments >= options.olderMinComments
+      }
+      return p.numComments >= options.todayMinComments
+    })
+    const sorted = [...filtered].sort((a, b) => {
       const da = computeRedditDecayedScore(a, options.now, options.ageHalfLifeDays)
       const db = computeRedditDecayedScore(b, options.now, options.ageHalfLifeDays)
       return db - da
     })
-    const decayedScores = sorted.map((p) =>
-      computeRedditDecayedScore(p, options.now, options.ageHalfLifeDays),
-    )
-    const n = dynamicCount(decayedScores, {
-      minItems: options.minPerSub,
-      displayRatio: options.displayRatio,
-      elbowDropRatio: options.elbowDropRatio,
-      cutoffFloor: 0,
-    })
-    result.set(sub, sorted.slice(0, n))
+    result.set(sub, sorted)
   }
   return result
 }

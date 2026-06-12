@@ -309,6 +309,10 @@
   background: var(--gm-sp-color-primary-hover, #1d4ed8);
 }
 
+.gm-sp-archive-btn {
+  border-left: 1px solid #e5e7eb;
+}
+
 .gm-sp-v2ex-source {
   flex: 0 0 auto;
   font-size: 10px;

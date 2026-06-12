@@ -21,16 +21,14 @@ export type StoredHistoryPost = {
 }
 
 export type RedditCountOptions = {
-  minItems: number
-  minPerSub: number
-  displayRatio: number
-  elbowDropRatio: number
-  minCutoffScore: number
+  historyDays: number
+  todayMinComments: number
+  olderMinComments: number
+  ageHalfLifeDays: number
 }
 
 export type RedditSourceOptions = {
   ttlMinutes: number
-  ageHalfLifeDays: number
   subreddits: string[]
 } & RedditCountOptions
 

@@ -8,6 +8,50 @@ import { COLLAPSE_THRESHOLD } from './expand-collapse'
 import type { RedditState } from './state'
 import type { RedditRenderData } from './source'
 
+const DATE_OPTIONS = ['全', '今', '昨', '前', '早'] as const
+export type DateFilter = (typeof DATE_OPTIONS)[number]
+
+function dateFilterBounds(
+  filter: DateFilter,
+  now: number,
+): { start?: number; end?: number } | null {
+  if (filter === '全') return null
+  const todayStart = new Date(now)
+  todayStart.setUTCHours(0, 0, 0, 0)
+  const ts = todayStart.getTime()
+  switch (filter) {
+    case '今':
+      return { start: ts }
+    case '昨':
+      return { start: ts - 86400000, end: ts }
+    case '前':
+      return { start: ts - 172800000, end: ts - 86400000 }
+    case '早':
+      return { end: ts - 172800000 }
+    default:
+      return null
+  }
+}
+
+export function applyRedditDateFilter(
+  data: RedditRenderData | null,
+  filter: DateFilter,
+): RedditRenderData | null {
+  const bounds = dateFilterBounds(filter, Date.now())
+  if (!bounds || !data) return data
+  const result: RedditRenderData = {}
+  for (const [sub, posts] of Object.entries(data)) {
+    const filtered = posts.filter((t) => {
+      if (t.created === undefined) return false
+      if (bounds.start !== undefined && t.created < bounds.start) return false
+      if (bounds.end !== undefined && t.created >= bounds.end) return false
+      return true
+    })
+    if (filtered.length > 0) result[sub] = filtered
+  }
+  return result
+}
+
 function formatCommentCount(current: number, readReplies: number | undefined): string {
   if (readReplies === undefined) return `${current}`
   if (current <= readReplies) return `${current}`
@@ -20,10 +64,32 @@ function sourceBadge(created: number): { icon: string; title: string } {
   return isToday ? { icon: '🌅', title: '今日主题' } : { icon: '⏳', title: '历史主题' }
 }
 
+export type RedditDateFilterProps = {
+  dateFilter: DateFilter
+  onChange: (filter: DateFilter) => void
+}
+
+export function RedditDateFilter({ dateFilter, onChange }: RedditDateFilterProps) {
+  return (
+    <div class="gm-sp-date-filter">
+      {DATE_OPTIONS.map((opt) => (
+        <button
+          type="button"
+          class={`gm-sp-date-filter-btn${dateFilter === opt ? ' gm-sp-date-filter-btn-active' : ''}`}
+          onClick={() => onChange(opt)}
+        >
+          {opt}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export type RedditComponentProps = SourceComponentProps<RedditRenderData> & {
   state: RedditState
   expandCollapse: ExpandCollapse
   authorTagMap: AuthorTagMap
+  dateFilter: DateFilter
 }
 
 export function RedditComponent({
@@ -32,16 +98,19 @@ export function RedditComponent({
   state,
   expandCollapse,
   authorTagMap,
+  dateFilter,
 }: RedditComponentProps) {
   const [, forceUpdate] = useState(0)
 
-  if (!data || Object.keys(data).length === 0) {
+  const filtered = applyRedditDateFilter(data, dateFilter)
+
+  if (!filtered || Object.keys(filtered).length === 0) {
     return <div class="gm-sp-empty">暂无数据</div>
   }
 
-  const allSubs = Object.keys(data)
+  const allSubs = Object.keys(filtered)
   let totalPosts = 0
-  for (const posts of Object.values(data)) totalPosts += posts.length
+  for (const posts of Object.values(filtered)) totalPosts += posts.length
   const showCaret = totalPosts > COLLAPSE_THRESHOLD
   const active = expandCollapse.activeSubs(allSubs, totalPosts)
 
@@ -63,7 +132,7 @@ export function RedditComponent({
 
   function handleMarkAllRead(sub: string) {
     const now = Date.now()
-    const posts = data![sub] ?? []
+    const posts = filtered![sub] ?? []
     for (const post of posts) {
       if (!state.isRead(post.id)) {
         state.markRead(post.id, now, post.numComments)
@@ -81,7 +150,7 @@ export function RedditComponent({
   return (
     <div class="gm-sp-reddit">
       {allSubs.map((sub) => {
-        const visiblePosts = state.filterVisible(data[sub] ?? [])
+        const visiblePosts = state.filterVisible(filtered[sub] ?? [])
         if (visiblePosts.length === 0) return null
         const isActive = active.has(sub)
         const collapsedClass = isActive ? '' : ' gm-sp-reddit-section-collapsed'
@@ -97,13 +166,14 @@ export function RedditComponent({
               r/{escapeHtml(sub)}
               <button
                 type="button"
-                class="gm-sp-reddit-mark-all-read"
+                class="gm-sp-date-filter-btn gm-sp-archive-btn"
+                title="归档：标记该 subreddit 所有主题为已读"
                 onClick={(e) => {
                   e.stopPropagation()
                   handleMarkAllRead(sub)
                 }}
               >
-                全部已读
+                🧹
               </button>
             </h3>
             <ol class="gm-sp-list">
