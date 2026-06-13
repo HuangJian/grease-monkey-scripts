@@ -9,7 +9,7 @@ export type QueryNode =
   | { type: 'date'; op: '>' | '<' | '>=' | '<=' | '=' | '~'; value: string; offset?: number }
   | {
       type: 'dateKeyword'
-      value: 'today' | 'overdue' | 'nodue' | 'thisweek' | 'thismonth' | 'thisyear' | 'everyday'
+      value: DateKeyword
       offset?: number
     }
   | { type: 'tag'; name: string; value?: string }
@@ -44,3 +44,10 @@ export type DateKeyword =
   | 'thismonth'
   | 'thisyear'
   | 'everyday'
+  | 'sunday'
+  | 'monday'
+  | 'tuesday'
+  | 'wednesday'
+  | 'thursday'
+  | 'friday'
+  | 'saturday'

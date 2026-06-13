@@ -1,4 +1,5 @@
-import { parseDueDate } from '../parser'
+import { parseDueDate, resolveWeekday, isWeekdayName } from '../parser'
+import type { DateKeyword } from './types'
 
 export function getTodayStart(): Date {
   const d = new Date()
@@ -22,7 +23,7 @@ function addYears(date: Date, n: number): Date {
 }
 
 export function resolveDateKeyword(
-  kw: 'today' | 'overdue' | 'nodue' | 'thisweek' | 'thismonth' | 'thisyear' | 'everyday',
+  kw: DateKeyword,
   offset?: number,
 ): { start: Date; end: Date } | null {
   const today = getTodayStart()
@@ -55,6 +56,13 @@ export function resolveDateKeyword(
       return { start: new Date(0), end: today }
     }
     case 'nodue': {
+      return null
+    }
+    default: {
+      if (isWeekdayName(kw)) {
+        const d = resolveWeekday(kw)
+        return { start: d, end: addDays(d, 1) }
+      }
       return null
     }
   }

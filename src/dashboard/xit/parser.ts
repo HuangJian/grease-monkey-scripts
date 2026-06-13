@@ -106,8 +106,9 @@ export function parseXitText(text: string): XitLine[] {
  * Post-processes an item description to parse tags and due dates.
  */
 function finalizeItem(item: XitItem): void {
-  // Parse due date: -> everyday, -> YYYY-MM-DD, -> YYYY-MM, -> YYYY-Qx, -> YYYY-Wx, -> YYYY
-  const dueDateRegex = /(?:^|\s)->\s*(everyday|\d{4}(?:-\d{2}-\d{2}|-\d{2}|-Q[1-4]|-W\d{1,2})?)\b/
+  // Parse due date: -> everyday, -> monday, -> YYYY-MM-DD, -> YYYY-MM, -> YYYY-Qx, -> YYYY-Wx, -> YYYY
+  const dueDateRegex =
+    /(?:^|\s)->\s*(everyday|sunday|monday|tuesday|wednesday|thursday|friday|saturday|\d{4}(?:-\d{2}-\d{2}|-\d{2}|-Q[1-4]|-W\d{1,2})?)\b/
   const dateMatch = dueDateRegex.exec(item.description)
   if (dateMatch) {
     item.dueDate = dateMatch[1]!
@@ -139,6 +140,46 @@ function finalizeItem(item: XitItem): void {
   }
 }
 
+const WEEKDAY_NAMES = [
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+] as const
+
+export type WeekdayName = (typeof WEEKDAY_NAMES)[number]
+
+export function isWeekdayName(s: string): s is WeekdayName {
+  return (WEEKDAY_NAMES as readonly string[]).includes(s)
+}
+
+/**
+ * Returns the numeric value of a weekday (1=Monday ... 7=Sunday).
+ * Sunday is 7, not 0, so that >= comparisons within a week work correctly.
+ */
+export function weekdayNumber(name: WeekdayName): number {
+  const idx = WEEKDAY_NAMES.indexOf(name)
+  return idx === 0 ? 7 : idx
+}
+
+/**
+ * Resolves a weekday name to a concrete Date based on the current day.
+ * If today is that weekday → today.
+ * If the weekday is after today → this week's that day.
+ * If the weekday is before today → next week's that day.
+ */
+export function resolveWeekday(name: WeekdayName, now?: Date): Date {
+  const base = now ?? new Date()
+  const today = new Date(base.getFullYear(), base.getMonth(), base.getDate())
+  const targetDay = WEEKDAY_NAMES.indexOf(name)
+  const todayDay = today.getDay()
+  const diff = (targetDay - todayDay + 7) % 7
+  return new Date(today.getTime() + diff * 86400000)
+}
+
 /**
  * Parses an xit due date string into a concrete Date object representing the end of that period.
  */
@@ -149,6 +190,11 @@ export function parseDueDate(dateStr: string): Date | null {
   if (trimmed === 'everyday') {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  }
+
+  // weekday names — resolve based on current day
+  if (isWeekdayName(trimmed)) {
+    return resolveWeekday(trimmed)
   }
 
   // YYYY-MM-DD

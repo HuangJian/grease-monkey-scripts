@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'bun:test'
-import { parseXitText, parseDueDate } from '../../../src/dashboard/xit/parser'
+import {
+  parseXitText,
+  parseDueDate,
+  resolveWeekday,
+  isWeekdayName,
+} from '../../../src/dashboard/xit/parser'
 import type { XitItem, XitHeading, XitComment } from '../../../src/dashboard/xit/types'
 
 describe('xit parser', () => {
@@ -146,6 +151,34 @@ describe('xit parser', () => {
     expect(item.dueDate).toBe('everyday')
   })
 
+  it('should parse ->monday due date', () => {
+    const text = '[ ] Weekly task ->monday #work'
+    const parsed = parseXitText(text)
+    expect(parsed.length).toBe(1)
+    const item = parsed[0] as XitItem
+    expect(item.dueDate).toBe('monday')
+    expect(item.tags).toEqual([{ name: 'work', value: undefined }])
+  })
+
+  it('should parse -> monday with space', () => {
+    const text = '[ ] Weekly task -> monday'
+    const parsed = parseXitText(text)
+    expect(parsed.length).toBe(1)
+    const item = parsed[0] as XitItem
+    expect(item.dueDate).toBe('monday')
+  })
+
+  it('should parse all weekday names as due dates', () => {
+    const weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+    for (const day of weekdays) {
+      const text = `[ ] Task ->${day}`
+      const parsed = parseXitText(text)
+      expect(parsed.length).toBe(1)
+      const item = parsed[0] as XitItem
+      expect(item.dueDate).toBe(day)
+    }
+  })
+
   describe('parseDueDate helper', () => {
     it('parses YYYY-MM-DD', () => {
       const d = parseDueDate('2026-06-09')
@@ -195,6 +228,75 @@ describe('xit parser', () => {
       expect(d!.getFullYear()).toBe(now.getFullYear())
       expect(d!.getMonth()).toBe(now.getMonth())
       expect(d!.getDate()).toBe(now.getDate())
+    })
+
+    it('parses weekday names', () => {
+      const weekdays = [
+        'sunday',
+        'monday',
+        'tuesday',
+        'wednesday',
+        'thursday',
+        'friday',
+        'saturday',
+      ]
+      for (const name of weekdays) {
+        const d = parseDueDate(name)
+        expect(d).not.toBeNull()
+      }
+    })
+  })
+
+  describe('resolveWeekday helper', () => {
+    it('resolves to today when today matches the weekday', () => {
+      // 2026-06-15 is a Monday
+      const now = new Date(2026, 5, 15)
+      const d = resolveWeekday('monday', now)
+      expect(d.getFullYear()).toBe(2026)
+      expect(d.getMonth()).toBe(5)
+      expect(d.getDate()).toBe(15)
+    })
+
+    it('resolves to this week when weekday is after today', () => {
+      // 2026-06-15 is a Monday; Wednesday is +2 days
+      const now = new Date(2026, 5, 15)
+      const d = resolveWeekday('wednesday', now)
+      expect(d.getFullYear()).toBe(2026)
+      expect(d.getMonth()).toBe(5)
+      expect(d.getDate()).toBe(17)
+    })
+
+    it('resolves to next week when weekday is before today', () => {
+      // 2026-06-15 is a Monday; Sunday is -1 day mod 7 = +6 days (next Sunday)
+      const now = new Date(2026, 5, 15)
+      const d = resolveWeekday('sunday', now)
+      expect(d.getFullYear()).toBe(2026)
+      expect(d.getMonth()).toBe(5)
+      expect(d.getDate()).toBe(21)
+    })
+
+    it('resolves friday on a monday to this friday', () => {
+      // 2026-06-15 is a Monday; Friday is +4 days
+      const now = new Date(2026, 5, 15)
+      const d = resolveWeekday('friday', now)
+      expect(d.getDate()).toBe(19)
+    })
+
+    it('resolves monday on a friday to next monday', () => {
+      // 2026-06-19 is a Friday; Monday is +3 days mod 7 = next Monday
+      const now = new Date(2026, 5, 19)
+      const d = resolveWeekday('monday', now)
+      expect(d.getDate()).toBe(22)
+    })
+  })
+
+  describe('isWeekdayName helper', () => {
+    it('identifies weekday names', () => {
+      expect(isWeekdayName('monday')).toBe(true)
+      expect(isWeekdayName('sunday')).toBe(true)
+      expect(isWeekdayName('everyday')).toBe(false)
+      expect(isWeekdayName('today')).toBe(false)
+      expect(isWeekdayName('foo')).toBe(false)
     })
   })
 })

@@ -1,6 +1,6 @@
-import { parseDueDate } from '../parser'
+import { parseDueDate, isWeekdayName, weekdayNumber } from '../parser'
 import type { XitItem, XitLine } from '../types'
-import type { QueryNode } from './types'
+import type { DateKeyword, QueryNode } from './types'
 import { resolveDateKeyword, parseDateValue } from './date-math'
 
 function matchDate(item: XitItem, op: string, value: string, offset?: number): boolean {
@@ -9,12 +9,10 @@ function matchDate(item: XitItem, op: string, value: string, offset?: number): b
   if (!itemDate) return false
 
   if (
-    (['today', 'thisweek', 'thismonth', 'thisyear', 'everyday'] as const).includes(value as any)
+    (['today', 'thisweek', 'thismonth', 'thisyear', 'everyday'] as const).includes(value as any) ||
+    isWeekdayName(value)
   ) {
-    const range = resolveDateKeyword(
-      value as 'today' | 'thisweek' | 'thismonth' | 'thisyear' | 'everyday',
-      offset,
-    )
+    const range = resolveDateKeyword(value as DateKeyword, offset)
     if (!range) return false
     const t = itemDate.getTime()
     switch (op) {
@@ -57,16 +55,24 @@ function matchDate(item: XitItem, op: string, value: string, offset?: number): b
 
 function matchDatePeriod(item: XitItem, periodSpec: string, offset?: number): boolean {
   if (!item.dueDate) return false
+
+  // ~thisweek + ->weekday: match if weekday >= today's day-of-week (Sun=7)
+  if (periodSpec === 'thisweek' && isWeekdayName(item.dueDate)) {
+    const today = new Date()
+    const todayDow = today.getDay() || 7
+    return weekdayNumber(item.dueDate) >= todayDow
+  }
+
   const itemDate = parseDueDate(item.dueDate)
   if (!itemDate) return false
 
   const t = itemDate.getTime()
 
-  if (['today', 'thisweek', 'thismonth', 'thisyear', 'everyday'].includes(periodSpec)) {
-    const range = resolveDateKeyword(
-      periodSpec as 'today' | 'thisweek' | 'thismonth' | 'thisyear' | 'everyday',
-      offset,
-    )
+  if (
+    ['today', 'thisweek', 'thismonth', 'thisyear', 'everyday'].includes(periodSpec) ||
+    isWeekdayName(periodSpec)
+  ) {
+    const range = resolveDateKeyword(periodSpec as DateKeyword, offset)
     if (!range) return false
     return t >= range.start.getTime() && t < range.end.getTime()
   }
@@ -130,11 +136,7 @@ function matchDatePeriod(item: XitItem, periodSpec: string, offset?: number): bo
   return false
 }
 
-function matchDateKeyword(
-  item: XitItem,
-  kw: 'today' | 'overdue' | 'nodue' | 'thisweek' | 'thismonth' | 'thisyear' | 'everyday',
-  offset?: number,
-): boolean {
+function matchDateKeyword(item: XitItem, kw: DateKeyword, offset?: number): boolean {
   if (kw === 'nodue') {
     return item.dueDate === null
   }

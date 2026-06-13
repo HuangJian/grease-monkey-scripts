@@ -20,6 +20,13 @@ const DATE_KEYWORDS = new Set([
   'overdue',
   'nodue',
   'everyday',
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
 ])
 
 const DATE_OFFSET_RE = /^(today|thisweek|thismonth|thisyear)([+-]\d+)$/

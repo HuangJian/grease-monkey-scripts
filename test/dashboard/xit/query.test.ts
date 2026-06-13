@@ -211,6 +211,29 @@ describe('query parser', () => {
       if (r.ok) expect(r.ast).toEqual({ type: 'dateKeyword', value: 'everyday' })
     })
 
+    it('parses monday', () => {
+      const r = parseQuery('monday')
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.ast).toEqual({ type: 'dateKeyword', value: 'monday' })
+    })
+
+    it('parses all weekday names', () => {
+      const weekdays = [
+        'sunday',
+        'monday',
+        'tuesday',
+        'wednesday',
+        'thursday',
+        'friday',
+        'saturday',
+      ] as const
+      for (const day of weekdays) {
+        const r = parseQuery(day)
+        expect(r.ok).toBe(true)
+        if (r.ok) expect(r.ast).toEqual({ type: 'dateKeyword', value: day })
+      }
+    })
+
     it('parses today+3', () => {
       const r = parseQuery('today+3')
       expect(r.ok).toBe(true)
@@ -495,6 +518,39 @@ describe('filterItems', () => {
     }
   })
 
+  it('filters by weekday name (matches items with that weekday due date)', () => {
+    // Use items without conflicting due dates
+    const weekdayItems = [
+      makeItem({ description: 'monday task', dueDate: 'monday' }),
+      makeItem({ description: 'other task', dueDate: '2026-12-01' }), // not a Monday
+    ]
+    const weekdayLines = weekdayItems.map((item) => item as any)
+
+    const r = parseQuery('monday')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      const result = filterItems(weekdayLines, r.ast)
+      expect(result.length).toBe(1)
+      expect((result[0] as XitItem).description).toBe('monday task')
+    }
+  })
+
+  it('weekday filter does not match unrelated due dates', () => {
+    const weekdayItems = [
+      makeItem({ description: 'tuesday task', dueDate: 'tuesday' }),
+      makeItem({ description: 'other task', dueDate: '2026-12-01' }),
+    ]
+    const weekdayLines = weekdayItems.map((item) => item as any)
+
+    const r = parseQuery('monday')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      const result = filterItems(weekdayLines, r.ast)
+      // monday resolves to a specific Monday; tuesday resolves to a different day
+      expect(result.length).toBe(0)
+    }
+  })
+
   it('everyday items match >today comparison', () => {
     const everydayItems = [makeItem({ description: 'everyday task', dueDate: 'everyday' })]
     const everydayLines = everydayItems.map((item) => item as any)
@@ -682,6 +738,37 @@ describe('filterItems', () => {
         expect(descs).not.toContain('before q2')
         expect(descs).not.toContain('after q2')
         expect(descs).not.toContain('no date')
+      }
+    })
+
+    it('~thisweek matches ->weekday items where weekday >= today', () => {
+      const weekdays = [
+        'sunday',
+        'monday',
+        'tuesday',
+        'wednesday',
+        'thursday',
+        'friday',
+        'saturday',
+      ] as const
+      const todayDow = new Date().getDay() || 7 // Sun=7
+
+      const weekdayItems = weekdays.map((day) => makeItem({ description: day, dueDate: day }))
+      const weekdayLines = weekdayItems.map((item) => item as any)
+
+      const r = parseQuery('~thisweek')
+      expect(r.ok).toBe(true)
+      if (r.ok) {
+        const result = filterItems(weekdayLines, r.ast)
+        const descs = result.map((l) => (l as XitItem).description)
+        for (const day of weekdays) {
+          const num = day === 'sunday' ? 7 : weekdays.indexOf(day)
+          if (num >= todayDow) {
+            expect(descs).toContain(day)
+          } else {
+            expect(descs).not.toContain(day)
+          }
+        }
       }
     })
   })

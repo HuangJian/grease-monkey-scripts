@@ -41,13 +41,13 @@ export function renderItemHtml(line: XitItem): string {
   )
 
   desc = desc.replace(
-    /->\s*(everyday|\d{4}(?:-\d{2}-\d{2}|-\d{2}|-Q[1-4]|-W\d{1,2})?)/g,
+    /->\s*(everyday|sunday|monday|tuesday|wednesday|thursday|friday|saturday|\d{4}(?:-\d{2}-\d{2}|-\d{2}|-Q[1-4]|-W\d{1,2})?)/g,
     (_match, dateStr) => {
-      const status = getDueDateStatus(dateStr)
       if (dateStr === 'everyday') {
         const icon = line.status !== 'checked' && line.status !== 'obsolete' ? '\u23F0' : ''
         return token(`<span class="gm-sp-xit-duedate gm-sp-xit-due-today">${icon}</span>`)
       }
+      const status = getDueDateStatus(dateStr)
       const display = formatDueDateDisplay(dateStr)
       let icon = ''
       if (line.status !== 'checked' && line.status !== 'obsolete') {
