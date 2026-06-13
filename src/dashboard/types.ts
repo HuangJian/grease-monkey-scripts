@@ -37,6 +37,17 @@ export type RedditConfig = {
   subreddits: string[]
 }
 
+export type HupuConfig = {
+  ttlMinutes: number
+  boards: string[]
+  historyDays: number
+  todayMinReplies: number
+  olderMinReplies: number
+  ageHalfLifeDays: number
+  lightsWeight: number
+  repliesWeight: number
+}
+
 export type Config = {
   weather: {
     cities: WeatherCity[]
@@ -50,6 +61,7 @@ export type Config = {
     ageHalfLifeDays: number
   }
   reddit: RedditConfig
+  hupu: HupuConfig
   novels: {
     entries: NovelEntry[]
     ttlMinutes: number

@@ -3,6 +3,7 @@ import { createV2exSource } from '../v2ex'
 import { createWeatherSource } from '../weather'
 import { createNovelsSource } from '../novels'
 import { createRedditSource } from '../reddit'
+import { createHupuSource } from '../hupu'
 import { createTnewsSource } from '../tnews'
 import { createXitSource } from '../xit/source'
 import type { Source, Config } from '../types'
@@ -17,6 +18,7 @@ export function createSourceRegistry(config: Config, runtime: Runtime) {
     createWeatherSource(config.weather),
     createNovelsSource(config.novels, runtime),
     createRedditSource(config.reddit),
+    createHupuSource(config.hupu),
     tnews.source,
   ]
   if (config.xit?.enabled !== false) {

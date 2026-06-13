@@ -7,6 +7,7 @@ import {
   parseAuthorTagMap,
   removeTag,
   tagColor,
+  HUPU_AUTHOR_TAGS_LS_KEY,
 } from '../shared/author-labels'
 import {
   buildTagPanel,
@@ -49,6 +50,11 @@ export async function createHupuApp(runtime: Runtime) {
 
   function persist(): void {
     void runtime.setValue(STORAGE_KEY, authorTagMap)
+    try {
+      localStorage.setItem(HUPU_AUTHOR_TAGS_LS_KEY, JSON.stringify(authorTagMap))
+    } catch {
+      /* localStorage may be unavailable */
+    }
   }
 
   function tagAuthor(id: string, commentNumber: number | string, tag: string, delta: number): void {

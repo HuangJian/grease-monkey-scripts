@@ -238,5 +238,47 @@ export function validateConfig(value: unknown): ConfigValidation {
       return { ok: false, error: 'xit.placement 必须是 "main" 或 "side"' }
     }
   }
+  if ('hupu' in value) {
+    const h = value['hupu']
+    if (!isPlainObject(h)) {
+      return { ok: false, error: 'hupu 必须是对象' }
+    }
+    if ('boards' in h) {
+      const list = h['boards']
+      if (!Array.isArray(list) || list.length === 0) {
+        return { ok: false, error: 'hupu.boards 必须是非空数组' }
+      }
+      for (let i = 0; i < list.length; i++) {
+        const s = list[i]
+        if (typeof s !== 'string' || !s.trim()) {
+          return { ok: false, error: `hupu.boards[${i}] 必须是非空字符串` }
+        }
+      }
+    }
+    const numFields: Array<[string, number, number]> = [
+      ['ttlMinutes', 1, Number.POSITIVE_INFINITY],
+      ['historyDays', 1, Number.POSITIVE_INFINITY],
+      ['todayMinReplies', 0, Number.POSITIVE_INFINITY],
+      ['olderMinReplies', 0, Number.POSITIVE_INFINITY],
+      ['ageHalfLifeDays', 0.1, 30],
+      ['lightsWeight', 0, 100],
+      ['repliesWeight', 0, 100],
+    ]
+    for (const [name, min, max] of numFields) {
+      if (name in h) {
+        const n = h[name]
+        if (
+          typeof n !== 'number' ||
+          n < min ||
+          (Number.isFinite(max) ? n > max : !Number.isFinite(n) && n > max)
+        ) {
+          return {
+            ok: false,
+            error: `hupu.${name} 必须是 ${min}–${Number.isFinite(max) ? max : '∞'} 之间的数`,
+          }
+        }
+      }
+    }
+  }
   return { ok: true }
 }

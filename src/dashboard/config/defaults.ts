@@ -20,6 +20,16 @@ export const DEFAULT_CONFIG: Config = {
     ageHalfLifeDays: 2,
     subreddits: ['popular'],
   },
+  hupu: {
+    ttlMinutes: 30,
+    boards: ['vote-hot'],
+    historyDays: 7,
+    todayMinReplies: 10,
+    olderMinReplies: 20,
+    ageHalfLifeDays: 2,
+    lightsWeight: 1,
+    repliesWeight: 1,
+  },
   novels: {
     entries: [],
     ttlMinutes: 60,

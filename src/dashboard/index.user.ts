@@ -10,6 +10,8 @@
 // @match        https://github.com/*
 // @match        https://reddit.com/*
 // @match        https://*.reddit.com/*
+// @match        https://bbs.hupu.com/*
+// @match        https://*.hupu.com/*
 // @grant        GM.getValue
 // @grant        GM.setValue
 // @grant        GM_addValueChangeListener
@@ -22,6 +24,7 @@
 // @connect      www.sudugu.org
 // @connect      www.reddit.com
 // @connect      old.reddit.com
+// @connect      bbs.hupu.com
 // @connect      rsshub.app
 // @connect      rsshub.rssforever.com
 // ==/UserScript==

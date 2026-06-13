@@ -4,6 +4,10 @@ export const AUTHOR_TAGS_KEY = 'author_tags'
 export const AUTHOR_TAGS_LS_KEY = 'gm:v2ex:author-tags'
 /** localStorage key shared across scripts for reddit author tag data */
 export const REDDIT_AUTHOR_TAGS_LS_KEY = 'gm:reddit:author-tags'
+/** GM storage key used by hupu-time-saver */
+export const HUPU_AUTHOR_TAGS_KEY = 'hupu_author_tags'
+/** localStorage key shared across scripts for hupu author tag data */
+export const HUPU_AUTHOR_TAGS_LS_KEY = 'gm:hupu:author-tags'
 
 export type TagRecord = {
   url: string
