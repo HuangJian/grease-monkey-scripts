@@ -23,7 +23,8 @@
 ```sh
 bun install
 bun run build        # 生成可安装的 .user.js 文件
-bun test             # 跑测试
+bun run test         # 跑测试（精简输出，失败时显示失败用例详情）
+bun run test:verbose # 跑测试（完整输出）
 bun run check        # 完整检查（类型 + lint + 格式化 + 测试 + 构建）
 ```
 

@@ -70,7 +70,8 @@ If capped output is insufficient, narrow the command before increasing the cap.
 When validation is needed, prefer scoped commands:
 
 - `bun run typecheck` for type errors
-- `bun test` for behavior changes
+- `bun run test` for behavior changes
+- `bun run test:verbose` when you need full console output from all tests
 - `bun run lint` for style issues
 - `bun run check` only when comprehensive validation is required
 
@@ -110,13 +111,18 @@ Common commands:
 
 ```sh
 bun install
-bun test
+bun run test
+bun run test:verbose
 bun run typecheck
 bun run lint
 bun run format
 bun run build
 bun run check
 ```
+
+`bun run test` uses a two-phase wrapper: runs all tests silently, then re-runs
+each failing test individually so only that test's console output is shown.
+Use `bun run test:verbose` for full raw output.
 
 `bun run check` is the preferred final validation. It should include type checking, linting, formatting, tests, and userscript generation.
 

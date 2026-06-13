@@ -3,12 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "bun test",
+    "test": "bun run scripts/test-silent.ts",
+    "test:verbose": "bun test",
     "typecheck": "tsc --noEmit",
     "build": "bun run scripts/build-userscript.ts",
     "lint": "oxlint .",
     "format": "oxfmt .",
-    "check": "bun run typecheck && bun run lint && bun run format && bun test && bun run build"
+    "check": "bun run typecheck && bun run lint && bun run format && bun run test && bun run build"
   },
   "dependencies": {
     "preact": "^10.29.2"
