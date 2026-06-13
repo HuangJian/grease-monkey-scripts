@@ -17,12 +17,9 @@ function isNewsItem(item: unknown): item is XueqiuNewsItem {
     typeof item === 'object' &&
     item !== null &&
     'id' in item &&
-    'title' in item &&
     'text' in item &&
     'target' in item &&
-    'created_at' in item &&
-    'reply_count' in item &&
-    'like_count' in item
+    'created_at' in item
   )
 }
 
