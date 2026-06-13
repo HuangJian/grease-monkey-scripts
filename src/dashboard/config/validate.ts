@@ -226,6 +226,32 @@ export function validateConfig(value: unknown): ConfigValidation {
       }
     }
   }
+  if ('xueqiu' in value) {
+    const x = value['xueqiu']
+    if (!isPlainObject(x)) {
+      return { ok: false, error: 'xueqiu 必须是对象' }
+    }
+    const numFields: Array<[string, number, number]> = [
+      ['ttlMinutes', 1, Number.POSITIVE_INFINITY],
+      ['scrollWaitMs', 50, 5000],
+      ['scrollMaxNoChange', 1, 100],
+    ]
+    for (const [name, min, max] of numFields) {
+      if (name in x) {
+        const v = x[name]
+        if (
+          typeof v !== 'number' ||
+          v < min ||
+          (Number.isFinite(max) ? v > max : !Number.isFinite(v) && v > max)
+        ) {
+          return {
+            ok: false,
+            error: `xueqiu.${name} 必须是 ${min}–${Number.isFinite(max) ? max : '∞'} 之间的数`,
+          }
+        }
+      }
+    }
+  }
   if ('xit' in value) {
     const n = value['xit']
     if (!isPlainObject(n)) {

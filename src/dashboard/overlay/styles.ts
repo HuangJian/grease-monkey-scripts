@@ -8,6 +8,7 @@ export const OVERLAY_CSS_FILES = [
   'novels.css',
   'reddit.css',
   'tnews.css',
+  'xueqiu.css',
   'xit.css',
 ] as const
 

@@ -12,6 +12,8 @@
 // @match        https://*.reddit.com/*
 // @match        https://bbs.hupu.com/*
 // @match        https://*.hupu.com/*
+// @match        https://xueqiu.com/*
+// @match        https://www.xueqiu.com/*
 // @grant        GM.getValue
 // @grant        GM.setValue
 // @grant        GM_addValueChangeListener
@@ -25,6 +27,7 @@
 // @connect      www.reddit.com
 // @connect      old.reddit.com
 // @connect      bbs.hupu.com
+// @connect      xueqiu.com
 // @connect      rsshub.app
 // @connect      rsshub.rssforever.com
 // ==/UserScript==

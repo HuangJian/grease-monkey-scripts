@@ -27,6 +27,7 @@ export type CachedSource<T> = {
 import type { WeatherCity } from './weather/types'
 import type { NovelEntry } from './novels/types'
 import type { TnewsConfig } from './tnews/types'
+import type { XueqiuSourceOptions } from './xueqiu/types'
 
 export type RedditConfig = {
   ttlMinutes: number
@@ -70,6 +71,7 @@ export type Config = {
     maxLatestWindow: number
   }
   tnews: TnewsConfig
+  xueqiu: XueqiuSourceOptions
   xit: {
     enabled: boolean
     placement: 'main' | 'side'

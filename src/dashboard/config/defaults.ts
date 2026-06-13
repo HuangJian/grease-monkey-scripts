@@ -42,6 +42,11 @@ export const DEFAULT_CONFIG: Config = {
     mirrors: ['rsshub.rssforever.com'],
     ttlMinutes: 30,
   },
+  xueqiu: {
+    ttlMinutes: 30,
+    scrollWaitMs: 100,
+    scrollMaxNoChange: 20,
+  },
   xit: {
     enabled: true,
     placement: 'side',
@@ -50,5 +55,5 @@ export const DEFAULT_CONFIG: Config = {
     doublePressWindowMs: 400,
     enabled: true,
   },
-  hostAllowlist: ['mail.google.com', 'v2ex.com', 'github.com', 'www.sudugu.org'],
+  hostAllowlist: ['mail.google.com', 'v2ex.com', 'github.com', 'www.sudugu.org', 'xueqiu.com'],
 } as const
