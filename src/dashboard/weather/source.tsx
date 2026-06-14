@@ -1,5 +1,6 @@
 import type { Runtime } from '../../runtime'
 import { loadConfigSection } from '../config'
+import { loadCache } from '../cache'
 import type { Source, SourceHeaderProps, SourceSettings } from '../types'
 import { WeatherComponent, WeatherHeader } from './component'
 import { createWeatherEditor } from './editor'
@@ -27,7 +28,20 @@ export function createWeatherSource(options: WeatherSourceOptions): Source<Weath
     headerState: {},
     async fetch(runtime, _prevData) {
       const cities = await loadFreshWeatherCities(runtime, options.cities)
-      return fetchWeatherAll(runtime, cities)
+      const result = await fetchWeatherAll(runtime, cities)
+      const prev = (await loadCache<WeatherData>(runtime, 'weather'))?.data
+      if (prev) {
+        const prevByLabel = new Map(prev.entries.map((e) => [e.cityLabel, e]))
+        for (const entry of result.entries) {
+          if (entry.status === 'error') {
+            const prevEntry = prevByLabel.get(entry.cityLabel)
+            if (prevEntry?.status === 'ok') {
+              Object.assign(entry, prevEntry)
+            }
+          }
+        }
+      }
+      return result
     },
     RenderHeader: (props: SourceHeaderProps<WeatherData>) => (
       <WeatherHeader
