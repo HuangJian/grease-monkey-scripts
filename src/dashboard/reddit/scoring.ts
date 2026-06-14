@@ -1,3 +1,4 @@
+import { getTodayStartMs, computeDecayedScore } from '../scoring-utils'
 import type { RedditCountOptions, RedditPost, StoredHistoryPost } from './types'
 
 /**
@@ -31,20 +32,12 @@ import type { RedditCountOptions, RedditPost, StoredHistoryPost } from './types'
  * ══════════════════════════════════════════════════════════════════════════════
  */
 
-function getTodayStartMs(): number {
-  const now = new Date()
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-}
-
 export function computeRedditDecayedScore(
   post: RedditPost,
   now: number,
   halfLifeDays: number,
 ): number {
-  if (!Number.isFinite(post.score) || post.score <= 0) return 0
-  const days = Math.max(0, (now - post.created) / 86_400_000)
-  const lambda = Math.log(2) / halfLifeDays
-  return post.score * Math.exp(-days * lambda)
+  return computeDecayedScore(post.score, post.created, now, halfLifeDays)
 }
 
 function unionUnique(a: ReadonlyArray<string>, b: ReadonlyArray<string>): string[] {

@@ -1,3 +1,4 @@
+import { getTodayStartMs, computeTimeDecay } from '../scoring-utils'
 import type { HupuCountOptions, HupuPost, StoredHistoryPost } from './types'
 
 /**
@@ -59,11 +60,6 @@ import type { HupuCountOptions, HupuPost, StoredHistoryPost } from './types'
  * ══════════════════════════════════════════════════════════════════════════════
  */
 
-function getTodayStartMs(): number {
-  const now = new Date()
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-}
-
 export function computeBaseScore(
   post: HupuPost,
   lightsWeight: number,
@@ -79,9 +75,7 @@ export function computeHupuDecayedScore(
 ): number {
   const base = computeBaseScore(post, options.lightsWeight, options.repliesWeight)
   if (base <= 0) return 0
-  const days = Math.max(0, (now - post.created) / 86_400_000)
-  const lambda = Math.log(2) / options.ageHalfLifeDays
-  return base * Math.exp(-days * lambda)
+  return base * computeTimeDecay(post.created, now, options.ageHalfLifeDays)
 }
 
 function mergePost(live: HupuPost | undefined, hist: StoredHistoryPost): HupuPost {

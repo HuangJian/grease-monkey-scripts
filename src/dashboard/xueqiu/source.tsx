@@ -4,7 +4,7 @@ import { loadCache } from '../cache'
 import { XueqiuComponent, XueqiuDateFilter, applyDateFilter, type DateFilter } from './component'
 import { createXueqiuEditor } from './editor'
 import { fetchXueqiu } from './fetcher'
-import { rankHotPosts } from './scoring'
+import { rankHotPosts } from './scoring/ranking'
 import { createXueqiuState, type XueqiuState } from './state'
 import { DEFAULT_RANKING_OPTIONS, type XueqiuRenderData, type XueqiuSourceOptions } from './types'
 

@@ -1,3 +1,4 @@
+import { getTodayStartMs, computeTimeDecay } from '../scoring-utils'
 import { htmlToDocument, toAbsoluteUrl } from '../../utils'
 import { HOT_PAGE_URL, MEMBER_PATH_RE, TOPIC_PATH_RE } from './constants'
 import type { V2exTopic } from './types'
@@ -126,7 +127,7 @@ export function mergeV2exTopics(
     }
   })
 
-  const todayStartMs = getTodayStart().getTime()
+  const todayStartMs = getTodayStartMs()
 
   for (const topic of byId.values()) {
     if (topic.sources?.length === 1 && topic.sources[0] === 'page' && topic.created !== undefined) {
@@ -158,13 +159,8 @@ export function mergeV2exTopics(
  */
 export function computeSortScore(topic: V2exTopic, now: number, halfLifeDays: number): number {
   if (!Number.isFinite(topic.replies) || topic.replies <= 0) return 0
-  let days = 0
-  if (topic.created !== undefined && Number.isFinite(topic.created) && topic.created > 0) {
-    days = (now - topic.created) / (24 * 60 * 60 * 1000)
-  }
-  if (days < 0) days = 0
-  const lambda = Math.log(2) / halfLifeDays
-  return topic.replies * Math.exp(-days * lambda)
+  const createdMs = topic.created ?? 0
+  return computeTimeDecay(createdMs > 0 ? createdMs : now, now, halfLifeDays) * topic.replies
 }
 
 /**
@@ -187,6 +183,5 @@ export function sortByDecayedScore(
 }
 
 export function getTodayStart(): Date {
-  const now = new Date()
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  return new Date(getTodayStartMs())
 }

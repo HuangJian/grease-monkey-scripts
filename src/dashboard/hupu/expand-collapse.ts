@@ -1,33 +1,38 @@
-export const COLLAPSE_THRESHOLD = 20
-export const MAX_EXPANDED = 2
+/**
+ * Hupu expand/collapse - re-exports from shared utility.
+ *
+ * This module re-exports the shared expand/collapse state machine
+ * with hupu-specific method names for backward compatibility.
+ */
+import {
+  createExpandCollapse as createExpandCollapseBase,
+  COLLAPSE_THRESHOLD,
+  MAX_EXPANDED,
+  type ExpandCollapseOptions,
+} from '../expand-collapse'
 
+export { COLLAPSE_THRESHOLD, MAX_EXPANDED }
+export type { ExpandCollapseOptions }
+
+/** Hupu-specific expand/collapse interface with board-oriented methods. */
 export type ExpandCollapse = {
   activeBoards(allBoards: ReadonlyArray<string>, totalPosts: number): Set<string>
   toggleBoard(board: string, totalPosts: number): void
   reset(): void
 }
 
+/**
+ * Create a hupu expand/collapse state machine.
+ *
+ * Wraps the shared utility with hupu-specific method names
+ * for backward compatibility.
+ */
 export function createExpandCollapse(): ExpandCollapse {
-  const expanded = new Set<string>()
-  let initialized = false
+  const base = createExpandCollapseBase<string>()
 
   return {
-    activeBoards(allBoards, totalPosts) {
-      if (totalPosts <= COLLAPSE_THRESHOLD) return new Set(allBoards)
-      if (!initialized) {
-        initialized = true
-        for (const s of allBoards.slice(0, MAX_EXPANDED)) expanded.add(s)
-      }
-      return new Set(expanded)
-    },
-    toggleBoard(board, totalPosts) {
-      if (totalPosts <= COLLAPSE_THRESHOLD) return
-      if (expanded.has(board)) expanded.delete(board)
-      else expanded.add(board)
-    },
-    reset() {
-      expanded.clear()
-      initialized = false
-    },
+    activeBoards: base.activeCategories,
+    toggleBoard: base.toggleCategory,
+    reset: base.reset,
   }
 }

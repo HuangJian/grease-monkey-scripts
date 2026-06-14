@@ -1,61 +1,22 @@
+/**
+ * Hupu editor form component.
+ */
 import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { render } from 'preact'
-import { escapeHtml } from '../../utils'
-import { validateConfig } from '../config'
-import { readNumberFields, saveConfigSection, saveSourceSettings } from '../editor-helpers'
+import { escapeHtml } from '../../../utils'
+import { validateConfig } from '../../config'
+import { readNumberFields, saveConfigSection, saveSourceSettings } from '../../editor-helpers'
 import type {
   SourceEditor,
   SourceEditorContext,
   SourceEditorResult,
   SourceSettings,
-} from '../types'
-import { normalizeBoardSlug } from './parser'
-import type { HupuSourceOptions } from './types'
-import { loadFreshHupuOptions } from './source'
-
-const FORM_FIELDS: {
-  prop: string
-  label: string
-  min: number
-  max?: number
-  errorMsg: string
-}[] = [
-  { prop: 'ttlMinutes', label: 'TTL（分钟）', min: 1, errorMsg: 'TTL 必须是 ≥1 的整数' },
-  { prop: 'historyDays', label: '历史保留天数', min: 1, errorMsg: '历史保留天数必须是 ≥1 的整数' },
-  {
-    prop: 'todayMinReplies',
-    label: '今日最低回复',
-    min: 0,
-    errorMsg: '今日最低回复必须 ≥0',
-  },
-  {
-    prop: 'olderMinReplies',
-    label: '历史最低回复',
-    min: 0,
-    errorMsg: '历史最低回复必须 ≥0',
-  },
-  {
-    prop: 'ageHalfLifeDays',
-    label: '衰减半衰期（天）',
-    min: 0.1,
-    max: 30,
-    errorMsg: '衰减半衰期必须是 0.1~30 之间',
-  },
-  {
-    prop: 'lightsWeight',
-    label: '亮了权重',
-    min: 0,
-    max: 100,
-    errorMsg: '亮了权重必须是 0~100 之间',
-  },
-  {
-    prop: 'repliesWeight',
-    label: '回复权重',
-    min: 0,
-    max: 100,
-    errorMsg: '回复权重必须是 0~100 之间',
-  },
-]
+  BadgeType,
+} from '../../types'
+import { normalizeBoardSlug } from '../parser'
+import type { HupuSourceOptions } from '../types'
+import { loadFreshHupuOptions } from '../source'
+import { FORM_FIELDS } from './types'
 
 type HupuEditorFormProps = {
   fresh: HupuSourceOptions
@@ -64,7 +25,7 @@ type HupuEditorFormProps = {
   handleRef: { current: SourceEditorResult | null }
 }
 
-function HupuEditorForm({ fresh, settings, ctx, handleRef }: HupuEditorFormProps) {
+export function HupuEditorForm({ fresh, settings, ctx, handleRef }: HupuEditorFormProps) {
   const [tabTitle, setTabTitle] = useState(settings.tabTitle)
   const [priority, setPriority] = useState(settings.priority)
   const [badgeType, setBadgeType] = useState(settings.badgeType)
@@ -210,9 +171,7 @@ function HupuEditorForm({ fresh, settings, ctx, handleRef }: HupuEditorFormProps
           <span>Badge 显示</span>
           <select
             value={badgeType}
-            onChange={(e) =>
-              setBadgeType((e.target as HTMLSelectElement).value as import('../types').BadgeType)
-            }
+            onChange={(e) => setBadgeType((e.target as HTMLSelectElement).value as BadgeType)}
           >
             <option value="default">默认</option>
             <option value="none">不显示</option>

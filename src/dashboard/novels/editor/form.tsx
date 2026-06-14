@@ -1,86 +1,24 @@
+/**
+ * Novels editor form component.
+ */
 import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { render } from 'preact'
-import { escapeHtml } from '../../utils'
-import { loadConfigSection, validateConfig } from '../config'
-import { readNumberFields, saveConfigSection, saveSourceSettings } from '../editor-helpers'
+import { escapeHtml } from '../../../utils'
+import { validateConfig } from '../../config'
+import { readNumberFields, saveConfigSection, saveSourceSettings } from '../../editor-helpers'
 import type {
   SourceEditor,
   SourceEditorContext,
   SourceEditorResult,
   SourceSettings,
-} from '../types'
-import { adapterByHostname } from './adapters/registry'
-import type { NovelEntry, NovelSourceOptions } from './types'
-import type { Runtime } from '../../runtime'
+  BadgeType,
+} from '../../types'
+import type { NovelEntry, NovelSourceOptions } from '../types'
+import { ADVANCED_FIELDS } from './types'
+import { hostnameFor, isUnknownHost, loadFreshOptions } from './helpers'
 
 export type NovelsEditorOptions = NovelSourceOptions & {
   getCachedTitles: () => Promise<Map<string, string>>
-}
-
-const ADVANCED_FIELDS: {
-  prop: string
-  label: string
-  min: number
-  errorMsg: string
-}[] = [
-  { prop: 'ttlMinutes', label: 'TTL（分钟）', min: 1, errorMsg: 'TTL 必须是 ≥1 的整数' },
-  {
-    prop: 'initialNewChapters',
-    label: '初始新章数',
-    min: 0,
-    errorMsg: '初始新章数必须是 ≥0 的整数',
-  },
-  {
-    prop: 'maxNewChaptersPerBook',
-    label: '折叠阈值',
-    min: 1,
-    errorMsg: '折叠阈值必须是 ≥1 的整数',
-  },
-  { prop: 'maxLatestWindow', label: '章节窗口', min: 1, errorMsg: '章节窗口必须是 ≥1 的整数' },
-]
-
-function coerceNovelsOptions(
-  raw: Record<string, unknown>,
-  fallback: NovelSourceOptions,
-): NovelSourceOptions {
-  const entries = raw['entries']
-  return {
-    entries: Array.isArray(entries) ? (entries as NovelEntry[]) : fallback.entries,
-    ttlMinutes:
-      typeof raw['ttlMinutes'] === 'number' ? (raw['ttlMinutes'] as number) : fallback.ttlMinutes,
-    maxNewChaptersPerBook:
-      typeof raw['maxNewChaptersPerBook'] === 'number'
-        ? (raw['maxNewChaptersPerBook'] as number)
-        : fallback.maxNewChaptersPerBook,
-    initialNewChapters:
-      typeof raw['initialNewChapters'] === 'number'
-        ? (raw['initialNewChapters'] as number)
-        : fallback.initialNewChapters,
-    maxLatestWindow:
-      typeof raw['maxLatestWindow'] === 'number'
-        ? (raw['maxLatestWindow'] as number)
-        : fallback.maxLatestWindow,
-  }
-}
-
-async function loadFreshOptions(
-  runtime: Runtime,
-  fallback: NovelSourceOptions,
-): Promise<NovelSourceOptions> {
-  return loadConfigSection(runtime, 'novels', fallback, (raw) => coerceNovelsOptions(raw, fallback))
-}
-
-function hostnameFor(url: string): string | null {
-  try {
-    return new URL(url).hostname
-  } catch {
-    return null
-  }
-}
-
-function isUnknownHost(url: string): boolean {
-  const host = hostnameFor(url)
-  return !host || !adapterByHostname(host)
 }
 
 type NovelsEditorFormProps = {
@@ -91,7 +29,13 @@ type NovelsEditorFormProps = {
   handleRef: { current: SourceEditorResult | null }
 }
 
-function NovelsEditorForm({ fresh, titleMap, settings, ctx, handleRef }: NovelsEditorFormProps) {
+export function NovelsEditorForm({
+  fresh,
+  titleMap,
+  settings,
+  ctx,
+  handleRef,
+}: NovelsEditorFormProps) {
   const [entries, setEntries] = useState<NovelEntry[]>(() => fresh.entries.map((e) => ({ ...e })))
   const [error, setError] = useState('')
   const [advanced, setAdvanced] = useState<Record<string, number>>(() => {
@@ -215,9 +159,7 @@ function NovelsEditorForm({ fresh, titleMap, settings, ctx, handleRef }: NovelsE
           <span>Badge 显示</span>
           <select
             value={badgeType}
-            onChange={(e) =>
-              setBadgeType((e.target as HTMLSelectElement).value as import('../types').BadgeType)
-            }
+            onChange={(e) => setBadgeType((e.target as HTMLSelectElement).value as BadgeType)}
           >
             <option value="default">默认</option>
             <option value="none">不显示</option>

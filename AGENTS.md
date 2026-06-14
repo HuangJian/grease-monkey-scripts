@@ -228,7 +228,7 @@ test suite depend on live network availability.
 
 #### Split Files
 
-- **When a file exceeds ~150 lines or mixes unrelated concerns, turn it into a
+- **When a file exceeds ~300 lines or mixes unrelated concerns, turn it into a
   folder.** Keep the original public API in an `index.ts` that re-exports from
   internal files. Extract each behavior cluster into its own file (e.g.
   `tokenize.ts`, `parse.ts`, `match.ts` instead of one `query.ts`). Internal

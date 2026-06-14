@@ -1,6 +1,7 @@
 import type { Runtime } from '../../runtime'
 import type { Source, SourceHeaderProps, SourceSettings } from '../types'
-import { XitHeaderControls, XitBody, type XitHeaderState } from './component'
+import { XitHeaderControls, type XitHeaderState } from './component/header'
+import { XitBody } from './component/body'
 import { createXitEditor } from './editor'
 import { parseXitText } from './parser'
 import type { XitData } from './types'

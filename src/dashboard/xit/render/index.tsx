@@ -1,5 +1,5 @@
 import { render } from 'preact'
-import { XitBody } from '../component'
+import { XitBody } from '../component/body'
 import type { XitData } from '../types'
 import { parseXitText } from '../parser'
 

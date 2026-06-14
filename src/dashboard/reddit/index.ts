@@ -1,5 +1,5 @@
 export { createRedditSource, loadFreshRedditOptions, type RedditRenderData } from './source'
-export { createRedditEditor } from './editor'
+export { createRedditEditor } from './editor/form'
 export { fetchReddit } from './fetcher'
 export { createRedditState, type RedditState } from './state'
 export { computeRedditDecayedScore, mergeSubPosts, selectPostsPerSub } from './scoring'

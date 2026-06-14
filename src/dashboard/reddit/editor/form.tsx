@@ -1,47 +1,22 @@
+/**
+ * Reddit editor form component.
+ */
 import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { render } from 'preact'
-import { escapeHtml } from '../../utils'
-import { validateConfig } from '../config'
-import { readNumberFields, saveConfigSection, saveSourceSettings } from '../editor-helpers'
+import { escapeHtml } from '../../../utils'
+import { validateConfig } from '../../config'
+import { readNumberFields, saveConfigSection, saveSourceSettings } from '../../editor-helpers'
 import type {
   SourceEditor,
   SourceEditorContext,
   SourceEditorResult,
   SourceSettings,
-} from '../types'
-import { normalizeSubredditName } from './parser'
-import type { RedditSourceOptions } from './types'
-import { loadFreshRedditOptions } from './source'
-
-const FORM_FIELDS: {
-  prop: string
-  label: string
-  min: number
-  max?: number
-  errorMsg: string
-}[] = [
-  { prop: 'ttlMinutes', label: 'TTL（分钟）', min: 1, errorMsg: 'TTL 必须是 ≥1 的整数' },
-  { prop: 'historyDays', label: '历史保留天数', min: 1, errorMsg: '历史保留天数必须是 ≥1 的整数' },
-  {
-    prop: 'todayMinComments',
-    label: '今日最低评论',
-    min: 0,
-    errorMsg: '今日最低评论必须 ≥0',
-  },
-  {
-    prop: 'olderMinComments',
-    label: '历史最低评论',
-    min: 0,
-    errorMsg: '历史最低评论必须 ≥0',
-  },
-  {
-    prop: 'ageHalfLifeDays',
-    label: '衰减半衰期（天）',
-    min: 0.1,
-    max: 30,
-    errorMsg: '衰减半衰期必须是 0.1~30 之间',
-  },
-]
+  BadgeType,
+} from '../../types'
+import { normalizeSubredditName } from '../parser'
+import type { RedditSourceOptions } from '../types'
+import { loadFreshRedditOptions } from '../source'
+import { FORM_FIELDS } from './types'
 
 type RedditEditorFormProps = {
   fresh: RedditSourceOptions
@@ -50,7 +25,7 @@ type RedditEditorFormProps = {
   handleRef: { current: SourceEditorResult | null }
 }
 
-function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEditorFormProps) {
+export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEditorFormProps) {
   const [subs, setSubs] = useState<string[]>(() =>
     fresh.subreddits.map(normalizeSubredditName).filter((s) => s.length > 0),
   )
@@ -194,9 +169,7 @@ function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEditorFormP
           <span>Badge 显示</span>
           <select
             value={badgeType}
-            onChange={(e) =>
-              setBadgeType((e.target as HTMLSelectElement).value as import('../types').BadgeType)
-            }
+            onChange={(e) => setBadgeType((e.target as HTMLSelectElement).value as BadgeType)}
           >
             <option value="default">默认</option>
             <option value="none">不显示</option>

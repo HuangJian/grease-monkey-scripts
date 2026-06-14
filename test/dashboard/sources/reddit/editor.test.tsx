@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { cleanup, within } from '@testing-library/preact'
-import { createRedditEditor } from '../../../../src/dashboard/reddit/editor'
+import { createRedditEditor } from '../../../../src/dashboard/reddit/editor/form'
 import { CONFIG_KEY, DEFAULT_SOURCE_SETTINGS } from '../../../../src/dashboard/types'
 import type { RedditSourceOptions } from '../../../../src/dashboard/reddit/types'
 import { createRuntime, type TestRuntime } from '../../../runtime'

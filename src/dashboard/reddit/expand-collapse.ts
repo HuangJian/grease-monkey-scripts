@@ -1,33 +1,38 @@
-export const COLLAPSE_THRESHOLD = 20
-export const MAX_EXPANDED = 2
+/**
+ * Reddit expand/collapse - re-exports from shared utility.
+ *
+ * This module re-exports the shared expand/collapse state machine
+ * with reddit-specific method names for backward compatibility.
+ */
+import {
+  createExpandCollapse as createExpandCollapseBase,
+  COLLAPSE_THRESHOLD,
+  MAX_EXPANDED,
+  type ExpandCollapseOptions,
+} from '../expand-collapse'
 
+export { COLLAPSE_THRESHOLD, MAX_EXPANDED }
+export type { ExpandCollapseOptions }
+
+/** Reddit-specific expand/collapse interface with sub-oriented methods. */
 export type ExpandCollapse = {
   activeSubs(allSubs: ReadonlyArray<string>, totalPosts: number): Set<string>
   toggleSub(sub: string, totalPosts: number): void
   reset(): void
 }
 
+/**
+ * Create a reddit expand/collapse state machine.
+ *
+ * Wraps the shared utility with reddit-specific method names
+ * for backward compatibility.
+ */
 export function createExpandCollapse(): ExpandCollapse {
-  const expanded = new Set<string>()
-  let initialized = false
+  const base = createExpandCollapseBase<string>()
 
   return {
-    activeSubs(allSubs, totalPosts) {
-      if (totalPosts <= COLLAPSE_THRESHOLD) return new Set(allSubs)
-      if (!initialized) {
-        initialized = true
-        for (const s of allSubs.slice(0, MAX_EXPANDED)) expanded.add(s)
-      }
-      return new Set(expanded)
-    },
-    toggleSub(sub, totalPosts) {
-      if (totalPosts <= COLLAPSE_THRESHOLD) return
-      if (expanded.has(sub)) expanded.delete(sub)
-      else expanded.add(sub)
-    },
-    reset() {
-      expanded.clear()
-      initialized = false
-    },
+    activeSubs: base.activeCategories,
+    toggleSub: base.toggleCategory,
+    reset: base.reset,
   }
 }
