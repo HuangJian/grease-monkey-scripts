@@ -389,45 +389,51 @@ describe('createDashboard', () => {
   })
 
   test('editConfig reports parse error without overwriting config', () => {
-    const messages: string[] = []
-    runtime.prompt = (msg?: string) => {
-      messages.push(msg ?? '')
-      if (messages.length === 1) return 'not-json{'
-      return null
+    const alerts: string[] = []
+    const originalAlert = window.alert
+    window.alert = (msg?: string) => {
+      alerts.push(msg ?? '')
     }
+    runtime.prompt = () => 'not-json{'
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     dashboard.editConfig()
-    expect(messages.some((m) => m.includes('解析失败'))).toBe(true)
+    expect(alerts.some((m) => m.includes('解析失败'))).toBe(true)
     expect(runtime.stores['dashboard:v1:config']).toBeUndefined()
+    window.alert = originalAlert
   })
 
   test('editConfig reports validation error without overwriting config', () => {
-    const messages: string[] = []
-    runtime.prompt = (msg?: string) => {
-      messages.push(msg ?? '')
-      if (messages.length === 1) return JSON.stringify({ hostAllowlist: 'bad' })
-      return null
+    const alerts: string[] = []
+    const originalAlert = window.alert
+    window.alert = (msg?: string) => {
+      alerts.push(msg ?? '')
     }
+    runtime.prompt = () => JSON.stringify({ hostAllowlist: 'bad' })
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     dashboard.editConfig()
-    expect(messages.some((m) => m.includes('配置校验失败'))).toBe(true)
+    expect(alerts.some((m) => m.includes('配置校验失败'))).toBe(true)
     expect(runtime.stores['dashboard:v1:config']).toBeUndefined()
+    window.alert = originalAlert
   })
 
   test('editConfig catches prompt exception and falls back to alert', () => {
-    const messages: string[] = []
+    const alerts: string[] = []
+    const originalAlert = window.alert
+    window.alert = (msg?: string) => {
+      alerts.push(msg ?? '')
+    }
     runtime.prompt = ((msg?: string) => {
       if (msg?.startsWith('粘贴 JSON')) throw new Error('blocked by site')
-      messages.push(msg ?? '')
       return null
     }) as typeof runtime.prompt
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     dashboard.editConfig()
-    expect(messages.some((m) => m.includes('禁用了 prompt'))).toBe(true)
+    expect(alerts.some((m) => m.includes('禁用了 prompt'))).toBe(true)
     expect(runtime.stores['dashboard:v1:config']).toBeUndefined()
+    window.alert = originalAlert
   })
 })
 

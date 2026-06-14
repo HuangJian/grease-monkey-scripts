@@ -33,9 +33,5 @@ export function editConfig(runtime: Runtime, config: Config): void {
 }
 
 function alert(runtime: Runtime, message: string): void {
-  try {
-    runtime.prompt(message, '')
-  } catch {
-    window.alert(message)
-  }
+  window.alert(message)
 }

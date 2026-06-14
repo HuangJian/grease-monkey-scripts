@@ -36,17 +36,12 @@ export async function saveConfigSection<T>(args: SaveConfigSectionArgs<T>): Prom
     args.onError(validation.error)
     return
   }
-  const result = args.runtime
-    .getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
-    .then((existing) => {
-      return args.runtime.setValue(CONFIG_KEY, {
-        ...(existing ?? {}),
-        [args.sectionKey]: args.section,
-      })
-    })
-  Promise.resolve(result).then(() => {
-    args.onSuccess()
+  const existing = await args.runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
+  await args.runtime.setValue(CONFIG_KEY, {
+    ...(existing ?? {}),
+    [args.sectionKey]: args.section,
   })
+  args.onSuccess()
 }
 
 export type NumericRule = {
@@ -150,15 +145,37 @@ export function bindChipList<T>(args: ChipListArgs<T>): ChipListHandle {
         renderList()
       })
     })
-    if (draggable) attachDragListeners(args.listEl.ownerDocument)
   }
 
-  function attachDragListeners(doc: Document): void {
+  function handleAdd(): void {
+    args.clearError()
+    const r = args.tryAdd()
+    if (!r.ok) {
+      args.showError(r.error)
+      return
+    }
+    args.setItems([...args.getItems(), r.item])
+    for (const input of args.inputs) input.value = ''
+    renderList()
+  }
+
+  args.addBtn.addEventListener('click', handleAdd)
+  for (const input of args.inputs) {
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        handleAdd()
+      }
+    })
+  }
+
+  if (draggable) {
     const chipSelector = args.chipSelector ?? '.gm-sp-re-chip'
     const handleSelector = args.dragHandleSelector
     const draggingClass = args.draggingClass ?? 'gm-sp-re-chip-dragging'
     const dropBefore = 'gm-sp-re-chip-drop-before'
     const dropAfter = 'gm-sp-re-chip-drop-after'
+    const doc = args.listEl.ownerDocument
 
     let srcIdx: number | null = null
     let hoveredIdx: number | null = null
@@ -244,45 +261,24 @@ export function bindChipList<T>(args: ChipListArgs<T>): ChipListHandle {
       doc.removeEventListener('pointerup', onPointerUp)
     }
 
-    const chips = args.listEl.querySelectorAll<HTMLElement>(chipSelector)
-    chips.forEach((chip) => {
-      const idx = Number(chip.dataset['index'] ?? -1)
+    function onPointerDown(e: PointerEvent): void {
+      if (e.button !== 0) return
+      const chip = (e.target as HTMLElement).closest<HTMLElement>(chipSelector)
+      if (!chip || !args.listEl.contains(chip)) return
       const handle = handleSelector
         ? (chip.querySelector<HTMLElement>(handleSelector) ?? chip)
         : chip
-      handle.style.touchAction = 'none'
-      handle.addEventListener('pointerdown', (e) => {
-        if (e.button !== 0) return
-        e.preventDefault()
-        srcIdx = idx
-        draggedChip = chip
-        chip.classList.add(draggingClass)
-        doc.addEventListener('pointermove', onPointerMove)
-        doc.addEventListener('pointerup', onPointerUp)
-      })
-    })
-  }
-
-  function handleAdd(): void {
-    args.clearError()
-    const r = args.tryAdd()
-    if (!r.ok) {
-      args.showError(r.error)
-      return
+      if (e.target !== handle && !handle.contains(e.target as Node)) return
+      e.preventDefault()
+      const idx = Number(chip.dataset['index'] ?? -1)
+      srcIdx = idx
+      draggedChip = chip
+      chip.classList.add(draggingClass)
+      doc.addEventListener('pointermove', onPointerMove)
+      doc.addEventListener('pointerup', onPointerUp)
     }
-    args.setItems([...args.getItems(), r.item])
-    for (const input of args.inputs) input.value = ''
-    renderList()
-  }
 
-  args.addBtn.addEventListener('click', handleAdd)
-  for (const input of args.inputs) {
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        handleAdd()
-      }
-    })
+    args.listEl.addEventListener('pointerdown', onPointerDown)
   }
 
   return { render: renderList }

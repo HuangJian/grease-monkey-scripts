@@ -5,6 +5,11 @@ export type DynamicCountOptions = {
   cutoffFloor: number
 }
 
+/**
+ * Determines the number of items to display from a sorted list of scores.
+ * Uses a threshold + elbow-drop strategy to find a natural cutoff.
+ * @param scores - Scores sorted in descending order (leader = max score)
+ */
 export function dynamicCount(scores: ReadonlyArray<number>, options: DynamicCountOptions): number {
   if (scores.length === 0) return 0
   const leader = scores[0]!

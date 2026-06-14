@@ -1,10 +1,9 @@
 import { useState } from 'preact/hooks'
 import type { ComponentChildren } from 'preact'
 import type { Runtime } from '../../runtime'
-import type { CachedSource, Source, SourceSettings } from '../types'
-import { CONFIG_KEY, getSourceSettings } from '../types'
+import type { CachedSource, Source } from '../types'
 import { CardTitle, RefreshTime, RefreshButton, ConfigButton } from './primitives'
-import { showEditorDialog } from '../shell/editor'
+import { createEditHandler } from '../shell/editor'
 
 export type CardProps = {
   header?: ComponentChildren
@@ -48,23 +47,13 @@ export function RenderCard<T>({
   const data = (cached?.data ?? null) as T | null
   const [, setHeaderVersion] = useState(0)
 
-  const onEdit = source.createEditor
-    ? async () => {
-        const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
-        const storedSettings =
-          (stored?.sourceSettings as Record<string, SourceSettings> | undefined) ?? {}
-        showEditorDialog(
-          document,
-          root,
-          source.dialogTitle ?? `\u7F16\u8F91 - ${source.title}`,
-          runtime,
-          (container, close) => {
-            const editor = source.createEditor!(getSourceSettings(storedSettings, source.id))
-            return editor(container, { runtime, onRevert, refresh: () => void onRefresh(), close })
-          },
-        )
-      }
-    : undefined
+  const onEdit = createEditHandler({
+    source: source as Source<unknown>,
+    runtime,
+    root,
+    onRevert: () => onRevert(),
+    onRefresh: () => onRefresh(),
+  })
 
   const headerProps = {
     data,

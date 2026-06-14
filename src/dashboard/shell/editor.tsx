@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef } from 'preact/hooks'
 import type { Runtime } from '../../runtime'
-import type { SourceEditorResult } from '../types'
+import type { Source, SourceEditorResult, SourceSettings } from '../types'
+import { CONFIG_KEY, getSourceSettings } from '../types'
 import { handleEscapeKey } from '../shortcut'
 import { render } from 'preact'
 import { h } from 'preact'
@@ -115,4 +116,42 @@ export function showEditorDialog(
     container,
   )
   return close
+}
+
+export type EditHandlerArgs = {
+  source: Source<unknown>
+  runtime: Runtime
+  root: ShadowRoot
+  onRevert: (sourceId: string) => void
+  onRefresh: (sourceId: string) => Promise<void>
+}
+
+export function createEditHandler({
+  source,
+  runtime,
+  root,
+  onRevert,
+  onRefresh,
+}: EditHandlerArgs): (() => Promise<void>) | undefined {
+  if (!source.createEditor) return undefined
+  return async () => {
+    const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
+    const storedSettings =
+      (stored?.sourceSettings as Record<string, SourceSettings> | undefined) ?? {}
+    showEditorDialog(
+      document,
+      root,
+      source.dialogTitle ?? `\u7F16\u8F91 - ${source.title}`,
+      runtime,
+      (container, close) => {
+        const editor = source.createEditor!(getSourceSettings(storedSettings, source.id))
+        return editor(container, {
+          runtime,
+          onRevert: () => onRevert(source.id),
+          refresh: () => void onRefresh(source.id),
+          close,
+        })
+      },
+    )
+  }
 }

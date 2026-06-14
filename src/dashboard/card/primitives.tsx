@@ -20,11 +20,7 @@ export type CardTitleProps = {
 }
 
 export function CardTitle({ children }: CardTitleProps) {
-  return (
-    <span class="gm-sp-card-title">
-      <span>{children}</span>
-    </span>
-  )
+  return <span class="gm-sp-card-title">{children}</span>
 }
 
 export type RefreshTimeProps = {

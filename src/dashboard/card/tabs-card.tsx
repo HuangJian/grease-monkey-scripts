@@ -1,11 +1,11 @@
 import { useState } from 'preact/hooks'
 import type { Runtime } from '../../runtime'
 import type { CardGroup } from '../card-group'
-import { CONFIG_KEY, type CachedSource, type SourceSettings } from '../types'
+import type { CachedSource, SourceSettings } from '../types'
 import { getSourceSettings } from '../types'
 import { Tabs, type TabsItem } from './tabs'
 import { RefreshTime, RefreshButton, ConfigButton } from './primitives'
-import { showEditorDialog } from '../shell/editor'
+import { createEditHandler } from '../shell/editor'
 import { Card } from './card'
 
 export type TabsCardProps = {
@@ -38,28 +38,13 @@ export function TabsCard({
   const activeCached = caches.get(activeTab.id) ?? null
   const activeData = (activeCached?.data ?? null) as unknown
 
-  const onEdit = activeTab.createEditor
-    ? async () => {
-        const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
-        const storedSettings =
-          (stored?.sourceSettings as Record<string, SourceSettings> | undefined) ?? {}
-        showEditorDialog(
-          document,
-          root,
-          activeTab.dialogTitle ?? `\u7F16\u8F91 - ${activeTab.title}`,
-          runtime,
-          (container, close) => {
-            const editor = activeTab.createEditor!(getSourceSettings(storedSettings, activeTab.id))
-            return editor(container, {
-              runtime,
-              onRevert: () => onEditCallback(activeTab.id),
-              refresh: () => void onRefreshCallback(activeTab.id),
-              close,
-            })
-          },
-        )
-      }
-    : undefined
+  const onEdit = createEditHandler({
+    source: activeTab,
+    runtime,
+    root,
+    onRevert: (id) => onEditCallback(id),
+    onRefresh: (id) => onRefreshCallback(id),
+  })
 
   const tabItems: TabsItem[] = group.tabs.map((tab) => {
     const cached = caches.get(tab.id) ?? null
@@ -128,7 +113,7 @@ export function TabsCard({
             data={data as never}
             root={root}
             runtime={runtime}
-            onNotify={() => onTabChange(activeTab.id)}
+            onNotify={() => onTabChange(tab.id)}
             onHeaderChange={tab.headerState ? () => setHeaderVersion((n) => n + 1) : undefined}
           />
         ) : null}

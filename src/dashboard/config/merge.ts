@@ -5,6 +5,7 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
   return proto === Object.prototype || proto === null
 }
 
+/** Deep-merge two plain objects. Objects are recursively merged; arrays and primitives are replaced. */
 export function deepMerge<T>(base: T, override: unknown): T {
   if (!isPlainObject(base) || !isPlainObject(override)) {
     return override === undefined ? base : (override as T)
