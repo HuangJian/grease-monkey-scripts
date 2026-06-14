@@ -20,8 +20,8 @@ const HOT_SOURCE_ID = 'xueqiu-hot'
 
 export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle {
   const state: XueqiuState = createXueqiuState()
-  let mainDateFilter: DateFilter = '全'
-  let hotDateFilter: DateFilter = '全'
+  const mainHeaderState: { dateFilter: DateFilter } = { dateFilter: '全' }
+  const hotHeaderState: { dateFilter: DateFilter } = { dateFilter: '全' }
 
   const mainSource: Source<XueqiuRenderData> = {
     id: MAIN_SOURCE_ID,
@@ -29,22 +29,22 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 4,
-    headerState: {},
+    headerState: mainHeaderState,
     getTabLabel(data) {
       return xueqiuNewsTabLabel(data, state)
     },
     RenderHeader: (props: SourceHeaderProps<XueqiuRenderData>) => (
       <XueqiuDateFilter
-        dateFilter={mainDateFilter}
+        dateFilter={mainHeaderState.dateFilter}
         onChange={(f) => {
-          mainDateFilter = f
+          mainHeaderState.dateFilter = f
           props.onHeaderChange?.()
         }}
         onMarkAllRead={() => {
           const items = props.data?.news ?? []
-          const dateFiltered = applyDateFilter(items, mainDateFilter)
+          const dateFiltered = applyDateFilter(items, mainHeaderState.dateFilter)
           const visible =
-            mainDateFilter === '未'
+            mainHeaderState.dateFilter === '未'
               ? dateFiltered.filter(
                   (it) => !state.isHidden(String(it.id)) && !state.isRead(String(it.id)),
                 )
@@ -78,7 +78,7 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
         runtime={runtime}
         state={state}
         mode="news"
-        dateFilter={mainDateFilter}
+        dateFilter={mainHeaderState.dateFilter}
       />
     ),
     createEditor(settings: SourceSettings) {
@@ -92,22 +92,22 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 5,
-    headerState: {},
+    headerState: hotHeaderState,
     getTabLabel() {
       return { label: '雪球热议' }
     },
     RenderHeader: (props: SourceHeaderProps<XueqiuRenderData>) => (
       <XueqiuDateFilter
-        dateFilter={hotDateFilter}
+        dateFilter={hotHeaderState.dateFilter}
         onChange={(f) => {
-          hotDateFilter = f
+          hotHeaderState.dateFilter = f
           props.onHeaderChange?.()
         }}
         onMarkAllRead={() => {
           const items = props.data?.hotPosts ?? []
-          const dateFiltered = applyDateFilter(items, hotDateFilter)
+          const dateFiltered = applyDateFilter(items, hotHeaderState.dateFilter)
           const visible =
-            hotDateFilter === '未'
+            hotHeaderState.dateFilter === '未'
               ? dateFiltered.filter(
                   (it) => !state.isHidden(String(it.id)) && !state.isRead(String(it.id)),
                 )
@@ -144,7 +144,7 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
         runtime={runtime}
         state={state}
         mode="hot"
-        dateFilter={hotDateFilter}
+        dateFilter={hotHeaderState.dateFilter}
       />
     ),
     createEditor(settings: SourceSettings) {

@@ -21,7 +21,7 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
   const state = createHupuState()
   const expandCollapse = createExpandCollapse()
   let authorTagMap: AuthorTagMap = {}
-  let dateFilter: DateFilter = '全'
+  const headerState: { dateFilter: DateFilter } = { dateFilter: '全' }
 
   async function syncAuthorTags(runtime: Runtime): Promise<void> {
     try {
@@ -48,12 +48,12 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 4,
-    headerState: {},
+    headerState,
     RenderHeader: (props: SourceHeaderProps<HupuRenderData>) => (
       <HupuDateFilter
-        dateFilter={dateFilter}
+        dateFilter={headerState.dateFilter}
         onChange={(f) => {
-          dateFilter = f
+          headerState.dateFilter = f
           props.onHeaderChange?.()
         }}
       />
@@ -107,7 +107,7 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
         state={state}
         expandCollapse={expandCollapse}
         authorTagMap={authorTagMap}
-        dateFilter={dateFilter}
+        dateFilter={headerState.dateFilter}
       />
     ),
     async loadState(runtime) {

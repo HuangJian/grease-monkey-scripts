@@ -14,7 +14,7 @@ import type { V2exSourceOptions, V2exTopic } from './types'
 export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]> {
   const state = createV2exState()
   let authorTagMap: AuthorTagMap = {}
-  let dateFilter: DateFilter = '全'
+  const headerState: { dateFilter: DateFilter } = { dateFilter: '全' }
 
   function isV2exDomain(hostname: string): boolean {
     return hostname === 'v2ex.com' || hostname.endsWith('.v2ex.com')
@@ -43,20 +43,20 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 0,
-    headerState: {},
+    headerState,
     RenderHeader: (props: SourceHeaderProps<V2exTopic[]>) => (
       <V2exDateFilter
-        dateFilter={dateFilter}
+        dateFilter={headerState.dateFilter}
         onChange={(f) => {
-          dateFilter = f
+          headerState.dateFilter = f
           props.onHeaderChange?.()
         }}
         onArchive={() => {
           const topics = props.data
           if (!topics || !state) return
-          const dateFiltered = applyDateFilter(topics, dateFilter) ?? []
+          const dateFiltered = applyDateFilter(topics, headerState.dateFilter) ?? []
           const visible =
-            dateFilter === '未'
+            headerState.dateFilter === '未'
               ? dateFiltered.filter((t) => !state.isRead(t.id))
               : state.filterVisible(dateFiltered)
           for (const t of visible) {
@@ -74,7 +74,7 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
         runtime={runtime}
         state={state}
         authorTagMap={authorTagMap}
-        dateFilter={dateFilter}
+        dateFilter={headerState.dateFilter}
       />
     ),
     async fetch(runtime, _prevData) {

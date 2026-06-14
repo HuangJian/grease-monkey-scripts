@@ -20,7 +20,7 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
   const state = createRedditState()
   const expandCollapse = createExpandCollapse()
   let authorTagMap: AuthorTagMap = {}
-  let dateFilter: DateFilter = '全'
+  const headerState: { dateFilter: DateFilter } = { dateFilter: '全' }
 
   async function syncAuthorTags(runtime: Runtime): Promise<void> {
     try {
@@ -47,12 +47,12 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 3,
-    headerState: {},
+    headerState,
     RenderHeader: (props: SourceHeaderProps<RedditRenderData>) => (
       <RedditDateFilter
-        dateFilter={dateFilter}
+        dateFilter={headerState.dateFilter}
         onChange={(f) => {
-          dateFilter = f
+          headerState.dateFilter = f
           props.onHeaderChange?.()
         }}
       />
@@ -106,7 +106,7 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
         state={state}
         expandCollapse={expandCollapse}
         authorTagMap={authorTagMap}
-        dateFilter={dateFilter}
+        dateFilter={headerState.dateFilter}
       />
     ),
     async loadState(runtime) {
