@@ -110,7 +110,10 @@ export async function fetchXueqiu(
   options: XueqiuSourceOptions,
 ): Promise<XueqiuRenderData> {
   if (!isXueqiuPage()) {
-    throw new Error('请访问 xueqiu.com 刷新数据')
+    throw new Error('请访问 xueqiu.com 首页刷新数据')
+  }
+  if (location.pathname !== '/' && location.pathname !== '') {
+    throw new Error('请在 xueqiu.com 首页（非帖子/用户页）刷新数据')
   }
 
   const app = document.querySelector('#app') as (Element & { __vue__?: VueInstance }) | null
