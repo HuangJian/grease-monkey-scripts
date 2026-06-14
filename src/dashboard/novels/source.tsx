@@ -110,7 +110,9 @@ async function loadCachedTitleMap(runtime: Runtime): Promise<Map<string, string>
   return map
 }
 
-async function markSeen(runtime: Runtime, bookUrl: string, data: NovelData | null): Promise<void> {
+async function markSeen(runtime: Runtime, bookUrl: string, _data: NovelData | null): Promise<void> {
+  const cached = await runtime.getValue<{ data?: NovelData } | null>(CACHE_KEY('novels'), null)
+  const data = cached?.data ?? _data
   const current = data?.books.find((b) => b.url === bookUrl)
   if (!current) return
   const newSeen = current.latestChapters[0]?.url
