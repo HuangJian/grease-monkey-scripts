@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks'
+import { useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { formatRelativeTime } from '../card/primitives'
 import type { SourceComponentProps } from '../types'
 import type { TnewsState } from './state'
@@ -48,10 +48,20 @@ export function TnewsComponent({
   onNotify: notify,
 }: TnewsComponentProps) {
   const [, forceUpdate] = useState(0)
+  const scrollTargetRef = useRef<string | null>(null)
+
+  useLayoutEffect(() => {
+    const id = scrollTargetRef.current
+    if (!id) return
+    scrollTargetRef.current = null
+    const el = document.querySelector(`li[data-item-id="${CSS.escape(id)}"] .gm-sp-tnews-row`)
+    el?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  })
 
   const items = data ?? []
 
   function handleRowClick(item: TnewsItem) {
+    const wasExpanded = state.isExpanded(item.id)
     state.markRead(item.id)
 
     for (const other of items) {
@@ -60,6 +70,9 @@ export function TnewsComponent({
       }
     }
     state.toggleExpanded(item.id)
+    if (!wasExpanded) {
+      scrollTargetRef.current = item.id
+    }
     if (runtime) void state.saveToStorage(runtime)
     notify?.()
     forceUpdate((n) => n + 1)

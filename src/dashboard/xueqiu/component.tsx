@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks'
+import { useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { SourceComponentProps } from '../types'
 import type { XueqiuState } from './state'
 import type { XueqiuRenderData, XueqiuNewsItem } from './types'
@@ -130,6 +130,15 @@ export function XueqiuComponent({
   onNotify: notify,
 }: XueqiuComponentProps) {
   const [, forceUpdate] = useState(0)
+  const scrollTargetRef = useRef<string | null>(null)
+
+  useLayoutEffect(() => {
+    const id = scrollTargetRef.current
+    if (!id) return
+    scrollTargetRef.current = null
+    const el = document.querySelector(`li[data-item-id="${CSS.escape(id)}"] .gm-sp-xueqiu-row`)
+    el?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  })
 
   const news = data?.news ?? []
   const hotPosts = data?.hotPosts ?? []
@@ -137,13 +146,18 @@ export function XueqiuComponent({
   const items = applyDateFilter(rawItems, dateFilter)
 
   function handleItemClick(item: XueqiuNewsItem) {
-    state.markRead(String(item.id))
+    const id = String(item.id)
+    const wasExpanded = state.isExpanded(id)
+    state.markRead(id)
     for (const other of items) {
       if (other.id !== item.id) {
         state.setExpanded(String(other.id), false)
       }
     }
-    state.toggleExpanded(String(item.id))
+    state.toggleExpanded(id)
+    if (!wasExpanded) {
+      scrollTargetRef.current = id
+    }
     if (runtime) void state.saveToStorage(runtime)
     notify?.()
     forceUpdate((n) => n + 1)
