@@ -41,6 +41,24 @@ export function RefreshTime({ cached, now, ttlMs }: RefreshTimeProps) {
   )
 }
 
+export type CardActionsProps = {
+  cached: CachedSource<unknown> | null
+  now: number
+  ttlMs: number
+  onRefresh: () => Promise<void>
+  onEdit?: () => Promise<void>
+}
+
+export function CardActions({ cached, now, ttlMs, onRefresh, onEdit }: CardActionsProps) {
+  return (
+    <span class="gm-sp-card-actions">
+      <RefreshTime cached={cached} now={now} ttlMs={ttlMs} />
+      <RefreshButton onRefresh={onRefresh} />
+      {onEdit && <ConfigButton onClick={onEdit} />}
+    </span>
+  )
+}
+
 export type RefreshButtonProps = {
   onRefresh: () => Promise<void>
 }

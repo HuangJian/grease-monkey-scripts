@@ -150,10 +150,6 @@ export type Source<T> = {
   createEditor?: (settings: SourceSettings) => SourceEditor
 }
 
-export function resolveTtl<T>(source: Source<T>, ttlMinutes: number): number {
-  return ttlMinutes * 60_000
-}
-
 export const DEFAULT_SOURCE_SETTINGS: SourceSettings = {
   tabTitle: '',
   priority: 0,

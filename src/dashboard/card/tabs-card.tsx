@@ -4,7 +4,7 @@ import type { CardGroup } from '../card-group'
 import type { CachedSource, SourceSettings } from '../types'
 import { getSourceSettings } from '../types'
 import { Tabs, type TabsItem } from './tabs'
-import { RefreshTime, RefreshButton, ConfigButton } from './primitives'
+import { CardActions } from './primitives'
 import { createEditHandler } from '../shell/editor'
 import { Card } from './card'
 
@@ -86,11 +86,13 @@ export function TabsCard({
       <Tabs items={tabItems} activeId={activeTabId} onActive={onTabChange} />
       {headerContent}
       {!activeTab.hideHeaderActions && (
-        <span class="gm-sp-card-actions">
-          <RefreshTime cached={headerProps.cached} now={now} ttlMs={activeTab.ttlMs} />
-          <RefreshButton onRefresh={() => onRefreshCallback(activeTab.id)} />
-          {onEdit && <ConfigButton onClick={onEdit} />}
-        </span>
+        <CardActions
+          cached={headerProps.cached}
+          now={now}
+          ttlMs={activeTab.ttlMs}
+          onRefresh={() => onRefreshCallback(activeTab.id)}
+          onEdit={onEdit}
+        />
       )}
     </>
   )

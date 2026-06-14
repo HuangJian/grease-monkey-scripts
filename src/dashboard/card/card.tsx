@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks'
 import type { ComponentChildren } from 'preact'
 import type { Runtime } from '../../runtime'
 import type { CachedSource, Source } from '../types'
-import { CardTitle, RefreshTime, RefreshButton, ConfigButton } from './primitives'
+import { CardTitle, CardActions } from './primitives'
 import { createEditHandler } from '../shell/editor'
 
 export type CardProps = {
@@ -71,21 +71,25 @@ export function RenderCard<T>({
     <>
       <HeaderComp {...headerProps} />
       {!source.hideHeaderActions && (
-        <span class="gm-sp-card-actions">
-          <RefreshTime cached={headerProps.cached} now={now} ttlMs={ttlMs} />
-          <RefreshButton onRefresh={onRefresh} />
-          {onEdit && <ConfigButton onClick={onEdit} />}
-        </span>
+        <CardActions
+          cached={headerProps.cached}
+          now={now}
+          ttlMs={ttlMs}
+          onRefresh={onRefresh}
+          onEdit={onEdit}
+        />
       )}
     </>
   ) : (
     <>
       <CardTitle>{source.title}</CardTitle>
-      <span class="gm-sp-card-actions">
-        <RefreshTime cached={headerProps.cached} now={now} ttlMs={ttlMs} />
-        <RefreshButton onRefresh={onRefresh} />
-        {onEdit && <ConfigButton onClick={onEdit} />}
-      </span>
+      <CardActions
+        cached={headerProps.cached}
+        now={now}
+        ttlMs={ttlMs}
+        onRefresh={onRefresh}
+        onEdit={onEdit}
+      />
     </>
   )
 

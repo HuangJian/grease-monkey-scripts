@@ -4,6 +4,29 @@ const VALID_BADGE_TYPES = ['default', 'none', 'allUnread', 'todayUnread', 'subBo
 
 export type ConfigValidation = { ok: true } | { ok: false; error: string }
 
+type NumberFieldDef = [string, number, number]
+
+function validateNumberFields(
+  obj: Record<string, unknown>,
+  prefix: string,
+  fields: NumberFieldDef[],
+): ConfigValidation | null {
+  for (const [name, min, max] of fields) {
+    if (name in obj) {
+      const n = obj[name]
+      const displayMax = Number.isFinite(max) ? String(max) : '∞'
+      if (
+        typeof n !== 'number' ||
+        n < min ||
+        (Number.isFinite(max) ? n > max : !Number.isFinite(n) && n > max)
+      ) {
+        return { ok: false, error: `${prefix}.${name} 必须是 ${min}–${displayMax} 之间的数` }
+      }
+    }
+  }
+  return null
+}
+
 export function validateConfig(value: unknown): ConfigValidation {
   if (!isPlainObject(value)) {
     return { ok: false, error: '根值必须是 plain object' }
@@ -71,28 +94,14 @@ export function validateConfig(value: unknown): ConfigValidation {
     if (!isPlainObject(v)) {
       return { ok: false, error: 'v2ex 必须是对象' }
     }
-    const numFields: Array<[string, number, number]> = [
+    const r = validateNumberFields(v, 'v2ex', [
       ['ttlMinutes', 0, Number.POSITIVE_INFINITY],
       ['historyDays', 1, Number.POSITIVE_INFINITY],
       ['todayMinReplies', 0, Number.POSITIVE_INFINITY],
       ['olderMinReplies', 0, Number.POSITIVE_INFINITY],
       ['ageHalfLifeDays', 0.1, 30],
-    ]
-    for (const [name, min, max] of numFields) {
-      if (name in v) {
-        const n = v[name]
-        if (
-          typeof n !== 'number' ||
-          n < min ||
-          (Number.isFinite(max) ? n > max : !Number.isFinite(n) && n > max)
-        ) {
-          return {
-            ok: false,
-            error: `v2ex.${name} 必须是 ${min}–${Number.isFinite(max) ? max : '∞'} 之间的数`,
-          }
-        }
-      }
-    }
+    ])
+    if (r) return r
   }
   if ('reddit' in value) {
     const r = value['reddit']
@@ -111,28 +120,14 @@ export function validateConfig(value: unknown): ConfigValidation {
         }
       }
     }
-    const numFields: Array<[string, number, number]> = [
+    const r2 = validateNumberFields(r, 'reddit', [
       ['ttlMinutes', 1, Number.POSITIVE_INFINITY],
       ['historyDays', 1, Number.POSITIVE_INFINITY],
       ['todayMinComments', 0, Number.POSITIVE_INFINITY],
       ['olderMinComments', 0, Number.POSITIVE_INFINITY],
       ['ageHalfLifeDays', 0.1, 30],
-    ]
-    for (const [name, min, max] of numFields) {
-      if (name in r) {
-        const n = r[name]
-        if (
-          typeof n !== 'number' ||
-          n < min ||
-          (Number.isFinite(max) ? n > max : !Number.isFinite(n) && n > max)
-        ) {
-          return {
-            ok: false,
-            error: `reddit.${name} 必须是 ${min}–${Number.isFinite(max) ? max : '∞'} 之间的数`,
-          }
-        }
-      }
-    }
+    ])
+    if (r2) return r2
   }
   if ('novels' in value) {
     const n = value['novels']
@@ -162,27 +157,13 @@ export function validateConfig(value: unknown): ConfigValidation {
         }
       }
     }
-    const numFields: Array<[string, number, number]> = [
+    const r = validateNumberFields(n, 'novels', [
       ['ttlMinutes', 1, Number.POSITIVE_INFINITY],
       ['initialNewChapters', 0, Number.POSITIVE_INFINITY],
       ['maxNewChaptersPerBook', 1, Number.POSITIVE_INFINITY],
       ['maxLatestWindow', 1, Number.POSITIVE_INFINITY],
-    ]
-    for (const [name, min, max] of numFields) {
-      if (name in n) {
-        const v = n[name]
-        if (
-          typeof v !== 'number' ||
-          v < min ||
-          (Number.isFinite(max) ? v > max : !Number.isFinite(v) && v > max)
-        ) {
-          return {
-            ok: false,
-            error: `novels.${name} 必须是 ${min}–${Number.isFinite(max) ? max : '∞'} 之间的数`,
-          }
-        }
-      }
-    }
+    ])
+    if (r) return r
   }
   if ('tnews' in value) {
     const t = value['tnews']
@@ -233,26 +214,12 @@ export function validateConfig(value: unknown): ConfigValidation {
     if (!isPlainObject(x)) {
       return { ok: false, error: 'xueqiu 必须是对象' }
     }
-    const numFields: Array<[string, number, number]> = [
+    const r = validateNumberFields(x, 'xueqiu', [
       ['ttlMinutes', 1, Number.POSITIVE_INFINITY],
       ['scrollWaitMs', 50, 5000],
       ['scrollMaxNoChange', 1, 100],
-    ]
-    for (const [name, min, max] of numFields) {
-      if (name in x) {
-        const v = x[name]
-        if (
-          typeof v !== 'number' ||
-          v < min ||
-          (Number.isFinite(max) ? v > max : !Number.isFinite(v) && v > max)
-        ) {
-          return {
-            ok: false,
-            error: `xueqiu.${name} 必须是 ${min}–${Number.isFinite(max) ? max : '∞'} 之间的数`,
-          }
-        }
-      }
-    }
+    ])
+    if (r) return r
   }
   if ('xit' in value) {
     const n = value['xit']
@@ -283,7 +250,7 @@ export function validateConfig(value: unknown): ConfigValidation {
         }
       }
     }
-    const numFields: Array<[string, number, number]> = [
+    const r = validateNumberFields(h, 'hupu', [
       ['ttlMinutes', 1, Number.POSITIVE_INFINITY],
       ['historyDays', 1, Number.POSITIVE_INFINITY],
       ['todayMinReplies', 0, Number.POSITIVE_INFINITY],
@@ -291,22 +258,8 @@ export function validateConfig(value: unknown): ConfigValidation {
       ['ageHalfLifeDays', 0.1, 30],
       ['lightsWeight', 0, 100],
       ['repliesWeight', 0, 100],
-    ]
-    for (const [name, min, max] of numFields) {
-      if (name in h) {
-        const n = h[name]
-        if (
-          typeof n !== 'number' ||
-          n < min ||
-          (Number.isFinite(max) ? n > max : !Number.isFinite(n) && n > max)
-        ) {
-          return {
-            ok: false,
-            error: `hupu.${name} 必须是 ${min}–${Number.isFinite(max) ? max : '∞'} 之间的数`,
-          }
-        }
-      }
-    }
+    ])
+    if (r) return r
   }
   if ('sourceSettings' in value) {
     const s = value['sourceSettings']

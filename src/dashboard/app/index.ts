@@ -1,5 +1,5 @@
 import type { Runtime } from '../../runtime'
-import { CACHE_KEY, type Config } from '../types'
+import { CACHE_KEY, type Config, type Source } from '../types'
 import { loadConfig } from '../config'
 import { createSourceRegistry, findSource } from './source-registry'
 import { renderAllGroups, renderGroupById, type GroupRendererDeps } from './group-renderer'
@@ -46,6 +46,15 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     }
   }
 
+  async function refreshAndRerender(source: Source<unknown>): Promise<void> {
+    await refreshSource(runtime, source)
+    const group = reg.groupForSource.get(source.id)
+    if (!group || !handle) return
+    const deps = getRendererDeps()
+    if (!deps) return
+    await renderGroupById(group.id, reg.groupById, reg.groupForSource, deps)
+  }
+
   async function doRefreshSource(sourceId: string): Promise<void> {
     console.debug('[gm-dashboard] refreshSource enter sourceId=', sourceId)
     const source = findSource(reg.sources, sourceId)
@@ -53,23 +62,11 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
       console.debug('[gm-dashboard] refreshSource source-not-found sourceId=', sourceId)
       return
     }
-    await refreshSource(runtime, source)
-    const group = reg.groupForSource.get(sourceId)
-    if (group && handle) {
-      const deps = getRendererDeps()
-      if (deps) await renderGroupById(group.id, reg.groupById, reg.groupForSource, deps)
-    }
+    await refreshAndRerender(source)
   }
 
   async function doRunOpportunisticRefresh(): Promise<void> {
-    await runOpportunisticRefresh(runtime, reg.sources, async (source) => {
-      await refreshSource(runtime, source)
-      const group = reg.groupForSource.get(source.id)
-      if (group && handle) {
-        const deps = getRendererDeps()
-        if (deps) await renderGroupById(group.id, reg.groupById, reg.groupForSource, deps)
-      }
-    })
+    await runOpportunisticRefresh(runtime, reg.sources, (source) => refreshAndRerender(source))
   }
 
   async function open(): Promise<void> {
