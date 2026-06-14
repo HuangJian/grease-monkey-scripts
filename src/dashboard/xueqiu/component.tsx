@@ -90,7 +90,12 @@ export function XueqiuComponent({
   const rawItems = mode === 'news' ? news : hotPosts
   const dateFiltered = applyDateFilter(rawItems, dateFilter)
   const items =
-    dateFilter === '未' ? dateFiltered.filter((it) => !state.isRead(String(it.id))) : dateFiltered
+    dateFilter === '未'
+      ? dateFiltered.filter((it) => {
+          const id = String(it.id)
+          return !state.isRead(id) || state.isExpanded(id)
+        })
+      : dateFiltered
 
   function handleItemClick(item: XueqiuNewsItem) {
     const id = String(item.id)
