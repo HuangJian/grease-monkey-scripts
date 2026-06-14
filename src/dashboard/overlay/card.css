@@ -311,6 +311,12 @@
 
 .gm-sp-archive-btn {
   border-left: 1px solid #e5e7eb;
+  margin-left: 8px;
+  background: #fff7ed;
+}
+
+.gm-sp-archive-btn:hover {
+  background: #fed7aa;
 }
 
 .gm-sp-v2ex-source {

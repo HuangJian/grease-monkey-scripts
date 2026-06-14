@@ -1,6 +1,6 @@
 import type { Runtime } from '../../runtime'
 import { estimateByteSize } from '../cache'
-import type { Source, SourceSettings, TabLabel } from '../types'
+import type { Source, SourceHeaderProps, SourceSettings, TabLabel } from '../types'
 import { RETENTION_MS } from './constants'
 import { TnewsComponent } from './component'
 import { createTnewsEditor, loadFreshTnewsOptions } from './editor'
@@ -23,6 +23,24 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 1,
+    headerState: {},
+    RenderHeader: (props: SourceHeaderProps<TnewsItem[]>) => (
+      <button
+        type="button"
+        class="gm-sp-date-filter-btn gm-sp-archive-btn"
+        title="全部已读"
+        onClick={() => {
+          const items = props.data ?? []
+          for (const item of items) {
+            state.markRead(item.id)
+          }
+          void state.saveToStorage(props.runtime)
+          props.onHeaderChange?.()
+        }}
+      >
+        🧹
+      </button>
+    ),
     RenderComponent: (props) => <TnewsComponent {...props} state={state} now={Date.now()} />,
     getTabLabel(data) {
       return tnewsTabLabel(data, state)
