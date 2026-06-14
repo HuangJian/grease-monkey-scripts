@@ -69,10 +69,6 @@ function escapeAttr(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
 }
 
-function truncate(s: string, max: number): string {
-  return s.length > max ? s.slice(0, max) + '…' : s
-}
-
 function formatTime(timestamp: number): string {
   const d = new Date(timestamp)
   const month = String(d.getMonth() + 1).padStart(2, '0')
@@ -173,11 +169,10 @@ export function XueqiuComponent({
       <li class={`gm-sp-list-item${readClass}${expandedClass}`} data-item-id={escapeAttr(id)}>
         <span class="gm-sp-xueqiu-row" onClick={() => handleItemClick(item)}>
           <span class="gm-sp-xueqiu-time">{escapeText(formatTime(item.created_at))}</span>
-          <span class="gm-sp-xueqiu-text" title={escapeAttr(unescapeHtml(title))}>
-            <span
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(unescapeHtml(truncate(title, 100))) }}
-            />
-          </span>
+          <span
+            class="gm-sp-xueqiu-text"
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(unescapeHtml(title)) }}
+          />
           {mode === 'hot' && (
             <span class="gm-sp-xueqiu-stats">
               <span title="回复数">💬{item.reply_count}</span>
