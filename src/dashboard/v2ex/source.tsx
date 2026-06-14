@@ -5,7 +5,9 @@ import {
   parseAuthorTagMap,
   type AuthorTagMap,
 } from '../../shared/author-labels'
-import { V2exComponent, V2exDateFilter, applyDateFilter, type DateFilter } from './component'
+import type { DateFilter } from '../date-filter'
+import { DateFilterGroup } from '../date-filter'
+import { V2exComponent, applyDateFilter } from './component'
 import { createV2exEditor } from './editor'
 import { fetchV2ex } from './fetcher'
 import { createV2exState } from './state'
@@ -45,26 +47,35 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
     order: 0,
     headerState,
     RenderHeader: (props: SourceHeaderProps<V2exTopic[]>) => (
-      <V2exDateFilter
-        dateFilter={headerState.dateFilter}
+      <DateFilterGroup
+        value={headerState.dateFilter}
         onChange={(f) => {
           headerState.dateFilter = f
           props.onHeaderChange?.()
         }}
-        onArchive={() => {
-          const topics = props.data
-          if (!topics || !state) return
-          const dateFiltered = applyDateFilter(topics, headerState.dateFilter) ?? []
-          const visible =
-            headerState.dateFilter === '未'
-              ? dateFiltered.filter((t) => !state.isRead(t.id))
-              : state.filterVisible(dateFiltered)
-          for (const t of visible) {
-            state.markRead(t.id, Date.now(), t.replies)
-          }
-          void state.saveToStorage(props.runtime)
-          props.onHeaderChange?.()
-        }}
+        trailing={
+          <button
+            type="button"
+            class="gm-sp-date-filter-btn gm-sp-archive-btn"
+            title="归档：标记当前视图所有主题为已读"
+            onClick={() => {
+              const topics = props.data
+              if (!topics || !state) return
+              const dateFiltered = applyDateFilter(topics, headerState.dateFilter) ?? []
+              const visible =
+                headerState.dateFilter === '未'
+                  ? dateFiltered.filter((t) => !state.isRead(t.id))
+                  : state.filterVisible(dateFiltered)
+              for (const t of visible) {
+                state.markRead(t.id, Date.now(), t.replies)
+              }
+              void state.saveToStorage(props.runtime)
+              props.onHeaderChange?.()
+            }}
+          >
+            🧹
+          </button>
+        }
       />
     ),
     RenderComponent: ({ data, root, runtime }) => (

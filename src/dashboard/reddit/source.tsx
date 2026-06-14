@@ -6,7 +6,9 @@ import {
 import type { Runtime } from '../../runtime'
 import { loadConfigSection } from '../config'
 import type { Source, SourceHeaderProps, SourceSettings } from '../types'
-import { RedditComponent, RedditDateFilter, type DateFilter } from './component'
+import type { DateFilter } from '../date-filter'
+import { DateFilterGroup } from '../date-filter'
+import { RedditComponent } from './component'
 import { createExpandCollapse } from './expand-collapse'
 import { createRedditEditor } from './editor/form'
 import { fetchReddit } from './fetcher'
@@ -49,8 +51,8 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
     order: 3,
     headerState,
     RenderHeader: (props: SourceHeaderProps<RedditRenderData>) => (
-      <RedditDateFilter
-        dateFilter={headerState.dateFilter}
+      <DateFilterGroup
+        value={headerState.dateFilter}
         onChange={(f) => {
           headerState.dateFilter = f
           props.onHeaderChange?.()

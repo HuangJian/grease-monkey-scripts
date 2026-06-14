@@ -1,32 +1,9 @@
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
+import type { DateFilter } from '../date-filter'
+import { dateFilterBounds } from '../date-filter'
 import type { SourceComponentProps } from '../types'
 import type { XueqiuState } from './state'
 import type { XueqiuRenderData, XueqiuNewsItem } from './types'
-
-const DATE_OPTIONS = ['全', '今', '昨', '前', '早', '未'] as const
-export type DateFilter = (typeof DATE_OPTIONS)[number]
-
-function dateFilterBounds(
-  filter: DateFilter,
-  now: number,
-): { start?: number; end?: number } | null {
-  if (filter === '全') return null
-  const todayStart = new Date(now)
-  todayStart.setUTCHours(0, 0, 0, 0)
-  const ts = todayStart.getTime()
-  switch (filter) {
-    case '今':
-      return { start: ts }
-    case '昨':
-      return { start: ts - 86400000, end: ts }
-    case '前':
-      return { start: ts - 172800000, end: ts - 86400000 }
-    case '早':
-      return { end: ts - 172800000 }
-    default:
-      return null
-  }
-}
 
 export function applyDateFilter(items: XueqiuNewsItem[], filter: DateFilter): XueqiuNewsItem[] {
   const bounds = dateFilterBounds(filter, Date.now())
@@ -81,38 +58,6 @@ function formatTime(timestamp: number): string {
 function getTargetUrl(item: XueqiuNewsItem): string {
   if (item.target.startsWith('http')) return item.target
   return `https://xueqiu.com${item.target}`
-}
-
-export type XueqiuDateFilterProps = {
-  dateFilter: DateFilter
-  onChange: (filter: DateFilter) => void
-  onMarkAllRead?: () => void
-}
-
-export function XueqiuDateFilter({ dateFilter, onChange, onMarkAllRead }: XueqiuDateFilterProps) {
-  return (
-    <div class="gm-sp-date-filter">
-      {DATE_OPTIONS.map((opt) => (
-        <button
-          type="button"
-          class={`gm-sp-date-filter-btn${dateFilter === opt ? ' gm-sp-date-filter-btn-active' : ''}`}
-          onClick={() => onChange(opt)}
-        >
-          {opt}
-        </button>
-      ))}
-      {onMarkAllRead && (
-        <button
-          type="button"
-          class="gm-sp-date-filter-btn gm-sp-archive-btn"
-          title="全部已读"
-          onClick={onMarkAllRead}
-        >
-          🧹
-        </button>
-      )}
-    </div>
-  )
 }
 
 export type XueqiuComponentProps = SourceComponentProps<XueqiuRenderData> & {

@@ -7,7 +7,9 @@ import {
 import type { Runtime } from '../../runtime'
 import { loadConfigSection } from '../config'
 import type { Source, SourceHeaderProps, SourceSettings } from '../types'
-import { HupuComponent, HupuDateFilter, type DateFilter } from './component'
+import type { DateFilter } from '../date-filter'
+import { DateFilterGroup } from '../date-filter'
+import { HupuComponent } from './component'
 import { createExpandCollapse } from './expand-collapse'
 import { createHupuEditor } from './editor/form'
 import { fetchHupu } from './fetcher'
@@ -50,8 +52,8 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
     order: 4,
     headerState,
     RenderHeader: (props: SourceHeaderProps<HupuRenderData>) => (
-      <HupuDateFilter
-        dateFilter={headerState.dateFilter}
+      <DateFilterGroup
+        value={headerState.dateFilter}
         onChange={(f) => {
           headerState.dateFilter = f
           props.onHeaderChange?.()

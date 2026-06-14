@@ -1,7 +1,9 @@
 import type { Runtime } from '../../runtime'
 import type { Source, SourceHeaderProps, SourceSettings, TabLabel } from '../types'
 import { loadCache } from '../cache'
-import { XueqiuComponent, XueqiuDateFilter, applyDateFilter, type DateFilter } from './component'
+import type { DateFilter } from '../date-filter'
+import { DateFilterGroup } from '../date-filter'
+import { XueqiuComponent, applyDateFilter } from './component'
 import { createXueqiuEditor } from './editor'
 import { fetchXueqiu } from './fetcher'
 import { rankHotPosts } from './scoring/ranking'
@@ -34,27 +36,36 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
       return xueqiuNewsTabLabel(data, state)
     },
     RenderHeader: (props: SourceHeaderProps<XueqiuRenderData>) => (
-      <XueqiuDateFilter
-        dateFilter={mainHeaderState.dateFilter}
+      <DateFilterGroup
+        value={mainHeaderState.dateFilter}
         onChange={(f) => {
           mainHeaderState.dateFilter = f
           props.onHeaderChange?.()
         }}
-        onMarkAllRead={() => {
-          const items = props.data?.news ?? []
-          const dateFiltered = applyDateFilter(items, mainHeaderState.dateFilter)
-          const visible =
-            mainHeaderState.dateFilter === '未'
-              ? dateFiltered.filter(
-                  (it) => !state.isHidden(String(it.id)) && !state.isRead(String(it.id)),
-                )
-              : state.filterVisible(dateFiltered)
-          for (const item of visible) {
-            state.markRead(String(item.id))
-          }
-          void state.saveToStorage(props.runtime)
-          props.onHeaderChange?.()
-        }}
+        trailing={
+          <button
+            type="button"
+            class="gm-sp-date-filter-btn gm-sp-archive-btn"
+            title="全部已读"
+            onClick={() => {
+              const items = props.data?.news ?? []
+              const dateFiltered = applyDateFilter(items, mainHeaderState.dateFilter)
+              const visible =
+                mainHeaderState.dateFilter === '未'
+                  ? dateFiltered.filter(
+                      (it) => !state.isHidden(String(it.id)) && !state.isRead(String(it.id)),
+                    )
+                  : state.filterVisible(dateFiltered)
+              for (const item of visible) {
+                state.markRead(String(item.id))
+              }
+              void state.saveToStorage(props.runtime)
+              props.onHeaderChange?.()
+            }}
+          >
+            🧹
+          </button>
+        }
       />
     ),
     async fetch(runtime) {
@@ -97,27 +108,36 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
       return { label: '雪球热议' }
     },
     RenderHeader: (props: SourceHeaderProps<XueqiuRenderData>) => (
-      <XueqiuDateFilter
-        dateFilter={hotHeaderState.dateFilter}
+      <DateFilterGroup
+        value={hotHeaderState.dateFilter}
         onChange={(f) => {
           hotHeaderState.dateFilter = f
           props.onHeaderChange?.()
         }}
-        onMarkAllRead={() => {
-          const items = props.data?.hotPosts ?? []
-          const dateFiltered = applyDateFilter(items, hotHeaderState.dateFilter)
-          const visible =
-            hotHeaderState.dateFilter === '未'
-              ? dateFiltered.filter(
-                  (it) => !state.isHidden(String(it.id)) && !state.isRead(String(it.id)),
-                )
-              : state.filterVisible(dateFiltered)
-          for (const item of visible) {
-            state.markRead(String(item.id))
-          }
-          void state.saveToStorage(props.runtime)
-          props.onHeaderChange?.()
-        }}
+        trailing={
+          <button
+            type="button"
+            class="gm-sp-date-filter-btn gm-sp-archive-btn"
+            title="全部已读"
+            onClick={() => {
+              const items = props.data?.hotPosts ?? []
+              const dateFiltered = applyDateFilter(items, hotHeaderState.dateFilter)
+              const visible =
+                hotHeaderState.dateFilter === '未'
+                  ? dateFiltered.filter(
+                      (it) => !state.isHidden(String(it.id)) && !state.isRead(String(it.id)),
+                    )
+                  : state.filterVisible(dateFiltered)
+              for (const item of visible) {
+                state.markRead(String(item.id))
+              }
+              void state.saveToStorage(props.runtime)
+              props.onHeaderChange?.()
+            }}
+          >
+            🧹
+          </button>
+        }
       />
     ),
     async fetch(runtime) {

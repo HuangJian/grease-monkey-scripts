@@ -2,34 +2,11 @@ import { useState } from 'preact/hooks'
 import type { AuthorTagMap } from '../../shared/author-labels'
 import { authorClass, buildAuthorTagHtml, getTotalScore } from '../../shared/author-labels'
 import { escapeHtml, escapeUrl } from '../../utils'
+import type { DateFilter } from '../date-filter'
+import { dateFilterBounds } from '../date-filter'
 import type { SourceComponentProps } from '../types'
 import type { V2exState } from './state'
 import type { V2exTopic } from './types'
-
-const DATE_OPTIONS = ['全', '今', '昨', '前', '早', '未'] as const
-export type DateFilter = (typeof DATE_OPTIONS)[number]
-
-function dateFilterBounds(
-  filter: DateFilter,
-  now: number,
-): { start?: number; end?: number } | null {
-  if (filter === '全') return null
-  const todayStart = new Date(now)
-  todayStart.setUTCHours(0, 0, 0, 0)
-  const ts = todayStart.getTime()
-  switch (filter) {
-    case '今':
-      return { start: ts }
-    case '昨':
-      return { start: ts - 86400000, end: ts }
-    case '前':
-      return { start: ts - 172800000, end: ts - 86400000 }
-    case '早':
-      return { end: ts - 172800000 }
-    default:
-      return null
-  }
-}
 
 export function applyDateFilter(data: V2exTopic[] | null, filter: DateFilter): V2exTopic[] | null {
   const bounds = dateFilterBounds(filter, Date.now())
@@ -62,38 +39,6 @@ function sourceBadge(topic: V2exTopic): { icon: string; title: string } | null {
   if (isFromPage) return SOURCE_BADGES.page
   if (isFromApi) return SOURCE_BADGES.api
   return null
-}
-
-export type V2exDateFilterProps = {
-  dateFilter: DateFilter
-  onChange: (filter: DateFilter) => void
-  onArchive?: () => void
-}
-
-export function V2exDateFilter({ dateFilter, onChange, onArchive }: V2exDateFilterProps) {
-  return (
-    <div class="gm-sp-date-filter">
-      {DATE_OPTIONS.map((opt) => (
-        <button
-          type="button"
-          class={`gm-sp-date-filter-btn${dateFilter === opt ? ' gm-sp-date-filter-btn-active' : ''}`}
-          onClick={() => onChange(opt)}
-        >
-          {opt}
-        </button>
-      ))}
-      {onArchive && (
-        <button
-          type="button"
-          class="gm-sp-date-filter-btn gm-sp-archive-btn"
-          title="归档：标记当前视图所有主题为已读"
-          onClick={onArchive}
-        >
-          🧹
-        </button>
-      )}
-    </div>
-  )
 }
 
 export type V2exComponentProps = SourceComponentProps<V2exTopic[]> & {

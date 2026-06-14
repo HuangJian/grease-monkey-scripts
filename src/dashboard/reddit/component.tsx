@@ -2,36 +2,13 @@ import { useState } from 'preact/hooks'
 import type { AuthorTagMap } from '../../shared/author-labels'
 import { authorClass, buildAuthorTagHtml, getTotalScore } from '../../shared/author-labels'
 import { escapeHtml, escapeUrl } from '../../utils'
+import type { DateFilter } from '../date-filter'
+import { dateFilterBounds } from '../date-filter'
 import type { SourceComponentProps } from '../types'
 import type { ExpandCollapse } from './expand-collapse'
 import { COLLAPSE_THRESHOLD } from './expand-collapse'
 import type { RedditState } from './state'
 import type { RedditRenderData } from './source'
-
-const DATE_OPTIONS = ['全', '今', '昨', '前', '早', '未'] as const
-export type DateFilter = (typeof DATE_OPTIONS)[number]
-
-function dateFilterBounds(
-  filter: DateFilter,
-  now: number,
-): { start?: number; end?: number } | null {
-  if (filter === '全') return null
-  const todayStart = new Date(now)
-  todayStart.setUTCHours(0, 0, 0, 0)
-  const ts = todayStart.getTime()
-  switch (filter) {
-    case '今':
-      return { start: ts }
-    case '昨':
-      return { start: ts - 86400000, end: ts }
-    case '前':
-      return { start: ts - 172800000, end: ts - 86400000 }
-    case '早':
-      return { end: ts - 172800000 }
-    default:
-      return null
-  }
-}
 
 export function applyRedditDateFilter(
   data: RedditRenderData | null,
@@ -62,27 +39,6 @@ function sourceBadge(created: number): { icon: string; title: string } {
   const now = Date.now()
   const isToday = new Date(created).toDateString() === new Date(now).toDateString()
   return isToday ? { icon: '🌅', title: '今日主题' } : { icon: '⏳', title: '历史主题' }
-}
-
-export type RedditDateFilterProps = {
-  dateFilter: DateFilter
-  onChange: (filter: DateFilter) => void
-}
-
-export function RedditDateFilter({ dateFilter, onChange }: RedditDateFilterProps) {
-  return (
-    <div class="gm-sp-date-filter">
-      {DATE_OPTIONS.map((opt) => (
-        <button
-          type="button"
-          class={`gm-sp-date-filter-btn${dateFilter === opt ? ' gm-sp-date-filter-btn-active' : ''}`}
-          onClick={() => onChange(opt)}
-        >
-          {opt}
-        </button>
-      ))}
-    </div>
-  )
 }
 
 export type RedditComponentProps = SourceComponentProps<RedditRenderData> & {
