@@ -163,14 +163,19 @@ function ChapterList({
 function ChapterItem({ chapter, onMarkSeen }: { chapter: NovelChapter; onMarkSeen: () => void }) {
   const timeText =
     chapter.postedAt !== undefined ? formatPostedAt(chapter.postedAt) : FALLBACK_DATE_LABEL
+  const href = escapeUrl(chapter.url)
   return (
     <li class="gm-sp-novels-chapter">
       <a
         class="gm-sp-novels-chapter-link"
-        href={escapeUrl(chapter.url)}
+        href={href}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={onMarkSeen}
+        onClick={(e) => {
+          e.preventDefault()
+          window.open(href, '_blank')
+          onMarkSeen()
+        }}
       >
         <span class="gm-sp-novels-chapter-time">{escapeHtml(timeText)}</span>
         <span class="gm-sp-novels-chapter-title">{escapeHtml(chapter.title)}</span>
