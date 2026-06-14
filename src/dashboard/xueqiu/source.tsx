@@ -4,8 +4,9 @@ import { loadCache } from '../cache'
 import { XueqiuComponent, XueqiuDateFilter, applyDateFilter, type DateFilter } from './component'
 import { createXueqiuEditor } from './editor'
 import { fetchXueqiu } from './fetcher'
+import { rankHotPosts } from './scoring'
 import { createXueqiuState, type XueqiuState } from './state'
-import type { XueqiuRenderData, XueqiuSourceOptions } from './types'
+import { DEFAULT_RANKING_OPTIONS, type XueqiuRenderData, type XueqiuSourceOptions } from './types'
 
 export type XueqiuHandle = {
   mainSource: Source<XueqiuRenderData>
@@ -113,9 +114,11 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
       if (!cached) {
         throw new Error('请先刷新雪球news获取数据')
       }
+      const hiddenFiltered = cached.hotPosts.filter((it) => !state.isHidden(String(it.id)))
+      const ranked = rankHotPosts(hiddenFiltered, Date.now(), DEFAULT_RANKING_OPTIONS)
       const visible: XueqiuRenderData = {
         news: [],
-        hotPosts: cached.hotPosts.filter((it) => !state.isHidden(String(it.id))),
+        hotPosts: ranked,
       }
       return visible
     },
