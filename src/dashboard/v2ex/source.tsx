@@ -54,7 +54,11 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
         onArchive={() => {
           const topics = props.data
           if (!topics || !state) return
-          const visible = state.filterVisible(applyDateFilter(topics, dateFilter) ?? [])
+          const dateFiltered = applyDateFilter(topics, dateFilter) ?? []
+          const visible =
+            dateFilter === '未'
+              ? dateFiltered.filter((t) => !state.isRead(t.id))
+              : state.filterVisible(dateFiltered)
           for (const t of visible) {
             state.markRead(t.id, Date.now(), t.replies)
           }

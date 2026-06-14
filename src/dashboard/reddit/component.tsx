@@ -8,7 +8,7 @@ import { COLLAPSE_THRESHOLD } from './expand-collapse'
 import type { RedditState } from './state'
 import type { RedditRenderData } from './source'
 
-const DATE_OPTIONS = ['全', '今', '昨', '前', '早'] as const
+const DATE_OPTIONS = ['全', '今', '昨', '前', '早', '未'] as const
 export type DateFilter = (typeof DATE_OPTIONS)[number]
 
 function dateFilterBounds(
@@ -102,7 +102,15 @@ export function RedditComponent({
 }: RedditComponentProps) {
   const [, forceUpdate] = useState(0)
 
-  const filtered = applyRedditDateFilter(data, dateFilter)
+  const dateFiltered = applyRedditDateFilter(data, dateFilter)
+  const filtered: RedditRenderData | null =
+    dateFilter === '未' && dateFiltered
+      ? Object.entries(dateFiltered).reduce<RedditRenderData>((acc, [sub, posts]) => {
+          const unread = posts.filter((p) => !state.isRead(p.id))
+          if (unread.length > 0) acc[sub] = unread
+          return acc
+        }, {})
+      : dateFiltered
 
   if (!filtered || Object.keys(filtered).length === 0) {
     return <div class="gm-sp-empty">暂无数据</div>

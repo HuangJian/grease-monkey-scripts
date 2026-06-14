@@ -6,7 +6,7 @@ import type { SourceComponentProps } from '../types'
 import type { V2exState } from './state'
 import type { V2exTopic } from './types'
 
-const DATE_OPTIONS = ['全', '今', '昨', '前', '早'] as const
+const DATE_OPTIONS = ['全', '今', '昨', '前', '早', '未'] as const
 export type DateFilter = (typeof DATE_OPTIONS)[number]
 
 function dateFilterBounds(
@@ -111,7 +111,11 @@ export function V2exComponent({
 }: V2exComponentProps) {
   const [, forceUpdate] = useState(0)
 
-  const visible = data ? state.filterVisible(applyDateFilter(data, dateFilter) ?? []) : null
+  const dateFiltered = applyDateFilter(data, dateFilter) ?? []
+  const visible =
+    dateFilter === '未'
+      ? dateFiltered.filter((t) => !state.isRead(t.id))
+      : state.filterVisible(dateFiltered)
 
   function handleMarkRead(topic: V2exTopic) {
     state.markRead(topic.id, Date.now(), topic.replies)

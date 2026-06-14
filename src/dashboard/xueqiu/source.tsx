@@ -42,7 +42,13 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
         }}
         onMarkAllRead={() => {
           const items = props.data?.news ?? []
-          const visible = state.filterVisible(applyDateFilter(items, mainDateFilter))
+          const dateFiltered = applyDateFilter(items, mainDateFilter)
+          const visible =
+            mainDateFilter === '未'
+              ? dateFiltered.filter(
+                  (it) => !state.isHidden(String(it.id)) && !state.isRead(String(it.id)),
+                )
+              : state.filterVisible(dateFiltered)
           for (const item of visible) {
             state.markRead(String(item.id))
           }
@@ -99,7 +105,13 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
         }}
         onMarkAllRead={() => {
           const items = props.data?.hotPosts ?? []
-          const visible = state.filterVisible(applyDateFilter(items, hotDateFilter))
+          const dateFiltered = applyDateFilter(items, hotDateFilter)
+          const visible =
+            hotDateFilter === '未'
+              ? dateFiltered.filter(
+                  (it) => !state.isHidden(String(it.id)) && !state.isRead(String(it.id)),
+                )
+              : state.filterVisible(dateFiltered)
           for (const item of visible) {
             state.markRead(String(item.id))
           }

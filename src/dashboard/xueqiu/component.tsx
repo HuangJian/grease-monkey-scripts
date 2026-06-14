@@ -3,7 +3,7 @@ import type { SourceComponentProps } from '../types'
 import type { XueqiuState } from './state'
 import type { XueqiuRenderData, XueqiuNewsItem } from './types'
 
-const DATE_OPTIONS = ['全', '今', '昨', '前', '早'] as const
+const DATE_OPTIONS = ['全', '今', '昨', '前', '早', '未'] as const
 export type DateFilter = (typeof DATE_OPTIONS)[number]
 
 function dateFilterBounds(
@@ -143,7 +143,9 @@ export function XueqiuComponent({
   const news = data?.news ?? []
   const hotPosts = data?.hotPosts ?? []
   const rawItems = mode === 'news' ? news : hotPosts
-  const items = applyDateFilter(rawItems, dateFilter)
+  const dateFiltered = applyDateFilter(rawItems, dateFilter)
+  const items =
+    dateFilter === '未' ? dateFiltered.filter((it) => !state.isRead(String(it.id))) : dateFiltered
 
   function handleItemClick(item: XueqiuNewsItem) {
     const id = String(item.id)
