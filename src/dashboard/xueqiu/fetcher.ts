@@ -75,6 +75,18 @@ function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function dedupById(items: XueqiuNewsItem[]): XueqiuNewsItem[] {
+  const seen = new Set<number>()
+  const result: XueqiuNewsItem[] = []
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id)
+      result.push(item)
+    }
+  }
+  return result
+}
+
 async function autoScrollAndLoad(options: XueqiuSourceOptions): Promise<void> {
   const { scrollWaitMs, scrollMaxNoChange } = options
   let lastCount = 0
@@ -138,5 +150,5 @@ export async function fetchXueqiu(
     throw new Error('xueqiu: 未找到数据，请确认在 xueqiu.com 主页')
   }
 
-  return { news, hotPosts }
+  return { news: dedupById(news), hotPosts: dedupById(hotPosts) }
 }
