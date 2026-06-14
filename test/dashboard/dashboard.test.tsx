@@ -155,7 +155,7 @@ describe('createDashboard', () => {
     expect(redditPanel).not.toBeNull()
     expect(within(redditPanel).getByText('cached-reddit')).not.toBeNull()
     expect(within(redditPanel).getByText('42')).not.toBeNull()
-    expect(within(redditPanel).getByText('999')).not.toBeNull()
+    expect(within(redditPanel).getByText('🏆999')).not.toBeNull()
   })
 
   test('browse card defaults to v2ex tab and shows a badge on novels tab when books have updates', async () => {

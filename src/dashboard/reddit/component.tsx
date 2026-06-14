@@ -208,7 +208,7 @@ export function RedditComponent({
                       dangerouslySetInnerHTML={{ __html: escapeHtml(post.title) + titleSuffix }}
                     />
                     <span class="gm-sp-reddit-score" title="得分">
-                      {post.score}
+                      🏆{post.score}
                     </span>
                     <span class={`gm-sp-reddit-author${ac}`}>{authorText}</span>
                     <button
