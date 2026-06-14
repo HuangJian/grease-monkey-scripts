@@ -1,6 +1,6 @@
 import type { Runtime } from '../../runtime'
 import { CACHE_KEY, CACHE_SCHEMA_VERSION, CONFIG_KEY } from '../types'
-import type { Source, TabLabel } from '../types'
+import type { Source, SourceSettings, TabLabel } from '../types'
 import { NovelsComponent } from './component'
 import { createNovelsEditor } from './editor'
 import { fetchNovels } from './fetcher'
@@ -40,15 +40,18 @@ export function createNovelsSource(
       void persistFetchedTitles(runtimeArg, entries, books)
       return { books }
     },
-    createEditor() {
-      return createNovelsEditor({
-        entries: options.entries,
-        ttlMinutes: options.ttlMinutes,
-        maxNewChaptersPerBook: options.maxNewChaptersPerBook,
-        initialNewChapters: options.initialNewChapters,
-        maxLatestWindow: options.maxLatestWindow,
-        getCachedTitles: () => loadCachedTitleMap(runtime),
-      })
+    createEditor(settings: SourceSettings) {
+      return createNovelsEditor(
+        {
+          entries: options.entries,
+          ttlMinutes: options.ttlMinutes,
+          maxNewChaptersPerBook: options.maxNewChaptersPerBook,
+          initialNewChapters: options.initialNewChapters,
+          maxLatestWindow: options.maxLatestWindow,
+          getCachedTitles: () => loadCachedTitleMap(runtime),
+        },
+        settings,
+      )
     },
   }
 }

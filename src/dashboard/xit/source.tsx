@@ -1,5 +1,5 @@
 import type { Runtime } from '../../runtime'
-import type { Source, SourceHeaderProps } from '../types'
+import type { Source, SourceHeaderProps, SourceSettings } from '../types'
 import { XitHeaderControls, XitBody, type XitHeaderState } from './component'
 import { createXitEditor } from './editor'
 import { parseXitText } from './parser'
@@ -80,7 +80,7 @@ export function createXitSource(
       }
       return { text: DEFAULT_XIT_TEXT }
     },
-    createEditor() {
+    createEditor(_settings: SourceSettings) {
       return createXitEditor()
     },
   }

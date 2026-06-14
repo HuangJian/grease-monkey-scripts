@@ -28,7 +28,7 @@ export function createSourceRegistry(config: Config, runtime: Runtime) {
   if (config.xit?.enabled !== false) {
     sources.push(createXitSource(config.xit, runtime))
   }
-  const cardGroups = buildCardGroups(sources)
+  const cardGroups = buildCardGroups(sources, config.sourceSettings)
   const groupById = new Map<string, CardGroup>()
   const groupForSource = new Map<string, CardGroup>()
   for (const group of cardGroups) {

@@ -56,4 +56,5 @@ export const DEFAULT_CONFIG: Config = {
     enabled: true,
   },
   hostAllowlist: ['mail.google.com', 'v2ex.com', 'github.com', 'www.sudugu.org', 'xueqiu.com'],
+  sourceSettings: {},
 } as const

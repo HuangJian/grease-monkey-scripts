@@ -2,7 +2,7 @@ import { render } from 'preact'
 import { h } from 'preact'
 import type { Runtime } from '../../runtime'
 import { loadCache } from '../cache'
-import type { CachedSource } from '../types'
+import type { CachedSource, SourceSettings } from '../types'
 import type { CardGroup } from '../card-group'
 import { RenderCard } from '../card/card'
 import { TabsCard } from '../card/tabs-card'
@@ -12,6 +12,7 @@ export type GroupRendererDeps = {
   runtime: Runtime
   handle: OverlayHandle
   activeTabByGroup: Map<string, string>
+  sourceSettings: Record<string, SourceSettings>
   refreshSource: (sourceId: string) => Promise<void>
   revertGroup: (groupId: string) => void
 }
@@ -58,6 +59,7 @@ export async function renderGroup(
         runtime: deps.runtime,
         root,
         activeTabId,
+        sourceSettings: deps.sourceSettings,
         onTabChange: (tabId) => {
           deps.activeTabByGroup.set(group.id, tabId)
           void renderGroupById(group.id, groupById, groupForSource, deps)

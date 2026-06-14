@@ -1,7 +1,8 @@
 import { useState } from 'preact/hooks'
 import type { Runtime } from '../../runtime'
 import type { CardGroup } from '../card-group'
-import type { CachedSource } from '../types'
+import { CONFIG_KEY, type CachedSource, type SourceSettings } from '../types'
+import { getSourceSettings } from '../types'
 import { Tabs, type TabsItem } from './tabs'
 import { RefreshTime, RefreshButton, ConfigButton } from './primitives'
 import { showEditorDialog } from '../shell/editor'
@@ -14,6 +15,7 @@ export type TabsCardProps = {
   runtime: Runtime
   root: ShadowRoot
   activeTabId: string
+  sourceSettings: Record<string, SourceSettings>
   onTabChange: (tabId: string) => void
   onRefresh: (sourceId: string) => Promise<void>
   onEdit: (sourceId: string) => void
@@ -26,6 +28,7 @@ export function TabsCard({
   runtime,
   root,
   activeTabId,
+  sourceSettings,
   onTabChange,
   onRefresh: onRefreshCallback,
   onEdit: onEditCallback,
@@ -36,14 +39,17 @@ export function TabsCard({
   const activeData = (activeCached?.data ?? null) as unknown
 
   const onEdit = activeTab.createEditor
-    ? () => {
+    ? async () => {
+        const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
+        const storedSettings =
+          (stored?.sourceSettings as Record<string, SourceSettings> | undefined) ?? {}
         showEditorDialog(
           document,
           root,
           activeTab.dialogTitle ?? `\u7F16\u8F91 - ${activeTab.title}`,
           runtime,
           (container, close) => {
-            const editor = activeTab.createEditor!()
+            const editor = activeTab.createEditor!(getSourceSettings(storedSettings, activeTab.id))
             return editor(container, {
               runtime,
               onRevert: () => onEditCallback(activeTab.id),
@@ -59,10 +65,13 @@ export function TabsCard({
     const cached = caches.get(tab.id) ?? null
     const data = cached?.data ?? null
     const labelInfo = tab.getTabLabel ? tab.getTabLabel(data as never) : { label: tab.title }
+    const settings = getSourceSettings(sourceSettings, tab.id)
+    const displayLabel = settings.tabTitle || labelInfo.label
+    const displayBadge = settings.badgeType === 'none' ? null : labelInfo.badge
     return {
       id: tab.id,
-      text: labelInfo.label,
-      badge: labelInfo.badge,
+      text: displayLabel,
+      badge: displayBadge,
     }
   })
 

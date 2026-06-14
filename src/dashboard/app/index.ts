@@ -37,6 +37,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
       runtime,
       handle,
       activeTabByGroup,
+      sourceSettings: options.config.sourceSettings,
       refreshSource: (sourceId) => dashboard.refreshSource(sourceId),
       revertGroup: (groupId) => {
         if (!handle) return
@@ -78,6 +79,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
       cardGroups: reg.cardGroups,
       activeTabByGroup,
       groupForSource: reg.groupForSource,
+      sourceSettings: options.config.sourceSettings,
       dashboard: {
         close: () => dashboard.close(),
         refreshSource: (sourceId) => dashboard.refreshSource(sourceId),

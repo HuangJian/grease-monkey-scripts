@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { cleanup, within } from '@testing-library/preact'
 import { createRedditEditor } from '../../../../src/dashboard/reddit/editor'
-import { CONFIG_KEY } from '../../../../src/dashboard/types'
+import { CONFIG_KEY, DEFAULT_SOURCE_SETTINGS } from '../../../../src/dashboard/types'
 import type { RedditSourceOptions } from '../../../../src/dashboard/reddit/types'
 import { createRuntime, type TestRuntime } from '../../../runtime'
 
@@ -20,7 +20,7 @@ async function mount(
   options: RedditSourceOptions = DEFAULTS,
 ) {
   let closeCalls = 0
-  const editor = createRedditEditor(options)
+  const editor = createRedditEditor(options, DEFAULT_SOURCE_SETTINGS)
   const result = await editor(container, { runtime, onRevert: () => {}, close: () => closeCalls++ })
   return { closeCalls: () => closeCalls, result }
 }
@@ -125,7 +125,8 @@ describe('createRedditEditor', () => {
     expect(runtime.stores[CONFIG_KEY]).toBeUndefined()
   })
 
-  const inputs = (c: HTMLElement) => within(c).queryAllByRole('spinbutton')
+  const inputs = (c: HTMLElement) =>
+    within(c.querySelector('.gm-sp-editor-form') as HTMLElement).queryAllByRole('spinbutton')
 
   test('save rejects invalid TTL', async () => {
     const { result } = await mount(runtime, container)

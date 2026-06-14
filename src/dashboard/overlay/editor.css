@@ -110,7 +110,7 @@
 
 .gm-sp-editor-row {
   display: grid;
-  grid-template-columns: 80px 1fr;
+  grid-template-columns: minmax(110px, 1fr) 1fr;
   align-items: center;
   gap: 10px;
   font-size: 13px;
@@ -118,6 +118,20 @@
 }
 
 .gm-sp-editor-row input {
+  font: inherit;
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  color: inherit;
+  min-width: 0;
+}
+
+.gm-sp-editor-row input[type='number'] {
+  max-width: 80px;
+}
+
+.gm-sp-editor-row select {
   font: inherit;
   padding: 6px 8px;
   border: 1px solid #d1d5db;
@@ -287,4 +301,21 @@
 
 .gm-sp-editor-form-stacked [data-action='add'] {
   align-self: flex-start;
+}
+
+.gm-sp-editor-source-settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.gm-sp-editor-source-settings .gm-sp-editor-row {
+  grid-template-columns: minmax(80px, 1fr) 1fr;
+}
+
+.gm-sp-editor-source-settings .gm-sp-editor-row:first-child {
+  grid-column: 1 / -1;
 }

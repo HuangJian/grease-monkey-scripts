@@ -6,7 +6,7 @@ import {
 } from '../../shared/author-labels'
 import type { Runtime } from '../../runtime'
 import { loadConfigSection } from '../config'
-import type { Source, SourceHeaderProps } from '../types'
+import type { Source, SourceHeaderProps, SourceSettings } from '../types'
 import { HupuComponent, HupuDateFilter, type DateFilter } from './component'
 import { createExpandCollapse } from './expand-collapse'
 import { createHupuEditor } from './editor'
@@ -114,8 +114,8 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
       await state.loadFromStorage(runtime)
       await syncAuthorTags(runtime)
     },
-    createEditor() {
-      return createHupuEditor(options)
+    createEditor(settings: SourceSettings) {
+      return createHupuEditor(options, settings)
     },
   }
 }

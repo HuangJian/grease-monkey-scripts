@@ -2,8 +2,13 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { render } from 'preact'
 import { escapeHtml } from '../../utils'
 import { loadConfigSection, validateConfig } from '../config'
-import { readNumberFields, saveConfigSection } from '../editor-helpers'
-import type { SourceEditor, SourceEditorContext, SourceEditorResult } from '../types'
+import { readNumberFields, saveConfigSection, saveSourceSettings } from '../editor-helpers'
+import type {
+  SourceEditor,
+  SourceEditorContext,
+  SourceEditorResult,
+  SourceSettings,
+} from '../types'
 import type { TnewsSourceOptions } from './types'
 import type { Runtime } from '../../runtime'
 
@@ -59,15 +64,19 @@ function isValidMirrorHost(raw: string): { ok: true; host: string } | { ok: fals
 
 type TnewsEditorFormProps = {
   fresh: TnewsSourceOptions
+  settings: SourceSettings
   ctx: SourceEditorContext
   handleRef: { current: SourceEditorResult | null }
 }
 
-function TnewsEditorForm({ fresh, ctx, handleRef }: TnewsEditorFormProps) {
+function TnewsEditorForm({ fresh, settings, ctx, handleRef }: TnewsEditorFormProps) {
   const [feeds, setFeeds] = useState<string[]>(() => [...fresh.feeds])
   const [mirrors, setMirrors] = useState<string[]>(() => [...fresh.mirrors])
   const [error, setError] = useState('')
   const [ttl, setTtl] = useState(fresh.ttlMinutes)
+  const [tabTitle, setTabTitle] = useState(settings.tabTitle)
+  const [priority, setPriority] = useState(settings.priority)
+  const [badgeType, setBadgeType] = useState(settings.badgeType)
   const feedRef = useRef<HTMLInputElement>(null)
   const mirrorRef = useRef<HTMLInputElement>(null)
   const ttlRef = useRef<HTMLInputElement>(null)
@@ -149,17 +158,55 @@ function TnewsEditorForm({ fresh, ctx, handleRef }: TnewsEditorFormProps) {
           section: tnews,
           validate: validateConfig,
           onError: (msg) => setError(msg),
-          onSuccess: () => ctx.close(),
+          onSuccess: () => {
+            void saveSourceSettings(ctx.runtime, 'tnews', { tabTitle, priority, badgeType })
+            ctx.close()
+          },
         })
       },
       cancel() {
         ctx.close()
       },
     }
-  }, [feeds, mirrors, ttl])
+  }, [feeds, mirrors, ttl, tabTitle, priority, badgeType])
 
   return (
     <div class="gm-sp-editor">
+      <div class="gm-sp-editor-source-settings">
+        <label class="gm-sp-editor-row">
+          <span>Tab 标题</span>
+          <input
+            type="text"
+            class="gm-sp-input"
+            placeholder="留空使用默认"
+            value={tabTitle}
+            onInput={(e) => setTabTitle((e.target as HTMLInputElement).value)}
+          />
+        </label>
+        <label class="gm-sp-editor-row">
+          <span>优先级</span>
+          <input
+            type="number"
+            class="gm-sp-input"
+            value={priority}
+            onInput={(e) => setPriority(Number((e.target as HTMLInputElement).value))}
+          />
+        </label>
+        <label class="gm-sp-editor-row">
+          <span>Badge 显示</span>
+          <select
+            value={badgeType}
+            onChange={(e) =>
+              setBadgeType((e.target as HTMLSelectElement).value as import('../types').BadgeType)
+            }
+          >
+            <option value="default">默认</option>
+            <option value="none">不显示</option>
+            <option value="allUnread">全部未读数</option>
+            <option value="todayUnread">今日未读数</option>
+          </select>
+        </label>
+      </div>
       <div class="gm-sp-editor-section">
         <div class="gm-sp-editor-label">Feed URL 列表</div>
         <div class="gm-sp-tne-feeds">
@@ -259,11 +306,17 @@ function TnewsEditorForm({ fresh, ctx, handleRef }: TnewsEditorFormProps) {
   )
 }
 
-export function createTnewsEditor(options: TnewsSourceOptions): SourceEditor {
+export function createTnewsEditor(
+  options: TnewsSourceOptions,
+  settings: SourceSettings,
+): SourceEditor {
   return async (container, ctx): Promise<SourceEditorResult> => {
     const fresh = await loadFreshOptions(ctx.runtime, options)
     const handleRef: { current: SourceEditorResult | null } = { current: null }
-    render(<TnewsEditorForm fresh={fresh} ctx={ctx} handleRef={handleRef} />, container)
+    render(
+      <TnewsEditorForm fresh={fresh} settings={settings} ctx={ctx} handleRef={handleRef} />,
+      container,
+    )
     return {
       render: () => handleRef.current?.render?.(),
       save: () => handleRef.current?.save?.(),

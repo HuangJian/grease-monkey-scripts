@@ -1,6 +1,6 @@
 import type { Runtime } from '../../runtime'
 import { loadConfigSection } from '../config'
-import type { Source, SourceHeaderProps } from '../types'
+import type { Source, SourceHeaderProps, SourceSettings } from '../types'
 import { WeatherComponent, WeatherHeader } from './component'
 import { createWeatherEditor } from './editor'
 import { fetchWeatherAll } from './api'
@@ -52,7 +52,7 @@ export function createWeatherSource(options: WeatherSourceOptions): Source<Weath
         />
       )
     },
-    createEditor() {
+    createEditor(_settings: SourceSettings) {
       return createWeatherEditor({
         cities: options.cities,
         ttlMinutes: options.ttlMinutes,

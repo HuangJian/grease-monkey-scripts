@@ -1,8 +1,13 @@
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { render } from 'preact'
 import { loadConfigSection, validateConfig } from '../config'
-import { readNumberFields, saveConfigSection } from '../editor-helpers'
-import type { SourceEditor, SourceEditorContext, SourceEditorResult } from '../types'
+import { readNumberFields, saveConfigSection, saveSourceSettings } from '../editor-helpers'
+import type {
+  SourceEditor,
+  SourceEditorContext,
+  SourceEditorResult,
+  SourceSettings,
+} from '../types'
 import type { XueqiuSourceOptions } from './types'
 import type { Runtime } from '../../runtime'
 
@@ -35,15 +40,20 @@ async function loadFreshOptions(
 
 type XueqiuEditorFormProps = {
   fresh: XueqiuSourceOptions
+  sourceId: string
+  settings: SourceSettings
   ctx: SourceEditorContext
   handleRef: { current: SourceEditorResult | null }
 }
 
-function XueqiuEditorForm({ fresh, ctx, handleRef }: XueqiuEditorFormProps) {
+function XueqiuEditorForm({ fresh, sourceId, settings, ctx, handleRef }: XueqiuEditorFormProps) {
   const [error, setError] = useState('')
   const [ttl, setTtl] = useState(fresh.ttlMinutes)
   const [scrollWait, setScrollWait] = useState(fresh.scrollWaitMs)
   const [scrollMax, setScrollMax] = useState(fresh.scrollMaxNoChange)
+  const [tabTitle, setTabTitle] = useState(settings.tabTitle)
+  const [priority, setPriority] = useState(settings.priority)
+  const [badgeType, setBadgeType] = useState(settings.badgeType)
   const ttlRef = useRef<HTMLInputElement>(null)
   const scrollWaitRef = useRef<HTMLInputElement>(null)
   const scrollMaxRef = useRef<HTMLInputElement>(null)
@@ -77,17 +87,55 @@ function XueqiuEditorForm({ fresh, ctx, handleRef }: XueqiuEditorFormProps) {
           section: xueqiu,
           validate: validateConfig,
           onError: (msg) => setError(msg),
-          onSuccess: () => ctx.close(),
+          onSuccess: () => {
+            void saveSourceSettings(ctx.runtime, sourceId, { tabTitle, priority, badgeType })
+            ctx.close()
+          },
         })
       },
       cancel() {
         ctx.close()
       },
     }
-  }, [ttl, scrollWait, scrollMax])
+  }, [ttl, scrollWait, scrollMax, tabTitle, priority, badgeType])
 
   return (
     <div class="gm-sp-editor">
+      <div class="gm-sp-editor-source-settings">
+        <label class="gm-sp-editor-row">
+          <span>Tab 标题</span>
+          <input
+            type="text"
+            class="gm-sp-input"
+            placeholder="留空使用默认"
+            value={tabTitle}
+            onInput={(e) => setTabTitle((e.target as HTMLInputElement).value)}
+          />
+        </label>
+        <label class="gm-sp-editor-row">
+          <span>优先级</span>
+          <input
+            type="number"
+            class="gm-sp-input"
+            value={priority}
+            onInput={(e) => setPriority(Number((e.target as HTMLInputElement).value))}
+          />
+        </label>
+        <label class="gm-sp-editor-row">
+          <span>Badge 显示</span>
+          <select
+            value={badgeType}
+            onChange={(e) =>
+              setBadgeType((e.target as HTMLSelectElement).value as import('../types').BadgeType)
+            }
+          >
+            <option value="default">默认</option>
+            <option value="none">不显示</option>
+            <option value="allUnread">全部未读数</option>
+            <option value="todayUnread">今日未读数</option>
+          </select>
+        </label>
+      </div>
       <div class="gm-sp-editor-form">
         <label class="gm-sp-editor-row">
           <span>TTL（分钟）</span>
@@ -135,11 +183,24 @@ function XueqiuEditorForm({ fresh, ctx, handleRef }: XueqiuEditorFormProps) {
   )
 }
 
-export function createXueqiuEditor(options: XueqiuSourceOptions): SourceEditor {
+export function createXueqiuEditor(
+  options: XueqiuSourceOptions,
+  sourceId: string,
+  settings: SourceSettings,
+): SourceEditor {
   return async (container, ctx): Promise<SourceEditorResult> => {
     const fresh = await loadFreshOptions(ctx.runtime, options)
     const handleRef: { current: SourceEditorResult | null } = { current: null }
-    render(<XueqiuEditorForm fresh={fresh} ctx={ctx} handleRef={handleRef} />, container)
+    render(
+      <XueqiuEditorForm
+        fresh={fresh}
+        sourceId={sourceId}
+        settings={settings}
+        ctx={ctx}
+        handleRef={handleRef}
+      />,
+      container,
+    )
     return {
       render: () => handleRef.current?.render?.(),
       save: () => handleRef.current?.save?.(),

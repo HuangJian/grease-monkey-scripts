@@ -2,8 +2,13 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { render } from 'preact'
 import { escapeHtml } from '../../utils'
 import { loadConfigSection, validateConfig } from '../config'
-import { readNumberFields, saveConfigSection } from '../editor-helpers'
-import type { SourceEditor, SourceEditorContext, SourceEditorResult } from '../types'
+import { readNumberFields, saveConfigSection, saveSourceSettings } from '../editor-helpers'
+import type {
+  SourceEditor,
+  SourceEditorContext,
+  SourceEditorResult,
+  SourceSettings,
+} from '../types'
 import { adapterByHostname } from './adapters/registry'
 import type { NovelEntry, NovelSourceOptions } from './types'
 import type { Runtime } from '../../runtime'
@@ -81,11 +86,12 @@ function isUnknownHost(url: string): boolean {
 type NovelsEditorFormProps = {
   fresh: NovelSourceOptions
   titleMap: Map<string, string>
+  settings: SourceSettings
   ctx: SourceEditorContext
   handleRef: { current: SourceEditorResult | null }
 }
 
-function NovelsEditorForm({ fresh, titleMap, ctx, handleRef }: NovelsEditorFormProps) {
+function NovelsEditorForm({ fresh, titleMap, settings, ctx, handleRef }: NovelsEditorFormProps) {
   const [entries, setEntries] = useState<NovelEntry[]>(() => fresh.entries.map((e) => ({ ...e })))
   const [error, setError] = useState('')
   const [advanced, setAdvanced] = useState<Record<string, number>>(() => {
@@ -96,6 +102,9 @@ function NovelsEditorForm({ fresh, titleMap, ctx, handleRef }: NovelsEditorFormP
     }
     return out
   })
+  const [tabTitle, setTabTitle] = useState(settings.tabTitle)
+  const [priority, setPriority] = useState(settings.priority)
+  const [badgeType, setBadgeType] = useState(settings.badgeType)
   const urlRef = useRef<HTMLInputElement>(null)
   const aliasRef = useRef<HTMLInputElement>(null)
   const advancedRefs = useRef<(HTMLInputElement | null)[]>([])
@@ -168,17 +177,54 @@ function NovelsEditorForm({ fresh, titleMap, ctx, handleRef }: NovelsEditorFormP
           section: novels,
           validate: validateConfig,
           onError: (msg) => setError(msg),
-          onSuccess: () => ctx.close(),
+          onSuccess: () => {
+            void saveSourceSettings(ctx.runtime, 'novels', { tabTitle, priority, badgeType })
+            ctx.close()
+          },
         })
       },
       cancel() {
         ctx.close()
       },
     }
-  }, [entries, advanced])
+  }, [entries, advanced, tabTitle, priority, badgeType])
 
   return (
     <div class="gm-sp-editor">
+      <div class="gm-sp-editor-source-settings">
+        <label class="gm-sp-editor-row">
+          <span>Tab 标题</span>
+          <input
+            type="text"
+            class="gm-sp-input"
+            placeholder="留空使用默认"
+            value={tabTitle}
+            onInput={(e) => setTabTitle((e.target as HTMLInputElement).value)}
+          />
+        </label>
+        <label class="gm-sp-editor-row">
+          <span>优先级</span>
+          <input
+            type="number"
+            class="gm-sp-input"
+            value={priority}
+            onInput={(e) => setPriority(Number((e.target as HTMLInputElement).value))}
+          />
+        </label>
+        <label class="gm-sp-editor-row">
+          <span>Badge 显示</span>
+          <select
+            value={badgeType}
+            onChange={(e) =>
+              setBadgeType((e.target as HTMLSelectElement).value as import('../types').BadgeType)
+            }
+          >
+            <option value="default">默认</option>
+            <option value="none">不显示</option>
+            <option value="allUnread">全部未读数</option>
+          </select>
+        </label>
+      </div>
       <div class="gm-sp-editor-list">
         {entries.length === 0 ? (
           <div class="gm-sp-editor-empty">尚未添加书库</div>
@@ -262,13 +308,22 @@ function NovelsEditorForm({ fresh, titleMap, ctx, handleRef }: NovelsEditorFormP
   )
 }
 
-export function createNovelsEditor(options: NovelsEditorOptions): SourceEditor {
+export function createNovelsEditor(
+  options: NovelsEditorOptions,
+  settings: SourceSettings,
+): SourceEditor {
   return async (container, ctx): Promise<SourceEditorResult> => {
     const fresh = await loadFreshOptions(ctx.runtime, options)
     const titleMap = await options.getCachedTitles()
     const handleRef: { current: SourceEditorResult | null } = { current: null }
     render(
-      <NovelsEditorForm fresh={fresh} titleMap={titleMap} ctx={ctx} handleRef={handleRef} />,
+      <NovelsEditorForm
+        fresh={fresh}
+        titleMap={titleMap}
+        settings={settings}
+        ctx={ctx}
+        handleRef={handleRef}
+      />,
       container,
     )
     return {

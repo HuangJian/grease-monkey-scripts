@@ -3,7 +3,7 @@ import { h } from 'preact'
 import type { Runtime } from '../../runtime'
 import { mountOverlay, type OverlayHandle } from '../shell/mount'
 import type { CardGroup } from '../card-group'
-import type { CachedSource } from '../types'
+import type { CachedSource, SourceSettings } from '../types'
 import { RenderCard } from '../card/card'
 import { TabsCard } from '../card/tabs-card'
 import { isTabsGroup } from './group-renderer'
@@ -14,6 +14,7 @@ export type MountDeps = {
   cardGroups: CardGroup[]
   activeTabByGroup: Map<string, string>
   groupForSource: Map<string, CardGroup>
+  sourceSettings: Record<string, SourceSettings>
   dashboard: { close: () => void; refreshSource: (sourceId: string) => Promise<void> }
   renderGroupById: (groupId: string) => void
 }
@@ -60,6 +61,7 @@ export function mountDashboard(deps: MountDeps): OverlayHandle {
           runtime: deps.runtime,
           root: newHandle.root,
           activeTabId,
+          sourceSettings: deps.sourceSettings,
           onTabChange: (tabId) => {
             deps.activeTabByGroup.set(group.id, tabId)
             deps.renderGroupById(group.id)

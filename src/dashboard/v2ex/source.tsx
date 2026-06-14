@@ -1,5 +1,5 @@
 import type { Runtime } from '../../runtime'
-import type { Source, SourceHeaderProps } from '../types'
+import type { Source, SourceHeaderProps, SourceSettings } from '../types'
 import {
   AUTHOR_TAGS_LS_KEY,
   parseAuthorTagMap,
@@ -95,8 +95,8 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
       await state.loadFromStorage(runtime)
       await syncAuthorTags(runtime)
     },
-    createEditor() {
-      return createV2exEditor(options)
+    createEditor(settings: SourceSettings) {
+      return createV2exEditor(options, settings)
     },
   }
 }

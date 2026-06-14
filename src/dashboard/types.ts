@@ -81,6 +81,7 @@ export type Config = {
     enabled: boolean
   }
   hostAllowlist: string[]
+  sourceSettings: Record<string, SourceSettings>
 }
 
 export type SourceEditorContext = {
@@ -102,6 +103,14 @@ export type SourceEditor = (
 ) => SourceEditorResult | Promise<SourceEditorResult>
 
 export type TabLabel = { label: string; badge?: string | number | null }
+
+export type BadgeType = 'default' | 'none' | 'allUnread' | 'todayUnread' | 'subBoardUpdate'
+
+export type SourceSettings = {
+  tabTitle: string
+  priority: number
+  badgeType: BadgeType
+}
 
 export type SourceComponentProps<T> = {
   data: T | null
@@ -138,9 +147,22 @@ export type Source<T> = {
   headerState?: Record<string, unknown>
   fetch(runtime: Runtime, prevData?: T): Promise<T>
   loadState?(runtime: Runtime): Promise<void>
-  createEditor?: () => SourceEditor
+  createEditor?: (settings: SourceSettings) => SourceEditor
 }
 
 export function resolveTtl<T>(source: Source<T>, ttlMinutes: number): number {
   return ttlMinutes * 60_000
+}
+
+export const DEFAULT_SOURCE_SETTINGS: SourceSettings = {
+  tabTitle: '',
+  priority: 0,
+  badgeType: 'default',
+}
+
+export function getSourceSettings(
+  all: Record<string, SourceSettings> | undefined,
+  sourceId: string,
+): SourceSettings {
+  return all?.[sourceId] ?? DEFAULT_SOURCE_SETTINGS
 }

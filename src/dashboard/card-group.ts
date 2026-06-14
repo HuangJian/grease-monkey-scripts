@@ -1,4 +1,4 @@
-import type { Source } from './types'
+import type { Source, SourceSettings } from './types'
 
 export type CardGroup = {
   id: string
@@ -6,7 +6,10 @@ export type CardGroup = {
   tabs: Source<unknown>[]
 }
 
-export function buildCardGroups(sources: Source<unknown>[]): CardGroup[] {
+export function buildCardGroups(
+  sources: Source<unknown>[],
+  sourceSettings?: Record<string, SourceSettings>,
+): CardGroup[] {
   const groupMap = new Map<string, CardGroup>()
   const singletons: Source<unknown>[] = []
   for (const source of sources) {
@@ -27,7 +30,11 @@ export function buildCardGroups(sources: Source<unknown>[]): CardGroup[] {
   }
   const groups: CardGroup[] = []
   for (const group of groupMap.values()) {
-    group.tabs.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    group.tabs.sort((a, b) => {
+      const pa = sourceSettings?.[a.id]?.priority ?? a.order ?? 0
+      const pb = sourceSettings?.[b.id]?.priority ?? b.order ?? 0
+      return pa - pb
+    })
     groups.push(group)
   }
   for (const source of singletons) {

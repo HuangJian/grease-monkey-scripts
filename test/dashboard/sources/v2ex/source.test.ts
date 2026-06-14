@@ -32,7 +32,7 @@ describe('createV2exSource', () => {
 
   test('createEditor returns an editor function', () => {
     const source = createV2exSource(DEFAULTS)
-    const editor = source.createEditor?.()
+    const editor = source.createEditor?.({ tabTitle: '', priority: 0, badgeType: 'default' })
     expect(typeof editor).toBe('function')
   })
 

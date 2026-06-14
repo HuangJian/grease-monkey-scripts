@@ -99,7 +99,9 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
           section: { cities, ttlMinutes: fresh.ttlMinutes } satisfies WeatherSourceOptions,
           validate: validateConfig,
           onError: (msg) => setError(msg),
-          onSuccess: () => ctx.close(),
+          onSuccess: () => {
+            ctx.close()
+          },
         })
       },
       cancel() {

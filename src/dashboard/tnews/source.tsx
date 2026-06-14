@@ -1,6 +1,6 @@
 import type { Runtime } from '../../runtime'
 import { estimateByteSize } from '../cache'
-import type { Source, TabLabel } from '../types'
+import type { Source, SourceSettings, TabLabel } from '../types'
 import { RETENTION_MS } from './constants'
 import { TnewsComponent } from './component'
 import { createTnewsEditor, loadFreshTnewsOptions } from './editor'
@@ -64,8 +64,8 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
     async loadState(runtime) {
       await state.loadFromStorage(runtime)
     },
-    createEditor() {
-      return createTnewsEditor(options)
+    createEditor(settings: SourceSettings) {
+      return createTnewsEditor(options, settings)
     },
   }
   const handle: TnewsHandle = {

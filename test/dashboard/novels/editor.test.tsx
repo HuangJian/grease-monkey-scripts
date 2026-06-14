@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { cleanup, within } from '@testing-library/preact'
 import { createNovelsEditor } from '../../../src/dashboard/novels/editor'
-import { CONFIG_KEY } from '../../../src/dashboard/types'
+import { CONFIG_KEY, DEFAULT_SOURCE_SETTINGS } from '../../../src/dashboard/types'
 import { createRuntime, type TestRuntime } from '../../runtime'
 import type { NovelEntry } from '../../../src/dashboard/novels/types'
 
@@ -30,11 +30,14 @@ const baseOptions = {
 }
 
 async function mountEditor(entries: NovelEntry[], cachedTitles: Map<string, string> = new Map()) {
-  const editor = createNovelsEditor({
-    entries,
-    ...baseOptions,
-    getCachedTitles: () => Promise.resolve(cachedTitles),
-  })
+  const editor = createNovelsEditor(
+    {
+      entries,
+      ...baseOptions,
+      getCachedTitles: () => Promise.resolve(cachedTitles),
+    },
+    DEFAULT_SOURCE_SETTINGS,
+  )
   const result = await editor(root, {
     runtime,
     onRevert: () => {},
@@ -158,7 +161,8 @@ describe('createNovelsEditor', () => {
 
   test('save rejects invalid TTL', async () => {
     const result = await mountEditor([])
-    const inputs = within(root).queryAllByRole('spinbutton')
+    const advanced = root.querySelector('.gm-sp-editor-advanced') as HTMLElement
+    const inputs = within(advanced).queryAllByRole('spinbutton')
     ;(inputs[0] as HTMLInputElement).value = '0'
     void result.save?.()
     await new Promise((r) => setTimeout(r, 0))

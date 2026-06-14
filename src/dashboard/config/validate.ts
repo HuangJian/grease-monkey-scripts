@@ -1,5 +1,7 @@
 import { isPlainObject } from './merge'
 
+const VALID_BADGE_TYPES = ['default', 'none', 'allUnread', 'todayUnread', 'subBoardUpdate']
+
 export type ConfigValidation = { ok: true } | { ok: false; error: string }
 
 export function validateConfig(value: unknown): ConfigValidation {
@@ -302,6 +304,29 @@ export function validateConfig(value: unknown): ConfigValidation {
             ok: false,
             error: `hupu.${name} 必须是 ${min}–${Number.isFinite(max) ? max : '∞'} 之间的数`,
           }
+        }
+      }
+    }
+  }
+  if ('sourceSettings' in value) {
+    const s = value['sourceSettings']
+    if (!isPlainObject(s)) {
+      return { ok: false, error: 'sourceSettings 必须是对象' }
+    }
+    for (const [key, v] of Object.entries(s)) {
+      if (!isPlainObject(v)) {
+        return { ok: false, error: `sourceSettings.${key} 必须是对象` }
+      }
+      if ('tabTitle' in v && typeof v['tabTitle'] !== 'string') {
+        return { ok: false, error: `sourceSettings.${key}.tabTitle 必须是 string` }
+      }
+      if ('priority' in v && typeof v['priority'] !== 'number') {
+        return { ok: false, error: `sourceSettings.${key}.priority 必须是 number` }
+      }
+      if ('badgeType' in v && !VALID_BADGE_TYPES.includes(v['badgeType'] as string)) {
+        return {
+          ok: false,
+          error: `sourceSettings.${key}.badgeType 必须是 ${VALID_BADGE_TYPES.join('/')}`,
         }
       }
     }

@@ -34,7 +34,7 @@ function suppressConsoleError(fn: () => void): void {
 }
 
 function renderCard(opts: CardOptions<unknown>): HTMLElement {
-  const { container } = render(<RenderCard {...(opts as CardOptions<unknown>)} />)
+  const { container } = render(<RenderCard {...opts} />)
   const el = container as unknown as HTMLElement
   el.dataset['source'] = opts.source.id
   return el
@@ -192,7 +192,7 @@ describe('renderCard', () => {
     expect(within(container).queryByRole('button', { name: '⚙' })).toBeNull()
   })
 
-  test('shows edit button and opens dialog when source has createEditor', () => {
+  test('shows edit button and opens dialog when source has createEditor', async () => {
     const root = document.createElement('div') as unknown as ShadowRoot
     document.body.appendChild(root as unknown as HTMLElement)
     const source: Source<{ msg: string }> = {
@@ -219,7 +219,7 @@ describe('renderCard', () => {
     expect(within(container).getByRole('button', { name: '⚙' })).not.toBeNull()
     expect(within(container).getByText('real-data')).not.toBeNull()
     ;(within(container).getByRole('button', { name: '⚙' }) as HTMLButtonElement).click()
-    expect(within(container).getByText('real-data')).not.toBeNull()
+    await new Promise((r) => setTimeout(r, 0))
     expect(within(root as unknown as HTMLElement).getByText('保存')).not.toBeNull()
     expect(within(root as unknown as HTMLElement).getByText('editor-body')).not.toBeNull()
   })

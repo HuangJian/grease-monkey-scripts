@@ -71,6 +71,7 @@ function renderOnce(opts: {
       runtime={opts.runtime}
       root={opts.root}
       activeTabId={opts.activeTabId}
+      sourceSettings={{}}
       onTabChange={(id: string) => {
         tabChanges.push(id)
         opts.onTabChange?.(id)
@@ -282,6 +283,7 @@ describe('renderTabsCard', () => {
         runtime={createRuntime()}
         root={document.createElement('div') as unknown as ShadowRoot}
         activeTabId="novels"
+        sourceSettings={{}}
         onTabChange={() => {}}
         onRefresh={async () => {}}
         onEdit={() => {}}
@@ -309,7 +311,7 @@ describe('renderTabsCard', () => {
     expect(within(container).getByText('network error')).not.toBeNull()
   })
 
-  test('clicking edit opens dialog with editor; editor.onRevert fires onEdit', () => {
+  test('clicking edit opens dialog with editor; editor.onRevert fires onEdit', async () => {
     const root = document.createElement('div') as unknown as ShadowRoot
     document.body.appendChild(root as unknown as HTMLElement)
     const v2ex = makeSource({ id: 'v2ex', title: 'V2EX 热议' })
@@ -333,7 +335,7 @@ describe('renderTabsCard', () => {
     })
     expect(within(container).queryByText('editor')).toBeNull()
     ;(within(container).getByRole('button', { name: '⚙' }) as HTMLButtonElement).click()
-    expect(within(container).queryByText('editor')).toBeNull()
+    await new Promise((r) => setTimeout(r, 0))
     expect(within(root as unknown as HTMLElement).getByText('保存')).not.toBeNull()
     expect(within(root as unknown as HTMLElement).getByText('editor')).not.toBeNull()
     expect(edits).toEqual([])

@@ -1,5 +1,5 @@
 import type { Runtime } from '../../runtime'
-import type { Source, SourceHeaderProps, TabLabel } from '../types'
+import type { Source, SourceHeaderProps, SourceSettings, TabLabel } from '../types'
 import { loadCache } from '../cache'
 import { XueqiuComponent, XueqiuDateFilter, applyDateFilter, type DateFilter } from './component'
 import { createXueqiuEditor } from './editor'
@@ -74,8 +74,8 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
         dateFilter={mainDateFilter}
       />
     ),
-    createEditor() {
-      return createXueqiuEditor(options)
+    createEditor(settings: SourceSettings) {
+      return createXueqiuEditor(options, MAIN_SOURCE_ID, settings)
     },
   }
 
@@ -132,8 +132,8 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
         dateFilter={hotDateFilter}
       />
     ),
-    createEditor() {
-      return createXueqiuEditor(options)
+    createEditor(settings: SourceSettings) {
+      return createXueqiuEditor(options, HOT_SOURCE_ID, settings)
     },
   }
 

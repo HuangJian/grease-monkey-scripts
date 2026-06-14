@@ -5,7 +5,7 @@ import {
 } from '../../shared/author-labels'
 import type { Runtime } from '../../runtime'
 import { loadConfigSection } from '../config'
-import type { Source, SourceHeaderProps } from '../types'
+import type { Source, SourceHeaderProps, SourceSettings } from '../types'
 import { RedditComponent, RedditDateFilter, type DateFilter } from './component'
 import { createExpandCollapse } from './expand-collapse'
 import { createRedditEditor } from './editor'
@@ -113,8 +113,8 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
       await state.loadFromStorage(runtime)
       await syncAuthorTags(runtime)
     },
-    createEditor() {
-      return createRedditEditor(options)
+    createEditor(settings: SourceSettings) {
+      return createRedditEditor(options, settings)
     },
   }
 }
