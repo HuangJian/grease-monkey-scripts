@@ -368,19 +368,16 @@ describe('createDashboard', () => {
   })
 
   test('editConfig merges and persists user override', () => {
-    const prompts: string[] = []
-    runtime.prompt = (msg?: string) => {
-      prompts.push(msg ?? '')
-      if (msg?.includes('配置 JSON 解析失败')) return null
-      if (msg?.includes('配置校验失败')) return null
-      if (msg === '配置已保存，刷新页面后生效。') return null
-      return JSON.stringify({
+    const originalAlert = window.alert
+    window.alert = () => {}
+    runtime.prompt = () =>
+      JSON.stringify({
         weather: { cities: [{ latitude: 31.2, longitude: 121.5, cityLabel: '上海' }] },
       })
-    }
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     dashboard.editConfig()
+    window.alert = originalAlert
     const stored = runtime.stores['dashboard:v1:config'] as {
       weather: { cities: { cityLabel: string; latitude: number }[]; ttlMinutes: number }
     }
