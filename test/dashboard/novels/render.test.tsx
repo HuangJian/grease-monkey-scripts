@@ -265,4 +265,42 @@ describe('renderNovels', () => {
     within(items[1]!).getByRole('link').click()
     expect(markedSeen).toEqual(['https://www.sudugu.org/166/', 'https://www.sudugu.org/166/'])
   })
+
+  test('bugfix: folded state resets when unread count drops below threshold across re-render', () => {
+    const chapters6 = Array.from({ length: 6 }, (_, i) =>
+      chapter(`https://www.sudugu.org/166/c${i}.html`, `第${i}章`, Date.now() - i * 1000),
+    )
+    const data6: NovelData = {
+      books: [
+        book({
+          url: 'https://www.sudugu.org/166/',
+          siteId: 'sudugu',
+          title: '龙藏',
+          latestChapters: chapters6,
+        }),
+      ],
+    }
+    renderNovels(root, data6, ctx())
+    const list = within(root).getByRole('list')
+    expect(list.classList.contains('gm-sp-novels-chapters-folded')).toBe(true)
+    expect(within(root).getAllByRole('listitem').length).toBe(2)
+
+    const chapters3 = Array.from({ length: 3 }, (_, i) =>
+      chapter(`https://www.sudugu.org/166/c${i}.html`, `第${i}章`, Date.now() - i * 1000),
+    )
+    const data3: NovelData = {
+      books: [
+        book({
+          url: 'https://www.sudugu.org/166/',
+          siteId: 'sudugu',
+          title: '龙藏',
+          latestChapters: chapters3,
+        }),
+      ],
+    }
+    renderNovels(root, data3, ctx())
+    const list2 = within(root).getByRole('list')
+    expect(list2.classList.contains('gm-sp-novels-chapters-folded')).toBe(false)
+    expect(within(root).getAllByRole('listitem').length).toBe(3)
+  })
 })

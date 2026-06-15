@@ -33,7 +33,7 @@ export function NovelsComponent({ data, onMarkSeen }: NovelsComponentProps) {
   return (
     <div class="gm-sp-novels">
       {sorted.map((book) => (
-        <BookBlock book={book} onMarkSeen={onMarkSeen} />
+        <BookBlock key={book.url} book={book} onMarkSeen={onMarkSeen} />
       ))}
     </div>
   )
@@ -100,7 +100,6 @@ function BookBlock({
   }
 
   const statusText = `${unread.length} 章新`
-  const folded = unread.length > FOLD_THRESHOLD
 
   return (
     <div class="gm-sp-novels-book" data-book-url={bookUrl}>
@@ -109,7 +108,7 @@ function BookBlock({
         <span class="gm-sp-novels-book-status">{statusText}</span>
       </div>
       {errorNoteEl}
-      <ChapterList chapters={unread} folded={folded} onMarkSeen={() => onMarkSeen(book.url)} />
+      <ChapterList chapters={unread} onMarkSeen={() => onMarkSeen(book.url)} />
     </div>
   )
 }
@@ -129,14 +128,14 @@ function BookTitleLink({ url, titleText }: { url: string; titleText: string }) {
 
 function ChapterList({
   chapters,
-  folded,
   onMarkSeen,
 }: {
   chapters: NovelChapter[]
-  folded: boolean
   onMarkSeen: () => void
 }) {
-  const [isFolded, setIsFolded] = useState(folded)
+  const folded = chapters.length > FOLD_THRESHOLD
+  const [userExpanded, setUserExpanded] = useState(false)
+  const isFolded = folded && !userExpanded
   const displayChapters = isFolded ? chapters.slice(0, 2) : chapters
   const hiddenCount = chapters.length - displayChapters.length
 
@@ -144,14 +143,14 @@ function ChapterList({
     <>
       <ul class={`gm-sp-list gm-sp-list-col${isFolded ? ' gm-sp-novels-chapters-folded' : ''}`}>
         {displayChapters.map((ch) => (
-          <ChapterItem chapter={ch} onMarkSeen={onMarkSeen} />
+          <ChapterItem key={ch.url} chapter={ch} onMarkSeen={onMarkSeen} />
         ))}
       </ul>
       {chapters.length > FOLD_THRESHOLD && (
         <button
           type="button"
           class="gm-sp-novels-book-toggle"
-          onClick={() => setIsFolded(!isFolded)}
+          onClick={() => setUserExpanded(!userExpanded)}
         >
           {isFolded ? `…还有 ${hiddenCount} 章未读` : '收起未读章节'}
         </button>
