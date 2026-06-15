@@ -43,7 +43,7 @@ export function mountDashboard(deps: MountDeps): OverlayHandle {
     origUnmount()
   }
   const now = Date.now()
-  for (const group of deps.cardGroups) {
+  deps.cardGroups.forEach((group) => {
     const container = group.placement === 'side' ? newHandle.sideCards : newHandle.mainCards
     const card = document.createElement('div')
     card.className = 'gm-sp-card'
@@ -51,7 +51,7 @@ export function mountDashboard(deps: MountDeps): OverlayHandle {
     if (isTabsGroup(group)) {
       const activeTabId = deps.activeTabByGroup.get(group.id) ?? group.tabs[0]!.id
       const emptyCaches = new Map<string, CachedSource<unknown> | null>()
-      for (const tab of group.tabs) emptyCaches.set(tab.id, null)
+      group.tabs.forEach((tab) => emptyCaches.set(tab.id, null))
       card.dataset['source'] = group.id
       render(
         h(TabsCard, {
@@ -90,6 +90,6 @@ export function mountDashboard(deps: MountDeps): OverlayHandle {
         card,
       )
     }
-  }
+  })
   return newHandle
 }

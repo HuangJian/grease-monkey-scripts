@@ -28,9 +28,7 @@ export async function fetchNovels(
   )
 
   const bookByUrl = new Map<string, NovelBook>()
-  for (const group of groupResults) {
-    for (const book of group) bookByUrl.set(book.url, book)
-  }
+  groupResults.forEach((group) => group.forEach((book) => bookByUrl.set(book.url, book)))
   return entries
     .map((entry) => bookByUrl.get(entry.url))
     .filter((b): b is NovelBook => b !== undefined)
@@ -43,11 +41,11 @@ async function fetchHostGroup(
   options: FetchNovelsOptions,
   resolveAdapter: (url: string) => NovelAdapter | undefined,
 ): Promise<NovelBook[]> {
-  const out: NovelBook[] = []
-  for (const entry of hostEntries) {
-    out.push(await fetchOneEntry(runtime, entry, prevByUrl.get(entry.url), options, resolveAdapter))
-  }
-  return out
+  return Promise.all(
+    hostEntries.map((entry) =>
+      fetchOneEntry(runtime, entry, prevByUrl.get(entry.url), options, resolveAdapter),
+    ),
+  )
 }
 
 async function fetchOneEntry(
@@ -119,9 +117,9 @@ export function mergeTail(
   const sliced = seenIdx >= 0 ? reversed.slice(0, seenIdx + 1) : reversed
 
   const labelByUrl = new Map<string, number>()
-  for (const c of latestThree) {
-    if (c.postedAt !== undefined) labelByUrl.set(c.url, c.postedAt)
-  }
+  latestThree
+    .filter((c): c is NovelChapter & { postedAt: number } => c.postedAt !== undefined)
+    .forEach((c) => labelByUrl.set(c.url, c.postedAt))
 
   const enriched = sliced.map((c) => {
     const pa = labelByUrl.get(c.url)
@@ -171,7 +169,7 @@ function hostnameFallback(url: string): string {
 
 function groupByHostname(entries: NovelEntry[]): Map<string, NovelEntry[]> {
   const groups = new Map<string, NovelEntry[]>()
-  for (const entry of entries) {
+  entries.forEach((entry) => {
     let hostname: string
     try {
       hostname = new URL(entry.url).hostname
@@ -181,7 +179,7 @@ function groupByHostname(entries: NovelEntry[]): Map<string, NovelEntry[]> {
     const arr = groups.get(hostname) ?? []
     arr.push(entry)
     groups.set(hostname, arr)
-  }
+  })
   return groups
 }
 

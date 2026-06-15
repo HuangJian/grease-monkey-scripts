@@ -23,8 +23,8 @@ export function parseHupuDataJson(json: unknown, board: string, maxItems: number
   if (!Array.isArray(list)) return []
   const out: HupuPost[] = []
   const now = Date.now()
-  for (const item of list) {
-    if (!item || typeof item !== 'object') continue
+  list.some((item) => {
+    if (!item || typeof item !== 'object') return false
     const d = item as Record<string, unknown>
     const tid = typeof d['tid'] === 'string' ? d['tid'] : String(d['tid'] ?? '')
     const title = typeof d['title'] === 'string' ? d['title'] : ''
@@ -39,7 +39,7 @@ export function parseHupuDataJson(json: unknown, board: string, maxItems: number
     const authorUrl = authorObj && typeof authorObj['url'] === 'string' ? authorObj['url'] : ''
     const topicObj = d['topic'] as Record<string, unknown> | undefined
     const topicName = topicObj && typeof topicObj['name'] === 'string' ? topicObj['name'] : ''
-    if (!tid || !title) continue
+    if (!tid || !title) return false
     const fullUrl = url ? toAbsoluteUrl(url, HUPU_BASE_URL) || `${HUPU_BASE_URL}${url}` : ''
     out.push({
       id: tid,
@@ -54,8 +54,8 @@ export function parseHupuDataJson(json: unknown, board: string, maxItems: number
       topicName,
       created: Number.isFinite(createdAt) && createdAt > 0 ? createdAt : now,
     })
-    if (out.length >= maxItems) break
-  }
+    return out.length >= maxItems
+  })
   return out
 }
 
@@ -70,12 +70,12 @@ export function parseHupuDom(
   const items = doc.querySelectorAll('.bbs-sl-web-post-body')
   const out: HupuPost[] = []
   const now = Date.now()
-  for (const item of items) {
+  Array.from(items).some((item) => {
     const titleEl = item.querySelector('.post-title a.p-title')
-    if (!titleEl) continue
+    if (!titleEl) return false
     const href = titleEl.getAttribute('href') ?? ''
     const title = (titleEl.textContent ?? '').trim()
-    if (!title || !href) continue
+    if (!title || !href) return false
     const idMatch = href.match(/\/(\d+)\.html/)
     const id = idMatch ? idMatch[1] : href
     const fullUrl = toAbsoluteUrl(href, HUPU_BASE_URL) || `${HUPU_BASE_URL}${href}`
@@ -103,8 +103,8 @@ export function parseHupuDom(
       topicName: '',
       created,
     })
-    if (out.length >= maxItems) break
-  }
+    return out.length >= maxItems
+  })
   return out
 }
 
@@ -134,26 +134,24 @@ function parseRelativeTime(text: string, now: number): number {
 
 export function mergeHupuPosts(jsonPosts: HupuPost[], domPosts: HupuPost[]): HupuPost[] {
   const byId = new Map<string, HupuPost>()
-  for (const p of jsonPosts) {
-    if (!p.id) continue
-    byId.set(p.id, p)
-  }
-  for (const p of domPosts) {
-    if (!p.id) continue
-    const existing = byId.get(p.id)
-    if (existing) {
-      byId.set(p.id, {
-        ...existing,
-        lights: Math.max(existing.lights, p.lights),
-        replies: Math.max(existing.replies, p.replies),
-        views: Math.max(existing.views, p.views),
-        author: existing.author || p.author,
-        authorUrl: existing.authorUrl || p.authorUrl,
-        topicName: existing.topicName || p.topicName,
-      })
-    } else {
-      byId.set(p.id, p)
-    }
-  }
+  jsonPosts.filter((p) => !!p.id).forEach((p) => byId.set(p.id, p))
+  domPosts
+    .filter((p) => !!p.id)
+    .forEach((p) => {
+      const existing = byId.get(p.id)
+      if (existing) {
+        byId.set(p.id, {
+          ...existing,
+          lights: Math.max(existing.lights, p.lights),
+          replies: Math.max(existing.replies, p.replies),
+          views: Math.max(existing.views, p.views),
+          author: existing.author || p.author,
+          authorUrl: existing.authorUrl || p.authorUrl,
+          topicName: existing.topicName || p.topicName,
+        })
+      } else {
+        byId.set(p.id, p)
+      }
+    })
   return Array.from(byId.values())
 }

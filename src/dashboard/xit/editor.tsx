@@ -78,10 +78,9 @@ function XitEditorForm({ initialText, targetLine, ctx, handleRef }: XitEditorFor
   useLayoutEffect(() => {
     if (targetLine === null || !textareaRef.current) return
     const textLines = initialText.split(/\r?\n/)
-    let charOffset = 0
-    for (let i = 0; i < Math.min(targetLine, textLines.length); i++) {
-      charOffset += textLines[i]!.length + 1
-    }
+    const charOffset = textLines
+      .slice(0, Math.min(targetLine, textLines.length))
+      .reduce((sum, line) => sum + line.length + 1, 0)
     const lineEnd = charOffset + (textLines[targetLine]?.length ?? 0)
     const ta = textareaRef.current
     requestAnimationFrame(() => {

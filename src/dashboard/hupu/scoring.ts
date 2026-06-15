@@ -114,35 +114,35 @@ export function mergeBoardPosts(
   history: ReadonlyArray<StoredHistoryPost>,
 ): Array<{ board: string; posts: HupuPost[] }> {
   const liveByBoard = new Map<string, HupuPost[]>()
-  for (const { board, posts } of perBoardLive) {
-    if (posts.length === 0) continue
-    liveByBoard.set(board, [...(liveByBoard.get(board) ?? []), ...posts])
-  }
+  perBoardLive
+    .filter(({ posts }) => posts.length > 0)
+    .forEach(({ board, posts }) => {
+      liveByBoard.set(board, [...(liveByBoard.get(board) ?? []), ...posts])
+    })
 
   const out: Array<{ board: string; posts: HupuPost[] }> = []
   const seenIds = new Set<string>()
 
-  for (const [board, livePosts] of liveByBoard) {
+  liveByBoard.forEach((livePosts, board) => {
     const byId = new Map<string, HupuPost>()
-    for (const p of livePosts) {
-      if (!byId.has(p.id)) byId.set(p.id, p)
-    }
-    for (const h of history) {
-      if (!h.boards.includes(board)) continue
-      if (seenIds.has(h.id)) continue
-      const existing = byId.get(h.id)
-      byId.set(h.id, mergePost(existing, h))
-    }
+    livePosts.filter((p) => !byId.has(p.id)).forEach((p) => byId.set(p.id, p))
+    history
+      .filter((h) => h.boards.includes(board))
+      .filter((h) => !seenIds.has(h.id))
+      .forEach((h) => {
+        const existing = byId.get(h.id)
+        byId.set(h.id, mergePost(existing, h))
+      })
     const posts = Array.from(byId.values())
-    for (const p of posts) seenIds.add(p.id)
+    posts.forEach((p) => seenIds.add(p.id))
     out.push({ board, posts })
-  }
+  })
 
-  for (const h of history) {
-    if (seenIds.has(h.id)) continue
+  history.forEach((h) => {
+    if (seenIds.has(h.id)) return
     const liveBoards = new Set(liveByBoard.keys())
     const matchingBoards = h.boards.filter((b) => liveBoards.has(b))
-    if (matchingBoards.length === 0) continue
+    if (matchingBoards.length === 0) return
     const board = matchingBoards[0]!
     const existing = out.find((x) => x.board === board)
     const post: HupuPost = {
@@ -164,7 +164,7 @@ export function mergeBoardPosts(
     } else {
       out.push({ board, posts: [post] })
     }
-  }
+  })
 
   return out
 }
@@ -179,7 +179,7 @@ export function selectPostsPerBoard(
 ): Map<string, HupuPost[]> {
   const todayStartMs = getTodayStartMs()
   const result = new Map<string, HupuPost[]>()
-  for (const { board, posts } of merged) {
+  merged.forEach(({ board, posts }) => {
     const filtered = posts.filter((p) => {
       if (p.created < todayStartMs) {
         return p.replies >= options.olderMinReplies
@@ -192,6 +192,6 @@ export function selectPostsPerBoard(
       return db - da
     })
     result.set(board, sorted)
-  }
+  })
   return result
 }

@@ -2,10 +2,7 @@ import type { Runtime } from '../runtime'
 import { CACHE_KEY, type CachedSource } from './types'
 
 export function unionUnique(a: ReadonlyArray<string>, b: ReadonlyArray<string>): string[] {
-  const out: string[] = []
-  for (const s of a) if (!out.includes(s)) out.push(s)
-  for (const s of b) if (!out.includes(s)) out.push(s)
-  return out
+  return [...new Set([...a, ...b])]
 }
 
 export async function removeFromCachedGrouped<T extends { id: string }>(
@@ -21,11 +18,11 @@ export async function removeFromCachedGrouped<T extends { id: string }>(
     if (!cached?.data || typeof cached.data !== 'object' || Array.isArray(cached.data)) return
     const next: Record<string, T[]> = {}
     let changed = false
-    for (const [key, items] of Object.entries(cached.data)) {
+    Object.entries(cached.data).forEach(([key, items]) => {
       const filtered = items.filter((p) => p.id !== id)
       if (filtered.length !== items.length) changed = true
       if (filtered.length > 0) next[key] = filtered
-    }
+    })
     if (!changed) return
     await runtime.setValue(CACHE_KEY(sourceId), { ...cached, data: next })
   } catch {

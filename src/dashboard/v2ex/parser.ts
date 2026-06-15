@@ -6,8 +6,8 @@ import type { V2exTopic } from './types'
 export function parseV2ex(json: unknown, maxItems: number): V2exTopic[] {
   if (!Array.isArray(json)) return []
   const topics: V2exTopic[] = []
-  for (const item of json) {
-    if (!item || typeof item !== 'object') continue
+  json.some((item) => {
+    if (!item || typeof item !== 'object') return false
     const t = item as Record<string, unknown>
     const id = typeof t.id === 'number' ? t.id : Number(t.id)
     const title = typeof t.title === 'string' ? t.title : ''
@@ -22,8 +22,8 @@ export function parseV2ex(json: unknown, maxItems: number): V2exTopic[] {
         : { username: '' }
     const node =
       nodeObj && typeof nodeObj.title === 'string' ? { title: nodeObj.title } : { title: '' }
-    if (!Number.isFinite(id) || id <= 0) continue
-    if (!title || !url) continue
+    if (!Number.isFinite(id) || id <= 0) return false
+    if (!title || !url) return false
     topics.push({
       id,
       title,
@@ -34,8 +34,8 @@ export function parseV2ex(json: unknown, maxItems: number): V2exTopic[] {
       sources: [],
       created: Number.isFinite(created) && created > 0 ? created : undefined,
     })
-    if (topics.length >= maxItems) break
-  }
+    return topics.length >= maxItems
+  })
   return topics
 }
 
@@ -56,16 +56,16 @@ export function parseV2exHotPage(
   const doc = htmlToDocument(html, domParser)
   const rows = doc.querySelectorAll('.cell.item')
   const topics: V2exTopic[] = []
-  for (const row of rows) {
+  Array.from(rows).some((row) => {
     const linkEl = row.querySelector('a.topic-link')
-    if (!linkEl) continue
+    if (!linkEl) return false
     const href = linkEl.getAttribute('href') ?? ''
     const idMatch = href.match(TOPIC_PATH_RE)
-    if (!idMatch) continue
+    if (!idMatch) return false
     const id = Number(idMatch[1])
-    if (!Number.isFinite(id) || id <= 0) continue
+    if (!Number.isFinite(id) || id <= 0) return false
     const title = (linkEl.textContent ?? '').trim()
-    if (!title) continue
+    if (!title) return false
     const url = toAbsoluteUrl(href, HOT_PAGE_URL) || href
     const authorLink = row.querySelector('a[href^="/member/"]')
     const usernameMatch = authorLink?.getAttribute('href')?.match(MEMBER_PATH_RE)
@@ -87,8 +87,8 @@ export function parseV2exHotPage(
       sources: [],
       created,
     })
-    if (topics.length >= maxItems) break
-  }
+    return topics.length >= maxItems
+  })
   return topics
 }
 
@@ -129,13 +129,13 @@ export function mergeV2exTopics(
 
   const todayStartMs = getTodayStartMs()
 
-  for (const topic of byId.values()) {
+  byId.forEach((topic) => {
     if (topic.sources?.length === 1 && topic.sources[0] === 'page' && topic.created !== undefined) {
       if (topic.created < todayStartMs) {
         topic.sources = ['api']
       }
     }
-  }
+  })
 
   const filtered = Array.from(byId.values()).filter((topic) => {
     if (

@@ -31,9 +31,9 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
         title="全部已读"
         onClick={() => {
           const items = props.data ?? []
-          for (const item of items) {
+          items.forEach((item) => {
             state.markRead(item.id)
-          }
+          })
           void state.saveToStorage(props.runtime)
           props.onHeaderChange?.()
         }}

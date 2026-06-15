@@ -6,25 +6,25 @@ const STORAGE_KEY = 'dashboard:v1:xit-filters'
 let nextId = 1
 
 function bumpNextId(store: NamedFilterStore): void {
-  for (const f of store.filters) {
+  store.filters.forEach((f) => {
     const m = /^f(\d+)$/.exec(f.id)
     if (m) {
       const n = Number(m[1]) + 1
       if (n > nextId) nextId = n
     }
-  }
+  })
 }
 
 function deduplicateIds(store: NamedFilterStore): boolean {
   const seen = new Set<string>()
   let changed = false
-  for (const f of store.filters) {
+  store.filters.forEach((f) => {
     if (seen.has(f.id)) {
       f.id = `f${nextId++}`
       changed = true
     }
     seen.add(f.id)
-  }
+  })
   return changed
 }
 
@@ -74,7 +74,9 @@ export async function updateFilter(
   if (patch.query !== undefined) filter.query = patch.query
   if (patch.isDefault !== undefined) {
     if (patch.isDefault) {
-      for (const f of store.filters) f.isDefault = false
+      store.filters.forEach((f) => {
+        f.isDefault = false
+      })
     }
     filter.isDefault = patch.isDefault
   }
@@ -89,9 +91,9 @@ export async function deleteFilter(runtime: Runtime, id: string): Promise<void> 
 
 export async function setDefaultFilter(runtime: Runtime, id: string): Promise<void> {
   const store = await loadFilters(runtime)
-  for (const f of store.filters) {
+  store.filters.forEach((f) => {
     f.isDefault = f.id === id ? !f.isDefault : false
-  }
+  })
   await saveFilters(runtime, store)
 }
 

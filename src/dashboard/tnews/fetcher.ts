@@ -40,10 +40,10 @@ function buildCandidates(url: string, mirrors: ReadonlyArray<string>): string[] 
   try {
     const parsed = new URL(url)
     if (parsed.hostname === RSSHUB_HOST) {
-      for (const mirror of mirrors) {
+      mirrors.forEach((mirror) => {
         const mirrored = withMirror(url, mirror)
         if (!out.includes(mirrored)) out.push(mirrored)
-      }
+      })
     }
   } catch {
     /* ignore */
@@ -87,14 +87,13 @@ export async function fetchTnews(
   )
   const errors: string[] = []
   const allItems: TnewsItem[] = []
-  for (let i = 0; i < settled.length; i++) {
-    const outcome = settled[i]!
+  settled.forEach((outcome, i) => {
     if (outcome.error) {
       const feedLabel = options.feeds[i] ?? '<unknown>'
       errors.push(`${feedLabel}: ${outcome.error}`)
     }
-    for (const it of outcome.items) allItems.push(it)
-  }
+    outcome.items.forEach((it) => allItems.push(it))
+  })
   if (allItems.length === 0 && errors.length > 0) {
     throw new Error(`tnews: all feeds failed: ${errors.join('; ')}`)
   }

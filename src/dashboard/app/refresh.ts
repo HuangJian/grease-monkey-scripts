@@ -36,12 +36,13 @@ export async function runOpportunisticRefresh(
   refreshOne: (source: Source<unknown>) => Promise<void>,
 ): Promise<void> {
   const now = Date.now()
-  const stale: Source<unknown>[] = []
-  for (const source of sources) {
-    const cached = await loadCache<unknown>(runtime, source.id)
-    if (isStale(cached, source.ttlMs, now)) {
-      stale.push(source)
-    }
-  }
+  const stale = (
+    await Promise.all(
+      sources.map(async (source) => {
+        const cached = await loadCache<unknown>(runtime, source.id)
+        return isStale(cached, source.ttlMs, now) ? source : null
+      }),
+    )
+  ).filter((s): s is Source<unknown> => s !== null)
   await Promise.all(stale.map((s) => refreshOne(s)))
 }

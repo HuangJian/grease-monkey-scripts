@@ -38,9 +38,9 @@ export function createItemState<T extends string | number = string>(
 
   function expireNow(map: Map<string, number>): void {
     const now = Date.now()
-    for (const [k, ts] of map) {
-      if (now - ts >= ttlMs) map.delete(k)
-    }
+    Array.from(map)
+      .filter(([, ts]) => now - ts >= ttlMs)
+      .forEach(([k]) => map.delete(k))
   }
 
   return {
@@ -70,7 +70,7 @@ export function createItemState<T extends string | number = string>(
       async function loadFrom(key: string): Promise<boolean> {
         const stored = await runtime.getValue<Record<string, StoredEntry> | null>(key, null)
         if (!stored) return false
-        for (const [idStr, entry] of Object.entries(stored)) {
+        Object.entries(stored).forEach(([idStr, entry]) => {
           if (entry.r && now - entry.r < ttlMs && !readAt.has(idStr)) {
             readAt.set(idStr, entry.r)
           }
@@ -80,7 +80,7 @@ export function createItemState<T extends string | number = string>(
           if (entry.h && now - entry.h < ttlMs && !hiddenAt.has(idStr)) {
             hiddenAt.set(idStr, entry.h)
           }
-        }
+        })
         return true
       }
 
@@ -100,20 +100,20 @@ export function createItemState<T extends string | number = string>(
     async saveToStorage(runtime) {
       const now = Date.now()
       const obj: Record<string, StoredEntry> = {}
-      for (const [id, ts] of readAt) {
-        if (now - ts < ttlMs) {
+      Array.from(readAt)
+        .filter(([, ts]) => now - ts < ttlMs)
+        .forEach(([id, ts]) => {
           const entry: StoredEntry = { r: ts }
           const replies = readReplies.get(id)
           if (replies !== undefined) entry.n = replies
           obj[id] = entry
-        }
-      }
-      for (const [id, ts] of hiddenAt) {
-        if (now - ts < ttlMs) {
+        })
+      Array.from(hiddenAt)
+        .filter(([, ts]) => now - ts < ttlMs)
+        .forEach(([id, ts]) => {
           const prev = obj[id]
           obj[id] = prev ? { ...prev, h: ts } : { h: ts }
-        }
-      }
+        })
       await runtime.setValue(storageKey, obj)
     },
     clear() {

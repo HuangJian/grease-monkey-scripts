@@ -26,10 +26,8 @@ export function codeFromIconSrc(src: string): number | null {
 
 export function codeFromText(text: string): number | null {
   const t = text.trim()
-  for (const [k, v] of Object.entries(CMA_TEXT_TO_CODE)) {
-    if (t.includes(k)) return v
-  }
-  return null
+  const found = Object.entries(CMA_TEXT_TO_CODE).find(([k]) => t.includes(k))
+  return found ? found[1] : null
 }
 
 export function numOrNull(v: unknown): number | null {
@@ -61,38 +59,32 @@ export function extractIconSrcs(row: Element): string[] {
 export function extractNumberCells(row: Element, suffix: RegExp): number[] {
   const cells = row.querySelectorAll('td')
   const out: number[] = []
-  for (let i = 1; i < cells.length; i++) {
-    const t = (cells[i]?.textContent ?? '').trim().replace(suffix, '')
+  cells.forEach((c, i) => {
+    if (i === 0) return
+    const t = (c.textContent ?? '').trim().replace(suffix, '')
     const n = parseFloat(t)
     if (Number.isFinite(n)) out.push(n)
-  }
+  })
   return out
 }
 
 export function extractTextCells(row: Element): string[] {
-  const cells = row.querySelectorAll('td')
-  const out: string[] = []
-  for (let i = 1; i < cells.length; i++) {
-    out.push((cells[i]?.textContent ?? '').trim())
-  }
-  return out
+  const cells = Array.from(row.querySelectorAll('td')).slice(1)
+  return cells.map((c) => (c.textContent ?? '').trim())
 }
 
 export function extractPrecipCells(row: Element): (number | null)[] {
   const cells = row.querySelectorAll('td')
   const out: (number | null)[] = []
-  for (let i = 1; i < cells.length; i++) {
-    const t = (cells[i]?.textContent ?? '').trim()
+  cells.forEach((c, i) => {
+    if (i === 0) return
+    const t = (c.textContent ?? '').trim()
     if (t === '无降水' || t === '--') {
       out.push(null)
-      continue
+      return
     }
     const m = t.match(/^([\d.]+)mm$/)
-    if (m) {
-      out.push(parseFloat(m[1]!))
-    } else {
-      out.push(null)
-    }
-  }
+    out.push(m ? parseFloat(m[1]!) : null)
+  })
   return out
 }

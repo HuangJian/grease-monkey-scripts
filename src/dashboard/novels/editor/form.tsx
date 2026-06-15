@@ -38,14 +38,16 @@ export function NovelsEditorForm({
 }: NovelsEditorFormProps) {
   const [entries, setEntries] = useState<NovelEntry[]>(() => fresh.entries.map((e) => ({ ...e })))
   const [error, setError] = useState('')
-  const [advanced, setAdvanced] = useState<Record<string, number>>(() => {
-    const out: Record<string, number> = {}
-    for (const f of ADVANCED_FIELDS) {
-      const val = (fresh as Record<string, unknown>)[f.prop]
-      out[f.prop] = typeof val === 'number' ? val : 0
-    }
-    return out
-  })
+  const [advanced, setAdvanced] = useState<Record<string, number>>(() =>
+    ADVANCED_FIELDS.reduce(
+      (out, f) => {
+        const val = (fresh as Record<string, unknown>)[f.prop]
+        out[f.prop] = typeof val === 'number' ? val : 0
+        return out
+      },
+      {} as Record<string, number>,
+    ),
+  )
   const [tabTitle, setTabTitle] = useState(settings.tabTitle)
   const [priority, setPriority] = useState(settings.priority)
   const [badgeType, setBadgeType] = useState(settings.badgeType)

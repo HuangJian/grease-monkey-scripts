@@ -56,9 +56,9 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
                       (it) => !state.isHidden(String(it.id)) && !state.isRead(String(it.id)),
                     )
                   : state.filterVisible(dateFiltered)
-              for (const item of visible) {
+              visible.forEach((item) => {
                 state.markRead(String(item.id))
-              }
+              })
               void state.saveToStorage(props.runtime)
               props.onHeaderChange?.()
             }}
@@ -128,9 +128,9 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
                       (it) => !state.isHidden(String(it.id)) && !state.isRead(String(it.id)),
                     )
                   : state.filterVisible(dateFiltered)
-              for (const item of visible) {
+              visible.forEach((item) => {
                 state.markRead(String(item.id))
-              }
+              })
               void state.saveToStorage(props.runtime)
               props.onHeaderChange?.()
             }}

@@ -144,11 +144,9 @@ export function createV2exState(): V2exState {
       const now = Date.now()
       const existing = await this.loadHistory(runtime, historyDays)
       const byId = new Map<number, StoredHistoryTopic>()
-      for (const t of existing) {
-        byId.set(t.id, t)
-      }
-      for (const t of topics) {
-        if (!t.created || !Number.isFinite(t.created) || t.created <= 0) continue
+      existing.forEach((t) => byId.set(t.id, t))
+      topics.forEach((t) => {
+        if (!t.created || !Number.isFinite(t.created) || t.created <= 0) return
         const existingEntry = byId.get(t.id)
         byId.set(t.id, {
           id: t.id,
@@ -159,7 +157,7 @@ export function createV2exState(): V2exState {
           node: t.node,
           created: t.created,
         })
-      }
+      })
       const result = Array.from(byId.values()).filter(
         (t) => t.created !== undefined && now - t.created < historyTtl,
       )

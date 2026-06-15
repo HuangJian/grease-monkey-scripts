@@ -63,12 +63,12 @@ function dynamicCount(scores: ReadonlyArray<number>, minItems: number): number {
 
   const ELBOW_DROP_RATIO = 0.3
 
-  for (let i = 1; i < scores.length; i++) {
-    const prev = scores[i - 1]!
-    const curr = scores[i]!
+  const dropIdx = scores.slice(1).findIndex((curr, i) => {
+    const prev = scores[i]!
     const drop = (prev - curr) / leader
-    if (drop > ELBOW_DROP_RATIO) return Math.max(minItems, i)
-  }
+    return drop > ELBOW_DROP_RATIO
+  })
+  if (dropIdx >= 0) return Math.max(minItems, dropIdx + 1)
 
   return scores.length
 }

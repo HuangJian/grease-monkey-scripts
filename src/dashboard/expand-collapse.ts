@@ -44,7 +44,7 @@ export function createExpandCollapse<T extends string = string>(
       if (totalPosts <= threshold) return new Set(allCategories)
       if (!initialized) {
         initialized = true
-        for (const cat of allCategories.slice(0, maxExpanded)) expanded.add(cat)
+        allCategories.slice(0, maxExpanded).forEach((cat) => expanded.add(cat))
       }
       return new Set(expanded)
     },

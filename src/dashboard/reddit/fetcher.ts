@@ -124,10 +124,10 @@ export async function fetchReddit(
 
   const errors: string[] = []
   const perSub: Array<{ sub: string; posts: RedditPost[] }> = []
-  for (const item of settled) {
+  settled.forEach((item) => {
     if (item.error) errors.push(`r/${item.sub}: ${item.error}`)
     if (item.posts.length > 0) perSub.push({ sub: item.sub, posts: item.posts })
-  }
+  })
 
   if (perSub.length === 0) {
     throw new Error(`reddit: all subs failed: ${errors.join('; ')}`)

@@ -80,22 +80,18 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
       const now = Date.now()
       const selected = selectPostsPerSub(merged, { ...fresh, now })
       const visible: RedditRenderData = {}
-      for (const [sub, posts] of selected) {
+      selected.forEach((posts, sub) => {
         visible[sub] = state.filterVisible(posts)
-      }
+      })
       const todayStartMs = new Date(now)
       todayStartMs.setUTCHours(0, 0, 0, 0)
       const todayMs = todayStartMs.getTime()
-      const allFetched: RedditPost[] = []
-      for (const { posts } of fetchResult.posts) {
-        for (const p of posts) {
-          if (p.created < todayMs) {
-            if (p.numComments >= fresh.olderMinComments) allFetched.push(p)
-          } else {
-            if (p.numComments >= fresh.todayMinComments) allFetched.push(p)
-          }
-        }
-      }
+      const allFetched: RedditPost[] = fetchResult.posts.flatMap(({ posts }) =>
+        posts.filter((p) => {
+          if (p.created < todayMs) return p.numComments >= fresh.olderMinComments
+          return p.numComments >= fresh.todayMinComments
+        }),
+      )
       await state.saveHistory(runtime, allFetched, fresh.historyDays)
       await state.saveToStorage(runtime)
       return visible

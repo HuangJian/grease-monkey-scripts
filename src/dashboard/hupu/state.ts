@@ -80,40 +80,41 @@ export function createHupuState(): HupuState {
       const now = Date.now()
       const existing = await this.loadHistory(runtime, historyDays)
       const byId = new Map<string, StoredHistoryPost>()
-      for (const t of existing) byId.set(t.id, t)
-      for (const t of posts) {
-        if (!Number.isFinite(t.created) || t.created <= 0) continue
-        const existingEntry = byId.get(t.id)
-        if (existingEntry) {
-          byId.set(t.id, {
-            id: t.id,
-            title: t.title || existingEntry.title,
-            url: t.url || existingEntry.url,
-            lights: Math.max(existingEntry.lights, t.lights),
-            replies: Math.max(existingEntry.replies, t.replies),
-            views: Math.max(existingEntry.views, t.views),
-            author: t.author || existingEntry.author,
-            authorUrl: t.authorUrl || existingEntry.authorUrl,
-            boards: unionUnique(existingEntry.boards, [t.board]),
-            topicName: t.topicName || existingEntry.topicName,
-            created: Math.min(existingEntry.created, t.created),
-          })
-        } else {
-          byId.set(t.id, {
-            id: t.id,
-            title: t.title,
-            url: t.url,
-            lights: t.lights,
-            replies: t.replies,
-            views: t.views,
-            author: t.author,
-            authorUrl: t.authorUrl,
-            boards: [t.board],
-            topicName: t.topicName,
-            created: t.created,
-          })
-        }
-      }
+      existing.forEach((t) => byId.set(t.id, t))
+      posts
+        .filter((t) => Number.isFinite(t.created) && t.created > 0)
+        .forEach((t) => {
+          const existingEntry = byId.get(t.id)
+          if (existingEntry) {
+            byId.set(t.id, {
+              id: t.id,
+              title: t.title || existingEntry.title,
+              url: t.url || existingEntry.url,
+              lights: Math.max(existingEntry.lights, t.lights),
+              replies: Math.max(existingEntry.replies, t.replies),
+              views: Math.max(existingEntry.views, t.views),
+              author: t.author || existingEntry.author,
+              authorUrl: t.authorUrl || existingEntry.authorUrl,
+              boards: unionUnique(existingEntry.boards, [t.board]),
+              topicName: t.topicName || existingEntry.topicName,
+              created: Math.min(existingEntry.created, t.created),
+            })
+          } else {
+            byId.set(t.id, {
+              id: t.id,
+              title: t.title,
+              url: t.url,
+              lights: t.lights,
+              replies: t.replies,
+              views: t.views,
+              author: t.author,
+              authorUrl: t.authorUrl,
+              boards: [t.board],
+              topicName: t.topicName,
+              created: t.created,
+            })
+          }
+        })
       const result = Array.from(byId.values()).filter(
         (t) => Number.isFinite(t.created) && t.created > 0 && now - t.created < historyTtl,
       )

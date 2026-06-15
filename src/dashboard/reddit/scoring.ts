@@ -41,10 +41,7 @@ export function computeRedditDecayedScore(
 }
 
 function unionUnique(a: ReadonlyArray<string>, b: ReadonlyArray<string>): string[] {
-  const out: string[] = []
-  for (const s of a) if (!out.includes(s)) out.push(s)
-  for (const s of b) if (!out.includes(s)) out.push(s)
-  return out
+  return [...new Set([...a, ...b])]
 }
 
 function mergePost(live: RedditPost | undefined, hist: StoredHistoryPost): RedditPost {
@@ -77,35 +74,35 @@ export function mergeSubPosts(
   history: ReadonlyArray<StoredHistoryPost>,
 ): Array<{ sub: string; posts: RedditPost[] }> {
   const liveBySub = new Map<string, RedditPost[]>()
-  for (const { sub, posts } of perSubLive) {
-    if (posts.length === 0) continue
-    liveBySub.set(sub, [...(liveBySub.get(sub) ?? []), ...posts])
-  }
+  perSubLive
+    .filter(({ posts }) => posts.length > 0)
+    .forEach(({ sub, posts }) => {
+      liveBySub.set(sub, [...(liveBySub.get(sub) ?? []), ...posts])
+    })
 
   const out: Array<{ sub: string; posts: RedditPost[] }> = []
   const seenIds = new Set<string>()
 
-  for (const [sub, livePosts] of liveBySub) {
+  liveBySub.forEach((livePosts, sub) => {
     const byId = new Map<string, RedditPost>()
-    for (const p of livePosts) {
-      if (!byId.has(p.id)) byId.set(p.id, p)
-    }
-    for (const h of history) {
-      if (!h.subreddits.includes(sub)) continue
-      if (seenIds.has(h.id)) continue
-      const existing = byId.get(h.id)
-      byId.set(h.id, mergePost(existing, h))
-    }
+    livePosts.filter((p) => !byId.has(p.id)).forEach((p) => byId.set(p.id, p))
+    history
+      .filter((h) => h.subreddits.includes(sub))
+      .filter((h) => !seenIds.has(h.id))
+      .forEach((h) => {
+        const existing = byId.get(h.id)
+        byId.set(h.id, mergePost(existing, h))
+      })
     const posts = Array.from(byId.values())
-    for (const p of posts) seenIds.add(p.id)
+    posts.forEach((p) => seenIds.add(p.id))
     out.push({ sub, posts })
-  }
+  })
 
-  for (const h of history) {
-    if (seenIds.has(h.id)) continue
+  history.forEach((h) => {
+    if (seenIds.has(h.id)) return
     const liveSubs = new Set(liveBySub.keys())
     const matchingSubs = h.subreddits.filter((s) => liveSubs.has(s))
-    if (matchingSubs.length === 0) continue
+    if (matchingSubs.length === 0) return
     const sub = matchingSubs[0]!
     const existing = out.find((x) => x.sub === sub)
     const post: RedditPost = {
@@ -124,7 +121,7 @@ export function mergeSubPosts(
     } else {
       out.push({ sub, posts: [post] })
     }
-  }
+  })
 
   return out
 }
@@ -139,7 +136,7 @@ export function selectPostsPerSub(
 ): Map<string, RedditPost[]> {
   const todayStartMs = getTodayStartMs()
   const result = new Map<string, RedditPost[]>()
-  for (const { sub, posts } of merged) {
+  merged.forEach(({ sub, posts }) => {
     const filtered = posts.filter((p) => {
       if (p.created < todayStartMs) {
         return p.numComments >= options.olderMinComments
@@ -152,6 +149,6 @@ export function selectPostsPerSub(
       return db - da
     })
     result.set(sub, sorted)
-  }
+  })
   return result
 }

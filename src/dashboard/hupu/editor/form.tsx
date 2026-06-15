@@ -29,14 +29,16 @@ export function HupuEditorForm({ fresh, settings, ctx, handleRef }: HupuEditorFo
     fresh.boards.map(normalizeBoardSlug).filter((s) => s.length > 0),
   )
   const [error, setError] = useState('')
-  const [advanced, setAdvanced] = useState<Record<string, number>>(() => {
-    const out: Record<string, number> = {}
-    for (const f of FORM_FIELDS) {
-      const val = (fresh as Record<string, unknown>)[f.prop]
-      out[f.prop] = typeof val === 'number' ? val : 0
-    }
-    return out
-  })
+  const [advanced, setAdvanced] = useState<Record<string, number>>(() =>
+    FORM_FIELDS.reduce(
+      (out, f) => {
+        const val = (fresh as Record<string, unknown>)[f.prop]
+        out[f.prop] = typeof val === 'number' ? val : 0
+        return out
+      },
+      {} as Record<string, number>,
+    ),
+  )
   const advancedRefs = useRef<(HTMLInputElement | null)[]>([])
 
   const onAdvancedChange = useCallback((prop: string, val: number) => {

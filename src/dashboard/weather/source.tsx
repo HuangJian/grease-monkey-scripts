@@ -32,14 +32,14 @@ export function createWeatherSource(options: WeatherSourceOptions): Source<Weath
       const prev = (await loadCache<WeatherData>(runtime, 'weather'))?.data
       if (prev) {
         const prevByLabel = new Map(prev.entries.map((e) => [e.cityLabel, e]))
-        for (const entry of result.entries) {
-          if (entry.status === 'error') {
+        result.entries
+          .filter((entry) => entry.status === 'error')
+          .forEach((entry) => {
             const prevEntry = prevByLabel.get(entry.cityLabel)
             if (prevEntry?.status === 'ok') {
               Object.assign(entry, prevEntry)
             }
-          }
-        }
+          })
       }
       return result
     },

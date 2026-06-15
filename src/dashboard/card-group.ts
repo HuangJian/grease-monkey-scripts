@@ -12,7 +12,7 @@ export function buildCardGroups(
 ): CardGroup[] {
   const groupMap = new Map<string, CardGroup>()
   const singletons: Source<unknown>[] = []
-  for (const source of sources) {
+  sources.forEach((source) => {
     if (source.groupId) {
       let group = groupMap.get(source.groupId)
       if (!group) {
@@ -27,22 +27,22 @@ export function buildCardGroups(
     } else {
       singletons.push(source)
     }
-  }
+  })
   const groups: CardGroup[] = []
-  for (const group of groupMap.values()) {
+  groupMap.forEach((group) => {
     group.tabs.sort((a, b) => {
       const pa = sourceSettings?.[a.id]?.priority ?? a.order ?? 0
       const pb = sourceSettings?.[b.id]?.priority ?? b.order ?? 0
       return pa - pb
     })
     groups.push(group)
-  }
-  for (const source of singletons) {
-    groups.push({
+  })
+  groups.push(
+    ...singletons.map((source) => ({
       id: source.id,
       placement: source.placement ?? 'main',
       tabs: [source],
-    })
-  }
+    })),
+  )
   return groups
 }

@@ -104,9 +104,9 @@ async function persistFetchedTitles(
 async function loadCachedTitleMap(runtime: Runtime): Promise<Map<string, string>> {
   const cached = await runtime.getValue<{ data?: NovelData } | null>(CACHE_KEY('novels'), null)
   const map = new Map<string, string>()
-  for (const book of cached?.data?.books ?? []) {
+  ;(cached?.data?.books ?? []).forEach((book) => {
     if (book.title) map.set(book.url, book.title)
-  }
+  })
   return map
 }
 

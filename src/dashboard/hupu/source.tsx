@@ -81,22 +81,18 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
       const now = Date.now()
       const selected = selectPostsPerBoard(merged, { ...fresh, now })
       const visible: HupuRenderData = {}
-      for (const [board, posts] of selected) {
+      selected.forEach((posts, board) => {
         visible[board] = state.filterVisible(posts)
-      }
+      })
       const todayStartMs = new Date(now)
       todayStartMs.setUTCHours(0, 0, 0, 0)
       const todayMs = todayStartMs.getTime()
-      const allFetched: HupuPost[] = []
-      for (const { posts } of fetchResult.boards) {
-        for (const p of posts) {
-          if (p.created < todayMs) {
-            if (p.replies >= fresh.olderMinReplies) allFetched.push(p)
-          } else {
-            if (p.replies >= fresh.todayMinReplies) allFetched.push(p)
-          }
-        }
-      }
+      const allFetched: HupuPost[] = fetchResult.boards.flatMap(({ posts }) =>
+        posts.filter((p) => {
+          if (p.created < todayMs) return p.replies >= fresh.olderMinReplies
+          return p.replies >= fresh.todayMinReplies
+        }),
+      )
       await state.saveHistory(runtime, allFetched, fresh.historyDays)
       await state.saveToStorage(runtime)
       return visible

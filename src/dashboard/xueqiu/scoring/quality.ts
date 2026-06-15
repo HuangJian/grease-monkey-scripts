@@ -17,10 +17,8 @@ import { stripHtml } from './helpers'
 
 function computeLengthScore(plainText: string): number {
   const len = plainText.length
-  for (const range of LENGTH_RANGES) {
-    if (len >= range.min && len < range.max) return range.score
-  }
-  return 0.1
+  const range = LENGTH_RANGES.find((r) => len >= r.min && len < r.max)
+  return range ? range.score : 0.1
 }
 
 function computeDataScore(plainText: string, html: string): number {
@@ -30,12 +28,13 @@ function computeDataScore(plainText: string, html: string): number {
   if (NUMBER_PATTERN.test(plainText)) score += 0.2
 
   let keywordHits = 0
-  for (const kw of ANALYSIS_KEYWORDS) {
+  ANALYSIS_KEYWORDS.some((kw) => {
     if (plainText.includes(kw)) {
       keywordHits++
-      if (keywordHits >= 4) break
+      if (keywordHits >= 4) return true
     }
-  }
+    return false
+  })
   score += Math.min(keywordHits * 0.15, 0.5)
 
   return Math.min(score, 1)

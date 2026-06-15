@@ -64,11 +64,11 @@ export function TnewsComponent({
     const wasExpanded = state.isExpanded(item.id)
     state.markRead(item.id)
 
-    for (const other of items) {
+    items.forEach((other) => {
       if (other.id !== item.id) {
         state.setExpanded(other.id, false)
       }
-    }
+    })
     state.toggleExpanded(item.id)
     if (!wasExpanded) {
       scrollTargetRef.current = item.id
@@ -93,11 +93,11 @@ export function TnewsComponent({
     const idx = visible.findIndex((it) => it.id === hoveredItem.id)
     if (idx < 0) return
     const ts = Date.now()
-    for (let i = 0; i <= idx; i++) {
-      if (!state.isRead(visible[i].id)) {
-        state.markRead(visible[i].id, ts)
+    visible.slice(0, idx + 1).forEach((it) => {
+      if (!state.isRead(it.id)) {
+        state.markRead(it.id, ts)
       }
-    }
+    })
     if (runtime) void state.saveToStorage(runtime)
     forceUpdate((n) => n + 1)
   }
@@ -105,12 +105,12 @@ export function TnewsComponent({
   function handleBulkHide(hoveredItem: TnewsItem) {
     const idx = visible.findIndex((it) => it.id === hoveredItem.id)
     if (idx < 0) return
-    for (let i = 0; i <= idx; i++) {
-      state.markHidden(visible[i].id)
+    visible.slice(0, idx + 1).forEach((it) => {
+      state.markHidden(it.id)
       if (runtime) {
-        void state.removeFromCache(runtime, visible[i].id)
+        void state.removeFromCache(runtime, it.id)
       }
-    }
+    })
     if (runtime) void state.saveToStorage(runtime)
     forceUpdate((n) => n + 1)
   }

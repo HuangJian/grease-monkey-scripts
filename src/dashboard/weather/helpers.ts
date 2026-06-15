@@ -7,10 +7,8 @@ export function weatherCodeIcon(code: number): string {
 
 export function aqiLevel(aqi: number | null | undefined): AqiLevel {
   if (aqi == null || !Number.isFinite(aqi)) return { label: '--', color: '#9ca3af' }
-  for (const entry of AQI_LEVELS) {
-    if (aqi <= entry.max) return entry.level
-  }
-  return AQI_LEVELS[AQI_LEVELS.length - 1]!.level
+  const found = AQI_LEVELS.find((entry) => aqi <= entry.max)
+  return found ? found.level : AQI_LEVELS[AQI_LEVELS.length - 1]!.level
 }
 
 export function windDirectionArrow(deg: number): string {

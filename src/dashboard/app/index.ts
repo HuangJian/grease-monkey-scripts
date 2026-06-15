@@ -111,14 +111,14 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
         void dashboard.open()
       })
       runtime.registerMenuCommand('编辑仪表盘配置', () => dashboard.editConfig())
-      for (const source of reg.sources) {
+      reg.sources.forEach((source) => {
         runtime.addValueChangeListener(CACHE_KEY(source.id), (_key, _oldValue, _newValue) => {
           if (!handle) return
           const group = reg.groupForSource.get(source.id)
           if (!group) return
           void renderGroupById(group.id, reg.groupById, reg.groupForSource, getRendererDeps()!)
         })
-      }
+      })
       bootstrapShortcut({
         runtime,
         config: options.config,

@@ -11,7 +11,7 @@ export function deepMerge<T>(base: T, override: unknown): T {
     return override === undefined ? base : (override as T)
   }
   const result: Record<string, unknown> = { ...base }
-  for (const key of Object.keys(override)) {
+  Object.keys(override).forEach((key) => {
     const baseVal = base[key as keyof T]
     const overrideVal = override[key]
     if (isPlainObject(baseVal) && isPlainObject(overrideVal)) {
@@ -19,6 +19,6 @@ export function deepMerge<T>(base: T, override: unknown): T {
     } else if (overrideVal !== undefined) {
       result[key] = overrideVal
     }
-  }
+  })
   return result as T
 }

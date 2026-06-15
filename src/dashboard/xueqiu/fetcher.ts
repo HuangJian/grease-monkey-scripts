@@ -32,8 +32,8 @@ function extractStatuses(comp: VueInstance): XueqiuNewsItem[] {
 function findComponentByName(comp: VueInstance, name: string): VueInstance | null {
   if (comp.$options?.name === name) return comp
   const children = comp.$children ?? []
-  for (let i = 0; i < children.length; i++) {
-    const found = findComponentByName(children[i], name)
+  for (const child of children) {
+    const found = findComponentByName(child, name)
     if (found) return found
   }
   return null
@@ -41,16 +41,15 @@ function findComponentByName(comp: VueInstance, name: string): VueInstance | nul
 
 function clickTab(text: string): boolean {
   const links = document.querySelectorAll('a')
-  for (let i = 0; i < links.length; i++) {
-    const link = links[i]
+  return Array.from(links).some((link) => {
     if (link.textContent?.trim() === text) {
       if (!link.classList.contains('active')) {
         link.click()
       }
       return true
     }
-  }
-  return false
+    return false
+  })
 }
 
 function scrollToBottom(): void {
@@ -78,12 +77,12 @@ function wait(ms: number): Promise<void> {
 function dedupById(items: XueqiuNewsItem[]): XueqiuNewsItem[] {
   const seen = new Set<number>()
   const result: XueqiuNewsItem[] = []
-  for (const item of items) {
+  items.forEach((item) => {
     if (!seen.has(item.id)) {
       seen.add(item.id)
       result.push(item)
     }
-  }
+  })
   return result
 }
 

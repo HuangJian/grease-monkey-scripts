@@ -12,12 +12,12 @@ export function bootstrapSync(runtime: Runtime, sources: Source<unknown>[]): voi
       id: 'reddit',
     },
   ]
-  for (const { hostMatch, id } of syncDomains) {
+  syncDomains.forEach(({ hostMatch, id }) => {
     if (hostMatch(runtime.location.hostname)) {
       const src = sources.find((s) => s.id === id)
       if (src) {
         runtime.requestIdleCallback(() => void src.loadState?.(runtime), { timeout: 10000 })
       }
     }
-  }
+  })
 }

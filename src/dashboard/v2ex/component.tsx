@@ -82,11 +82,12 @@ export function V2exComponent({
     const idx = visible.indexOf(hoveredTopic)
     if (idx < 0) return
     const now = Date.now()
-    for (let i = 0; i <= idx; i++) {
-      if (!state.isRead(visible[i].id)) {
-        state.markRead(visible[i].id, now, visible[i].replies)
-      }
-    }
+    visible
+      .slice(0, idx + 1)
+      .filter((t) => !state.isRead(t.id))
+      .forEach((t) => {
+        state.markRead(t.id, now, t.replies)
+      })
     if (runtime) void state.saveToStorage(runtime)
     forceUpdate((n) => n + 1)
   }
@@ -94,12 +95,12 @@ export function V2exComponent({
   function handleBulkHide(hoveredTopic: V2exTopic) {
     const idx = visible.indexOf(hoveredTopic)
     if (idx < 0) return
-    for (let i = 0; i <= idx; i++) {
-      state.markHidden(visible[i].id)
+    visible.slice(0, idx + 1).forEach((t) => {
+      state.markHidden(t.id)
       if (runtime) {
-        void state.removeFromCache(runtime, visible[i].id)
+        void state.removeFromCache(runtime, t.id)
       }
-    }
+    })
     if (runtime) void state.saveToStorage(runtime)
     forceUpdate((n) => n + 1)
   }

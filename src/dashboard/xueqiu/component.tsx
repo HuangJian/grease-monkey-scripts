@@ -102,11 +102,11 @@ export function XueqiuComponent({
     const id = String(item.id)
     const wasExpanded = state.isExpanded(id)
     state.markRead(id)
-    for (const other of items) {
-      if (other.id !== item.id) {
+    items
+      .filter((other) => other.id !== item.id)
+      .forEach((other) => {
         state.setExpanded(String(other.id), false)
-      }
-    }
+      })
     state.toggleExpanded(id)
     if (!wasExpanded) {
       scrollTargetRef.current = id
@@ -130,12 +130,12 @@ export function XueqiuComponent({
     const idx = items.findIndex((it) => String(it.id) === hoveredId)
     if (idx < 0) return
     const now = Date.now()
-    for (let i = 0; i <= idx; i++) {
-      const id = String(items[i].id)
+    items.slice(0, idx + 1).forEach((it) => {
+      const id = String(it.id)
       if (!state.isRead(id)) {
         state.markRead(id, now)
       }
-    }
+    })
     if (runtime) void state.saveToStorage(runtime)
     forceUpdate((n) => n + 1)
   }
@@ -144,13 +144,13 @@ export function XueqiuComponent({
     const hoveredId = String(hoveredItem.id)
     const idx = items.findIndex((it) => String(it.id) === hoveredId)
     if (idx < 0) return
-    for (let i = 0; i <= idx; i++) {
-      const id = String(items[i].id)
+    items.slice(0, idx + 1).forEach((it) => {
+      const id = String(it.id)
       state.markHidden(id)
       if (runtime) {
         void state.removeFromCache(runtime, id)
       }
-    }
+    })
     if (runtime) void state.saveToStorage(runtime)
     forceUpdate((n) => n + 1)
   }

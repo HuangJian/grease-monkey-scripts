@@ -5,13 +5,13 @@ import type { WeatherCityData, WeatherCityEntry, WeatherData, WeatherHourly } fr
 function remainingHours(hourly: WeatherHourly, currentTime: string, cmaMode: boolean): number[] {
   const out: number[] = []
   const normalizedCurrent = currentTime.replaceAll('/', '-').replace(' ', 'T')
-  for (let i = 0; i < hourly.time.length; i++) {
-    const t = hourly.time[i]!
-    if (t < normalizedCurrent) continue
-    if (!cmaMode && t.slice(0, 10) !== normalizedCurrent.slice(0, 10)) break
+  hourly.time.some((t, i) => {
+    if (t < normalizedCurrent) return false
+    if (!cmaMode && t.slice(0, 10) !== normalizedCurrent.slice(0, 10)) return true
     out.push(i)
-    if (cmaMode && out.length >= 8) break
-  }
+    if (cmaMode && out.length >= 8) return true
+    return false
+  })
   return out
 }
 

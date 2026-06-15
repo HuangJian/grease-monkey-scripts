@@ -114,10 +114,10 @@ async function fetchCmaCity(runtime: Runtime, city: WeatherCity): Promise<Weathe
 
       if (parsed.hourly) {
         const omByHour = new Map<number, number>()
-        for (let i = 0; i < data.hourly.time.length; i++) {
-          const h = parseInt(data.hourly.time[i]!.slice(11, 13), 10)
+        data.hourly.time.forEach((t, i) => {
+          const h = parseInt(t.slice(11, 13), 10)
           if (!omByHour.has(h)) omByHour.set(h, i)
-        }
+        })
         const precipProb: number[] = parsed.hourly.time.map((t) => {
           const h = parseInt(t.slice(11, 13), 10)
           const idx = omByHour.get(h)

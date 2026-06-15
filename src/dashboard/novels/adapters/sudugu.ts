@@ -54,9 +54,7 @@ function startOfDay(d: Date): Date {
 
 function extractTitleFromH1(h1: Element): string | null {
   const clone = h1.cloneNode(true) as Element
-  for (const child of clone.querySelectorAll('i')) {
-    child.remove()
-  }
+  clone.querySelectorAll('i').forEach((child) => child.remove())
   const text = (clone.textContent ?? '').trim()
   return text || null
 }
@@ -77,20 +75,20 @@ function parseHome(
 
   const latestThree: NovelChapter[] = []
   const liNodes = itemTxt?.querySelectorAll(':scope > ul > li') ?? []
-  for (const li of liNodes) {
+  liNodes.forEach((li) => {
     const anchor = li.querySelector('a[href]')
-    if (!anchor) continue
+    if (!anchor) return
     const href = anchor.getAttribute('href') ?? ''
     const url = toAbsoluteUrl(href, pageUrl)
     const chapterTitle = (anchor.textContent ?? '').trim()
-    if (!url || !chapterTitle) continue
+    if (!url || !chapterTitle) return
     const labelEl = li.querySelector('i')
     const labelText = (labelEl?.textContent ?? '').trim()
     const postedAt = labelText ? parseChapterLabel(labelText, now) : undefined
     const chapter: NovelChapter = { url, title: chapterTitle }
     if (postedAt !== undefined) chapter.postedAt = postedAt
     latestThree.push(chapter)
-  }
+  })
 
   const lastPageNumber = parseLastPageNumber(doc)
   return { title, latestThree, lastPageNumber }
@@ -100,11 +98,11 @@ function parseLastPageNumber(doc: Document): number {
   const select = doc.querySelector('#pages #pageSelect')
   if (!select) return 1
   let max = 1
-  for (const option of select.querySelectorAll('option')) {
+  select.querySelectorAll('option').forEach((option) => {
     const value = option.getAttribute('value') ?? ''
     const n = Number(value)
     if (Number.isFinite(n) && n > max) max = n
-  }
+  })
   return max
 }
 
@@ -115,13 +113,13 @@ function parseChapterList(html: string, pageUrl: string, domParser: DOMParser): 
   if (!list) return []
   const chapters: NovelChapter[] = []
   const anchors = list.querySelectorAll('ul li a[href]')
-  for (const anchor of anchors) {
+  anchors.forEach((anchor) => {
     const href = anchor.getAttribute('href') ?? ''
     const url = toAbsoluteUrl(href, pageUrl)
     const title = (anchor.textContent ?? '').trim()
-    if (!url || !title) continue
+    if (!url || !title) return
     chapters.push({ url, title })
-  }
+  })
   return chapters
 }
 

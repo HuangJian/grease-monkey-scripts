@@ -99,23 +99,17 @@ function parseItemsFromXml(xml: string, domParser: DOMParser): Element[] {
   const doc = domParser.parseFromString(xml, 'text/xml')
   if (isParserError(doc)) return []
   const items = doc.getElementsByTagName('item')
-  const out: Element[] = []
-  for (let i = 0; i < items.length; i++) {
-    const el = items[i]
-    if (el) out.push(el)
-  }
-  return out
+  return Array.from(items).filter((el): el is Element => el !== null)
 }
 
 export function parseRssItems(xml: string, domParser: DOMParser): TnewsItem[] {
   if (!xml || !xml.trim()) return []
   const itemEls = parseItemsFromXml(xml, domParser)
-  const out: TnewsItem[] = []
-  for (const el of itemEls) {
+  return itemEls.reduce<TnewsItem[]>((out, el) => {
     const parsed = parseItem(el, domParser)
     if (parsed) out.push(parsed)
-  }
-  return out
+    return out
+  }, [])
 }
 
 export function extractTitle(
@@ -143,27 +137,27 @@ export function sanitizeHtml(html: string, domParser: DOMParser): string {
 }
 
 function sanitizeNode(node: Element): void {
-  for (const child of Array.from(node.childNodes)) {
+  Array.from(node.childNodes).forEach((child) => {
     if (child.nodeType === 1) {
       sanitizeNode(child as Element)
     }
-  }
-  for (const child of Array.from(node.childNodes)) {
-    if (child.nodeType !== 1) continue
+  })
+  Array.from(node.childNodes).forEach((child) => {
+    if (child.nodeType !== 1) return
     const el = child as Element
     const tag = el.tagName.toLowerCase()
     if (BLOCKED_TAGS.has(tag)) {
       node.removeChild(el)
-      continue
+      return
     }
     if (!ALLOWED_TAGS.has(tag)) {
       const parent = el.parentNode
-      if (!parent) continue
+      if (!parent) return
       while (el.firstChild) {
         parent.insertBefore(el.firstChild, el)
       }
       parent.removeChild(el)
-      continue
+      return
     }
     sanitizeAttrs(el, tag)
     if (
@@ -180,15 +174,15 @@ function sanitizeNode(node: Element): void {
       el.parentNode.replaceChild(anchor, el)
       anchor.appendChild(el)
     }
-  }
+  })
 }
 
 function sanitizeAttrs(el: Element, tag: string): void {
-  for (const attr of Array.from(el.attributes)) {
+  Array.from(el.attributes).forEach((attr) => {
     const name = attr.name.toLowerCase()
     if (name.startsWith('on') || name === 'style' || name === 'srcdoc') {
       el.removeAttribute(attr.name)
-      continue
+      return
     }
     if (tag === 'a' && name === 'href') {
       if (DANGEROUS_HREF_PREFIXES.test(attr.value)) {
@@ -198,13 +192,13 @@ function sanitizeAttrs(el: Element, tag: string): void {
     if (tag === 'img') {
       if (name === 'width' || name === 'height') {
         el.removeAttribute(attr.name)
-        continue
+        return
       }
       if (name === 'src' && DANGEROUS_HREF_PREFIXES.test(attr.value)) {
         el.removeAttribute(attr.name)
       }
     }
-  }
+  })
   if (tag === 'a' && el.hasAttribute('href')) {
     el.setAttribute('target', '_blank')
     el.setAttribute('rel', 'noopener noreferrer')
@@ -235,19 +229,17 @@ export function normalizeLink(url: string): string {
 
 export function mergeByLink(a: ReadonlyArray<TnewsItem>, b: ReadonlyArray<TnewsItem>): TnewsItem[] {
   const byKey = new Map<string, TnewsItem>()
-  for (const item of a) {
-    byKey.set(item.link, item)
-  }
-  for (const item of b) {
+  a.forEach((item) => byKey.set(item.link, item))
+  b.forEach((item) => {
     const existing = byKey.get(item.link)
     if (!existing) {
       byKey.set(item.link, item)
-      continue
+      return
     }
     if (item.pubDate > existing.pubDate) {
       byKey.set(item.link, item)
     }
-  }
+  })
   return Array.from(byKey.values())
 }
 

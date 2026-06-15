@@ -66,9 +66,9 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
                 headerState.dateFilter === '未'
                   ? dateFiltered.filter((t) => !state.isRead(t.id))
                   : state.filterVisible(dateFiltered)
-              for (const t of visible) {
+              visible.forEach((t) => {
                 state.markRead(t.id, Date.now(), t.replies)
-              }
+              })
               void state.saveToStorage(props.runtime)
               props.onHeaderChange?.()
             }}

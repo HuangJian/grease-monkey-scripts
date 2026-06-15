@@ -27,7 +27,7 @@ export function XitBody({
       displayLines = filterItems(lines, result.ast)
       const enrichedLines: XitLine[] = []
       let lastHeading: XitLine | null = null
-      for (const line of lines) {
+      lines.forEach((line) => {
         if (line.type === 'heading') {
           lastHeading = line
         } else if (displayLines.includes(line)) {
@@ -37,7 +37,7 @@ export function XitBody({
           enrichedLines.push(line)
           lastHeading = null
         }
-      }
+      })
       displayLines = enrichedLines
 
       const todayItems = displayLines.filter(

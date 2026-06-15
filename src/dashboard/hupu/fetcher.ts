@@ -69,10 +69,10 @@ export async function fetchHupu(
   )
   const errors: string[] = []
   const perBoard: Array<{ board: string; posts: HupuPost[] }> = []
-  for (const item of settled) {
+  settled.forEach((item) => {
     if (item.error) errors.push(`${item.board}: ${item.error}`)
     if (item.posts.length > 0) perBoard.push({ board: item.board, posts: item.posts })
-  }
+  })
   if (perBoard.length === 0) {
     throw new Error(`hupu: all boards failed: ${errors.join('; ')}`)
   }

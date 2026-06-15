@@ -16,8 +16,7 @@ export function applyHupuDateFilter(
 ): HupuRenderData | null {
   const bounds = dateFilterBounds(filter, Date.now())
   if (!bounds || !data) return data
-  const result: HupuRenderData = {}
-  for (const [board, posts] of Object.entries(data)) {
+  return Object.entries(data).reduce<HupuRenderData>((result, [board, posts]) => {
     const filtered = posts.filter((t) => {
       if (t.created === undefined) return false
       if (bounds.start !== undefined && t.created < bounds.start) return false
@@ -25,8 +24,8 @@ export function applyHupuDateFilter(
       return true
     })
     if (filtered.length > 0) result[board] = filtered
-  }
-  return result
+    return result
+  }, {})
 }
 
 function formatReplyCount(current: number, readReplies: number | undefined): string {
@@ -73,8 +72,7 @@ export function HupuComponent({
   }
 
   const allBoards = Object.keys(filtered)
-  let totalPosts = 0
-  for (const posts of Object.values(filtered)) totalPosts += posts.length
+  const totalPosts = Object.values(filtered).reduce((sum, posts) => sum + posts.length, 0)
   const showCaret = totalPosts > COLLAPSE_THRESHOLD
   const active = expandCollapse.activeCategories(allBoards, totalPosts)
 
@@ -95,10 +93,8 @@ export function HupuComponent({
   }
 
   function findBoardForPost(postId: string): string | null {
-    for (const [board, posts] of Object.entries(filtered!)) {
-      if (posts.some((p) => p.id === postId)) return board
-    }
-    return null
+    const entry = Object.entries(filtered!).find(([, posts]) => posts.some((p) => p.id === postId))
+    return entry ? entry[0] : null
   }
 
   function handleBulkRead(hoveredPost: { id: string; replies: number }) {
@@ -108,11 +104,12 @@ export function HupuComponent({
     const idx = posts.findIndex((p) => p.id === hoveredPost.id)
     if (idx < 0) return
     const now = Date.now()
-    for (let i = 0; i <= idx; i++) {
-      if (!state.isRead(posts[i].id)) {
-        state.markRead(posts[i].id, now, posts[i].replies)
-      }
-    }
+    posts
+      .slice(0, idx + 1)
+      .filter((p) => !state.isRead(p.id))
+      .forEach((p) => {
+        state.markRead(p.id, now, p.replies)
+      })
     if (runtime) void state.saveToStorage(runtime)
     forceUpdate((n) => n + 1)
   }
@@ -123,13 +120,13 @@ export function HupuComponent({
     const posts = state.filterVisible(filtered![board] ?? [])
     const idx = posts.findIndex((p) => p.id === hoveredPost.id)
     if (idx < 0) return
-    for (let i = 0; i <= idx; i++) {
-      state.markHidden(posts[i].id)
+    posts.slice(0, idx + 1).forEach((p) => {
+      state.markHidden(p.id)
       if (runtime) {
-        void state.removeFromCache(runtime, posts[i].id)
-        void state.removeFromHistory(runtime, posts[i].id)
+        void state.removeFromCache(runtime, p.id)
+        void state.removeFromHistory(runtime, p.id)
       }
-    }
+    })
     if (runtime) void state.saveToStorage(runtime)
     forceUpdate((n) => n + 1)
   }
@@ -137,11 +134,11 @@ export function HupuComponent({
   function handleMarkAllRead(board: string) {
     const now = Date.now()
     const posts = filtered![board] ?? []
-    for (const post of posts) {
-      if (!state.isRead(post.id)) {
+    posts
+      .filter((post) => !state.isRead(post.id))
+      .forEach((post) => {
         state.markRead(post.id, now, post.replies)
-      }
-    }
+      })
     if (runtime) void state.saveToStorage(runtime)
     forceUpdate((n) => n + 1)
   }

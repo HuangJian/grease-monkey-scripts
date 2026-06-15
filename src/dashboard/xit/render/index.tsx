@@ -7,13 +7,13 @@ export { renderXitPreview } from './preview'
 
 function getTagCounts(lines: import('../types').XitLine[]): Map<string, number> {
   const counts = new Map<string, number>()
-  for (const line of lines) {
-    if (line.type === 'item') {
-      for (const tag of line.tags) {
+  lines
+    .filter((line) => line.type === 'item')
+    .forEach((line) => {
+      line.tags.forEach((tag) => {
         counts.set(tag.name, (counts.get(tag.name) ?? 0) + 1)
-      }
-    }
-  }
+      })
+    })
   return counts
 }
 

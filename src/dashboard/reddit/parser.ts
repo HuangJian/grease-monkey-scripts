@@ -17,14 +17,14 @@ export function parseRedditListing(json: unknown, maxItems: number): RedditPost[
   if (!Array.isArray(children)) return []
   const out: RedditPost[] = []
   const now = Date.now()
-  for (const child of children) {
-    if (!child || typeof child !== 'object') continue
+  children.some((child) => {
+    if (!child || typeof child !== 'object') return false
     const c = child as { kind?: unknown; data?: unknown }
-    if (c.kind !== 't3') continue
-    if (!c.data || typeof c.data !== 'object') continue
+    if (c.kind !== 't3') return false
+    if (!c.data || typeof c.data !== 'object') return false
     const d = c.data as Record<string, unknown>
-    if (d['over_18'] === true) continue
-    if (d['distinguished'] === 'promoted') continue
+    if (d['over_18'] === true) return false
+    if (d['distinguished'] === 'promoted') return false
     const id = d['id']
     const title = d['title']
     const permalink = d['permalink']
@@ -33,15 +33,15 @@ export function parseRedditListing(json: unknown, maxItems: number): RedditPost[
     const subreddit = d['subreddit']
     const author = d['author']
     const createdUtc = d['created_utc']
-    if (typeof id !== 'string' || !id) continue
-    if (typeof title !== 'string' || !title) continue
-    if (typeof permalink !== 'string' || !permalink) continue
-    if (typeof score !== 'number' || !Number.isFinite(score)) continue
-    if (typeof numComments !== 'number' || !Number.isFinite(numComments)) continue
-    if (typeof subreddit !== 'string' || !subreddit) continue
+    if (typeof id !== 'string' || !id) return false
+    if (typeof title !== 'string' || !title) return false
+    if (typeof permalink !== 'string' || !permalink) return false
+    if (typeof score !== 'number' || !Number.isFinite(score)) return false
+    if (typeof numComments !== 'number' || !Number.isFinite(numComments)) return false
+    if (typeof subreddit !== 'string' || !subreddit) return false
     const authorText = typeof author === 'string' ? author : ''
     const normalizedSub = normalizeSubredditName(subreddit)
-    if (!normalizedSub) continue
+    if (!normalizedSub) return false
     let created: number
     if (typeof createdUtc === 'number' && Number.isFinite(createdUtc) && createdUtc > 0) {
       created = Math.floor(createdUtc * 1000)
@@ -58,7 +58,7 @@ export function parseRedditListing(json: unknown, maxItems: number): RedditPost[
       author: authorText,
       created,
     })
-    if (out.length >= maxItems) break
-  }
+    return out.length >= maxItems
+  })
   return out
 }

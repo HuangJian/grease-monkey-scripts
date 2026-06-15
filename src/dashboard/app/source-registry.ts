@@ -31,12 +31,12 @@ export function createSourceRegistry(config: Config, runtime: Runtime) {
   const cardGroups = buildCardGroups(sources, config.sourceSettings)
   const groupById = new Map<string, CardGroup>()
   const groupForSource = new Map<string, CardGroup>()
-  for (const group of cardGroups) {
+  cardGroups.forEach((group) => {
     groupById.set(group.id, group)
-    for (const tab of group.tabs) {
+    group.tabs.forEach((tab) => {
       groupForSource.set(tab.id, group)
-    }
-  }
+    })
+  })
   return { tnews, xueqiu, sources, cardGroups, groupById, groupForSource }
 }
 
