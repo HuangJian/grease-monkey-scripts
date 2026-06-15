@@ -100,3 +100,35 @@ export function ConfigButton({ icon = '\u2699', onClick }: ConfigButtonProps) {
     </button>
   )
 }
+
+export type ItemActionsProps = {
+  onHide: () => void
+  onBulkRead: () => void
+  onBulkHide: () => void
+}
+
+export function ItemActions({ onHide, onBulkRead, onBulkHide }: ItemActionsProps) {
+  return (
+    <span class="gm-sp-item-actions">
+      <button type="button" class="gm-sp-item-hide" title="隐藏该主题" onClick={onHide}>
+        {'\u00D7'}隐藏
+      </button>
+      <button
+        type="button"
+        class="gm-sp-item-bulk-btn"
+        title="将顶端至此主题全部标记已读"
+        onClick={onBulkRead}
+      >
+        {'\u2191'}已读
+      </button>
+      <button
+        type="button"
+        class="gm-sp-item-bulk-btn gm-sp-item-bulk-btn-danger"
+        title="将顶端至此主题全部隐藏"
+        onClick={onBulkHide}
+      >
+        {'\u2191'}隐藏
+      </button>
+    </span>
+  )
+}

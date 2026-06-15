@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks'
 import type { AuthorTagMap } from '../../shared/author-labels'
 import { authorClass, buildAuthorTagHtml, getTotalScore } from '../../shared/author-labels'
 import { escapeHtml, escapeUrl } from '../../utils'
+import { ItemActions } from '../card/primitives'
 import type { DateFilter } from '../date-filter'
 import { dateFilterBounds } from '../date-filter'
 import type { SourceComponentProps } from '../types'
@@ -94,6 +95,37 @@ export function HupuComponent({
     forceUpdate((n) => n + 1)
   }
 
+  const allVisiblePosts = Object.values(filtered!).flat()
+
+  function handleBulkRead(hoveredPost: { id: string; replies: number }) {
+    const idx = allVisiblePosts.findIndex((p) => p.id === hoveredPost.id)
+    if (idx < 0) return
+    const now = Date.now()
+    for (let i = 0; i <= idx; i++) {
+      const p = allVisiblePosts[i]
+      if (!state.isRead(p.id)) {
+        state.markRead(p.id, now, p.replies)
+      }
+    }
+    if (runtime) void state.saveToStorage(runtime)
+    forceUpdate((n) => n + 1)
+  }
+
+  function handleBulkHide(hoveredPost: { id: string }) {
+    const idx = allVisiblePosts.findIndex((p) => p.id === hoveredPost.id)
+    if (idx < 0) return
+    for (let i = 0; i <= idx; i++) {
+      const p = allVisiblePosts[i]
+      state.markHidden(p.id)
+      if (runtime) {
+        void state.removeFromCache(runtime, p.id)
+        void state.removeFromHistory(runtime, p.id)
+      }
+    }
+    if (runtime) void state.saveToStorage(runtime)
+    forceUpdate((n) => n + 1)
+  }
+
   function handleMarkAllRead(board: string) {
     const now = Date.now()
     const posts = filtered![board] ?? []
@@ -172,13 +204,11 @@ export function HupuComponent({
                       {post.lights}
                     </span>
                     <span class={`gm-sp-reddit-author${ac}`}>{authorText}</span>
-                    <button
-                      class="gm-sp-item-hide"
-                      title="隐藏该主题"
-                      onClick={() => handleHide(post.id)}
-                    >
-                      ×
-                    </button>
+                    <ItemActions
+                      onHide={() => handleHide(post.id)}
+                      onBulkRead={() => handleBulkRead(post)}
+                      onBulkHide={() => handleBulkHide(post)}
+                    />
                   </li>
                 )
               })}

@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
-import { formatRelativeTime } from '../card/primitives'
+import { formatRelativeTime, ItemActions } from '../card/primitives'
 import type { SourceComponentProps } from '../types'
 import type { TnewsState } from './state'
 import type { TnewsItem } from './types'
@@ -87,6 +87,34 @@ export function TnewsComponent({
     forceUpdate((n) => n + 1)
   }
 
+  const visible = items.filter((it) => !state.isHidden(it.id))
+
+  function handleBulkRead(hoveredItem: TnewsItem) {
+    const idx = visible.findIndex((it) => it.id === hoveredItem.id)
+    if (idx < 0) return
+    const ts = Date.now()
+    for (let i = 0; i <= idx; i++) {
+      if (!state.isRead(visible[i].id)) {
+        state.markRead(visible[i].id, ts)
+      }
+    }
+    if (runtime) void state.saveToStorage(runtime)
+    forceUpdate((n) => n + 1)
+  }
+
+  function handleBulkHide(hoveredItem: TnewsItem) {
+    const idx = visible.findIndex((it) => it.id === hoveredItem.id)
+    if (idx < 0) return
+    for (let i = 0; i <= idx; i++) {
+      state.markHidden(visible[i].id)
+      if (runtime) {
+        void state.removeFromCache(runtime, visible[i].id)
+      }
+    }
+    if (runtime) void state.saveToStorage(runtime)
+    forceUpdate((n) => n + 1)
+  }
+
   if (items.length === 0) {
     return (
       <div class="gm-sp-tnews">
@@ -121,18 +149,12 @@ export function TnewsComponent({
                 <span class="gm-sp-tnews-title" title={escapeAttr(titleText)}>
                   {escapeText(titleText)}
                 </span>
-                <button
-                  type="button"
-                  class="gm-sp-item-hide"
-                  aria-label="hide"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleHide(item)
-                  }}
-                >
-                  ×
-                </button>
               </span>
+              <ItemActions
+                onHide={() => handleHide(item)}
+                onBulkRead={() => handleBulkRead(item)}
+                onBulkHide={() => handleBulkHide(item)}
+              />
               {expanded && (
                 <div
                   class="gm-sp-tnews-body"

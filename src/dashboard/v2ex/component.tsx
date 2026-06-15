@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks'
 import type { AuthorTagMap } from '../../shared/author-labels'
 import { authorClass, buildAuthorTagHtml, getTotalScore } from '../../shared/author-labels'
 import { escapeHtml, escapeUrl } from '../../utils'
+import { ItemActions } from '../card/primitives'
 import type { DateFilter } from '../date-filter'
 import { dateFilterBounds } from '../date-filter'
 import type { SourceComponentProps } from '../types'
@@ -77,6 +78,32 @@ export function V2exComponent({
     forceUpdate((n) => n + 1)
   }
 
+  function handleBulkRead(hoveredTopic: V2exTopic) {
+    const idx = visible.indexOf(hoveredTopic)
+    if (idx < 0) return
+    const now = Date.now()
+    for (let i = 0; i <= idx; i++) {
+      if (!state.isRead(visible[i].id)) {
+        state.markRead(visible[i].id, now, visible[i].replies)
+      }
+    }
+    if (runtime) void state.saveToStorage(runtime)
+    forceUpdate((n) => n + 1)
+  }
+
+  function handleBulkHide(hoveredTopic: V2exTopic) {
+    const idx = visible.indexOf(hoveredTopic)
+    if (idx < 0) return
+    for (let i = 0; i <= idx; i++) {
+      state.markHidden(visible[i].id)
+      if (runtime) {
+        void state.removeFromCache(runtime, visible[i].id)
+      }
+    }
+    if (runtime) void state.saveToStorage(runtime)
+    forceUpdate((n) => n + 1)
+  }
+
   if (!visible || visible.length === 0) {
     return (
       <div class="gm-sp-v2ex">
@@ -118,9 +145,11 @@ export function V2exComponent({
                 <span>{escapeHtml(topic.node.title)}</span>
                 <span class={ac.trim() || undefined}>@{escapeHtml(username)}</span>
               </span>
-              <button class="gm-sp-item-hide" title="隐藏该主题" onClick={() => handleHide(topic)}>
-                ×
-              </button>
+              <ItemActions
+                onHide={() => handleHide(topic)}
+                onBulkRead={() => handleBulkRead(topic)}
+                onBulkHide={() => handleBulkHide(topic)}
+              />
             </li>
           )
         })}

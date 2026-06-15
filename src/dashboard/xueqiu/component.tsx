@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
+import { ItemActions } from '../card/primitives'
 import type { DateFilter } from '../date-filter'
 import { dateFilterBounds } from '../date-filter'
 import type { SourceComponentProps } from '../types'
@@ -124,6 +125,36 @@ export function XueqiuComponent({
     forceUpdate((n) => n + 1)
   }
 
+  function handleBulkRead(hoveredItem: XueqiuNewsItem) {
+    const hoveredId = String(hoveredItem.id)
+    const idx = items.findIndex((it) => String(it.id) === hoveredId)
+    if (idx < 0) return
+    const now = Date.now()
+    for (let i = 0; i <= idx; i++) {
+      const id = String(items[i].id)
+      if (!state.isRead(id)) {
+        state.markRead(id, now)
+      }
+    }
+    if (runtime) void state.saveToStorage(runtime)
+    forceUpdate((n) => n + 1)
+  }
+
+  function handleBulkHide(hoveredItem: XueqiuNewsItem) {
+    const hoveredId = String(hoveredItem.id)
+    const idx = items.findIndex((it) => String(it.id) === hoveredId)
+    if (idx < 0) return
+    for (let i = 0; i <= idx; i++) {
+      const id = String(items[i].id)
+      state.markHidden(id)
+      if (runtime) {
+        void state.removeFromCache(runtime, id)
+      }
+    }
+    if (runtime) void state.saveToStorage(runtime)
+    forceUpdate((n) => n + 1)
+  }
+
   function renderItem(item: XueqiuNewsItem) {
     const id = String(item.id)
     const read = state.isRead(id)
@@ -145,18 +176,12 @@ export function XueqiuComponent({
               <span title="点赞数">👍{item.like_count}</span>
             </span>
           )}
-          <button
-            type="button"
-            class="gm-sp-item-hide"
-            aria-label="hide"
-            onClick={(e) => {
-              e.stopPropagation()
-              handleHide(id)
-            }}
-          >
-            ×
-          </button>
         </span>
+        <ItemActions
+          onHide={() => handleHide(id)}
+          onBulkRead={() => handleBulkRead(item)}
+          onBulkHide={() => handleBulkHide(item)}
+        />
         {expanded && (
           <div class="gm-sp-xueqiu-body">
             <div

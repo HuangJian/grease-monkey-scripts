@@ -157,6 +157,7 @@
 }
 
 .gm-sp-list-item {
+  position: relative;
   padding: 4px 8px;
   margin: 0 -8px;
   border-radius: 4px;
@@ -236,25 +237,68 @@
   line-height: 1.4;
 }
 
-.gm-sp-item-hide {
-  flex: 0 0 auto;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #9ca3af;
-  font-size: 14px;
-  line-height: 1;
-  padding: 0 2px;
-  opacity: 0;
-  transition: opacity 0.15s;
+.gm-sp-item-actions {
+  display: none;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  gap: 4px;
+  align-items: center;
+  z-index: 1;
 }
 
-.gm-sp-list-item:hover .gm-sp-item-hide {
-  opacity: 1;
+.gm-sp-list-item:hover .gm-sp-item-actions {
+  display: inline-flex;
+}
+
+.gm-sp-item-hide {
+  background: #f3f4f6;
+  border: 1px solid #3b82f6;
+  border-radius: 3px;
+  cursor: pointer;
+  color: #6b7280;
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 6px;
+  white-space: nowrap;
+  transition:
+    color 0.12s,
+    background 0.12s;
 }
 
 .gm-sp-item-hide:hover {
   color: #ef4444;
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.gm-sp-item-bulk-btn {
+  background: #f3f4f6;
+  border: 1px solid #3b82f6;
+  border-radius: 3px;
+  cursor: pointer;
+  color: #6b7280;
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 6px;
+  white-space: nowrap;
+  transition:
+    color 0.12s,
+    background 0.12s,
+    border-color 0.12s;
+}
+
+.gm-sp-item-bulk-btn:hover {
+  color: #1f2328;
+  background: #e5e7eb;
+  border-color: #3b82f6;
+}
+
+.gm-sp-item-bulk-btn-danger:hover {
+  color: #ef4444;
+  background: #fee2e2;
+  border-color: #fca5a5;
 }
 
 .gm-sp-item-read {
