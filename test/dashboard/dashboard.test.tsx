@@ -207,6 +207,22 @@ describe('createDashboard', () => {
     expect(document.getElementById('gm-dashboard')).toBeNull()
   })
 
+  test('bugfix: close() does not wipe tnews read state from storage', async () => {
+    const tnewsStateKey = STATE_KEY('tnews')
+    const now = Date.now()
+    runtime.stores[tnewsStateKey] = {
+      'https://t.me/tnews365/100': { r: now },
+      'https://t.me/tnews365/99': { r: now },
+    }
+    const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
+    dashboard.start()
+    await dashboard.open()
+    dashboard.close()
+    const stored = runtime.stores[tnewsStateKey] as Record<string, { r?: number }>
+    expect(stored['https://t.me/tnews365/100']).toBeDefined()
+    expect(stored['https://t.me/tnews365/99']).toBeDefined()
+  })
+
   test('clicking backdrop closes the overlay', async () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()

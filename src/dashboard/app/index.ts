@@ -98,7 +98,6 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     if (!handle) return
     handle.unmount()
     handle = null
-    reg.tnews.state.clear()
   }
 
   function toggle(): void {
