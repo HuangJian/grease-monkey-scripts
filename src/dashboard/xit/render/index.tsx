@@ -4,6 +4,7 @@ import type { XitData } from '../types'
 import { parseXitText } from '../parser'
 
 export { renderXitPreview } from './preview'
+export { XitList } from './list'
 
 function getTagCounts(lines: import('../types').XitLine[]): Map<string, number> {
   const counts = new Map<string, number>()

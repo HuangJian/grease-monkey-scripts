@@ -3,7 +3,7 @@ import { showEditorDialog } from '../../shell/editor'
 import { createXitEditor, setPendingLineIndex } from '../editor'
 import { parseQuery, filterItems } from '../query'
 import { getDueDateStatus } from '../render/due-date'
-import { linesToHtml } from '../render/list-render'
+import { XitList } from '../render/list'
 import type { XitData, XitLine, XitItem } from '../types'
 import type { XitHeaderState } from './header'
 
@@ -106,10 +106,8 @@ function ListContent({
   }
 
   return (
-    <div
-      class="gm-sp-xit-list"
-      onDblClick={handleDblClick}
-      dangerouslySetInnerHTML={{ __html: linesToHtml(lines) }}
-    />
+    <div class="gm-sp-xit-list" onDblClick={handleDblClick}>
+      <XitList lines={lines} />
+    </div>
   )
 }

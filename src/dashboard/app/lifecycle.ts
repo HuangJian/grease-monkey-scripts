@@ -7,7 +7,6 @@ import type { CachedSource, SourceSettings } from '../types'
 import { RenderCard } from '../card/card'
 import { TabsCard } from '../card/tabs-card'
 import { isTabsGroup } from './group-renderer'
-import { OverlayShell } from '../shell/overlay-shell'
 
 export type MountDeps = {
   runtime: Runtime
@@ -20,28 +19,12 @@ export type MountDeps = {
 }
 
 export function mountDashboard(deps: MountDeps): OverlayHandle {
-  const newHandle = mountOverlay(deps.runtime.document)
+  const newHandle = mountOverlay(deps.runtime.document, () => deps.dashboard.close())
   const onBackdropClick = (e: Event) => {
     if (e.target === newHandle.backdrop) deps.dashboard.close()
   }
-  const shellContainer = deps.runtime.document.createElement('div')
-  newHandle.root.appendChild(shellContainer)
-  render(
-    h(OverlayShell, {
-      root: newHandle.root,
-      document: deps.runtime.document,
-      onClose: () => deps.dashboard.close(),
-    }),
-    shellContainer,
-  )
   newHandle.closeBtn.addEventListener('click', () => deps.dashboard.close())
   newHandle.backdrop.addEventListener('click', onBackdropClick)
-  const origUnmount = newHandle.unmount.bind(newHandle)
-  newHandle.unmount = () => {
-    render(null, shellContainer)
-    shellContainer.remove()
-    origUnmount()
-  }
   const now = Date.now()
   deps.cardGroups.forEach((group) => {
     const container = group.placement === 'side' ? newHandle.sideCards : newHandle.mainCards

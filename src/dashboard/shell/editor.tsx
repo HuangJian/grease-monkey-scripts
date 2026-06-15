@@ -56,12 +56,7 @@ function EditorDialog({ document, root, title, onClose, renderEditor }: EditorDi
     >
       <div class="gm-sp-editor-dialog-panel" ref={panelRef} tabIndex={-1}>
         <div class="gm-sp-editor-dialog-header">
-          <span
-            class="gm-sp-editor-dialog-title"
-            {...(typeof title === 'string' ? { dangerouslySetInnerHTML: { __html: title } } : {})}
-          >
-            {typeof title !== 'string' ? title : undefined}
-          </span>
+          <span class="gm-sp-editor-dialog-title">{title}</span>
           <div class="gm-sp-editor-dialog-actions">
             <button
               type="button"

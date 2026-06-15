@@ -17,8 +17,7 @@ function getCheckboxChar(status: string): string {
   }
 }
 
-export function renderItemHtml(line: XitItem): string {
-  const checkboxChar = getCheckboxChar(line.status)
+function renderDescriptionHtml(line: XitItem): string {
   let desc = line.description
 
   const tokens: string[] = []
@@ -66,36 +65,69 @@ export function renderItemHtml(line: XitItem): string {
   desc = desc.replace(/\n/g, '<br><span class="gm-sp-xit-indent">&nbsp;&nbsp;&nbsp;&nbsp;</span>')
 
   const priorityClass = line.priority > 0 ? ` gm-sp-xit-prio-${line.priority}` : ''
-  const prioHtml =
-    line.priority > 0
-      ? `<span class="gm-sp-xit-priority${priorityClass}">${escapeHtml(line.priorityText)}</span> `
-      : ''
+  if (line.priority > 0) {
+    desc = `<span class="gm-sp-xit-priority${priorityClass}">${escapeHtml(line.priorityText)}</span> ${desc}`
+  }
 
+  return desc
+}
+
+type XitItemProps = {
+  line: XitItem
+}
+
+function XitItem({ line }: XitItemProps) {
+  const checkboxChar = getCheckboxChar(line.status)
   const isCompleted = line.status === 'checked' || line.status === 'obsolete'
   const completedClass = isCompleted ? ' gm-sp-xit-item-completed' : ''
   const dueToday =
     !isCompleted && line.dueDate !== null && getDueDateStatus(line.dueDate) === 'today'
   const boldClass = dueToday ? ' gm-sp-xit-content-bold' : ''
 
-  return `<div class="gm-sp-xit-item${completedClass}" data-status="${line.status}" data-line-index="${line.lineIndex}">
-    <span class="gm-sp-xit-checkbox" data-status="${line.status}">${escapeHtml(checkboxChar)}</span>
-    <div class="gm-sp-xit-content${boldClass}">${prioHtml}${desc}</div>
-  </div>`
+  return (
+    <div
+      class={`gm-sp-xit-item${completedClass}`}
+      data-status={line.status}
+      data-line-index={line.lineIndex}
+    >
+      <span class="gm-sp-xit-checkbox" data-status={line.status}>
+        {checkboxChar}
+      </span>
+      <div
+        class={`gm-sp-xit-content${boldClass}`}
+        dangerouslySetInnerHTML={{ __html: renderDescriptionHtml(line) }}
+      />
+    </div>
+  )
 }
 
-export function linesToHtml(lines: XitLine[]): string {
-  return lines
-    .map((line) => {
-      if (line.type === 'heading') {
-        return `<div class="gm-sp-xit-heading">${escapeHtml(line.text)}</div>`
-      }
-      if (line.type === 'blank') {
-        return `<div class="gm-sp-xit-blank"></div>`
-      }
-      if (line.type === 'comment') {
-        return `<div class="gm-sp-xit-comment">${escapeHtml(line.text)}</div>`
-      }
-      return renderItemHtml(line)
-    })
-    .join('')
+type XitListProps = {
+  lines: XitLine[]
+}
+
+export function XitList({ lines }: XitListProps) {
+  return (
+    <>
+      {lines.map((line) => {
+        if (line.type === 'heading') {
+          return (
+            <div class="gm-sp-xit-heading" key={line.lineIndex}>
+              {escapeHtml(line.text)}
+            </div>
+          )
+        }
+        if (line.type === 'blank') {
+          return <div class="gm-sp-xit-blank" key={line.lineIndex} />
+        }
+        if (line.type === 'comment') {
+          return (
+            <div class="gm-sp-xit-comment" key={line.lineIndex}>
+              {escapeHtml(line.text)}
+            </div>
+          )
+        }
+        return <XitItem key={line.lineIndex} line={line} />
+      })}
+    </>
+  )
 }
