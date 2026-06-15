@@ -95,16 +95,23 @@ export function HupuComponent({
     forceUpdate((n) => n + 1)
   }
 
-  const allVisiblePosts = Object.values(filtered!).flat()
+  function findBoardForPost(postId: string): string | null {
+    for (const [board, posts] of Object.entries(filtered!)) {
+      if (posts.some((p) => p.id === postId)) return board
+    }
+    return null
+  }
 
   function handleBulkRead(hoveredPost: { id: string; replies: number }) {
-    const idx = allVisiblePosts.findIndex((p) => p.id === hoveredPost.id)
+    const board = findBoardForPost(hoveredPost.id)
+    if (!board) return
+    const posts = state.filterVisible(filtered![board] ?? [])
+    const idx = posts.findIndex((p) => p.id === hoveredPost.id)
     if (idx < 0) return
     const now = Date.now()
     for (let i = 0; i <= idx; i++) {
-      const p = allVisiblePosts[i]
-      if (!state.isRead(p.id)) {
-        state.markRead(p.id, now, p.replies)
+      if (!state.isRead(posts[i].id)) {
+        state.markRead(posts[i].id, now, posts[i].replies)
       }
     }
     if (runtime) void state.saveToStorage(runtime)
@@ -112,14 +119,16 @@ export function HupuComponent({
   }
 
   function handleBulkHide(hoveredPost: { id: string }) {
-    const idx = allVisiblePosts.findIndex((p) => p.id === hoveredPost.id)
+    const board = findBoardForPost(hoveredPost.id)
+    if (!board) return
+    const posts = state.filterVisible(filtered![board] ?? [])
+    const idx = posts.findIndex((p) => p.id === hoveredPost.id)
     if (idx < 0) return
     for (let i = 0; i <= idx; i++) {
-      const p = allVisiblePosts[i]
-      state.markHidden(p.id)
+      state.markHidden(posts[i].id)
       if (runtime) {
-        void state.removeFromCache(runtime, p.id)
-        void state.removeFromHistory(runtime, p.id)
+        void state.removeFromCache(runtime, posts[i].id)
+        void state.removeFromHistory(runtime, posts[i].id)
       }
     }
     if (runtime) void state.saveToStorage(runtime)
