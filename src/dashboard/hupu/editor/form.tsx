@@ -1,17 +1,13 @@
-/**
- * Hupu editor form component.
- */
 import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { render } from 'preact'
-import { escapeHtml } from '../../../utils'
 import { validateConfig } from '../../config'
 import { readNumberFields, saveConfigSection, saveSourceSettings } from '../../editor-helpers'
+import { SourceSettingsFields, ChipList } from '../../editor-ui'
 import type {
   SourceEditor,
   SourceEditorContext,
   SourceEditorResult,
   SourceSettings,
-  BadgeType,
 } from '../../types'
 import { normalizeBoardSlug } from '../parser'
 import type { HupuSourceOptions } from '../types'
@@ -41,59 +37,10 @@ export function HupuEditorForm({ fresh, settings, ctx, handleRef }: HupuEditorFo
     }
     return out
   })
-  const inputRef = useRef<HTMLInputElement>(null)
   const advancedRefs = useRef<(HTMLInputElement | null)[]>([])
 
   const onAdvancedChange = useCallback((prop: string, val: number) => {
     setAdvanced((prev) => ({ ...prev, [prop]: val }))
-  }, [])
-
-  const tryAdd = useCallback(() => {
-    setError('')
-    const val = inputRef.current?.value ?? ''
-    const normalized = normalizeBoardSlug(val)
-    if (!normalized) {
-      setError('请输入有效的版块标识')
-      return
-    }
-    if (boards.includes(normalized)) {
-      setError(`${normalized} 已在列表中`)
-      return
-    }
-    setBoards((prev) => [...prev, normalized])
-    if (inputRef.current) inputRef.current.value = ''
-  }, [boards])
-
-  const onAddKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        tryAdd()
-      }
-    },
-    [tryAdd],
-  )
-
-  const removeBoard = useCallback((i: number) => {
-    setBoards((prev) => prev.filter((_, j) => j !== i))
-  }, [])
-
-  const moveUp = useCallback((i: number) => {
-    if (i <= 0) return
-    setBoards((prev) => {
-      const next = [...prev]
-      ;[next[i - 1], next[i]] = [next[i]!, next[i - 1]!]
-      return next
-    })
-  }, [])
-
-  const moveDown = useCallback((i: number) => {
-    setBoards((prev) => {
-      if (i >= prev.length - 1) return prev
-      const next = [...prev]
-      ;[next[i], next[i + 1]] = [next[i + 1]!, next[i]!]
-      return next
-    })
   }, [])
 
   useLayoutEffect(() => {
@@ -147,96 +94,45 @@ export function HupuEditorForm({ fresh, settings, ctx, handleRef }: HupuEditorFo
 
   return (
     <div class="gm-sp-editor">
-      <div class="gm-sp-editor-source-settings">
-        <label class="gm-sp-editor-row">
-          <span>Tab 标题</span>
-          <input
-            type="text"
-            class="gm-sp-input"
-            placeholder="留空使用默认"
-            value={tabTitle}
-            onInput={(e) => setTabTitle((e.target as HTMLInputElement).value)}
-          />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>优先级</span>
-          <input
-            type="number"
-            class="gm-sp-input"
-            value={priority}
-            onInput={(e) => setPriority(Number((e.target as HTMLInputElement).value))}
-          />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>Badge 显示</span>
-          <select
-            value={badgeType}
-            onChange={(e) => setBadgeType((e.target as HTMLSelectElement).value as BadgeType)}
-          >
-            <option value="default">默认</option>
-            <option value="none">不显示</option>
-            <option value="allUnread">全部未读数</option>
-            <option value="todayUnread">今日未读数</option>
-          </select>
-        </label>
-      </div>
-      <div class="gm-sp-editor-section">
-        <div class="gm-sp-editor-label">版块列表</div>
-        <div class="gm-sp-re-list">
-          {boards.length === 0 ? (
-            <div class="gm-sp-editor-empty">尚未添加版块</div>
-          ) : (
-            boards.map((name, i) => (
-              <div class="gm-sp-editor-chip" key={i} data-index={i}>
-                <button
-                  type="button"
-                  class="gm-sp-editor-chip-move"
-                  aria-label="move up"
-                  disabled={i === 0}
-                  onClick={() => moveUp(i)}
-                >
-                  ▲
-                </button>
-                <button
-                  type="button"
-                  class="gm-sp-editor-chip-move"
-                  aria-label="move down"
-                  disabled={i === boards.length - 1}
-                  onClick={() => moveDown(i)}
-                >
-                  ▼
-                </button>
-                <span class="gm-sp-editor-chip-label">{escapeHtml(name)}</span>
-                <button
-                  type="button"
-                  class="gm-sp-editor-chip-remove"
-                  aria-label="remove"
-                  onClick={() => removeBoard(i)}
-                >
-                  ×
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-        <div class="gm-sp-editor-add-row">
-          <input
-            ref={inputRef}
-            type="text"
-            class="gm-sp-input gm-sp-editor-input"
-            placeholder="vote-hot 或 bxj"
-            onKeyDown={onAddKeyDown}
-          />
-          <button
-            type="button"
-            class="gm-sp-btn gm-sp-editor-btn"
-            data-action="add"
-            onClick={tryAdd}
-          >
-            添加
-          </button>
-        </div>
-      </div>
+      <SourceSettingsFields
+        tabTitle={tabTitle}
+        onTabTitleChange={setTabTitle}
+        priority={priority}
+        onPriorityChange={setPriority}
+        badgeType={badgeType}
+        onBadgeTypeChange={setBadgeType}
+      />
+      <ChipList
+        sectionLabel="版块列表"
+        items={boards}
+        emptyMessage="尚未添加版块"
+        addInputPlaceholder="vote-hot 或 bxj"
+        onRemove={(i) => setBoards((prev) => prev.filter((_, j) => j !== i))}
+        onMoveUp={(i) => {
+          if (i <= 0) return
+          setBoards((prev) => {
+            const next = [...prev]
+            ;[next[i - 1], next[i]] = [next[i]!, next[i - 1]!]
+            return next
+          })
+        }}
+        onMoveDown={(i) => {
+          setBoards((prev) => {
+            if (i >= prev.length - 1) return prev
+            const next = [...prev]
+            ;[next[i], next[i + 1]] = [next[i + 1]!, next[i]!]
+            return next
+          })
+        }}
+        onAdd={(raw) => {
+          const normalized = normalizeBoardSlug(raw)
+          if (!normalized) return '请输入有效的版块标识'
+          if (boards.includes(normalized)) return `${normalized} 已在列表中`
+          setBoards((prev) => [...prev, normalized])
+          return null
+        }}
+        onError={setError}
+      />
       <div class="gm-sp-editor-form">
         {FORM_FIELDS.map((f, i) => (
           <label class="gm-sp-editor-row" key={f.prop}>

@@ -6,8 +6,7 @@ import { ItemActions } from '../card/primitives'
 import type { DateFilter } from '../date-filter'
 import { dateFilterBounds } from '../date-filter'
 import type { SourceComponentProps } from '../types'
-import type { ExpandCollapse } from './expand-collapse'
-import { COLLAPSE_THRESHOLD } from './expand-collapse'
+import { COLLAPSE_THRESHOLD, type ExpandCollapse } from '../expand-collapse'
 import type { HupuState } from './state'
 import type { HupuRenderData } from './source'
 
@@ -77,7 +76,7 @@ export function HupuComponent({
   let totalPosts = 0
   for (const posts of Object.values(filtered)) totalPosts += posts.length
   const showCaret = totalPosts > COLLAPSE_THRESHOLD
-  const active = expandCollapse.activeBoards(allBoards, totalPosts)
+  const active = expandCollapse.activeCategories(allBoards, totalPosts)
 
   function handleMarkRead(postId: string, replies: number) {
     state.markRead(postId, Date.now(), replies)
@@ -148,7 +147,7 @@ export function HupuComponent({
   }
 
   function handleToggleBoard(board: string) {
-    expandCollapse.toggleBoard(board, totalPosts)
+    expandCollapse.toggleCategory(board, totalPosts)
     forceUpdate((n) => n + 1)
   }
 

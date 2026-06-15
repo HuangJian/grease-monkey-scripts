@@ -3,7 +3,7 @@ import type { AuthorTagMap } from '../../shared/author-labels'
 import type { Runtime } from '../../runtime'
 import type { DateFilter } from '../date-filter'
 import { HupuComponent } from './component'
-import type { ExpandCollapse } from './expand-collapse'
+import type { ExpandCollapse } from '../expand-collapse'
 import type { HupuState } from './state'
 import type { HupuRenderData } from './source'
 

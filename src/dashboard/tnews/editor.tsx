@@ -1,8 +1,8 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks'
+import { useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { render } from 'preact'
-import { escapeHtml } from '../../utils'
 import { loadConfigSection, validateConfig } from '../config'
 import { readNumberFields, saveConfigSection, saveSourceSettings } from '../editor-helpers'
+import { SourceSettingsFields, ChipList } from '../editor-ui'
 import type {
   SourceEditor,
   SourceEditorContext,
@@ -77,61 +77,7 @@ function TnewsEditorForm({ fresh, settings, ctx, handleRef }: TnewsEditorFormPro
   const [tabTitle, setTabTitle] = useState(settings.tabTitle)
   const [priority, setPriority] = useState(settings.priority)
   const [badgeType, setBadgeType] = useState(settings.badgeType)
-  const feedRef = useRef<HTMLInputElement>(null)
-  const mirrorRef = useRef<HTMLInputElement>(null)
   const ttlRef = useRef<HTMLInputElement>(null)
-
-  const addFeed = useCallback(() => {
-    setError('')
-    const val = feedRef.current?.value ?? ''
-    const r = isValidFeedUrl(val)
-    if (!r.ok) {
-      setError(r.error)
-      return
-    }
-    if (feeds.includes(r.url)) {
-      setError('该 URL 已在列表中')
-      return
-    }
-    setFeeds((prev) => [...prev, r.url])
-    if (feedRef.current) feedRef.current.value = ''
-  }, [feeds])
-
-  const addMirror = useCallback(() => {
-    setError('')
-    const val = mirrorRef.current?.value ?? ''
-    const r = isValidMirrorHost(val)
-    if (!r.ok) {
-      setError(r.error)
-      return
-    }
-    if (mirrors.includes(r.host)) {
-      setError('该镜像已在列表中')
-      return
-    }
-    setMirrors((prev) => [...prev, r.host])
-    if (mirrorRef.current) mirrorRef.current.value = ''
-  }, [mirrors])
-
-  const onFeedKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        addFeed()
-      }
-    },
-    [addFeed],
-  )
-
-  const onMirrorKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        addMirror()
-      }
-    },
-    [addMirror],
-  )
 
   useLayoutEffect(() => {
     handleRef.current = {
@@ -172,119 +118,49 @@ function TnewsEditorForm({ fresh, settings, ctx, handleRef }: TnewsEditorFormPro
 
   return (
     <div class="gm-sp-editor">
-      <div class="gm-sp-editor-source-settings">
-        <label class="gm-sp-editor-row">
-          <span>Tab 标题</span>
-          <input
-            type="text"
-            class="gm-sp-input"
-            placeholder="留空使用默认"
-            value={tabTitle}
-            onInput={(e) => setTabTitle((e.target as HTMLInputElement).value)}
-          />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>优先级</span>
-          <input
-            type="number"
-            class="gm-sp-input"
-            value={priority}
-            onInput={(e) => setPriority(Number((e.target as HTMLInputElement).value))}
-          />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>Badge 显示</span>
-          <select
-            value={badgeType}
-            onChange={(e) =>
-              setBadgeType((e.target as HTMLSelectElement).value as import('../types').BadgeType)
-            }
-          >
-            <option value="default">默认</option>
-            <option value="none">不显示</option>
-            <option value="allUnread">全部未读数</option>
-            <option value="todayUnread">今日未读数</option>
-          </select>
-        </label>
-      </div>
-      <div class="gm-sp-editor-section">
-        <div class="gm-sp-editor-label">Feed URL 列表</div>
-        <div class="gm-sp-tne-feeds">
-          {feeds.length === 0 ? (
-            <div class="gm-sp-editor-empty">尚未添加 feed</div>
-          ) : (
-            feeds.map((url, i) => (
-              <div class="gm-sp-editor-chip" key={i}>
-                <span class="gm-sp-editor-chip-label">{escapeHtml(url)}</span>
-                <button
-                  type="button"
-                  class="gm-sp-editor-chip-remove"
-                  aria-label="remove"
-                  onClick={() => setFeeds((prev) => prev.filter((_, j) => j !== i))}
-                >
-                  ×
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-        <div class="gm-sp-editor-add-row">
-          <input
-            ref={feedRef}
-            type="text"
-            class="gm-sp-input"
-            placeholder="https://rsshub.app/telegram/channel/<name>"
-            onKeyDown={onFeedKeyDown}
-          />
-          <button
-            type="button"
-            class="gm-sp-btn gm-sp-editor-btn"
-            data-action="add-feed"
-            onClick={addFeed}
-          >
-            添加
-          </button>
-        </div>
-      </div>
-      <div class="gm-sp-editor-section">
-        <div class="gm-sp-editor-label">RSSHub 镜像 hostname</div>
-        <div class="gm-sp-tne-mirrors">
-          {mirrors.length === 0 ? (
-            <div class="gm-sp-editor-empty">尚未添加镜像（仅对 rsshub.app 域名生效）</div>
-          ) : (
-            mirrors.map((host, i) => (
-              <div class="gm-sp-editor-chip" key={i}>
-                <span class="gm-sp-editor-chip-label gm-sp-tne-chip-label">{escapeHtml(host)}</span>
-                <button
-                  type="button"
-                  class="gm-sp-editor-chip-remove"
-                  aria-label="remove"
-                  onClick={() => setMirrors((prev) => prev.filter((_, j) => j !== i))}
-                >
-                  ×
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-        <div class="gm-sp-editor-add-row">
-          <input
-            ref={mirrorRef}
-            type="text"
-            class="gm-sp-input"
-            placeholder="rsshub.example.com"
-            onKeyDown={onMirrorKeyDown}
-          />
-          <button
-            type="button"
-            class="gm-sp-btn gm-sp-editor-btn"
-            data-action="add-mirror"
-            onClick={addMirror}
-          >
-            添加
-          </button>
-        </div>
-      </div>
+      <SourceSettingsFields
+        tabTitle={tabTitle}
+        onTabTitleChange={setTabTitle}
+        priority={priority}
+        onPriorityChange={setPriority}
+        badgeType={badgeType}
+        onBadgeTypeChange={setBadgeType}
+      />
+      <ChipList
+        sectionLabel="Feed URL 列表"
+        items={feeds}
+        emptyMessage="尚未添加 feed"
+        addInputPlaceholder="https://rsshub.app/telegram/channel/<name>"
+        addButtonDataAction="add-feed"
+        listClassName="gm-sp-tne-feeds"
+        onRemove={(i) => setFeeds((prev) => prev.filter((_, j) => j !== i))}
+        onAdd={(raw) => {
+          const r = isValidFeedUrl(raw)
+          if (!r.ok) return r.error
+          if (feeds.includes(r.url)) return '该 URL 已在列表中'
+          setFeeds((prev) => [...prev, r.url])
+          return null
+        }}
+        onError={setError}
+      />
+      <ChipList
+        sectionLabel="RSSHub 镜像 hostname"
+        items={mirrors}
+        emptyMessage="尚未添加镜像（仅对 rsshub.app 域名生效）"
+        addInputPlaceholder="rsshub.example.com"
+        addButtonDataAction="add-mirror"
+        listClassName="gm-sp-tne-mirrors"
+        chipLabelClass="gm-sp-tne-chip-label"
+        onRemove={(i) => setMirrors((prev) => prev.filter((_, j) => j !== i))}
+        onAdd={(raw) => {
+          const r = isValidMirrorHost(raw)
+          if (!r.ok) return r.error
+          if (mirrors.includes(r.host)) return '该镜像已在列表中'
+          setMirrors((prev) => [...prev, r.host])
+          return null
+        }}
+        onError={setError}
+      />
       <div class="gm-sp-editor-form">
         <label class="gm-sp-editor-row">
           <span>TTL（分钟）</span>

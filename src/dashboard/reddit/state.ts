@@ -1,6 +1,7 @@
-import { CACHE_KEY, STATE_KEY, type CachedSource } from '../types'
+import { STATE_KEY } from '../types'
 import type { Runtime } from '../../runtime'
 import { createItemState, type ItemState } from '../item-state'
+import { removeFromCachedGrouped, unionUnique } from '../browse-state'
 import { HISTORY_KEY } from './constants'
 import type { RedditPost, StoredHistoryPost } from './types'
 
@@ -24,13 +25,6 @@ export type RedditState = {
   removeFromCache(runtime: Runtime, id: string): Promise<void>
   removeFromHistory(runtime: Runtime, id: string): Promise<void>
   clear(): void
-}
-
-function unionUnique(a: ReadonlyArray<string>, b: ReadonlyArray<string>): string[] {
-  const out: string[] = []
-  for (const s of a) if (!out.includes(s)) out.push(s)
-  for (const s of b) if (!out.includes(s)) out.push(s)
-  return out
 }
 
 export function createRedditState(): RedditState {
@@ -126,24 +120,7 @@ export function createRedditState(): RedditState {
       await runtime.setValue(HISTORY_KEY, result)
     },
     async removeFromCache(runtime, id) {
-      try {
-        const cached = await runtime.getValue<CachedSource<unknown> | null>(
-          CACHE_KEY('reddit'),
-          null,
-        )
-        if (!cached?.data || typeof cached.data !== 'object' || Array.isArray(cached.data)) return
-        const next: Record<string, RedditPost[]> = {}
-        let changed = false
-        for (const [sub, posts] of Object.entries(cached.data as Record<string, RedditPost[]>)) {
-          const filtered = posts.filter((p) => p.id !== id)
-          if (filtered.length !== posts.length) changed = true
-          if (filtered.length > 0) next[sub] = filtered
-        }
-        if (!changed) return
-        await runtime.setValue(CACHE_KEY('reddit'), { ...cached, data: next })
-      } catch {
-        /* ignore */
-      }
+      await removeFromCachedGrouped<RedditPost>(runtime, 'reddit', id)
     },
     async removeFromHistory(runtime, id) {
       try {

@@ -3,50 +3,50 @@ import {
   COLLAPSE_THRESHOLD,
   MAX_EXPANDED,
   createExpandCollapse,
-} from '../../../../src/dashboard/reddit/expand-collapse'
+} from '../../../../src/dashboard/expand-collapse'
 
 describe('createExpandCollapse', () => {
-  test('returns all subs as active when totalPosts <= threshold', () => {
+  test('returns all as active when totalPosts <= threshold', () => {
     const ec = createExpandCollapse()
-    expect(ec.activeSubs(['a', 'b', 'c'], 0).size).toBe(3)
-    expect(ec.activeSubs(['a', 'b', 'c'], 10).size).toBe(3)
-    expect(ec.activeSubs(['a', 'b', 'c'], COLLAPSE_THRESHOLD).size).toBe(3)
+    expect(ec.activeCategories(['a', 'b', 'c'], 0).size).toBe(3)
+    expect(ec.activeCategories(['a', 'b', 'c'], 10).size).toBe(3)
+    expect(ec.activeCategories(['a', 'b', 'c'], COLLAPSE_THRESHOLD).size).toBe(3)
   })
 
-  test('returns first MAX_EXPANDED subs as active on first call', () => {
+  test('returns first MAX_EXPANDED as active on first call', () => {
     const ec = createExpandCollapse()
-    const active = ec.activeSubs(['a', 'b', 'c', 'd', 'e'], 25)
+    const active = ec.activeCategories(['a', 'b', 'c', 'd', 'e'], 25)
     expect([...active]).toEqual(['a', 'b'])
   })
 
-  test('toggleSub expands a collapsed sub', () => {
+  test('toggleCategory expands a collapsed item', () => {
     const ec = createExpandCollapse()
-    ec.activeSubs(['a', 'b', 'c'], 25)
-    ec.toggleSub('c', 25)
-    const active = ec.activeSubs(['a', 'b', 'c'], 25)
+    ec.activeCategories(['a', 'b', 'c'], 25)
+    ec.toggleCategory('c', 25)
+    const active = ec.activeCategories(['a', 'b', 'c'], 25)
     expect([...active]).toEqual(['a', 'b', 'c'])
   })
 
-  test('toggleSub collapses an expanded sub', () => {
+  test('toggleCategory collapses an expanded item', () => {
     const ec = createExpandCollapse()
-    ec.activeSubs(['a', 'b', 'c'], 25)
-    ec.toggleSub('a', 25)
-    const active = ec.activeSubs(['a', 'b', 'c'], 25)
+    ec.activeCategories(['a', 'b', 'c'], 25)
+    ec.toggleCategory('a', 25)
+    const active = ec.activeCategories(['a', 'b', 'c'], 25)
     expect([...active]).toEqual(['b'])
   })
 
-  test('toggleSub is a no-op when totalPosts <= threshold', () => {
+  test('toggleCategory is a no-op when totalPosts <= threshold', () => {
     const ec = createExpandCollapse()
-    ec.toggleSub('a', 5)
-    expect(ec.activeSubs(['a', 'b'], 5).size).toBe(2)
+    ec.toggleCategory('a', 5)
+    expect(ec.activeCategories(['a', 'b'], 5).size).toBe(2)
   })
 
   test('reset clears expanded state', () => {
     const ec = createExpandCollapse()
-    ec.activeSubs(['a', 'b', 'c'], 25)
-    ec.toggleSub('c', 25)
+    ec.activeCategories(['a', 'b', 'c'], 25)
+    ec.toggleCategory('c', 25)
     ec.reset()
-    const active = ec.activeSubs(['a', 'b', 'c', 'd', 'e'], 25)
+    const active = ec.activeCategories(['a', 'b', 'c', 'd', 'e'], 25)
     expect([...active]).toEqual(['a', 'b'])
   })
 

@@ -3,7 +3,7 @@ import type { AuthorTagMap } from '../../shared/author-labels'
 import type { Runtime } from '../../runtime'
 import type { DateFilter } from '../date-filter'
 import { RedditComponent } from './component'
-import type { ExpandCollapse } from './expand-collapse'
+import type { ExpandCollapse } from '../expand-collapse'
 import type { RedditState } from './state'
 import type { RedditRenderData } from './source'
 

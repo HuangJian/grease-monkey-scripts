@@ -16,12 +16,6 @@ export {
   mergeHupuPosts,
 } from './parser'
 export { renderHupu } from './render'
-export {
-  createExpandCollapse,
-  COLLAPSE_THRESHOLD,
-  MAX_EXPANDED,
-  type ExpandCollapse,
-} from './expand-collapse'
 export type {
   HupuCountOptions,
   HupuFetchResult,

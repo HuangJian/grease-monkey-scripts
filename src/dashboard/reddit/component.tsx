@@ -6,8 +6,7 @@ import { ItemActions } from '../card/primitives'
 import type { DateFilter } from '../date-filter'
 import { dateFilterBounds } from '../date-filter'
 import type { SourceComponentProps } from '../types'
-import type { ExpandCollapse } from './expand-collapse'
-import { COLLAPSE_THRESHOLD } from './expand-collapse'
+import { COLLAPSE_THRESHOLD, type ExpandCollapse } from '../expand-collapse'
 import type { RedditState } from './state'
 import type { RedditRenderData } from './source'
 
@@ -77,7 +76,7 @@ export function RedditComponent({
   let totalPosts = 0
   for (const posts of Object.values(filtered)) totalPosts += posts.length
   const showCaret = totalPosts > COLLAPSE_THRESHOLD
-  const active = expandCollapse.activeSubs(allSubs, totalPosts)
+  const active = expandCollapse.activeCategories(allSubs, totalPosts)
 
   function handleMarkRead(postId: string, numComments: number) {
     state.markRead(postId, Date.now(), numComments)
@@ -148,7 +147,7 @@ export function RedditComponent({
   }
 
   function handleToggleSub(sub: string) {
-    expandCollapse.toggleSub(sub, totalPosts)
+    expandCollapse.toggleCategory(sub, totalPosts)
     forceUpdate((n) => n + 1)
   }
 

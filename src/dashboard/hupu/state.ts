@@ -1,6 +1,7 @@
-import { CACHE_KEY, STATE_KEY, type CachedSource } from '../types'
+import { STATE_KEY } from '../types'
 import type { Runtime } from '../../runtime'
 import { createItemState, type ItemState } from '../item-state'
+import { removeFromCachedGrouped, unionUnique } from '../browse-state'
 import { HISTORY_KEY } from './constants'
 import type { HupuPost, StoredHistoryPost } from './types'
 
@@ -20,13 +21,6 @@ export type HupuState = {
   removeFromCache(runtime: Runtime, id: string): Promise<void>
   removeFromHistory(runtime: Runtime, id: string): Promise<void>
   clear(): void
-}
-
-function unionUnique(a: ReadonlyArray<string>, b: ReadonlyArray<string>): string[] {
-  const out: string[] = []
-  for (const s of a) if (!out.includes(s)) out.push(s)
-  for (const s of b) if (!out.includes(s)) out.push(s)
-  return out
 }
 
 export function createHupuState(): HupuState {
@@ -127,21 +121,7 @@ export function createHupuState(): HupuState {
       await runtime.setValue(HISTORY_KEY, result)
     },
     async removeFromCache(runtime, id) {
-      try {
-        const cached = await runtime.getValue<CachedSource<unknown> | null>(CACHE_KEY('hupu'), null)
-        if (!cached?.data || typeof cached.data !== 'object' || Array.isArray(cached.data)) return
-        const next: Record<string, HupuPost[]> = {}
-        let changed = false
-        for (const [board, posts] of Object.entries(cached.data as Record<string, HupuPost[]>)) {
-          const filtered = posts.filter((p) => p.id !== id)
-          if (filtered.length !== posts.length) changed = true
-          if (filtered.length > 0) next[board] = filtered
-        }
-        if (!changed) return
-        await runtime.setValue(CACHE_KEY('hupu'), { ...cached, data: next })
-      } catch {
-        /* ignore */
-      }
+      await removeFromCachedGrouped<HupuPost>(runtime, 'hupu', id)
     },
     async removeFromHistory(runtime, id) {
       try {
