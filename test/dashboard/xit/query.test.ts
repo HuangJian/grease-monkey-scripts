@@ -411,7 +411,7 @@ describe('filterItems', () => {
       status: 'open',
       description: 'task C',
       priority: 3,
-      dueDate: '2026-06-15',
+      dueDate: '2026-06-10',
       tags: [{ name: 'work', value: 'frontend' }],
     }),
     makeItem({ status: 'ongoing', description: 'task D', dueDate: '2026-12-01' }),

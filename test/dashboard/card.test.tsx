@@ -1,13 +1,13 @@
 import { describe, expect, test, afterEach } from 'bun:test'
-import { render, screen, within, cleanup } from '@testing-library/preact'
+import { render, within, cleanup } from '@testing-library/preact'
 import { Card } from '../../src/dashboard/card/card'
 
 afterEach(cleanup)
 
 describe('Card', () => {
   test('renders header slot when header is provided', () => {
-    render(<Card header={<span>Header Content</span>} />)
-    screen.getByText('Header Content')
+    const { container } = render(<Card header={<span>Header Content</span>} />)
+    within(container as HTMLElement).getByText('Header Content')
   })
 
   test('omits header when header is not provided', () => {
@@ -16,29 +16,29 @@ describe('Card', () => {
   })
 
   test('renders body slot with children', () => {
-    render(
+    const { container } = render(
       <Card>
         <div class="test-body">body content</div>
       </Card>,
     )
-    screen.getByText('body content')
+    within(container as HTMLElement).getByText('body content')
   })
 
   test('shows error block only when error is non-empty', () => {
     const { container } = render(<Card />)
     expect(container.querySelector('.gm-sp-error-box')).toBeNull()
-    render(<Card error="boom" />)
-    screen.getByText('boom')
+    const { container: c2 } = render(<Card error="boom" />)
+    within(c2 as HTMLElement).getByText('boom')
   })
 
   test('replaces children when re-rendering into the same container', () => {
     const { container } = render(<Card />)
     container.innerHTML = '<legacy-tag>stale</legacy-tag>'
-    render(
+    const { container: c2 } = render(
       <Card>
         <span>new content</span>
       </Card>,
     )
-    screen.getByText('new content')
+    within(c2 as HTMLElement).getByText('new content')
   })
 })
