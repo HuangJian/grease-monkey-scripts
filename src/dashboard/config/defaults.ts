@@ -44,8 +44,6 @@ export const DEFAULT_CONFIG: Config = {
   },
   xueqiu: {
     ttlMinutes: 30,
-    scrollWaitMs: 100,
-    scrollMaxNoChange: 20,
   },
   xit: {
     enabled: true,

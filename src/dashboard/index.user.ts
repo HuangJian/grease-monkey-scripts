@@ -18,6 +18,8 @@
 // @grant        GM.setValue
 // @grant        GM_addValueChangeListener
 // @grant        GM_xmlhttpRequest
+// @grant        GM_addElement
+// @grant        unsafeWindow
 // @grant        GM_registerMenuCommand
 // @connect      api.open-meteo.com
 // @connect      air-quality-api.open-meteo.com

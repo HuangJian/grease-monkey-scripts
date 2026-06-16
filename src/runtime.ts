@@ -39,6 +39,7 @@ export type Runtime = {
     options?: AddEventListenerOptions,
   ): void
   addValueChangeListener(key: string, listener: ValueChangeListener): number
+  addElement(parentNode: Element, tagName: string, attributes: Record<string, string>): HTMLElement
   requestIdleCallback(cb: () => void, options?: { timeout: number }): void
   registerMenuCommand(name: string, fn: () => void): number
 }
@@ -60,6 +61,12 @@ declare function GM_xmlhttpRequest(details: {
 }): void
 
 declare function GM_addStyle(css: string): void
+
+declare function GM_addElement(
+  parentNode: Element,
+  tagName: string,
+  attributes: Record<string, string>,
+): HTMLElement
 
 declare function GM_addValueChangeListener(
   name: string,
@@ -94,5 +101,6 @@ export function createBrowserRuntime(): Runtime {
       }
     },
     registerMenuCommand: (name, fn) => GM_registerMenuCommand(name, fn),
+    addElement: (parentNode, tagName, attributes) => GM_addElement(parentNode, tagName, attributes),
   }
 }

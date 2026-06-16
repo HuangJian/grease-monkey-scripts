@@ -103,6 +103,7 @@ export function createRuntime(dom?: JSDOM): TestRuntime {
       menuCommands.push({ id, name, fn })
       return id
     },
+    addElement: (_parentNode, _tagName, _attributes) => document.createElement(_tagName),
     queueResponse(url, text, status, responseHeaders) {
       responses.set(url, { text, status, responseHeaders })
     },

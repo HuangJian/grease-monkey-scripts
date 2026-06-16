@@ -1,76 +1,149 @@
+import { loadCache } from '../cache'
 import type { Runtime } from '../../runtime'
 import type { XueqiuRenderData, XueqiuNewsItem, XueqiuSourceOptions } from './types'
 
-type VueInstance = {
-  $data?: Record<string, unknown>
-  $options?: { name?: string }
-  $children?: VueInstance[]
+declare var unsafeWindow: Window
+
+// ---- API item shape (from intercepted XHR) ----
+
+type ApiItem = Record<string, unknown> & { id: number }
+
+type CapturedSource = {
+  items: ApiItem[]
+  count: number
 }
 
-function isXueqiuPage(): boolean {
-  const host = location.hostname
-  return host === 'xueqiu.com' || host === 'www.xueqiu.com'
+type CapturedData = {
+  hot: CapturedSource
+  news: CapturedSource
 }
 
-function isNewsItem(item: unknown): item is XueqiuNewsItem {
-  return (
-    typeof item === 'object' &&
-    item !== null &&
-    'id' in item &&
-    'text' in item &&
-    'target' in item &&
-    'created_at' in item
-  )
-}
+// ---- API item to XueqiuNewsItem mapping ----
 
-function extractStatuses(comp: VueInstance): XueqiuNewsItem[] {
-  const data = comp.$data
-  if (!Array.isArray(data?.statuses)) return []
-  return data.statuses.filter((item): item is XueqiuNewsItem => isNewsItem(item))
-}
-
-function findComponentByName(comp: VueInstance, name: string): VueInstance | null {
-  if (comp.$options?.name === name) return comp
-  const children = comp.$children ?? []
-  for (const child of children) {
-    const found = findComponentByName(child, name)
-    if (found) return found
+function toNewsItem(item: ApiItem): XueqiuNewsItem {
+  return {
+    id: item.id,
+    title: String(item.title ?? ''),
+    text: String(item.text ?? item.description ?? ''),
+    description: String(item.description ?? ''),
+    target: String(item.target ?? `/status/${item.id}`),
+    created_at: Number(item.created_at ?? 0),
+    status_id: Number(item.status_id ?? item.id),
+    reply_count: Number(item.reply_count ?? 0),
+    like_count: Number(item.like_count ?? item.fav_count ?? 0),
+    share_count: Number(item.share_count ?? item.retweet_count ?? 0),
+    view_count: Number(item.view_count ?? 0),
+    sub_type: Number(item.sub_type ?? item.type ?? 0),
   }
-  return null
+}
+
+// ---- XHR interceptor injection ----
+
+function injectInterceptor(runtime: Runtime): void {
+  if ((unsafeWindow as Window & { __xqInjected?: boolean }).__xqInjected) return
+  runtime.addElement(document.documentElement, 'script', {
+    textContent: `
+    (function() {
+      var hotItems = [], hotCount = 0
+      var newsItems = [], newsCount = 0
+      var origOpen = XMLHttpRequest.prototype.open
+      XMLHttpRequest.prototype.open = function(method, url) {
+        var u = typeof url === 'string' ? url : (url ? url.toString() : '')
+        var self = this
+        if (u.indexOf('/statuses/hot/listV3.json') !== -1) {
+          self.addEventListener('load', function() {
+            hotCount++
+            try {
+              var d = JSON.parse(self.responseText), items = d.list || []
+              for (var i = 0; i < items.length; i++) hotItems.push(items[i])
+            } catch(e) {}
+          })
+        }
+        if (u.indexOf('/statuses/livenews/list.json') !== -1) {
+          self.addEventListener('load', function() {
+            newsCount++
+            try {
+              var d = JSON.parse(self.responseText), items = d.list || d.items || []
+              for (var i = 0; i < items.length; i++) newsItems.push(items[i])
+            } catch(e) {}
+          })
+        }
+        return origOpen.apply(this, arguments)
+      }
+      window.__xqCaptured = function() {
+        return { hot: { items: hotItems, count: hotCount }, news: { items: newsItems, count: newsCount } }
+      }
+      window.__xqResetCaptured = function(mode) {
+        if (mode === 'hot' || !mode) { hotItems = []; hotCount = 0 }
+        if (mode === 'news' || !mode) { newsItems = []; newsCount = 0 }
+      }
+    })();
+  `,
+  })
+  ;(unsafeWindow as Window & { __xqInjected?: boolean }).__xqInjected = true
+}
+
+function readCaptured(): CapturedData | null {
+  const w = unsafeWindow as Window & { __xqCaptured?: () => CapturedData }
+  return w.__xqCaptured?.() ?? null
+}
+
+function resetCaptured(mode: 'news' | 'hot'): void {
+  const w = unsafeWindow as Window & { __xqResetCaptured?: (mode: string) => void }
+  w.__xqResetCaptured?.(mode)
+}
+
+// ---- DOM interaction helpers ----
+
+function humanLikeClick(el: HTMLElement): void {
+  el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
+  el.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }))
+  el.click()
 }
 
 function clickTab(text: string): boolean {
   const links = document.querySelectorAll('a')
-  return Array.from(links).some((link) => {
-    if (link.textContent?.trim() === text) {
-      if (!link.classList.contains('active')) {
-        link.click()
-      }
-      return true
+  let found = false
+  links.forEach((link) => {
+    if (link.textContent?.trim() === text && !link.classList.contains('active')) {
+      humanLikeClick(link)
+      found = true
     }
-    return false
   })
+  return found
 }
 
-function scrollToBottom(): void {
+function doScroll(): void {
   const main = document.querySelector('.home__main')
   if (main) {
-    main.scrollBy(0, main.clientHeight)
+    const fraction = 0.4 + Math.random() * 0.5
+    main.scrollBy(0, Math.round(main.clientHeight * fraction))
   } else {
-    window.scrollBy(0, window.innerHeight)
+    window.scrollBy(0, Math.round(window.innerHeight * (0.4 + Math.random() * 0.5)))
   }
 }
 
-function clickLoadMore(): boolean {
-  const btn = document.querySelector('.home-timeline > a')
-  if (btn) {
-    ;(btn as HTMLElement).click()
-    return true
+function backScroll(): void {
+  if (Math.random() < 0.15) {
+    const main = document.querySelector('.home__main')
+    if (main) {
+      main.scrollBy(0, -Math.round(main.clientHeight * (0.05 + Math.random() * 0.15)))
+    }
   }
-  return false
 }
 
-function wait(ms: number): Promise<void> {
+function clickLoadMore(): void {
+  const btn =
+    document.querySelector<HTMLElement>('.home-timeline > a') ??
+    document.querySelector<HTMLElement>('.status-list > a')
+  if (!btn || btn.textContent?.trim() !== '加载更多') {
+    throw new Error('xueqiu: 未找到「加载更多」按钮')
+  }
+  btn.click()
+}
+
+function waitJitter(baseMs: number, variance = 0.4): Promise<void> {
+  const ms = baseMs * (1 - variance + Math.random() * variance * 2)
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
@@ -86,68 +159,93 @@ function dedupById(items: XueqiuNewsItem[]): XueqiuNewsItem[] {
   return result
 }
 
-async function autoScrollAndLoad(options: XueqiuSourceOptions): Promise<void> {
-  const { scrollWaitMs, scrollMaxNoChange } = options
-  let lastCount = 0
-  let noChangeCount = 0
+// ---- Fetch logic for one source ----
 
-  for (let i = 0; i < 50; i++) {
-    const appEl = document.querySelector('#app') as (Element & { __vue__?: VueInstance }) | null
-    const timeline = appEl?.__vue__ ? findComponentByName(appEl.__vue__, 'HomeTimeline') : null
-    const statuses = timeline ? extractStatuses(timeline) : []
-    const currentCount = statuses.length
+async function fetchSource(mode: 'news' | 'hot', knownIds: Set<number>): Promise<XueqiuNewsItem[]> {
+  const tabText = mode === 'news' ? '7x24' : '热门'
+  const maxRounds = 30
 
-    if (currentCount === lastCount) {
-      noChangeCount++
-      if (noChangeCount >= scrollMaxNoChange) {
-        break
-      }
-    } else {
-      noChangeCount = 0
-    }
+  resetCaptured(mode)
 
-    lastCount = currentCount
+  clickTab('资讯')
+  await waitJitter(1500, 0.3)
+  clickTab(tabText)
+  await waitJitter(5000, 0.4)
 
-    scrollToBottom()
-    await wait(scrollWaitMs)
+  const all: XueqiuNewsItem[] = []
+
+  for (let round = 1; round <= maxRounds; round++) {
+    doScroll()
+    backScroll()
+    await waitJitter(4000, 0.4)
 
     clickLoadMore()
-    await wait(scrollWaitMs)
+    await waitJitter(4000, 0.4)
+
+    const captured = readCaptured()
+    const source = mode === 'news' ? captured?.news : captured?.hot
+    const batch = source?.items ?? []
+    const reqCount = source?.count ?? 0
+
+    // First round: verify the API actually fired
+    if (round === 1 && reqCount === 0) {
+      throw new Error(`xueqiu: ${tabText} 数据获取失败，API 无响应，请确认页面已加载完成`)
+    }
+
+    // Convert raw API items and filter out already-known IDs
+    const asNewsItems = batch.map(toNewsItem)
+    const newItems: XueqiuNewsItem[] = []
+    const seen = new Set<number>()
+    asNewsItems.forEach((item) => {
+      if (!seen.has(item.id)) {
+        seen.add(item.id)
+        if (!knownIds.has(item.id)) {
+          newItems.push(item)
+        }
+      }
+    })
+
+    if (newItems.length === 0) break
+
+    all.push(...newItems)
+
+    // Add new IDs to known set so subsequent rounds also skip them
+    newItems.forEach((item) => knownIds.add(item.id))
+
+    // Early exit: news stops when any seen item is already known; hot stops when all seen items are known
+    if (mode === 'news') {
+      if (asNewsItems.some((item) => knownIds.has(item.id))) break
+    } else {
+      if (asNewsItems.every((item) => knownIds.has(item.id))) break
+    }
   }
+
+  return dedupById(all)
 }
 
+// ---- Public API ----
+
 export async function fetchXueqiu(
-  _runtime: Runtime,
-  options: XueqiuSourceOptions,
+  runtime: Runtime,
+  _options: XueqiuSourceOptions,
 ): Promise<XueqiuRenderData> {
-  if (!isXueqiuPage()) {
+  const host = location.hostname
+  if (host !== 'xueqiu.com' && host !== 'www.xueqiu.com') {
     throw new Error('请访问 xueqiu.com 首页刷新数据')
   }
-  if (location.pathname !== '/' && location.pathname !== '') {
-    throw new Error('请在 xueqiu.com 首页（非帖子/用户页）刷新数据')
+
+  injectInterceptor(runtime)
+
+  const cached = await loadCache<XueqiuRenderData>(runtime, 'xueqiu-news')
+  const newsKnownIds = new Set<number>()
+  const hotKnownIds = new Set<number>()
+  if (cached?.data) {
+    cached.data.news.forEach((item) => newsKnownIds.add(item.id))
+    cached.data.hotPosts.forEach((item) => hotKnownIds.add(item.id))
   }
 
-  const app = document.querySelector('#app') as (Element & { __vue__?: VueInstance }) | null
-  if (!app?.__vue__) {
-    throw new Error('xueqiu: Vue 实例不可用，请刷新页面后重试')
-  }
+  const news = await fetchSource('news', newsKnownIds)
+  const hotPosts = await fetchSource('hot', hotKnownIds)
 
-  // get news from 7x24 tab
-  clickTab('7x24')
-  await wait(500)
-  await autoScrollAndLoad(options)
-  const timeline = findComponentByName(app.__vue__, 'HomeTimeline')
-  const news = timeline ? extractStatuses(timeline) : []
-
-  // get hot posts from 热门 tab
-  clickTab('热门')
-  await wait(1000)
-  await autoScrollAndLoad(options)
-  const hotPosts = timeline ? extractStatuses(timeline) : []
-
-  if (news.length === 0 && hotPosts.length === 0) {
-    throw new Error('xueqiu: 未找到数据，请确认在 xueqiu.com 主页')
-  }
-
-  return { news: dedupById(news), hotPosts: dedupById(hotPosts) }
+  return { news, hotPosts }
 }

@@ -1,7 +1,5 @@
 export type XueqiuSourceOptions = {
   ttlMinutes: number
-  scrollWaitMs: number
-  scrollMaxNoChange: number
 }
 
 export type XueqiuNewsItem = {

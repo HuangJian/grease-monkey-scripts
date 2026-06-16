@@ -214,11 +214,7 @@ export function validateConfig(value: unknown): ConfigValidation {
     if (!isPlainObject(x)) {
       return { ok: false, error: 'xueqiu 必须是对象' }
     }
-    const r = validateNumberFields(x, 'xueqiu', [
-      ['ttlMinutes', 1, Number.POSITIVE_INFINITY],
-      ['scrollWaitMs', 50, 5000],
-      ['scrollMaxNoChange', 1, 100],
-    ])
+    const r = validateNumberFields(x, 'xueqiu', [['ttlMinutes', 1, Number.POSITIVE_INFINITY]])
     if (r) return r
   }
   if ('xit' in value) {
