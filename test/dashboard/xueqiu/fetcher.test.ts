@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { XueqiuNewsItem } from '../../../src/dashboard/xueqiu/types'
+import { mergeItems } from '../../../src/dashboard/xueqiu/source'
 
 function makeItem(id: number, overrides: Partial<XueqiuNewsItem> = {}): XueqiuNewsItem {
   return {
@@ -77,5 +78,36 @@ describe('xueqiu dedup', () => {
     const deduped = dedupById(hotPosts)
     expect(deduped).toHaveLength(3)
     expect(deduped.map((it) => it.id)).toEqual([100, 200, 300])
+  })
+})
+
+describe('xueqiu cache merge', () => {
+  test('mergeItems keeps all items from both arrays', () => {
+    const old = [makeItem(1), makeItem(2)]
+    const fresh = [makeItem(3)]
+    const result = mergeItems(old, fresh)
+    expect(result).toHaveLength(3)
+  })
+
+  test('mergeItems overwrites old item with new one when id matches', () => {
+    const old = [makeItem(1, { title: 'Old', reply_count: 5 })]
+    const fresh = [makeItem(1, { title: 'New', reply_count: 99 })]
+    const result = mergeItems(old, fresh)
+    expect(result).toHaveLength(1)
+    expect(result[0]?.title).toBe('New')
+    expect(result[0]?.reply_count).toBe(99)
+  })
+
+  test('bugfix: saveXueqiuCache should not drop old items when new fetch returns only recent items', () => {
+    const oldItems = [
+      makeItem(1, { title: '昨天的消息', created_at: Date.now() - 86400000 }),
+      makeItem(2, { title: '前天的消息', created_at: Date.now() - 172800000 }),
+    ]
+    const newItems = [makeItem(3, { title: '最新的消息' })]
+    const result = mergeItems(oldItems, newItems)
+    expect(result).toHaveLength(3)
+    expect(result.map((it) => it.id)).toContain(1)
+    expect(result.map((it) => it.id)).toContain(2)
+    expect(result.map((it) => it.id)).toContain(3)
   })
 })

@@ -8,7 +8,12 @@ import { createXueqiuEditor } from './editor'
 import { fetchXueqiu } from './fetcher'
 import { rankHotPosts } from './scoring/ranking'
 import { createXueqiuState, type XueqiuState } from './state'
-import { DEFAULT_RANKING_OPTIONS, type XueqiuRenderData, type XueqiuSourceOptions } from './types'
+import {
+  DEFAULT_RANKING_OPTIONS,
+  type XueqiuNewsItem,
+  type XueqiuRenderData,
+  type XueqiuSourceOptions,
+} from './types'
 
 export type XueqiuHandle = {
   mainSource: Source<XueqiuRenderData>
@@ -183,11 +188,26 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
 }
 
 async function saveXueqiuCache(runtime: Runtime, data: XueqiuRenderData): Promise<void> {
+  const oldCache = await loadXueqiuCache(runtime)
+  const merged: XueqiuRenderData = {
+    news: mergeItems(oldCache?.news ?? [], data.news),
+    hotPosts: mergeItems(oldCache?.hotPosts ?? [], data.hotPosts),
+  }
   const { saveCache } = await import('../cache')
   await saveCache(runtime, MAIN_SOURCE_ID, {
-    data,
+    data: merged,
     fetchedAt: Date.now(),
   })
+}
+
+export function mergeItems(
+  oldItems: XueqiuNewsItem[],
+  newItems: XueqiuNewsItem[],
+): XueqiuNewsItem[] {
+  const map = new Map<number, XueqiuNewsItem>()
+  for (const item of oldItems) map.set(item.id, item)
+  for (const item of newItems) map.set(item.id, item)
+  return [...map.values()]
 }
 
 async function loadXueqiuCache(runtime: Runtime): Promise<XueqiuRenderData | null> {
