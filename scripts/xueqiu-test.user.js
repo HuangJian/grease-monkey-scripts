@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         xueqiu-test-v16
+// @name         xueqiu-test-v29
 // @namespace    https://github.com/HuangJian/grease-monkey-scripts
-// @version      16.0
-// @description  Test Xueqiu fetch logic - debug hot posts issue
+// @version      30.0
+// @description  Captures API + Vue cross-validation, capped at 10 rounds
 // @match        https://xueqiu.com/*
 // @grant        none
 // ==/UserScript==
@@ -10,27 +10,96 @@
 ;(function () {
   'use strict'
 
-  function wait(ms) {
-    return new Promise(function (r) {
-      setTimeout(r, ms)
-    })
+  function ts() {
+    var d = new Date()
+    return (
+      d.toLocaleTimeString('zh-CN', { hour12: false }) +
+      '.' +
+      String(d.getTime() % 1000).padStart(3, '0')
+    )
+  }
+  function log(m) {
+    console.log('[' + ts() + '][xq-test] ' + m)
   }
 
-  function getStatuses(comp) {
-    if (!comp) return []
-    var data = comp.$data || {}
-    return Array.isArray(data.statuses) ? data.statuses : []
+  function jitter(b, v) {
+    return b * (1 - v + Math.random() * v * 2)
   }
 
-  function findHomeTimeline(comp, depth) {
-    if (depth > 6) return null
-    if (comp.$options && comp.$options.name === 'HomeTimeline') return comp
+  // === Collector (page context) ===
+  function injectCollector() {
+    var el = document.createElement('script')
+    el.textContent = `
+      (function() {
+        var hotItems = [], hotCount = 0
+        var newsItems = [], newsCount = 0
+        var origOpen = XMLHttpRequest.prototype.open
+        XMLHttpRequest.prototype.open = function(method, url) {
+          var u = typeof url === 'string' ? url : (url ? url.toString() : '')
+          var self = this
+
+          if (u.indexOf('/statuses/hot/listV3.json') !== -1) {
+            self.addEventListener('load', function() {
+              hotCount++
+              try {
+                var d = JSON.parse(self.responseText), items = d.list || []
+                var page = (u.match(/page=(\\d+)/) || [])[1] || '?'
+                var maxId = (u.match(/max_id=(\\d+)/) || [])[1] || '-'
+                hotItems = hotItems.concat(items)
+                console.log('[xq-test:HOT] #' + hotCount + ' page=' + page + ' max_id=' + maxId + ' items=' + items.length + ' has_next=' + d.has_next_page + ' total=' + hotItems.length)
+              } catch(e) { console.log('[xq-test:HOT] #' + hotCount + ' parse error') }
+            })
+          }
+
+          if (u.indexOf('/statuses/livenews/list.json') !== -1) {
+            self.addEventListener('load', function() {
+              newsCount++
+              try {
+                var d = JSON.parse(self.responseText), items = d.list || d.items || []
+                var maxId = (u.match(/max_id=(\\d+)/) || [])[1] || '-'
+                newsItems = newsItems.concat(items)
+                console.log('[xq-test:NEWS] #' + newsCount + ' max_id=' + maxId + ' items=' + items.length + ' total=' + newsItems.length)
+              } catch(e) { console.log('[xq-test:NEWS] #' + newsCount + ' parse error') }
+            })
+          }
+
+          return origOpen.apply(this, arguments)
+        }
+        window.__xqCaptured = function() {
+          return { hot: { items: hotItems, count: hotCount }, news: { items: newsItems, count: newsCount } }
+        }
+      })();
+    `
+    document.documentElement.appendChild(el)
+  }
+
+  // === Vue data reader ===
+  function getVueStatuses() {
+    var app = document.querySelector('#app')
+    if (!app || !app.__vue__) return null
+    var timeline = findVueComponent(app.__vue__, 'HomeTimeline', 0)
+    if (!timeline) return null
+    var data = timeline.$data
+    if (!Array.isArray(data?.statuses)) return null
+    return data.statuses
+  }
+
+  function findVueComponent(comp, name, depth) {
+    if (depth > 8) return null
+    if (comp.$options && comp.$options.name === name) return comp
     var children = comp.$children || []
     for (var i = 0; i < children.length; i++) {
-      var found = findHomeTimeline(children[i], depth + 1)
+      var found = findVueComponent(children[i], name, depth + 1)
       if (found) return found
     }
     return null
+  }
+
+  // === DOM helpers ===
+  function humanClick(el) {
+    el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
+    el.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }))
+    el.click()
   }
 
   function clickTab(text) {
@@ -38,25 +107,29 @@
     for (var i = 0; i < links.length; i++) {
       if (links[i].textContent && links[i].textContent.trim() === text) {
         if (!links[i].classList.contains('active')) {
-          links[i].click()
+          log('Click tab: ' + text)
+          humanClick(links[i])
+          return true
         }
-        return true
       }
     }
+    log('Tab not found: ' + text)
     return false
   }
 
-  function scrollToBottom() {
+  function doScroll() {
     var main = document.querySelector('.home__main')
     if (main) {
-      main.scrollBy(0, main.clientHeight)
-    } else {
-      window.scrollBy(0, window.innerHeight)
+      var f = 0.4 + Math.random() * 0.5
+      main.scrollBy(0, Math.round(main.clientHeight * f))
+      return
     }
+    window.scrollBy(0, Math.round(window.innerHeight * (0.4 + Math.random() * 0.5)))
   }
 
   function clickLoadMore() {
-    var btn = document.querySelector('.home-timeline > a')
+    var btn =
+      document.querySelector('.home-timeline > a') || document.querySelector('.status-list > a')
     if (btn) {
       btn.click()
       return true
@@ -64,155 +137,135 @@
     return false
   }
 
-  async function autoScrollAndLoad() {
-    var scrollWaitMs = 100
-    var scrollMaxNoChange = 20
-    var lastCount = 0
-    var noChangeCount = 0
-
-    for (var i = 0; i < 50; i++) {
-      var appEl = document.querySelector('#app')
-      var timeline = appEl && appEl.__vue__ ? findHomeTimeline(appEl.__vue__, 0) : null
-      var statuses = timeline ? getStatuses(timeline) : []
-      var currentCount = statuses.length
-
-      if (currentCount === lastCount) {
-        noChangeCount++
-        if (noChangeCount >= scrollMaxNoChange) {
-          break
-        }
-      } else {
-        noChangeCount = 0
-      }
-
-      lastCount = currentCount
-
-      scrollToBottom()
-      await wait(scrollWaitMs)
-
+  // === Round-based loop: exit immediately when no new data ===
+  async function scrollLoop(label, maxRounds) {
+    var prevTotal = -1
+    for (var r = 1; r <= maxRounds; r++) {
+      doScroll()
+      await wait(jitter(4000, 0.4))
       clickLoadMore()
-      await wait(scrollWaitMs)
+      await wait(jitter(4000, 0.4))
+
+      var cap = window.__xqCaptured ? window.__xqCaptured() : null
+      var total =
+        label === 'hot' ? (cap?.hot?.items?.length ?? -1) : (cap?.news?.items?.length ?? -1)
+      if (prevTotal >= 0 && total === prevTotal) {
+        log(label + ': no new data, stopping after ' + r + ' rounds')
+        return
+      }
+      prevTotal = total
     }
   }
 
+  var wait = function (ms) {
+    return new Promise(function (r) {
+      setTimeout(r, ms)
+    })
+  }
+
+  // === Main ===
   setTimeout(async function () {
-    console.log('[xueqiu-test] === Starting test ===')
+    log('Starting...')
 
-    // Step 1: Check Vue instance
-    var app = document.querySelector('#app')
-    if (!app || !app.__vue__) {
-      console.error('[xueqiu-test] FAIL: Vue instance not found')
-      return
-    }
-    console.log('[xueqiu-test] OK: Vue instance found')
-
-    // Step 2: Find HomeTimeline component
-    var timeline = findHomeTimeline(app.__vue__, 0)
-    if (!timeline) {
-      console.error('[xueqiu-test] FAIL: HomeTimeline component not found')
-      return
-    }
-    console.log('[xueqiu-test] OK: HomeTimeline component found')
-
-    // Step 3: Test 7x24 tab
-    console.log('[xueqiu-test] === Testing 7x24 tab ===')
+    // Phase 1: 7x24 news
     clickTab('7x24')
-    await wait(1000)
+    await wait(jitter(5000, 0.4))
+    log('Phase 1: scrolling 7x24 (max 10 rounds)')
+    await scrollLoop('news', 10)
 
-    var statuses7x24 = getStatuses(timeline)
-    console.log('[xueqiu-test] 7x24 initial count:', statuses7x24.length)
+    // Snapshot Vue after news
+    var vueNews = getVueStatuses()
+    log('Vue news count: ' + (vueNews ? vueNews.length : 'N/A'))
 
-    // Load more
-    await autoScrollAndLoad()
+    // Phase 2: hot posts
+    clickTab('热门')
+    await wait(jitter(5000, 0.4))
+    log('Phase 2: scrolling hot (max 10 rounds)')
+    await scrollLoop('hot', 10)
 
-    var statuses7x24After = getStatuses(timeline)
-    console.log('[xueqiu-test] 7x24 final count:', statuses7x24After.length)
+    // Snapshot Vue after hot
+    var vueHot = getVueStatuses()
+    log('Vue hot count: ' + (vueHot ? vueHot.length : 'N/A'))
 
-    if (statuses7x24After.length > 0) {
-      var firstItem = statuses7x24After[0]
-      console.log('[xueqiu-test] First 7x24 item:')
-      console.log('[xueqiu-test]   id:', firstItem.id)
-      console.log('[xueqiu-test]   title:', (firstItem.title || '').slice(0, 50))
-      console.log('[xueqiu-test]   text:', (firstItem.text || '').slice(0, 50))
-      console.log('[xueqiu-test]   target:', firstItem.target)
-      console.log('[xueqiu-test]   reply_count:', firstItem.reply_count)
-      console.log('[xueqiu-test]   like_count:', firstItem.like_count)
-    }
+    // === Cross-validate ===
+    await wait(2000)
+    var cap = window.__xqCaptured ? window.__xqCaptured() : null
+    log('=== CROSS-VALIDATION ===')
 
-    // Step 4: Test 热门 tab - debug
-    console.log('[xueqiu-test] === Testing 热门 tab ===')
+    if (cap) {
+      // News
+      var nApi = cap.news.items
+      log('NEWS: API=' + nApi.length + ' items | Vue=' + (vueNews ? vueNews.length : 'N/A'))
+      if (nApi.length && vueNews) {
+        var apiIds = new Set(
+          nApi.map(function (i) {
+            return i.id
+          }),
+        )
+        var vueIds = new Set(
+          vueNews.map(function (i) {
+            return i.id
+          }),
+        )
+        var overlap = new Set(
+          [...apiIds].filter(function (x) {
+            return vueIds.has(x)
+          }),
+        )
+        log(
+          'NEWS: API unique=' +
+            apiIds.size +
+            ' Vue unique=' +
+            vueIds.size +
+            ' overlap=' +
+            overlap.size,
+        )
+      }
 
-    // Check tab links
-    var allLinks = document.querySelectorAll('a')
-    var tabLinks = []
-    for (var j = 0; j < allLinks.length; j++) {
-      var text = allLinks[j].textContent.trim()
-      if (text === '7x24' || text === '热门') {
-        tabLinks.push({
-          text: text,
-          active: allLinks[j].classList.contains('active'),
-          href: allLinks[j].href,
+      // Hot
+      var hApi = cap.hot.items
+      log('HOT: API=' + hApi.length + ' items | Vue=' + (vueHot ? vueHot.length : 'N/A'))
+      if (hApi.length && vueHot) {
+        var apiIds2 = new Set(
+          hApi.map(function (i) {
+            return i.id
+          }),
+        )
+        var vueIds2 = new Set(
+          vueHot.map(function (i) {
+            return i.id
+          }),
+        )
+        var overlap2 = new Set(
+          [...apiIds2].filter(function (x) {
+            return vueIds2.has(x)
+          }),
+        )
+        log(
+          'HOT: API unique=' +
+            apiIds2.size +
+            ' Vue unique=' +
+            vueIds2.size +
+            ' overlap=' +
+            overlap2.size,
+        )
+
+        // Show items in API but not in Vue (newer data?)
+        var apiOnly = [...apiIds2].filter(function (x) {
+          return !vueIds2.has(x)
         })
+        if (apiOnly.length)
+          log(
+            'HOT: items in API only (newer?): ' +
+              apiOnly.slice(0, 5).join(',') +
+              (apiOnly.length > 5 ? '...' : ''),
+          )
       }
     }
-    console.log('[xueqiu-test] Tab links found:', tabLinks)
 
-    // Click 热门 tab
-    var clickedHot = clickTab('热门')
-    console.log('[xueqiu-test] Clicked 热门 tab:', clickedHot)
-
-    // Wait longer for data to load
-    console.log('[xueqiu-test] Waiting 3 seconds for data...')
-    await wait(3000)
-
-    // Check Vue data
-    console.log('[xueqiu-test] HomeTimeline $data keys:', Object.keys(timeline.$data || {}))
-
-    var statusesHot = getStatuses(timeline)
-    console.log('[xueqiu-test] 热门 statuses count:', statusesHot.length)
-
-    // Check if there are other components with data
-    console.log('[xueqiu-test] Checking for other timeline components...')
-    function findAllTimelines(comp, depth) {
-      if (depth > 6) return []
-      var results = []
-      if (comp.$options && comp.$options.name) {
-        results.push({
-          name: comp.$options.name,
-          hasStatuses: Array.isArray(comp.$data?.statuses),
-          statusesCount: Array.isArray(comp.$data?.statuses) ? comp.$data.statuses.length : 0,
-        })
-      }
-      var children = comp.$children || []
-      for (var i = 0; i < children.length; i++) {
-        results = results.concat(findAllTimelines(children[i], depth + 1))
-      }
-      return results
-    }
-
-    var allTimelines = findAllTimelines(app.__vue__, 0)
-    console.log('[xueqiu-test] All timeline-like components:', allTimelines)
-
-    // Try to scroll and load more for hot posts
-    console.log('[xueqiu-test] Scrolling for hot posts...')
-    await autoScrollAndLoad()
-
-    var statusesHotAfter = getStatuses(timeline)
-    console.log('[xueqiu-test] 热门 after scroll:', statusesHotAfter.length, 'items')
-
-    // Summary
-    console.log('[xueqiu-test] === Summary ===')
-    console.log('[xueqiu-test] 7x24 news:', statuses7x24After.length, 'items')
-    console.log('[xueqiu-test] 热门 hotPosts:', statusesHotAfter.length, 'items')
-
-    if (statusesHotAfter.length === 0) {
-      console.error('[xueqiu-test] WARNING: 热门 tab has no data')
-      console.log('[xueqiu-test] Possible causes:')
-      console.log('[xueqiu-test]   1. "热门" tab might not be the correct selector')
-      console.log('[xueqiu-test]   2. Data might be stored in a different component')
-      console.log('[xueqiu-test]   3. Need to wait longer for data to load')
-    }
-
-    console.log('[xueqiu-test] === Test complete ===')
+    log('=== DONE ===')
   }, 3000)
+
+  injectCollector()
+  log('Ready')
 })()
