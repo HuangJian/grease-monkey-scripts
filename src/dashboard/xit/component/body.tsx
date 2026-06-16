@@ -47,6 +47,13 @@ export function XitBody({
         todayItems.sort((a, b) => b.priority - a.priority)
         displayLines = [...todayItems, ...displayLines]
       }
+      const overdueItems = displayLines.filter(
+        (l): l is XitItem => l.type === 'item' && getDueDateStatus(l.dueDate ?? '') === 'overdue',
+      )
+      if (overdueItems.length > 0) {
+        overdueItems.sort((a, b) => b.priority - a.priority)
+        displayLines = [...overdueItems, ...displayLines]
+      }
     } else {
       displayLines = lines.filter((l) => l.type !== 'blank')
     }
