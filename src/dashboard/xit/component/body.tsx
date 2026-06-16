@@ -20,6 +20,7 @@ export function XitBody({
 
   const isFiltering = query !== ''
   let displayLines: XitLine[] = []
+  let pinnedLines: XitLine[] = []
 
   if (isFiltering) {
     const result = parseQuery(query)
@@ -43,16 +44,16 @@ export function XitBody({
       const todayItems = displayLines.filter(
         (l): l is XitItem => l.type === 'item' && getDueDateStatus(l.dueDate ?? '') === 'today',
       )
-      if (todayItems.length > 0) {
-        todayItems.sort((a, b) => b.priority - a.priority)
-        displayLines = [...todayItems, ...displayLines]
-      }
       const overdueItems = displayLines.filter(
         (l): l is XitItem => l.type === 'item' && getDueDateStatus(l.dueDate ?? '') === 'overdue',
       )
       if (overdueItems.length > 0) {
         overdueItems.sort((a, b) => b.priority - a.priority)
-        displayLines = [...overdueItems, ...displayLines]
+        pinnedLines = [...pinnedLines, ...overdueItems]
+      }
+      if (todayItems.length > 0) {
+        todayItems.sort((a, b) => b.priority - a.priority)
+        pinnedLines = [...pinnedLines, ...todayItems]
       }
     } else {
       displayLines = lines.filter((l) => l.type !== 'blank')
@@ -90,7 +91,14 @@ export function XitBody({
         {displayLines.length === 0 ? (
           <div class="gm-sp-xit-empty">无符合条件的条目</div>
         ) : (
-          <ListContent lines={displayLines} openEditor={openEditor} />
+          <>
+            {pinnedLines.length > 0 && (
+              <div class="gm-sp-xit-pinned">
+                <ListContent lines={pinnedLines} openEditor={openEditor} />
+              </div>
+            )}
+            <ListContent lines={displayLines} openEditor={openEditor} />
+          </>
         )}
       </div>
     </div>

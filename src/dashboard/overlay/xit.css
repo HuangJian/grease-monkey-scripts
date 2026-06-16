@@ -292,6 +292,18 @@
   color: inherit;
 }
 
+.gm-sp-xit-pinned {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 4px;
+  padding: 4px 6px;
+  margin-bottom: 4px;
+}
+
+.gm-sp-xit-pinned .gm-sp-xit-item:hover {
+  background: #fde68a;
+}
+
 .gm-sp-xit-list {
   display: flex;
   flex-direction: column;
