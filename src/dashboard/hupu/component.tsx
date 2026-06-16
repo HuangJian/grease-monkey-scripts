@@ -131,18 +131,6 @@ export function HupuComponent({
     forceUpdate((n) => n + 1)
   }
 
-  function handleMarkAllRead(board: string) {
-    const now = Date.now()
-    const posts = filtered![board] ?? []
-    posts
-      .filter((post) => !state.isRead(post.id))
-      .forEach((post) => {
-        state.markRead(post.id, now, post.replies)
-      })
-    if (runtime) void state.saveToStorage(runtime)
-    forceUpdate((n) => n + 1)
-  }
-
   function handleToggleBoard(board: string) {
     expandCollapse.toggleCategory(board, totalPosts)
     forceUpdate((n) => n + 1)
@@ -165,17 +153,6 @@ export function HupuComponent({
             >
               <span class={`gm-sp-reddit-caret${caretClass}`}>▾</span>
               {escapeHtml(board)}
-              <button
-                type="button"
-                class="gm-sp-date-filter-btn gm-sp-archive-btn"
-                title="归档：标记该版块所有主题为已读"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleMarkAllRead(board)
-                }}
-              >
-                🧹
-              </button>
             </h3>
             <ol class="gm-sp-list">
               {visiblePosts.map((post) => {

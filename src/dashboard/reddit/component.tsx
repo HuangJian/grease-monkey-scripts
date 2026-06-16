@@ -131,18 +131,6 @@ export function RedditComponent({
     forceUpdate((n) => n + 1)
   }
 
-  function handleMarkAllRead(sub: string) {
-    const now = Date.now()
-    const posts = filtered![sub] ?? []
-    posts
-      .filter((post) => !state.isRead(post.id))
-      .forEach((post) => {
-        state.markRead(post.id, now, post.numComments)
-      })
-    if (runtime) void state.saveToStorage(runtime)
-    forceUpdate((n) => n + 1)
-  }
-
   function handleToggleSub(sub: string) {
     expandCollapse.toggleCategory(sub, totalPosts)
     forceUpdate((n) => n + 1)
@@ -165,17 +153,6 @@ export function RedditComponent({
             >
               <span class={`gm-sp-reddit-caret${caretClass}`}>▾</span>
               r/{escapeHtml(sub)}
-              <button
-                type="button"
-                class="gm-sp-date-filter-btn gm-sp-archive-btn"
-                title="归档：标记该 subreddit 所有主题为已读"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleMarkAllRead(sub)
-                }}
-              >
-                🧹
-              </button>
             </h3>
             <ol class="gm-sp-list">
               {visiblePosts.map((post) => {

@@ -44,15 +44,6 @@
   border-color: #e5e7eb;
 }
 
-.gm-sp-reddit-section .gm-sp-archive-btn {
-  background: #fff7ed;
-  border-left: 1px solid #e5e7eb;
-}
-
-.gm-sp-reddit-section .gm-sp-archive-btn:hover {
-  background: #fed7aa;
-}
-
 .gm-sp-reddit-section:has(> .gm-sp-reddit-sub-title .gm-sp-reddit-caret-visible) {
   cursor: pointer;
 }
