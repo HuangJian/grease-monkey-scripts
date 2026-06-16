@@ -241,8 +241,7 @@
   display: none;
   position: absolute;
   right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 4px;
   gap: 4px;
   align-items: center;
   z-index: 1;
