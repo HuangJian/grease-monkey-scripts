@@ -85,7 +85,7 @@ function BookBlock({
       <div class="gm-sp-novels-book" data-book-url={bookUrl}>
         <div class="gm-sp-novels-book-header">
           <BookTitleLink url={book.url} titleText={titleText} />
-          <span class="gm-sp-novels-book-status">{statusText}</span>
+          <span class="gm-sp-novels-book-status gm-sp-novels-book-status-none">{statusText}</span>
         </div>
         {errorNoteEl}
         {book.latestChapters.length > 0 ? (

@@ -56,6 +56,11 @@
   flex: 0 0 auto;
 }
 
+.gm-sp-novels-book-status-none {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+
 .gm-sp-novels-book-unknown .gm-sp-novels-book-status {
   background: #fee2e2;
   color: #b91c1c;
