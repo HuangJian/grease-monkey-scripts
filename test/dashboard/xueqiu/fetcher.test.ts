@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { XueqiuNewsItem } from '../../../src/dashboard/xueqiu/types'
 import { mergeItems } from '../../../src/dashboard/xueqiu/source'
+import { shouldEarlyExit } from '../../../src/dashboard/xueqiu/fetcher'
 
 function makeItem(id: number, overrides: Partial<XueqiuNewsItem> = {}): XueqiuNewsItem {
   return {
@@ -78,6 +79,37 @@ describe('xueqiu dedup', () => {
     const deduped = dedupById(hotPosts)
     expect(deduped).toHaveLength(3)
     expect(deduped.map((it) => it.id)).toEqual([100, 200, 300])
+  })
+})
+
+describe('xueqiu early exit', () => {
+  test('bugfix: news should not early-exit when batch contains new items alongside known items', () => {
+    const knownIds = new Set<number>([1, 2, 3])
+    const batch = [makeItem(1), makeItem(2), makeItem(3), makeItem(4), makeItem(5)]
+    const result = shouldEarlyExit('news', batch, knownIds)
+    expect(result).toBe(false)
+  })
+
+  test('news should early-exit when all items in batch are already known', () => {
+    const knownIds = new Set<number>([1, 2, 3])
+    const batch = [makeItem(1), makeItem(2), makeItem(3)]
+    const result = shouldEarlyExit('news', batch, knownIds)
+    expect(result).toBe(true)
+  })
+
+  test('news should not early-exit when batch is empty', () => {
+    const knownIds = new Set<number>([1, 2, 3])
+    const result = shouldEarlyExit('news', [], knownIds)
+    expect(result).toBe(true)
+  })
+
+  test('hot should early-exit only when all items are known', () => {
+    const knownIds = new Set<number>([1, 2])
+    const batch = [makeItem(1), makeItem(2), makeItem(3)]
+    expect(shouldEarlyExit('hot', batch, knownIds)).toBe(false)
+
+    const allKnown = [makeItem(1), makeItem(2)]
+    expect(shouldEarlyExit('hot', allKnown, knownIds)).toBe(true)
   })
 })
 

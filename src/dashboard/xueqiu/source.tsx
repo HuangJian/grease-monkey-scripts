@@ -53,9 +53,12 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
       await state.loadFromStorage(runtime)
       const fresh = await fetchXueqiu(runtime, options)
       await saveXueqiuCache(runtime, fresh)
+      const merged = await loadXueqiuCache(runtime)
       const visible: XueqiuRenderData = {
-        news: fresh.news.filter((it) => !state.isHidden(String(it.id))),
-        hotPosts: fresh.hotPosts.filter((it) => !state.isHidden(String(it.id))),
+        news: (merged?.news ?? [])
+          .filter((it) => !state.isHidden(String(it.id)))
+          .sort((a, b) => b.created_at - a.created_at),
+        hotPosts: (merged?.hotPosts ?? []).filter((it) => !state.isHidden(String(it.id))),
       }
       await state.saveToStorage(runtime)
       return visible

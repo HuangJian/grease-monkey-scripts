@@ -159,6 +159,16 @@ function dedupById(items: XueqiuNewsItem[]): XueqiuNewsItem[] {
   return result
 }
 
+// ---- Early exit logic (exported for testing) ----
+
+export function shouldEarlyExit(
+  _mode: 'news' | 'hot',
+  asNewsItems: XueqiuNewsItem[],
+  knownIds: Set<number>,
+): boolean {
+  return asNewsItems.every((item) => knownIds.has(item.id))
+}
+
 // ---- Fetch logic for one source ----
 
 async function fetchSource(mode: 'news' | 'hot', knownIds: Set<number>): Promise<XueqiuNewsItem[]> {
@@ -212,12 +222,7 @@ async function fetchSource(mode: 'news' | 'hot', knownIds: Set<number>): Promise
     // Add new IDs to known set so subsequent rounds also skip them
     newItems.forEach((item) => knownIds.add(item.id))
 
-    // Early exit: news stops when any seen item is already known; hot stops when all seen items are known
-    if (mode === 'news') {
-      if (asNewsItems.some((item) => knownIds.has(item.id))) break
-    } else {
-      if (asNewsItems.every((item) => knownIds.has(item.id))) break
-    }
+    if (shouldEarlyExit(mode, asNewsItems, knownIds)) break
   }
 
   return dedupById(all)
