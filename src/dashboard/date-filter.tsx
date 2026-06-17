@@ -10,7 +10,7 @@ export function dateFilterBounds(
 ): { start?: number; end?: number } | null {
   if (filter === '全') return null
   const todayStart = new Date(now)
-  todayStart.setUTCHours(0, 0, 0, 0)
+  todayStart.setHours(0, 0, 0, 0)
   const ts = todayStart.getTime()
   switch (filter) {
     case '今':

@@ -85,7 +85,7 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
         visible[board] = state.filterVisible(posts)
       })
       const todayStartMs = new Date(now)
-      todayStartMs.setUTCHours(0, 0, 0, 0)
+      todayStartMs.setHours(0, 0, 0, 0)
       const todayMs = todayStartMs.getTime()
       const allFetched: HupuPost[] = fetchResult.boards.flatMap(({ posts }) =>
         posts.filter((p) => {

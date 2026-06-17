@@ -84,7 +84,7 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
         visible[sub] = state.filterVisible(posts)
       })
       const todayStartMs = new Date(now)
-      todayStartMs.setUTCHours(0, 0, 0, 0)
+      todayStartMs.setHours(0, 0, 0, 0)
       const todayMs = todayStartMs.getTime()
       const allFetched: RedditPost[] = fetchResult.posts.flatMap(({ posts }) =>
         posts.filter((p) => {
