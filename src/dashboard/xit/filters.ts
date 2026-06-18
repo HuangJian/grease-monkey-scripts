@@ -1,9 +1,18 @@
 import type { Runtime } from '../../runtime'
 import type { NamedFilter, NamedFilterStore } from './types'
 
-const STORAGE_KEY = 'dashboard:v1:xit-filters'
+const OLD_KEY = 'dashboard:v1:xit-filters'
+const STORAGE_KEY = 'dashboard:v2:xit-filters'
 
 let nextId = 1
+
+async function migrateOldKey(runtime: Runtime): Promise<void> {
+  const raw = await runtime.getValue<unknown>(OLD_KEY, null)
+  if (raw !== null && raw !== undefined) {
+    await runtime.setValue(STORAGE_KEY, raw)
+    await runtime.deleteValue(OLD_KEY)
+  }
+}
 
 function bumpNextId(store: NamedFilterStore): void {
   store.filters.forEach((f) => {
@@ -33,6 +42,7 @@ function emptyStore(): NamedFilterStore {
 }
 
 export async function loadFilters(runtime: Runtime): Promise<NamedFilterStore> {
+  await migrateOldKey(runtime)
   const raw = await runtime.getValue<NamedFilterStore | null>(STORAGE_KEY, null)
   if (!raw || !Array.isArray(raw.filters)) return emptyStore()
   bumpNextId(raw)

@@ -181,7 +181,6 @@ describe('createRedditState', () => {
         schemaVersion: CACHE_SCHEMA_VERSION,
         data: { popular: [makePost({ id: '1' }), makePost({ id: '2' })] },
         fetchedAt: Date.now(),
-        byteSize: 0,
       }
       runtime.stores[cacheKey] = cached
       await state.removeFromCache(runtime, '1')
@@ -199,7 +198,6 @@ describe('createRedditState', () => {
           funny: [makePost({ id: '2', subreddits: ['funny'] })],
         },
         fetchedAt: Date.now(),
-        byteSize: 0,
       }
       runtime.stores[cacheKey] = cached
       await state.removeFromCache(runtime, '1')

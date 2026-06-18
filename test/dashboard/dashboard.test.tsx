@@ -68,7 +68,6 @@ describe('createDashboard', () => {
         },
       ],
       fetchedAt: Date.now() - 60_000,
-      byteSize: 100,
     }
     runtime.stores[CACHE_KEY('v2ex')] = v2exCache
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
@@ -104,7 +103,6 @@ describe('createDashboard', () => {
         },
       ],
       fetchedAt: Date.now() - 60_000,
-      byteSize: 100,
     }
     runtime.stores[CACHE_KEY('v2ex')] = v2exCache
     const now = Date.now()
@@ -141,7 +139,6 @@ describe('createDashboard', () => {
         ],
       },
       fetchedAt: Date.now() - 60_000,
-      byteSize: 100,
     }
     runtime.stores[CACHE_KEY('reddit')] = redditCache
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
@@ -173,7 +170,6 @@ describe('createDashboard', () => {
         ],
       },
       fetchedAt: Date.now(),
-      byteSize: 100,
     }
     runtime.stores[CACHE_KEY('novels')] = novelsCache
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
@@ -249,7 +245,6 @@ describe('createDashboard', () => {
       schemaVersion: CACHE_SCHEMA_VERSION,
       data: [topic],
       fetchedAt: Date.now(),
-      byteSize: 100,
     }
     runtime.simulateRemoteChange(CACHE_KEY('v2ex'), newCache)
     await new Promise((r) => setTimeout(r, 0))
@@ -294,7 +289,6 @@ describe('createDashboard', () => {
       schemaVersion: CACHE_SCHEMA_VERSION,
       data: [oldTopic],
       fetchedAt: 1000,
-      byteSize: 100,
     }
     runtime.stores[CACHE_KEY('v2ex')] = oldCache
     runtime.request = ((d) => d.onerror?.()) as typeof runtime.request
@@ -304,7 +298,7 @@ describe('createDashboard', () => {
     const stored = runtime.stores[CACHE_KEY('v2ex')] as CachedSource<unknown>
     expect(stored.error).toMatch(/network error/)
     expect(stored.fetchedAt).toBe(1000)
-    expect((stored.data as { title: string }[])[0].title).toBe('old')
+    expect((stored.data as { t: string }[])[0].t).toBe('old')
   })
 
   test('refreshSource re-renders the open card after writing (no listener needed)', async () => {
@@ -327,7 +321,7 @@ describe('createDashboard', () => {
       called++
       d.onload({ responseText: '[]' })
     }) as typeof runtime.request
-    runtime.stores['dashboard:v1:lock:v2ex'] = { owner: 'other', expiresAt: Date.now() + 60_000 }
+    runtime.stores['dashboard:v2:lock:v2ex'] = { owner: 'other', expiresAt: Date.now() + 60_000 }
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     await dashboard.refreshSource('v2ex')
@@ -394,7 +388,7 @@ describe('createDashboard', () => {
     dashboard.start()
     dashboard.editConfig()
     window.alert = originalAlert
-    const stored = runtime.stores['dashboard:v1:config'] as {
+    const stored = runtime.stores['dashboard:v2:config'] as {
       weather: { cities: { cityLabel: string; latitude: number }[]; ttlMinutes: number }
     }
     expect(stored.weather.cities[0].cityLabel).toBe('上海')
@@ -412,7 +406,7 @@ describe('createDashboard', () => {
     dashboard.start()
     dashboard.editConfig()
     expect(alerts.some((m) => m.includes('解析失败'))).toBe(true)
-    expect(runtime.stores['dashboard:v1:config']).toBeUndefined()
+    expect(runtime.stores['dashboard:v2:config']).toBeUndefined()
     window.alert = originalAlert
   })
 
@@ -427,7 +421,7 @@ describe('createDashboard', () => {
     dashboard.start()
     dashboard.editConfig()
     expect(alerts.some((m) => m.includes('配置校验失败'))).toBe(true)
-    expect(runtime.stores['dashboard:v1:config']).toBeUndefined()
+    expect(runtime.stores['dashboard:v2:config']).toBeUndefined()
     window.alert = originalAlert
   })
 
@@ -445,7 +439,7 @@ describe('createDashboard', () => {
     dashboard.start()
     dashboard.editConfig()
     expect(alerts.some((m) => m.includes('禁用了 prompt'))).toBe(true)
-    expect(runtime.stores['dashboard:v1:config']).toBeUndefined()
+    expect(runtime.stores['dashboard:v2:config']).toBeUndefined()
     window.alert = originalAlert
   })
 })

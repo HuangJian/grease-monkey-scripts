@@ -97,14 +97,14 @@ describe('createItemState (string IDs)', () => {
       expect(restored.isHidden('2')).toBe(true)
     })
     test('expired read markers are not loaded', async () => {
-      const oldTs = Date.now() - TTL_MS - 1000
-      runtime.stores[STATE_KEY('test')] = { '1': { r: oldTs } }
+      const oldMin = Math.floor((Date.now() - TTL_MS - 1000) / 60000)
+      runtime.stores[STATE_KEY('test')] = { '1': { r: oldMin } }
       await state.loadFromStorage(runtime)
       expect(state.isRead('1')).toBe(false)
     })
     test('expired hidden markers are not loaded', async () => {
-      const oldTs = Date.now() - TTL_MS - 1000
-      runtime.stores[STATE_KEY('test')] = { '2': { h: oldTs } }
+      const oldMin = Math.floor((Date.now() - TTL_MS - 1000) / 60000)
+      runtime.stores[STATE_KEY('test')] = { '2': { h: oldMin } }
       await state.loadFromStorage(runtime)
       expect(state.isHidden('2')).toBe(false)
     })
@@ -232,7 +232,6 @@ describe('removeItemFromCacheById', () => {
       schemaVersion: CACHE_SCHEMA_VERSION,
       data: [{ id: '1' }, { id: '2' }],
       fetchedAt: Date.now(),
-      byteSize: 0,
     }
     runtime.stores[key] = cached
     await removeItemFromCacheById(runtime, 'test', '1')
@@ -259,7 +258,6 @@ describe('removeItemFromCacheById', () => {
       schemaVersion: CACHE_SCHEMA_VERSION,
       data: [{ id: '1' }],
       fetchedAt: Date.now(),
-      byteSize: 0,
     }
     await removeItemFromCacheById(runtime, 'test', '99')
     const after = runtime.stores[key] as CachedSource<{ id: string }[]>

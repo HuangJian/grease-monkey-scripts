@@ -16,6 +16,7 @@
 // @match        https://www.xueqiu.com/*
 // @grant        GM.getValue
 // @grant        GM.setValue
+// @grant        GM.deleteValue
 // @grant        GM_addValueChangeListener
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addElement

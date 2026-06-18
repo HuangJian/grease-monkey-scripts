@@ -42,7 +42,7 @@ describe('createTnewsSource.fetch', () => {
       fetched.push(d.url)
       d.onload({ responseText: fixture, status: 200 })
     })
-    runtime.stores['dashboard:v1:config'] = {
+    runtime.stores['dashboard:v2:config'] = {
       tnews: { feeds: ['https://custom.example/feed'], mirrors: [] },
     }
     const { source } = createTnewsSource(DEFAULT_OPTS)

@@ -16,6 +16,16 @@ export type StoredHistoryTopic = {
   created?: number
 }
 
+type StoredHistoryTopicShort = {
+  id: number
+  t: string
+  u: string
+  r: number
+  a: string
+  nt: string
+  c?: number
+}
+
 type OldStoredApiTopic = {
   id: number
   title: string
@@ -25,6 +35,34 @@ type OldStoredApiTopic = {
   node: { title: string }
   fetchedAt: number
   created?: number
+}
+
+function compressHistoryTopic(v: StoredHistoryTopic): StoredHistoryTopicShort {
+  return {
+    id: v.id,
+    t: v.title,
+    u: v.url,
+    r: v.replies,
+    a: v.member.username,
+    nt: v.node.title,
+    c: v.created !== undefined ? Math.floor(v.created / 60000) : undefined,
+  }
+}
+
+function expandHistoryTopic(v: StoredHistoryTopicShort): StoredHistoryTopic {
+  return {
+    id: v.id,
+    title: v.t,
+    url: v.u,
+    replies: v.r,
+    member: { username: v.a },
+    node: { title: v.nt },
+    created: v.c !== undefined && v.c < 1e9 ? v.c * 60000 : v.c,
+  }
+}
+
+function isShortFormat(v: Record<string, unknown>): boolean {
+  return 't' in v
 }
 
 export type V2exState = {
@@ -108,29 +146,49 @@ export function createV2exState(): V2exState {
                 node: t.node,
                 created: t.created ?? t.fetchedAt,
               }))
-            const existing = await runtime.getValue<StoredHistoryTopic[] | null>(
+            const existing = await runtime.getValue<Record<string, unknown>[] | null>(
               TOPICS_HISTORY_KEY,
               null,
             )
-            const merged = existing ? [...existing, ...migrated] : migrated
-            await runtime.setValue(TOPICS_HISTORY_KEY, merged)
+            const existingFull =
+              existing && Array.isArray(existing)
+                ? existing.map((v) =>
+                    isShortFormat(v)
+                      ? expandHistoryTopic(v as StoredHistoryTopicShort)
+                      : (v as StoredHistoryTopic),
+                  )
+                : []
+            const merged = [...existingFull, ...migrated]
+            await runtime.setValue(TOPICS_HISTORY_KEY, merged.map(compressHistoryTopic))
           }
-          await runtime.setValue(OLD_API_TOPICS_KEY, null)
+          await runtime.deleteValue(OLD_API_TOPICS_KEY)
         } catch {
           /* ignore migration errors */
         }
       }
       try {
-        const stored = await runtime.getValue<StoredHistoryTopic[] | null>(TOPICS_HISTORY_KEY, null)
+        const stored = await runtime.getValue<Record<string, unknown>[] | null>(
+          TOPICS_HISTORY_KEY,
+          null,
+        )
         if (!stored || !Array.isArray(stored)) {
           cachedHistory = []
           return cachedHistory
         }
         const now = Date.now()
-        cachedHistory = stored.filter((t) => {
-          if (t.created === undefined) return false
-          return now - t.created < historyTtl
-        })
+        cachedHistory = stored
+          .filter((t) => {
+            const topic = isShortFormat(t)
+              ? expandHistoryTopic(t as StoredHistoryTopicShort)
+              : (t as StoredHistoryTopic)
+            if (topic.created === undefined) return false
+            return now - topic.created < historyTtl
+          })
+          .map((t) =>
+            isShortFormat(t)
+              ? expandHistoryTopic(t as StoredHistoryTopicShort)
+              : (t as StoredHistoryTopic),
+          )
         return cachedHistory
       } catch {
         cachedHistory = []
@@ -162,7 +220,7 @@ export function createV2exState(): V2exState {
         (t) => t.created !== undefined && now - t.created < historyTtl,
       )
       cachedHistory = result
-      await runtime.setValue(TOPICS_HISTORY_KEY, result)
+      await runtime.setValue(TOPICS_HISTORY_KEY, result.map(compressHistoryTopic))
     },
     async removeFromCache(runtime, topicId) {
       try {

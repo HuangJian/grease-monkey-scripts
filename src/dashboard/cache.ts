@@ -1,14 +1,9 @@
 import type { Runtime } from '../runtime'
 import { CACHE_KEY, CACHE_SCHEMA_VERSION, VERY_STALE_MULTIPLIER, type CachedSource } from './types'
+import { compressForStorage, expandFromStorage } from './codec'
 
-export type SaveResult = 'ok'
-
-export function estimateByteSize(payload: unknown): number {
-  try {
-    return new Blob([JSON.stringify(payload)]).size
-  } catch {
-    return 0
-  }
+function stripNulls<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj, (_k, v) => v ?? undefined))
 }
 
 export async function loadCache<T>(
@@ -18,22 +13,20 @@ export async function loadCache<T>(
   const value = await runtime.getValue<CachedSource<T> | null>(CACHE_KEY(sourceId), null)
   if (!value || typeof value.fetchedAt !== 'number') return null
   if (value.schemaVersion !== CACHE_SCHEMA_VERSION) return null
-  return value
+  return expandFromStorage(sourceId, value)
 }
 
 export async function saveCache<T>(
   runtime: Runtime,
   sourceId: string,
-  cached: Omit<CachedSource<T>, 'schemaVersion' | 'byteSize'>,
-): Promise<SaveResult> {
-  const byteSize = estimateByteSize(cached)
-  const full: CachedSource<T> = {
-    ...cached,
+  cached: Omit<CachedSource<T>, 'schemaVersion'>,
+): Promise<void> {
+  const compressed = compressForStorage(sourceId, cached)
+  const cleaned = stripNulls(compressed)
+  await runtime.setValue(CACHE_KEY(sourceId), {
+    ...cleaned,
     schemaVersion: CACHE_SCHEMA_VERSION,
-    byteSize,
-  }
-  await runtime.setValue(CACHE_KEY(sourceId), full)
-  return 'ok'
+  })
 }
 
 export function isStale(cached: CachedSource<unknown> | null, ttlMs: number, now: number): boolean {

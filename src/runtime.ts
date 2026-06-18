@@ -30,6 +30,7 @@ export type Runtime = {
   prompt(message?: string, defaultValue?: string): string | null
   getValue<T>(key: string, defaultValue: T): Promise<T>
   setValue(key: string, value: unknown): Promise<void> | void
+  deleteValue(key: string): Promise<void> | void
   request(details: RequestDetails): void
   addStyle(css: string): void
   addEventListener(
@@ -47,6 +48,7 @@ export type Runtime = {
 declare const GM: {
   getValue<T>(key: string, defaultValue: T): Promise<T>
   setValue(key: string, value: unknown): Promise<void> | void
+  deleteValue(key: string): Promise<void> | void
 }
 
 declare function GM_xmlhttpRequest(details: {
@@ -84,6 +86,7 @@ export function createBrowserRuntime(): Runtime {
     prompt: window.prompt.bind(window),
     getValue: (key, defaultValue) => GM.getValue(key, defaultValue),
     setValue: (key, value) => GM.setValue(key, value),
+    deleteValue: (key) => GM.deleteValue(key),
     request: (details) => GM_xmlhttpRequest(details),
     addStyle: (css) => GM_addStyle(css),
     addEventListener: (target, type, listener, options) => {

@@ -1,7 +1,7 @@
 import type { ComponentType, VNode } from 'preact'
 import type { Runtime } from '../runtime'
 
-export const KEY_PREFIX = 'dashboard:v1'
+export const KEY_PREFIX = 'dashboard:v2'
 
 export const CACHE_KEY = (sourceId: string): string => `${KEY_PREFIX}:${sourceId}`
 export const STATE_KEY = (sourceId: string): string => `${KEY_PREFIX}:state:${sourceId}`
@@ -20,7 +20,6 @@ export type CachedSource<T> = {
   schemaVersion: number
   data?: T
   fetchedAt: number
-  byteSize: number
   error?: string
 }
 

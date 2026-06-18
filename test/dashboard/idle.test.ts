@@ -24,7 +24,6 @@ describe('opportunistic idle refresh', () => {
     const oldCache: CachedSource<unknown> = {
       schemaVersion: CACHE_SCHEMA_VERSION,
       fetchedAt: Date.now() - 2 * 60 * 60 * 1000, // 2h old
-      byteSize: 0,
     }
     runtime.stores[CACHE_KEY('v2ex')] = oldCache
     runtime.request = ((d) => d.onload({ responseText: '[]' })) as typeof runtime.request
@@ -47,7 +46,6 @@ describe('opportunistic idle refresh', () => {
     const freshCache: CachedSource<unknown> = {
       schemaVersion: CACHE_SCHEMA_VERSION,
       fetchedAt: Date.now(),
-      byteSize: 0,
     }
     runtime.stores[CACHE_KEY('v2ex')] = freshCache
     runtime.stores[CACHE_KEY('weather')] = freshCache

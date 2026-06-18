@@ -5,8 +5,8 @@ import { CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/dashboard/typ
 
 afterEach(cleanup)
 
-function cached<T>(partial: Omit<CachedSource<T>, 'schemaVersion' | 'byteSize'>): CachedSource<T> {
-  return { schemaVersion: CACHE_SCHEMA_VERSION, byteSize: 0, ...partial }
+function cached<T>(partial: Omit<CachedSource<T>, 'schemaVersion'>): CachedSource<T> {
+  return { schemaVersion: CACHE_SCHEMA_VERSION, ...partial }
 }
 
 function renderWithChrome({

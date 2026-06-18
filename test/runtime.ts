@@ -65,6 +65,9 @@ export function createRuntime(dom?: JSDOM): TestRuntime {
     setValue: (key, value) => {
       stores[key] = value
     },
+    deleteValue: (key) => {
+      delete stores[key]
+    },
     request: (details) => {
       lastRequest = {
         url: details.url,

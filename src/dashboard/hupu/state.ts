@@ -7,6 +7,57 @@ import type { HupuPost, StoredHistoryPost } from './types'
 
 const TOPIC_STATE_TTL = 72 * 60 * 60 * 1000
 
+type HistoryPostShort = {
+  id: string
+  t?: string
+  u?: string
+  l?: number
+  r?: number
+  v?: number
+  a?: string
+  au?: string
+  bs?: string[]
+  tn?: string
+  c?: number
+}
+
+function compressHistoryPost(v: StoredHistoryPost): HistoryPostShort {
+  return {
+    id: v.id,
+    t: v.title,
+    u: v.url,
+    l: v.lights,
+    r: v.replies,
+    v: v.views,
+    a: v.author,
+    au: v.authorUrl,
+    bs: [...v.boards],
+    tn: v.topicName,
+    c: Math.floor(v.created / 60000),
+  }
+}
+
+function expandHistoryPost(v: HistoryPostShort): StoredHistoryPost {
+  const created = v.c !== undefined && v.c < 1e9 ? v.c * 60000 : (v.c ?? 0)
+  return {
+    id: v.id,
+    title: v.t ?? '',
+    url: v.u ?? '',
+    lights: v.l ?? 0,
+    replies: v.r ?? 0,
+    views: v.v ?? 0,
+    author: v.a ?? '',
+    authorUrl: v.au ?? '',
+    boards: v.bs ?? [],
+    topicName: v.tn ?? '',
+    created,
+  }
+}
+
+function isShortFormat(v: Record<string, unknown>): boolean {
+  return 't' in v
+}
+
 export type HupuState = {
   isRead(id: string): boolean
   isHidden(id: string): boolean
@@ -59,16 +110,24 @@ export function createHupuState(): HupuState {
       if (cachedHistory) return cachedHistory
       const historyTtl = historyDays * 24 * 60 * 60 * 1000
       try {
-        const stored = await runtime.getValue<StoredHistoryPost[] | null>(HISTORY_KEY, null)
+        const stored = await runtime.getValue<Record<string, unknown>[] | null>(HISTORY_KEY, null)
         if (!stored || !Array.isArray(stored)) {
           cachedHistory = []
           return cachedHistory
         }
         const now = Date.now()
-        cachedHistory = stored.filter((t) => {
-          if (!Number.isFinite(t.created) || t.created <= 0) return false
-          return now - t.created < historyTtl
-        })
+        cachedHistory = stored
+          .filter((t) => {
+            const post = isShortFormat(t)
+              ? expandHistoryPost(t as HistoryPostShort)
+              : (t as StoredHistoryPost)
+            return (
+              Number.isFinite(post.created) && post.created > 0 && now - post.created < historyTtl
+            )
+          })
+          .map((t) =>
+            isShortFormat(t) ? expandHistoryPost(t as HistoryPostShort) : (t as StoredHistoryPost),
+          )
         return cachedHistory
       } catch {
         cachedHistory = []
@@ -119,7 +178,7 @@ export function createHupuState(): HupuState {
         (t) => Number.isFinite(t.created) && t.created > 0 && now - t.created < historyTtl,
       )
       cachedHistory = result
-      await runtime.setValue(HISTORY_KEY, result)
+      await runtime.setValue(HISTORY_KEY, result.map(compressHistoryPost))
     },
     async removeFromCache(runtime, id) {
       await removeFromCachedGrouped<HupuPost>(runtime, 'hupu', id)
@@ -130,7 +189,7 @@ export function createHupuState(): HupuState {
         const filtered = existing.filter((t) => t.id !== id)
         if (filtered.length === existing.length) return
         cachedHistory = filtered
-        await runtime.setValue(HISTORY_KEY, filtered)
+        await runtime.setValue(HISTORY_KEY, filtered.map(compressHistoryPost))
       } catch {
         /* ignore */
       }

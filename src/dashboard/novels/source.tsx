@@ -1,6 +1,7 @@
 import type { Runtime } from '../../runtime'
-import { CACHE_KEY, CACHE_SCHEMA_VERSION, CONFIG_KEY } from '../types'
+import { CONFIG_KEY } from '../types'
 import type { Source, SourceSettings, TabLabel } from '../types'
+import { loadCache, saveCache } from '../cache'
 import { NovelsComponent } from './component'
 import { createNovelsEditor } from './editor/form'
 import { fetchNovels } from './fetcher'
@@ -102,7 +103,7 @@ async function persistFetchedTitles(
 }
 
 async function loadCachedTitleMap(runtime: Runtime): Promise<Map<string, string>> {
-  const cached = await runtime.getValue<{ data?: NovelData } | null>(CACHE_KEY('novels'), null)
+  const cached = await loadCache<NovelData>(runtime, 'novels')
   const map = new Map<string, string>()
   ;(cached?.data?.books ?? []).forEach((book) => {
     if (book.title) map.set(book.url, book.title)
@@ -110,20 +111,17 @@ async function loadCachedTitleMap(runtime: Runtime): Promise<Map<string, string>
   return map
 }
 
-async function markSeen(runtime: Runtime, bookUrl: string, _data: NovelData | null): Promise<void> {
-  const cached = await runtime.getValue<{ data?: NovelData } | null>(CACHE_KEY('novels'), null)
-  const data = cached?.data ?? _data
-  const current = data?.books.find((b) => b.url === bookUrl)
+async function markSeen(runtime: Runtime, bookUrl: string, data: NovelData | null): Promise<void> {
+  if (!data?.books) return
+  const current = data.books.find((b) => b.url === bookUrl)
   if (!current) return
   const newSeen = current.latestChapters[0]?.url
   if (!newSeen || newSeen === current.lastSeenChapterUrl) return
-  const books = (data?.books ?? []).map((b) =>
+  const books = data.books.map((b) =>
     b.url === bookUrl ? { ...b, lastSeenChapterUrl: newSeen } : b,
   )
-  await runtime.setValue(CACHE_KEY('novels'), {
-    schemaVersion: CACHE_SCHEMA_VERSION,
+  await saveCache(runtime, 'novels', {
     data: { books },
     fetchedAt: Date.now(),
-    byteSize: 0,
   })
 }

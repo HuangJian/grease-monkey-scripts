@@ -12,7 +12,7 @@ export async function refreshSource(runtime: Runtime, source: Source<unknown>): 
   }
   console.debug('[gm-dashboard] refreshSource lock-acquired sourceId=', source.id)
   const oldCache = await loadCache<unknown>(runtime, source.id)
-  let next: Omit<CachedSource<unknown>, 'schemaVersion' | 'byteSize'> | null = null
+  let next: Omit<CachedSource<unknown>, 'schemaVersion'> | null = null
   try {
     const data = await source.fetch(runtime, oldCache?.data)
     next = { data, fetchedAt: Date.now() }

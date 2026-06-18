@@ -60,7 +60,7 @@ describe('createRedditSource.fetch reads fresh config', () => {
       d.onload({ responseText: JSON.stringify(json) })
     })
     const source = createRedditSource(defaultRedditOpts({ subreddits: ['popular'] }))
-    runtime.stores['dashboard:v1:config'] = {
+    runtime.stores['dashboard:v2:config'] = {
       reddit: { subreddits: ['funny'] },
     }
     const data = await source.fetch(runtime, undefined)

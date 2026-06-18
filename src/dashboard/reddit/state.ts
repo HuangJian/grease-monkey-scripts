@@ -7,6 +7,48 @@ import type { RedditPost, StoredHistoryPost } from './types'
 
 const TOPIC_STATE_TTL = 72 * 60 * 60 * 1000
 
+type HistoryPostShort = {
+  id: string
+  t?: string
+  u?: string
+  s?: number
+  r?: number
+  sb?: string[]
+  a?: string
+  c?: number
+}
+
+function compressHistoryPost(v: StoredHistoryPost): HistoryPostShort {
+  return {
+    id: v.id,
+    t: v.title,
+    u: v.url,
+    s: v.score,
+    r: v.numComments,
+    a: v.author,
+    sb: [...v.subreddits],
+    c: Math.floor(v.created / 60000),
+  }
+}
+
+function expandHistoryPost(v: HistoryPostShort): StoredHistoryPost {
+  const created = v.c !== undefined && v.c < 1e9 ? v.c * 60000 : (v.c ?? 0)
+  return {
+    id: v.id,
+    title: v.t ?? '',
+    url: v.u ?? '',
+    score: v.s ?? 0,
+    numComments: v.r ?? 0,
+    author: v.a ?? '',
+    subreddits: v.sb ?? [],
+    created,
+  }
+}
+
+function isShortFormat(v: Record<string, unknown>): boolean {
+  return 't' in v
+}
+
 export type RedditState = {
   isRead(id: string): boolean
   isHidden(id: string): boolean
@@ -64,16 +106,24 @@ export function createRedditState(): RedditState {
       if (cachedHistory) return cachedHistory
       const historyTtl = historyDays * 24 * 60 * 60 * 1000
       try {
-        const stored = await runtime.getValue<StoredHistoryPost[] | null>(HISTORY_KEY, null)
+        const stored = await runtime.getValue<Record<string, unknown>[] | null>(HISTORY_KEY, null)
         if (!stored || !Array.isArray(stored)) {
           cachedHistory = []
           return cachedHistory
         }
         const now = Date.now()
-        cachedHistory = stored.filter((t) => {
-          if (!Number.isFinite(t.created) || t.created <= 0) return false
-          return now - t.created < historyTtl
-        })
+        cachedHistory = stored
+          .filter((t) => {
+            const post = isShortFormat(t)
+              ? expandHistoryPost(t as HistoryPostShort)
+              : (t as StoredHistoryPost)
+            return (
+              Number.isFinite(post.created) && post.created > 0 && now - post.created < historyTtl
+            )
+          })
+          .map((t) =>
+            isShortFormat(t) ? expandHistoryPost(t as HistoryPostShort) : (t as StoredHistoryPost),
+          )
         return cachedHistory
       } catch {
         cachedHistory = []
@@ -117,7 +167,7 @@ export function createRedditState(): RedditState {
         (t) => Number.isFinite(t.created) && t.created > 0 && now - t.created < historyTtl,
       )
       cachedHistory = result
-      await runtime.setValue(HISTORY_KEY, result)
+      await runtime.setValue(HISTORY_KEY, result.map(compressHistoryPost))
     },
     async removeFromCache(runtime, id) {
       await removeFromCachedGrouped<RedditPost>(runtime, 'reddit', id)
@@ -128,7 +178,7 @@ export function createRedditState(): RedditState {
         const filtered = existing.filter((t) => t.id !== id)
         if (filtered.length === existing.length) return
         cachedHistory = filtered
-        await runtime.setValue(HISTORY_KEY, filtered)
+        await runtime.setValue(HISTORY_KEY, filtered.map(compressHistoryPost))
       } catch {
         /* ignore */
       }

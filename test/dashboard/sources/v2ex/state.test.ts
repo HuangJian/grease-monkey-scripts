@@ -194,7 +194,6 @@ describe('createV2exState', () => {
         schemaVersion: CACHE_SCHEMA_VERSION,
         data: [makeTopic({ id: 1 }), makeTopic({ id: 2 })],
         fetchedAt: Date.now(),
-        byteSize: 0,
       }
       runtime.stores[cacheKey] = cached
       await state.removeFromCache(runtime, 1)

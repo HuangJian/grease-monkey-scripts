@@ -10,7 +10,7 @@ import { createRuntime } from '../runtime'
 import type { Source, TabLabel } from '../../src/dashboard/types'
 
 function cached<T>(data: T | null, fetchedAt = 1_000_000, error?: string): CachedSource<T> {
-  const out: CachedSource<T> = { schemaVersion: CACHE_SCHEMA_VERSION, byteSize: 0, fetchedAt }
+  const out: CachedSource<T> = { schemaVersion: CACHE_SCHEMA_VERSION, fetchedAt }
   if (data !== null) out.data = data
   if (error) out.error = error
   return out

@@ -37,7 +37,7 @@ describe('cross-tab broadcast', () => {
     runtime.addValueChangeListener('k', (_key, _old, value, remote) =>
       fired.push({ value, remote }),
     )
-    const next = { schemaVersion: CACHE_SCHEMA_VERSION, fetchedAt: 1, byteSize: 0 }
+    const next = { schemaVersion: CACHE_SCHEMA_VERSION, fetchedAt: 1 }
     runtime.simulateRemoteChange('k', next)
     expect(fired).toEqual([{ value: next, remote: true }])
     expect(runtime.stores['k']).toBe(next)
@@ -75,7 +75,6 @@ describe('cross-tab broadcast', () => {
       schemaVersion: CACHE_SCHEMA_VERSION,
       data: [topic],
       fetchedAt: Date.now(),
-      byteSize: 200,
     }
     runtime.simulateRemoteChange(CACHE_KEY('v2ex'), newCache)
     await new Promise((r) => setTimeout(r, 0))
@@ -107,7 +106,6 @@ describe('cross-tab broadcast', () => {
         ],
       },
       fetchedAt: Date.now(),
-      byteSize: 200,
     }
     runtime.simulateRemoteChange(CACHE_KEY('reddit'), newCache)
     await new Promise((r) => setTimeout(r, 0))

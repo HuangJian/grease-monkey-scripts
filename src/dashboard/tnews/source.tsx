@@ -1,5 +1,5 @@
 import type { Runtime } from '../../runtime'
-import { estimateByteSize } from '../cache'
+
 import type { Source, SourceSettings, TabLabel } from '../types'
 import { RETENTION_MS } from './constants'
 import { TnewsComponent } from './component'
@@ -58,7 +58,7 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
         'hidden=',
         sorted.length - visible.length,
       )
-      console.debug('[gm-tnews] saveCache byteSize=', estimateByteSize({ data: visible }))
+
       await state.saveToStorage(runtime)
       return visible
     },

@@ -13,13 +13,7 @@ import {
   CACHE_SCHEMA_VERSION,
   type CachedSource,
 } from '../../src/dashboard/types'
-import {
-  estimateByteSize,
-  isStale,
-  isVeryStale,
-  loadCache,
-  saveCache,
-} from '../../src/dashboard/cache'
+import { isStale, isVeryStale, loadCache, saveCache } from '../../src/dashboard/cache'
 import { createRuntime } from '../runtime'
 
 describe('isPlainObject', () => {
@@ -137,17 +131,16 @@ describe('cache load/save', () => {
     }
     expect(await loadCache<unknown>(runtime, 'v2ex')).toBeNull()
   })
-  test('saveCache then loadCache round-trips with schemaVersion + byteSize', async () => {
+  test('saveCache then loadCache round-trips with schemaVersion', async () => {
     const runtime = createRuntime()
     const result = await saveCache<{ a: number }>(runtime, 'v2ex', {
       data: { a: 1 },
       fetchedAt: 1234,
     })
-    expect(result).toBe('ok')
+    expect(result).toBeUndefined()
     const loaded = await loadCache<{ a: number }>(runtime, 'v2ex')
     expect(loaded).not.toBeNull()
     expect(loaded!.schemaVersion).toBe(CACHE_SCHEMA_VERSION)
-    expect(loaded!.byteSize).toBeGreaterThan(0)
     expect(loaded!.data).toEqual({ a: 1 })
     expect(loaded!.fetchedAt).toBe(1234)
   })
@@ -158,12 +151,9 @@ describe('cache load/save', () => {
       data: { s: big },
       fetchedAt: Date.now(),
     })
-    expect(result).toBe('ok')
+    expect(result).toBeUndefined()
     const stored = runtime.stores[CACHE_KEY('v2ex')] as CachedSource<{ s: string }>
     expect(stored.data?.s.length).toBe(60 * 1024)
-  })
-  test('estimateByteSize returns JSON size', () => {
-    expect(estimateByteSize({ a: 1 })).toBe(7)
   })
 })
 
@@ -172,7 +162,6 @@ describe('staleness', () => {
   const v = (fetchedAt: number): CachedSource<unknown> => ({
     schemaVersion: CACHE_SCHEMA_VERSION,
     fetchedAt,
-    byteSize: 0,
   })
   test('isStale: missing cache is stale', () => {
     expect(isStale(null, ttlMs, 1_000_000)).toBe(true)

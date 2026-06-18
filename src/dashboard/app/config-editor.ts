@@ -1,5 +1,6 @@
 import type { Runtime } from '../../runtime'
 import type { Config } from '../types'
+import { CONFIG_KEY } from '../types'
 import { deepMerge } from '../config'
 import { validateConfig } from '../config'
 import { defaultConfigExample } from '../config'
@@ -28,7 +29,7 @@ export function editConfig(runtime: Runtime, config: Config): void {
     alert('配置校验失败：' + validation.error)
     return
   }
-  void runtime.setValue('dashboard:v1:config', merged)
+  void runtime.setValue(CONFIG_KEY, merged)
   alert('配置已保存，刷新页面后生效。')
 }
 

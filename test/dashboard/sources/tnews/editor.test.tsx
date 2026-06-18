@@ -93,7 +93,7 @@ describe('createTnewsEditor', () => {
     addBtn.click()
     void result.save?.()
     await new Promise((r) => setTimeout(r, 100))
-    const cfg = runtime.stores['dashboard:v1:config'] as { tnews: typeof DEFAULT_OPTS } | undefined
+    const cfg = runtime.stores['dashboard:v2:config'] as { tnews: typeof DEFAULT_OPTS } | undefined
     expect(cfg?.tnews.feeds).toContain('https://example.com/feed')
   })
 
@@ -111,7 +111,7 @@ describe('createTnewsEditor', () => {
 
   test('loads existing feeds from CONFIG_KEY on open', async () => {
     const runtime = createRuntime()
-    runtime.stores['dashboard:v1:config'] = {
+    runtime.stores['dashboard:v2:config'] = {
       tnews: {
         feeds: ['https://custom.example/feed'],
         mirrors: ['custom.mirror.example'],
@@ -130,8 +130,8 @@ describe('createTnewsEditor', () => {
 
   test('cancel button closes without saving', async () => {
     const { runtime, result } = await setup()
-    const initialConfig = runtime.stores['dashboard:v1:config']
+    const initialConfig = runtime.stores['dashboard:v2:config']
     result.cancel?.()
-    expect(runtime.stores['dashboard:v1:config']).toBe(initialConfig)
+    expect(runtime.stores['dashboard:v2:config']).toBe(initialConfig)
   })
 })

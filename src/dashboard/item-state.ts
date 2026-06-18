@@ -1,6 +1,8 @@
 import type { Runtime } from '../runtime'
 import { CACHE_KEY, type CachedSource } from './types'
 
+const MINUTE_MS = 60_000
+
 type StoredEntry = { r?: number; h?: number; n?: number }
 
 export type ItemStateOptions<T extends string | number> = {
@@ -25,6 +27,14 @@ export type ItemState<T extends string | number = string> = {
 
 function identity<T>(x: T): T {
   return x
+}
+
+function msToMin(ts: number): number {
+  return Math.floor(ts / MINUTE_MS)
+}
+
+function minToMs(min: number): number {
+  return min * MINUTE_MS
 }
 
 export function createItemState<T extends string | number = string>(
@@ -67,27 +77,29 @@ export function createItemState<T extends string | number = string>(
     async loadFromStorage(runtime) {
       const now = Date.now()
 
-      async function loadFrom(key: string): Promise<boolean> {
+      async function loadFrom(key: string, isMinFormat: boolean): Promise<boolean> {
         const stored = await runtime.getValue<Record<string, StoredEntry> | null>(key, null)
         if (!stored) return false
         Object.entries(stored).forEach(([idStr, entry]) => {
-          if (entry.r && now - entry.r < ttlMs && !readAt.has(idStr)) {
-            readAt.set(idStr, entry.r)
+          const r = isMinFormat && entry.r != null ? minToMs(entry.r) : entry.r
+          const h = isMinFormat && entry.h != null ? minToMs(entry.h) : entry.h
+          if (r != null && now - r < ttlMs && !readAt.has(idStr)) {
+            readAt.set(idStr, r)
           }
           if (entry.n !== undefined && !readReplies.has(idStr)) {
             readReplies.set(idStr, entry.n)
           }
-          if (entry.h && now - entry.h < ttlMs && !hiddenAt.has(idStr)) {
-            hiddenAt.set(idStr, entry.h)
+          if (h != null && now - h < ttlMs && !hiddenAt.has(idStr)) {
+            hiddenAt.set(idStr, h)
           }
         })
         return true
       }
 
-      const hasNew = await loadFrom(storageKey)
+      const hasNew = await loadFrom(storageKey, true)
 
       if (!hasNew && oldStorageKey) {
-        const hasOld = await loadFrom(oldStorageKey)
+        const hasOld = await loadFrom(oldStorageKey, false)
         if (hasOld) {
           await this.saveToStorage(runtime)
           await runtime.setValue(oldStorageKey, null)
@@ -103,7 +115,7 @@ export function createItemState<T extends string | number = string>(
       Array.from(readAt)
         .filter(([, ts]) => now - ts < ttlMs)
         .forEach(([id, ts]) => {
-          const entry: StoredEntry = { r: ts }
+          const entry: StoredEntry = { r: msToMin(ts) }
           const replies = readReplies.get(id)
           if (replies !== undefined) entry.n = replies
           obj[id] = entry
@@ -112,7 +124,7 @@ export function createItemState<T extends string | number = string>(
         .filter(([, ts]) => now - ts < ttlMs)
         .forEach(([id, ts]) => {
           const prev = obj[id]
-          obj[id] = prev ? { ...prev, h: ts } : { h: ts }
+          obj[id] = prev ? { ...prev, h: msToMin(ts) } : { h: msToMin(ts) }
         })
       await runtime.setValue(storageKey, obj)
     },
