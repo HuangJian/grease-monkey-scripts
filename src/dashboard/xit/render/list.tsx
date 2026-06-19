@@ -48,14 +48,16 @@ function renderDescriptionHtml(line: XitItem): string {
       }
       const status = getDueDateStatus(dateStr)
       const display = formatDueDateDisplay(dateStr)
+      const isCompleted = line.status === 'checked' || line.status === 'obsolete'
       let icon = ''
-      if (line.status !== 'checked' && line.status !== 'obsolete') {
+      if (!isCompleted) {
         if (status === 'overdue') icon = '⚠\uFE0F'
         else if (status === 'today') icon = '\u23F0'
         else if (status === 'tomorrow') icon = '\u23F3'
       }
+      const dueClass = isCompleted ? 'gm-sp-xit-due-completed' : `gm-sp-xit-due-${status}`
       return token(
-        `<span class="gm-sp-xit-duedate gm-sp-xit-due-${status}">${icon}${escapeHtml(display)}</span>`,
+        `<span class="gm-sp-xit-duedate ${dueClass}">${icon}${escapeHtml(display)}</span>`,
       )
     },
   )

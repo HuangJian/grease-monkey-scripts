@@ -7,6 +7,30 @@ import { XitList } from '../render/list'
 import type { XitData, XitLine, XitItem } from '../types'
 import type { XitHeaderState } from './header'
 
+const COMPLETED_STATUSES = new Set(['checked', 'obsolete'])
+
+export function computePinnedLines(displayLines: XitLine[]): XitLine[] {
+  const pinned: XitLine[] = []
+  const overdueItems = displayLines.filter(
+    (l): l is XitItem =>
+      l.type === 'item' &&
+      !COMPLETED_STATUSES.has(l.status) &&
+      getDueDateStatus(l.dueDate ?? '') === 'overdue',
+  )
+  const todayItems = displayLines.filter(
+    (l): l is XitItem => l.type === 'item' && getDueDateStatus(l.dueDate ?? '') === 'today',
+  )
+  if (overdueItems.length > 0) {
+    overdueItems.sort((a, b) => b.priority - a.priority)
+    pinned.push(...overdueItems)
+  }
+  if (todayItems.length > 0) {
+    todayItems.sort((a, b) => b.priority - a.priority)
+    pinned.push(...todayItems)
+  }
+  return pinned
+}
+
 export function XitBody({
   data: _data,
   root,
@@ -40,21 +64,7 @@ export function XitBody({
         }
       })
       displayLines = enrichedLines
-
-      const todayItems = displayLines.filter(
-        (l): l is XitItem => l.type === 'item' && getDueDateStatus(l.dueDate ?? '') === 'today',
-      )
-      const overdueItems = displayLines.filter(
-        (l): l is XitItem => l.type === 'item' && getDueDateStatus(l.dueDate ?? '') === 'overdue',
-      )
-      if (overdueItems.length > 0) {
-        overdueItems.sort((a, b) => b.priority - a.priority)
-        pinnedLines = [...pinnedLines, ...overdueItems]
-      }
-      if (todayItems.length > 0) {
-        todayItems.sort((a, b) => b.priority - a.priority)
-        pinnedLines = [...pinnedLines, ...todayItems]
-      }
+      pinnedLines = computePinnedLines(displayLines)
     } else {
       displayLines = lines.filter((l) => l.type !== 'blank')
     }

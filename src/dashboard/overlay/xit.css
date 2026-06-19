@@ -493,6 +493,12 @@
   border: 1px solid #e5e7eb;
 }
 
+.gm-sp-xit-due-completed {
+  background: #f3f4f6;
+  color: #9ca3af;
+  border: 1px solid #e5e7eb;
+}
+
 .gm-sp-xit-link {
   color: #2563eb;
   text-decoration: underline;
