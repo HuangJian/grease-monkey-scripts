@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
-import type { XueqiuNewsItem } from '../../../src/dashboard/xueqiu/types'
+import type { XueqiuNewsItem, XueqiuRenderData } from '../../../src/dashboard/xueqiu/types'
 import { mergeItems } from '../../../src/dashboard/xueqiu/source'
 import { shouldEarlyExit } from '../../../src/dashboard/xueqiu/fetcher'
+import { createRuntime } from '../../runtime'
 
 function makeItem(id: number, overrides: Partial<XueqiuNewsItem> = {}): XueqiuNewsItem {
   return {
@@ -141,5 +142,60 @@ describe('xueqiu cache merge', () => {
     expect(result.map((it) => it.id)).toContain(1)
     expect(result.map((it) => it.id)).toContain(2)
     expect(result.map((it) => it.id)).toContain(3)
+  })
+})
+
+describe('xueqiu hotPosts persistence', () => {
+  test('hotSource.fetch must not persist anything to cache', async () => {
+    const runtime = createRuntime()
+    const { saveCache, loadCache } = await import('../../../src/dashboard/cache')
+    const { createXueqiuSources } = await import('../../../src/dashboard/xueqiu/source')
+    const sourceId = 'xueqiu-news'
+
+    await saveCache(runtime, sourceId, {
+      data: {
+        news: [makeItem(1)],
+        hotPosts: [makeItem(100), makeItem(200)],
+      } satisfies XueqiuRenderData,
+      fetchedAt: Date.now(),
+    })
+
+    const before = await loadCache<XueqiuRenderData>(runtime, sourceId)
+
+    const { hotSource } = createXueqiuSources({ ttlMinutes: 60 })
+    await hotSource.fetch(runtime)
+
+    // Cache must be completely unchanged — hotSource only reads, never writes
+    const after = await loadCache<XueqiuRenderData>(runtime, sourceId)
+    expect(after?.data?.hotPosts).toEqual(before?.data?.hotPosts)
+    expect(after?.data?.news).toEqual(before?.data?.news)
+    expect(after?.fetchedAt).toEqual(before?.fetchedAt)
+  })
+
+  test('hotPosts are persisted only under xueqiu-news, not xueqiu-hot', async () => {
+    const runtime = createRuntime()
+    const { saveCache, loadCache } = await import('../../../src/dashboard/cache')
+    const { createXueqiuSources } = await import('../../../src/dashboard/xueqiu/source')
+
+    // Setup: xueqiu-news cache has hotPosts, xueqiu-hot has none
+    await saveCache(runtime, 'xueqiu-news', {
+      data: {
+        news: [makeItem(1)],
+        hotPosts: [makeItem(100), makeItem(200)],
+      } satisfies XueqiuRenderData,
+      fetchedAt: Date.now(),
+    })
+
+    // hotSource.fetch must not write hotPosts to xueqiu-hot cache
+    const { hotSource } = createXueqiuSources({ ttlMinutes: 60 })
+    await hotSource.fetch(runtime)
+
+    // xueqiu-news still has hotPosts
+    const newsCache = await loadCache<XueqiuRenderData>(runtime, 'xueqiu-news')
+    expect(newsCache?.data?.hotPosts).toHaveLength(2)
+
+    // xueqiu-hot must not contain hotPosts (hotSource returns empty data)
+    const hotCache = await loadCache<XueqiuRenderData>(runtime, 'xueqiu-hot')
+    expect(hotCache?.data?.hotPosts ?? []).toHaveLength(0)
   })
 })
