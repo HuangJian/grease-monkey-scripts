@@ -9,9 +9,8 @@ export function dateFilterBounds(
   now: number,
 ): { start?: number; end?: number } | null {
   if (filter === '全') return null
-  const todayStart = new Date(now)
-  todayStart.setHours(0, 0, 0, 0)
-  const ts = todayStart.getTime()
+  const d = new Date(now)
+  const ts = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
   switch (filter) {
     case '今':
       return { start: ts }
