@@ -65,35 +65,26 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
       console.debug('[gm-dashboard] hupu.fetch start boards=', fresh.boards)
       await state.loadFromStorage(runtime)
       await syncAuthorTags(runtime)
-      const [fetchResult, history] = await Promise.all([
-        fetchHupu(runtime, fresh),
-        state.loadHistory(runtime, fresh.historyDays),
-      ])
+      const fetchResult = await fetchHupu(runtime, fresh)
       console.debug(
         '[gm-dashboard] hupu.fetch ok boards=',
         fetchResult.boards.map((p) => p.board),
-        'history=',
-        history.length,
         'partial=',
         fetchResult.partialErrors,
       )
-      const merged = mergeBoardPosts(fetchResult.boards, history)
+      const prevById = new Map<string, HupuPost>()
+      if (_prevData) {
+        for (const posts of Object.values(_prevData)) {
+          for (const p of posts) prevById.set(p.id, p)
+        }
+      }
+      const merged = mergeBoardPosts(fetchResult.boards, prevById)
       const now = Date.now()
       const selected = selectPostsPerBoard(merged, { ...fresh, now })
       const visible: HupuRenderData = {}
       selected.forEach((posts, board) => {
         visible[board] = state.filterVisible(posts)
       })
-      const todayStartMs = new Date(now)
-      todayStartMs.setHours(0, 0, 0, 0)
-      const todayMs = todayStartMs.getTime()
-      const allFetched: HupuPost[] = fetchResult.boards.flatMap(({ posts }) =>
-        posts.filter((p) => {
-          if (p.created < todayMs) return p.replies >= fresh.olderMinReplies
-          return p.replies >= fresh.todayMinReplies
-        }),
-      )
-      await state.saveHistory(runtime, allFetched, fresh.historyDays)
       await state.saveToStorage(runtime)
       return visible
     },
@@ -129,10 +120,6 @@ function coerceHupuOptions(
       Array.isArray(raw['boards']) && (raw['boards'] as unknown[]).length > 0
         ? (raw['boards'] as unknown[]).map((s) => String(s)).filter((s) => s.length > 0)
         : fallback.boards,
-    historyDays:
-      typeof raw['historyDays'] === 'number'
-        ? (raw['historyDays'] as number)
-        : fallback.historyDays,
     todayMinReplies:
       typeof raw['todayMinReplies'] === 'number'
         ? (raw['todayMinReplies'] as number)

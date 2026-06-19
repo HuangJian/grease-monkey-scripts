@@ -1,5 +1,5 @@
 import { getTodayStartMs, computeTimeDecay } from '../scoring-utils'
-import type { HupuCountOptions, HupuPost, StoredHistoryPost } from './types'
+import type { HupuCountOptions, HupuPost } from './types'
 
 /**
  * ══════════════════════════════════════════════════════════════════════════════
@@ -78,40 +78,9 @@ export function computeHupuDecayedScore(
   return base * computeTimeDecay(post.created, now, options.ageHalfLifeDays)
 }
 
-function mergePost(live: HupuPost | undefined, hist: StoredHistoryPost): HupuPost {
-  if (!live) {
-    return {
-      id: hist.id,
-      title: hist.title,
-      url: hist.url,
-      lights: hist.lights,
-      replies: hist.replies,
-      views: hist.views,
-      author: hist.author,
-      authorUrl: hist.authorUrl,
-      board: hist.boards[0] ?? '',
-      topicName: hist.topicName,
-      created: hist.created,
-    }
-  }
-  return {
-    id: live.id,
-    title: live.title,
-    url: live.url,
-    lights: Math.max(live.lights, hist.lights),
-    replies: Math.max(live.replies, hist.replies),
-    views: Math.max(live.views, hist.views),
-    author: live.author || hist.author,
-    authorUrl: live.authorUrl || hist.authorUrl,
-    board: live.board,
-    topicName: live.topicName || hist.topicName,
-    created: Math.min(live.created, hist.created),
-  }
-}
-
 export function mergeBoardPosts(
   perBoardLive: ReadonlyArray<{ board: string; posts: HupuPost[] }>,
-  history: ReadonlyArray<StoredHistoryPost>,
+  prevById: Map<string, HupuPost>,
 ): Array<{ board: string; posts: HupuPost[] }> {
   const liveByBoard = new Map<string, HupuPost[]>()
   perBoardLive
@@ -125,45 +94,42 @@ export function mergeBoardPosts(
 
   liveByBoard.forEach((livePosts, board) => {
     const byId = new Map<string, HupuPost>()
-    livePosts.filter((p) => !byId.has(p.id)).forEach((p) => byId.set(p.id, p))
-    history
-      .filter((h) => h.boards.includes(board))
-      .filter((h) => !seenIds.has(h.id))
-      .forEach((h) => {
-        const existing = byId.get(h.id)
-        byId.set(h.id, mergePost(existing, h))
-      })
+    livePosts.forEach((p) => byId.set(p.id, p))
+    prevById.forEach((prev, id) => {
+      if (seenIds.has(id)) return
+      if (prev.board !== board) return
+      const existing = byId.get(id)
+      if (existing) {
+        byId.set(id, {
+          ...existing,
+          lights: Math.max(existing.lights, prev.lights),
+          replies: Math.max(existing.replies, prev.replies),
+          views: Math.max(existing.views, prev.views),
+          author: existing.author || prev.author,
+          authorUrl: existing.authorUrl || prev.authorUrl,
+          topicName: existing.topicName || prev.topicName,
+          created: Math.min(existing.created, prev.created),
+        })
+      } else {
+        byId.set(id, prev)
+      }
+    })
     const posts = Array.from(byId.values())
     posts.forEach((p) => seenIds.add(p.id))
     out.push({ board, posts })
   })
 
-  history.forEach((h) => {
-    if (seenIds.has(h.id)) return
+  prevById.forEach((prev) => {
+    if (seenIds.has(prev.id)) return
     const liveBoards = new Set(liveByBoard.keys())
-    const matchingBoards = h.boards.filter((b) => liveBoards.has(b))
-    if (matchingBoards.length === 0) return
-    const board = matchingBoards[0]!
-    const existing = out.find((x) => x.board === board)
-    const post: HupuPost = {
-      id: h.id,
-      title: h.title,
-      url: h.url,
-      lights: h.lights,
-      replies: h.replies,
-      views: h.views,
-      author: h.author,
-      authorUrl: h.authorUrl,
-      board,
-      topicName: h.topicName,
-      created: h.created,
-    }
-    seenIds.add(h.id)
+    if (!liveBoards.has(prev.board)) return
+    const existing = out.find((x) => x.board === prev.board)
     if (existing) {
-      existing.posts.push(post)
+      existing.posts.push(prev)
     } else {
-      out.push({ board, posts: [post] })
+      out.push({ board: prev.board, posts: [prev] })
     }
+    seenIds.add(prev.id)
   })
 
   return out

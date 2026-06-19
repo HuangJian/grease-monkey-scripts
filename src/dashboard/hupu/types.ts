@@ -12,22 +12,7 @@ export type HupuPost = {
   created: number
 }
 
-export type StoredHistoryPost = {
-  id: string
-  title: string
-  url: string
-  lights: number
-  replies: number
-  views: number
-  author: string
-  authorUrl: string
-  boards: string[]
-  topicName: string
-  created: number
-}
-
 export type HupuCountOptions = {
-  historyDays: number
   todayMinReplies: number
   olderMinReplies: number
   ageHalfLifeDays: number

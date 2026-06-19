@@ -5,14 +5,9 @@ import {
   mergeBoardPosts,
   selectPostsPerBoard,
 } from '../../../../src/dashboard/hupu/scoring'
-import type {
-  HupuCountOptions,
-  HupuPost,
-  StoredHistoryPost,
-} from '../../../../src/dashboard/hupu/types'
+import type { HupuCountOptions, HupuPost } from '../../../../src/dashboard/hupu/types'
 
 const DEFAULT_COUNT_OPTS: HupuCountOptions = {
-  historyDays: 7,
   todayMinReplies: 10,
   olderMinReplies: 20,
   ageHalfLifeDays: 2,
@@ -39,21 +34,8 @@ function post(over: Partial<HupuPost>): HupuPost {
   }
 }
 
-function stored(over: Partial<StoredHistoryPost>): StoredHistoryPost {
-  return {
-    id: 'x',
-    title: 't',
-    url: 'https://bbs.hupu.com/x',
-    lights: 0,
-    replies: 0,
-    views: 0,
-    author: 'a',
-    authorUrl: '',
-    boards: ['vote-hot'],
-    topicName: '',
-    created: NOW,
-    ...over,
-  }
+function toMap(items: HupuPost[]): Map<string, HupuPost> {
+  return new Map(items.map((p) => [p.id, p]))
 }
 
 describe('computeBaseScore', () => {
@@ -127,56 +109,43 @@ describe('computeHupuDecayedScore', () => {
 describe('mergeBoardPosts', () => {
   test('passes through live posts untouched when history is empty', () => {
     const live = [{ board: 'vote-hot', posts: [post({ id: '1', lights: 50 })] }]
-    const result = mergeBoardPosts(live, [])
+    const result = mergeBoardPosts(live, new Map())
     expect(result[0]!.board).toBe('vote-hot')
     expect(result[0]!.posts[0]!.id).toBe('1')
     expect(result[0]!.posts[0]!.lights).toBe(50)
   })
-  test('merges history post with live: takes max lights/replies, min created', () => {
+  test('merges prev post with live: takes max lights/replies, min created', () => {
     const live = [
       {
         board: 'vote-hot',
         posts: [post({ id: '1', lights: 50, replies: 100, created: NOW })],
       },
     ]
-    const hist = [
-      stored({
-        id: '1',
-        lights: 80,
-        replies: 50,
-        boards: ['vote-hot'],
-        created: NOW - 86_400_000,
-      }),
+    const prevPosts = [
+      post({ id: '1', lights: 80, replies: 50, board: 'vote-hot', created: NOW - 86_400_000 }),
     ]
-    const result = mergeBoardPosts(live, hist)
+    const result = mergeBoardPosts(live, toMap(prevPosts))
     const merged = result[0]!.posts[0]!
     expect(merged.lights).toBe(80)
     expect(merged.replies).toBe(100)
     expect(merged.created).toBe(NOW - 86_400_000)
   })
-  test('history-only post appears in first matching board only', () => {
+  test('prev-only post appears only in its board', () => {
     const live: Array<{ board: string; posts: HupuPost[] }> = [
       { board: 'vote-hot', posts: [post({ id: 'a1', lights: 50, board: 'vote-hot' })] },
       { board: 'bxj', posts: [post({ id: 'b1', lights: 30, board: 'bxj' })] },
     ]
-    const hist = [
-      stored({
-        id: 'h1',
-        lights: 200,
-        boards: ['vote-hot', 'bxj'],
-        created: NOW - 1000,
-      }),
-    ]
-    const result = mergeBoardPosts(live, hist)
+    const prevPosts = [post({ id: 'h1', lights: 200, board: 'vote-hot', created: NOW - 1000 })]
+    const result = mergeBoardPosts(live, toMap(prevPosts))
     const boards = result.map((r) => r.board).sort()
     expect(boards).toEqual(['bxj', 'vote-hot'])
     const allIds = result.flatMap((r) => r.posts.map((p) => p.id))
     expect(allIds.filter((id) => id === 'h1')).toHaveLength(1)
   })
-  test('history post with boards not in live config is dropped', () => {
+  test('prev post with board not in live config is dropped', () => {
     const live: Array<{ board: string; posts: HupuPost[] }> = []
-    const hist = [stored({ id: 'h1', boards: ['orphan'], created: NOW - 1000 })]
-    const result = mergeBoardPosts(live, hist)
+    const prevPosts = [post({ id: 'h1', board: 'orphan', created: NOW - 1000 })]
+    const result = mergeBoardPosts(live, toMap(prevPosts))
     expect(result).toEqual([])
   })
 })

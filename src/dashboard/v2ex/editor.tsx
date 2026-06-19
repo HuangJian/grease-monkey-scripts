@@ -22,7 +22,6 @@ type FormField = {
 
 const FORM_FIELDS: FormField[] = [
   { prop: 'ttlMinutes', label: 'TTL（分钟）', min: 1, errorMsg: 'TTL 必须是 ≥1 的整数' },
-  { prop: 'historyDays', label: '保留天数', min: 1, errorMsg: '保留天数必须是 ≥1 的整数' },
   {
     prop: 'todayMinReplies',
     label: '今日最低回复',
@@ -52,10 +51,7 @@ function coerceV2exOptions(
   return {
     ttlMinutes:
       typeof raw['ttlMinutes'] === 'number' ? (raw['ttlMinutes'] as number) : fallback.ttlMinutes,
-    historyDays:
-      typeof raw['historyDays'] === 'number'
-        ? (raw['historyDays'] as number)
-        : fallback.historyDays,
+
     todayMinReplies:
       typeof raw['todayMinReplies'] === 'number'
         ? (raw['todayMinReplies'] as number)
@@ -124,10 +120,9 @@ function V2exEditorForm({ fresh, settings, ctx, handleRef }: V2exEditorFormProps
         if (nums === null) return
         const v2ex: V2exSourceOptions = {
           ttlMinutes: Math.round(nums[0]),
-          historyDays: Math.round(nums[1]),
-          todayMinReplies: Math.round(nums[2]),
-          olderMinReplies: Math.round(nums[3]),
-          ageHalfLifeDays: nums[4],
+          todayMinReplies: Math.round(nums[1]),
+          olderMinReplies: Math.round(nums[2]),
+          ageHalfLifeDays: nums[3],
         }
         void saveConfigSection({
           runtime: ctx.runtime,

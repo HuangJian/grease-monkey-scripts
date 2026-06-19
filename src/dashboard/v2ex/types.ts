@@ -12,7 +12,6 @@ export type V2exTopic = {
 }
 
 export type V2exCountOptions = {
-  historyDays: number
   todayMinReplies: number
   olderMinReplies: number
   ageHalfLifeDays: number

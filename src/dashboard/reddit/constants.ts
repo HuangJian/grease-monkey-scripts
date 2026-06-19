@@ -7,5 +7,3 @@ export const REDDIT_API_URL = (host: string, sub: string): string =>
   `https://${host}/r/${encodeURIComponent(sub)}/hot.json?limit=100&raw_json=1`
 
 export const MAX_RETRIES_ON_429 = 1
-
-export const HISTORY_KEY = 'gm:reddit:topics-history'

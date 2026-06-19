@@ -68,16 +68,20 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
     async fetch(runtime, _prevData) {
       await state.loadFromStorage(runtime)
       await syncAuthorTags(runtime)
+      const prevById = new Map<number, V2exTopic>()
+      if (_prevData) {
+        for (const t of _prevData) prevById.set(t.id, t)
+      }
       const allTopics = await fetchV2ex(
         runtime,
         {
-          historyDays: options.historyDays,
           todayMinReplies: options.todayMinReplies,
           olderMinReplies: options.olderMinReplies,
           ageHalfLifeDays: options.ageHalfLifeDays,
         },
         new runtime.DOMParser(),
         state,
+        prevById,
       )
       const visible = state.filterVisible(allTopics)
       await state.saveToStorage(runtime)

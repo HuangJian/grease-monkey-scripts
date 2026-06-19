@@ -148,9 +148,29 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
   return dashboard
 }
 
+const ORPHANED_KEYS = [
+  'gm:reddit:topics-history',
+  'gm:hupu:topics-history',
+  'gm:v2ex:topics-history',
+  CACHE_KEY('xueqiu-hot'),
+]
+
+async function deleteOrphanedKeys(runtime: Runtime): Promise<void> {
+  await Promise.all(
+    ORPHANED_KEYS.map(async (key) => {
+      const val = await runtime.getValue<unknown>(key, null)
+      if (val !== null && val !== undefined) {
+        console.debug('[gm-dashboard] deleting orphaned key', key)
+        await runtime.deleteValue(key)
+      }
+    }),
+  )
+}
+
 export async function startDashboard(runtime: Runtime): Promise<void> {
   console.debug('[gm-dashboard] script loaded (debug build)')
   const config = await loadConfig(runtime)
+  await deleteOrphanedKeys(runtime)
   const dashboard = createDashboard(runtime, { config })
   dashboard.start()
 }

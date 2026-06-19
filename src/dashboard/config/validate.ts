@@ -96,7 +96,6 @@ export function validateConfig(value: unknown): ConfigValidation {
     }
     const r = validateNumberFields(v, 'v2ex', [
       ['ttlMinutes', 0, Number.POSITIVE_INFINITY],
-      ['historyDays', 1, Number.POSITIVE_INFINITY],
       ['todayMinReplies', 0, Number.POSITIVE_INFINITY],
       ['olderMinReplies', 0, Number.POSITIVE_INFINITY],
       ['ageHalfLifeDays', 0.1, 30],
@@ -122,7 +121,6 @@ export function validateConfig(value: unknown): ConfigValidation {
     }
     const r2 = validateNumberFields(r, 'reddit', [
       ['ttlMinutes', 1, Number.POSITIVE_INFINITY],
-      ['historyDays', 1, Number.POSITIVE_INFINITY],
       ['todayMinComments', 0, Number.POSITIVE_INFINITY],
       ['olderMinComments', 0, Number.POSITIVE_INFINITY],
       ['ageHalfLifeDays', 0.1, 30],
@@ -248,7 +246,6 @@ export function validateConfig(value: unknown): ConfigValidation {
     }
     const r = validateNumberFields(h, 'hupu', [
       ['ttlMinutes', 1, Number.POSITIVE_INFINITY],
-      ['historyDays', 1, Number.POSITIVE_INFINITY],
       ['todayMinReplies', 0, Number.POSITIVE_INFINITY],
       ['olderMinReplies', 0, Number.POSITIVE_INFINITY],
       ['ageHalfLifeDays', 0.1, 30],

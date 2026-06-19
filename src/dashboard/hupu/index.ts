@@ -16,10 +16,4 @@ export {
   mergeHupuPosts,
 } from './parser'
 export { renderHupu } from './render'
-export type {
-  HupuCountOptions,
-  HupuFetchResult,
-  HupuPost,
-  HupuSourceOptions,
-  StoredHistoryPost,
-} from './types'
+export type { HupuCountOptions, HupuFetchResult, HupuPost, HupuSourceOptions } from './types'

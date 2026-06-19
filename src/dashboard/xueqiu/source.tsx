@@ -108,6 +108,11 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
       }
       const hiddenFiltered = cached.hotPosts.filter((it) => !state.isHidden(String(it.id)))
       const ranked = rankHotPosts(hiddenFiltered, Date.now(), DEFAULT_RANKING_OPTIONS)
+      const { saveCache } = await import('../cache')
+      await saveCache(runtime, MAIN_SOURCE_ID, {
+        data: { news: cached.news, hotPosts: [] },
+        fetchedAt: Date.now(),
+      })
       const visible: XueqiuRenderData = {
         news: [],
         hotPosts: ranked,

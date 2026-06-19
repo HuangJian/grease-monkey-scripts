@@ -30,7 +30,6 @@ import type { XueqiuSourceOptions } from './xueqiu/types'
 
 export type RedditConfig = {
   ttlMinutes: number
-  historyDays: number
   todayMinComments: number
   olderMinComments: number
   ageHalfLifeDays: number
@@ -40,7 +39,6 @@ export type RedditConfig = {
 export type HupuConfig = {
   ttlMinutes: number
   boards: string[]
-  historyDays: number
   todayMinReplies: number
   olderMinReplies: number
   ageHalfLifeDays: number
@@ -55,7 +53,6 @@ export type Config = {
   }
   v2ex: {
     ttlMinutes: number
-    historyDays: number
     todayMinReplies: number
     olderMinReplies: number
     ageHalfLifeDays: number

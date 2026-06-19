@@ -9,19 +9,7 @@ export type RedditPost = {
   created: number
 }
 
-export type StoredHistoryPost = {
-  id: string
-  title: string
-  url: string
-  score: number
-  numComments: number
-  subreddits: string[]
-  author: string
-  created: number
-}
-
 export type RedditCountOptions = {
-  historyDays: number
   todayMinComments: number
   olderMinComments: number
   ageHalfLifeDays: number

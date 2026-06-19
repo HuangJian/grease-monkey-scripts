@@ -10,5 +10,4 @@ export type {
   RedditFetchResult,
   RedditPost,
   RedditSourceOptions,
-  StoredHistoryPost,
 } from './types'

@@ -87,7 +87,6 @@ export function HupuComponent({
     if (runtime) {
       void state.saveToStorage(runtime)
       void state.removeFromCache(runtime, postId)
-      void state.removeFromHistory(runtime, postId)
     }
     forceUpdate((n) => n + 1)
   }
@@ -124,7 +123,6 @@ export function HupuComponent({
       state.markHidden(p.id)
       if (runtime) {
         void state.removeFromCache(runtime, p.id)
-        void state.removeFromHistory(runtime, p.id)
       }
     })
     if (runtime) void state.saveToStorage(runtime)

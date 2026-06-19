@@ -64,35 +64,26 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
       console.debug('[gm-dashboard] reddit.fetch start subs=', fresh.subreddits)
       await state.loadFromStorage(runtime)
       await syncAuthorTags(runtime)
-      const [fetchResult, history] = await Promise.all([
-        fetchReddit(runtime, fresh),
-        state.loadHistory(runtime, fresh.historyDays),
-      ])
+      const fetchResult = await fetchReddit(runtime, fresh)
       console.debug(
         '[gm-dashboard] reddit.fetch ok subs=',
         fetchResult.posts.map((p) => p.sub),
-        'history=',
-        history.length,
         'partial=',
         fetchResult.partialErrors,
       )
-      const merged = mergeSubPosts(fetchResult.posts, history)
+      const prevById = new Map<string, RedditPost>()
+      if (_prevData) {
+        for (const posts of Object.values(_prevData)) {
+          for (const p of posts) prevById.set(p.id, p)
+        }
+      }
+      const merged = mergeSubPosts(fetchResult.posts, prevById)
       const now = Date.now()
       const selected = selectPostsPerSub(merged, { ...fresh, now })
       const visible: RedditRenderData = {}
       selected.forEach((posts, sub) => {
         visible[sub] = state.filterVisible(posts)
       })
-      const todayStartMs = new Date(now)
-      todayStartMs.setHours(0, 0, 0, 0)
-      const todayMs = todayStartMs.getTime()
-      const allFetched: RedditPost[] = fetchResult.posts.flatMap(({ posts }) =>
-        posts.filter((p) => {
-          if (p.created < todayMs) return p.numComments >= fresh.olderMinComments
-          return p.numComments >= fresh.todayMinComments
-        }),
-      )
-      await state.saveHistory(runtime, allFetched, fresh.historyDays)
       await state.saveToStorage(runtime)
       return visible
     },
@@ -124,10 +115,7 @@ function coerceRedditOptions(
   return {
     ttlMinutes:
       typeof raw['ttlMinutes'] === 'number' ? (raw['ttlMinutes'] as number) : fallback.ttlMinutes,
-    historyDays:
-      typeof raw['historyDays'] === 'number'
-        ? (raw['historyDays'] as number)
-        : fallback.historyDays,
+
     todayMinComments:
       typeof raw['todayMinComments'] === 'number'
         ? (raw['todayMinComments'] as number)

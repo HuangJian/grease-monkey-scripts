@@ -96,8 +96,9 @@ export async function fetchV2ex(
   countOptions: V2exCountOptions,
   domParser: DOMParser,
   state: V2exState,
+  prevById?: Map<number, V2exTopic>,
 ): Promise<V2exTopic[]> {
-  const [apiResult, pageResult, historicalTopics] = await Promise.all([
+  const [apiResult, pageResult] = await Promise.all([
     fetchFromEndpoint(runtime, `${HOT_API_BASE}?_t=${Date.now()}`, (body) => {
       const json: unknown = JSON.parse(body)
       return parseV2ex(json, Number.POSITIVE_INFINITY)
@@ -105,13 +106,11 @@ export async function fetchV2ex(
     fetchFromEndpoint(runtime, HOT_PAGE_URL, (body) =>
       parseV2exHotPage(body, Number.POSITIVE_INFINITY, domParser),
     ),
-    state.loadHistory(runtime, countOptions.historyDays),
   ])
 
   console.debug(
     `[v2ex-fetch] api${apiResult.error ? `(err:${apiResult.error})` : ''}: ${apiResult.topics.length} topics ` +
-      `| page${pageResult.error ? `(err:${pageResult.error})` : ''}: ${pageResult.topics.length} topics ` +
-      `| historical: ${historicalTopics.length} topics`,
+      `| page${pageResult.error ? `(err:${pageResult.error})` : ''}: ${pageResult.topics.length} topics`,
   )
 
   if (apiResult.error && pageResult.error) {
@@ -120,22 +119,18 @@ export async function fetchV2ex(
 
   let full = mergeV2exTopics(apiResult.topics, pageResult.topics, false)
 
-  if (historicalTopics.length > 0) {
+  if (prevById && prevById.size > 0) {
     const currentIds = new Set(full.map((t) => t.id))
-    const historicalAsV2ex: V2exTopic[] = historicalTopics
-      .filter((t) => !currentIds.has(t.id))
-      .map((t) => ({
-        id: t.id,
-        title: t.title,
-        url: t.url,
-        replies: t.replies,
-        member: t.member,
-        node: t.node,
+    const recovered: V2exTopic[] = []
+    prevById.forEach((prev) => {
+      if (currentIds.has(prev.id)) return
+      recovered.push({
+        ...prev,
         sources: ['api'] as const,
-        created: t.created,
-      }))
-    if (historicalAsV2ex.length > 0) {
-      full = mergeV2exTopics(historicalAsV2ex, full, false)
+      })
+    })
+    if (recovered.length > 0) {
+      full = mergeV2exTopics(recovered, full, false)
     }
   }
 
@@ -159,10 +154,6 @@ export async function fetchV2ex(
   })
 
   full = sortByDecayedScore(full, now, countOptions.ageHalfLifeDays)
-
-  if (!apiResult.error) {
-    void state.saveHistory(runtime, apiResult.topics, countOptions.historyDays)
-  }
 
   console.debug(`[v2ex-merge] merged=${full.length}`)
 

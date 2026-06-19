@@ -10,7 +10,6 @@ export const FORM_FIELDS: {
   errorMsg: string
 }[] = [
   { prop: 'ttlMinutes', label: 'TTL（分钟）', min: 1, errorMsg: 'TTL 必须是 ≥1 的整数' },
-  { prop: 'historyDays', label: '历史保留天数', min: 1, errorMsg: '历史保留天数必须是 ≥1 的整数' },
   {
     prop: 'todayMinReplies',
     label: '今日最低回复',
