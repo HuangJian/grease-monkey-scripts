@@ -11,9 +11,10 @@ import type { RedditCountOptions, RedditPost } from './types'
  * ── 阶段 2：双源融合去重 ─────────────────────────────────────────────────
  *   mergeSubPosts(perSubLive, history) 执行：
  *   ① 按 sub 分组 live 帖子
- *   ② 对每个 sub：合并同 id 的 history 条目（取 max(score), max(numComments), min(created)）
- *   ③ 跨 sub 去重（seenIds）
- *   ④ 剩余 history 条目匹配到对应 sub
+ *   ② 从 URL (/r/{sub}/comments/) 提取帖子归属的 sub，以此匹配 live 子组
+ *   ③ 对每个 sub：合并同 id 的 history 条目（取 max(score), max(numComments), min(created)）
+ *   ④ 跨 sub 去重（seenIds）
+ *   ⑤ 剩余 history 条目匹配到对应 sub
  *
  * ── 阶段 3：门槛过滤 ────────────────────────────────────────────────────
  *   selectPostsPerSub(merged, options) 对每个 sub 执行：
@@ -40,6 +41,11 @@ export function computeRedditDecayedScore(
   return computeDecayedScore(post.score, post.created, now, halfLifeDays)
 }
 
+function subFromUrl(url: string): string | undefined {
+  const m = url.match(/\/r\/([^/]+)\/comments\//)
+  return m ? m[1].toLowerCase() : undefined
+}
+
 export function mergeSubPosts(
   perSubLive: ReadonlyArray<{ sub: string; posts: RedditPost[] }>,
   prevById: Map<string, RedditPost>,
@@ -56,10 +62,15 @@ export function mergeSubPosts(
 
   liveBySub.forEach((livePosts, sub) => {
     const byId = new Map<string, RedditPost>()
-    livePosts.forEach((p) => byId.set(p.id, p))
+    livePosts.forEach((p) => {
+      const urlSub = subFromUrl(p.url)
+      if (urlSub !== undefined && urlSub !== sub) return
+      byId.set(p.id, p)
+    })
     prevById.forEach((prev, id) => {
       if (seenIds.has(id)) return
-      if (prev.subreddits.length > 0 && !prev.subreddits.includes(sub)) return
+      const urlSub = subFromUrl(prev.url)
+      if (urlSub !== undefined && urlSub !== sub) return
       const existing = byId.get(id)
       if (existing) {
         byId.set(id, {
@@ -68,7 +79,6 @@ export function mergeSubPosts(
           numComments: Math.max(existing.numComments, prev.numComments),
           author: existing.author || prev.author,
           created: Math.min(existing.created, prev.created),
-          subreddits: [...new Set([...existing.subreddits, ...prev.subreddits])],
         })
       } else {
         byId.set(id, prev)
@@ -81,15 +91,15 @@ export function mergeSubPosts(
 
   prevById.forEach((prev) => {
     if (seenIds.has(prev.id)) return
+    const urlSub = subFromUrl(prev.url)
+    if (!urlSub) return
     const liveSubs = new Set(liveBySub.keys())
-    const matchingSubs = prev.subreddits.filter((s) => liveSubs.has(s))
-    if (matchingSubs.length === 0) return
-    const sub = matchingSubs[0]!
-    const existing = out.find((x) => x.sub === sub)
+    if (!liveSubs.has(urlSub)) return
+    const existing = out.find((x) => x.sub === urlSub)
     if (existing) {
       existing.posts.push(prev)
     } else {
-      out.push({ sub, posts: [prev] })
+      out.push({ sub: urlSub, posts: [prev] })
     }
     seenIds.add(prev.id)
   })

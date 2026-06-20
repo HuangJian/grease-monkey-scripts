@@ -15,13 +15,15 @@ const DEFAULT_COUNT_OPTS: RedditCountOptions = {
 const NOW = Date.now()
 
 function post(over: Partial<RedditPost>): RedditPost {
+  const sub = over.subreddits?.[0] ?? 'x'
+  const id = over.id ?? 'x'
   return {
-    id: 'x',
+    id,
     title: 't',
-    url: 'https://www.reddit.com/r/x/comments/x/t',
+    url: `https://www.reddit.com/r/${sub}/comments/${id}/t`,
     score: 0,
     numComments: 0,
-    subreddits: ['x'],
+    subreddits: [sub],
     author: 'a',
     created: NOW,
     ...over,
@@ -66,13 +68,13 @@ describe('computeRedditDecayedScore', () => {
 
 describe('mergeSubPosts', () => {
   test('passes through live posts untouched when history is empty', () => {
-    const live = [{ sub: 'aww', posts: [post({ id: '1', score: 100 })] }]
+    const live = [{ sub: 'aww', posts: [post({ id: '1', score: 100, subreddits: ['aww'] })] }]
     const result = mergeSubPosts(live, new Map())
     expect(result[0]!.sub).toBe('aww')
     expect(result[0]!.posts[0]!.id).toBe('1')
     expect(result[0]!.posts[0]!.score).toBe(100)
   })
-  test('merges prev post with live: takes max score, union subreddits, min created', () => {
+  test('merges prev post with live: takes max score, min created, preserves live subreddits', () => {
     const live = [
       {
         sub: 'aww',
@@ -102,7 +104,7 @@ describe('mergeSubPosts', () => {
     const merged = result[0]!.posts[0]!
     expect(merged.score).toBe(150)
     expect(merged.numComments).toBe(8)
-    expect(merged.subreddits).toEqual(['aww', 'funny'])
+    expect(merged.subreddits).toEqual(['aww'])
     expect(merged.created).toBe(NOW - 86_400_000)
     expect(merged.author).toBe('alice')
   })
@@ -131,6 +133,59 @@ describe('mergeSubPosts', () => {
     const live = [{ sub: 'aww', posts: [] as RedditPost[] }]
     const result = mergeSubPosts(live, new Map())
     expect(result).toEqual([])
+  })
+  test('bugfix: promoted cross-community post from subB does not duplicate into subA', () => {
+    const live: Array<{ sub: string; posts: RedditPost[] }> = [
+      {
+        sub: 'aww',
+        posts: [
+          post({ id: 'a1', score: 100, subreddits: ['aww'] }),
+          post({ id: 'p1', score: 200, subreddits: ['funny'] }),
+        ],
+      },
+      {
+        sub: 'funny',
+        posts: [
+          post({ id: 'f1', score: 100, subreddits: ['funny'] }),
+          post({ id: 'p1', score: 200, subreddits: ['funny'] }),
+        ],
+      },
+    ]
+    const result = mergeSubPosts(live, new Map())
+    const awwIds = result.find((r) => r.sub === 'aww')!.posts.map((p) => p.id)
+    const funnyIds = result.find((r) => r.sub === 'funny')!.posts.map((p) => p.id)
+    expect(awwIds).toEqual(['a1'])
+    expect(awwIds).not.toContain('p1')
+    expect(funnyIds).toContain('f1')
+    expect(funnyIds).toContain('p1')
+  })
+  test('bugfix: prev data with expanded subreddits does not leak to wrong sub', () => {
+    const prevPost = post({
+      id: 'p1',
+      score: 200,
+      subreddits: ['funny', 'aww'],
+      created: NOW - 1000,
+    })
+    const live: Array<{ sub: string; posts: RedditPost[] }> = [
+      {
+        sub: 'aww',
+        posts: [post({ id: 'a1', score: 100, subreddits: ['aww'] })],
+      },
+      {
+        sub: 'funny',
+        posts: [
+          post({ id: 'f1', score: 100, subreddits: ['funny'] }),
+          post({ id: 'p1', score: 150, subreddits: ['funny'] }),
+        ],
+      },
+    ]
+    const result = mergeSubPosts(live, toMap([prevPost]))
+    const awwIds = result.find((r) => r.sub === 'aww')!.posts.map((p) => p.id)
+    const funnyIds = result.find((r) => r.sub === 'funny')!.posts.map((p) => p.id)
+    expect(awwIds).toEqual(['a1'])
+    expect(awwIds).not.toContain('p1')
+    expect(funnyIds).toContain('f1')
+    expect(funnyIds).toContain('p1')
   })
 })
 
