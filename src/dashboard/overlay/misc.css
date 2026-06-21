@@ -1,0 +1,128 @@
+.gm-sp-misc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 6px 6px 0;
+}
+
+.gm-sp-misc-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: #ffffff;
+  min-width: 0;
+}
+
+.gm-sp-misc {
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.gm-sp-misc-title {
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.gm-sp-misc-title-block {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.gm-sp-misc-soft {
+  color: var(--gm-sp-color-text-soft);
+}
+
+.gm-sp-misc-muted {
+  color: var(--gm-sp-color-text-muted);
+}
+
+.gm-sp-misc-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.gm-sp-misc-ml6 {
+  margin-left: 6px;
+}
+
+.gm-sp-misc-ml4 {
+  margin-left: 4px;
+}
+
+.gm-sp-misc-mr10 {
+  margin-right: 10px;
+}
+
+.gm-sp-misc-standalone {
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--gm-sp-color-text-muted);
+}
+
+.gm-sp-misc-config {
+  cursor: pointer;
+  text-decoration: underline;
+  color: var(--gm-sp-color-primary);
+}
+
+.gm-sp-misc-reconfig {
+  margin-left: 6px;
+}
+
+.gm-sp-misc-error-inline {
+  padding: 0 0 4px;
+  font-size: 11px;
+  border: none;
+  background: none;
+  margin: 0;
+}
+
+/* OpenRouter table */
+.gm-sp-misc-or-table {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto auto;
+  gap: 2px 8px;
+  align-items: center;
+}
+
+.gm-sp-misc-or-row {
+  display: contents;
+}
+
+.gm-sp-misc-or-header {
+  font-weight: 600;
+  color: var(--gm-sp-color-text-muted);
+  font-size: 10px;
+}
+
+.gm-sp-misc-or-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gm-sp-misc-rank {
+  color: var(--gm-sp-color-text-muted);
+  margin-right: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Trae reset date */
+.gm-sp-misc-reset {
+  font-size: 10px;
+  color: var(--gm-sp-color-text-muted);
+}
+
+/* Remaining percentage colors */
+.gm-sp-misc-pct-high {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.gm-sp-misc-pct-mid {
+  color: #ca8a04;
+  font-weight: 600;
+}
+
+.gm-sp-misc-pct-low {
+  color: var(--gm-sp-color-text-muted);
+}

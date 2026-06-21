@@ -42,6 +42,10 @@ export const DEFAULT_CONFIG: Config = {
   xueqiu: {
     ttlMinutes: 30,
   },
+  misc: {
+    ttlMinutes: 10,
+    badgeType: 'none' as const,
+  },
   xit: {
     enabled: true,
     placement: 'side',

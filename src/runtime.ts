@@ -4,6 +4,7 @@ export type RequestDetails = {
   timeout?: number
   anonymous?: boolean
   headers?: Record<string, string>
+  data?: string
   onload(response: { responseText: string; status?: number; responseHeaders?: string }): void
   onerror?: () => void
   ontimeout?: () => void

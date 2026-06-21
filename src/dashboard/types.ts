@@ -26,6 +26,7 @@ export type CachedSource<T> = {
 import type { WeatherCity } from './weather/types'
 import type { NovelEntry } from './novels/types'
 import type { TnewsConfig } from './tnews/types'
+import type { MiscOptions } from './misc/types'
 import type { XueqiuSourceOptions } from './xueqiu/types'
 
 export type RedditConfig = {
@@ -68,6 +69,7 @@ export type Config = {
   }
   tnews: TnewsConfig
   xueqiu: XueqiuSourceOptions
+  misc?: MiscOptions
   xit: {
     enabled: boolean
     placement: 'main' | 'side'

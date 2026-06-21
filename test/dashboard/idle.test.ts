@@ -54,6 +54,7 @@ describe('opportunistic idle refresh', () => {
     runtime.stores[CACHE_KEY('hupu')] = freshCache
     runtime.stores[CACHE_KEY('tnews')] = freshCache
     runtime.stores[CACHE_KEY('xit')] = freshCache
+    runtime.stores[CACHE_KEY('misc')] = freshCache
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     await dashboard.runOpportunisticRefresh()

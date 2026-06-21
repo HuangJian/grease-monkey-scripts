@@ -7,6 +7,7 @@ import { createHupuSource } from '../hupu'
 import { createTnewsSource } from '../tnews'
 import { createXueqiuSources } from '../xueqiu'
 import { createXitSource } from '../xit/source'
+import { createMiscSource } from '../misc'
 import type { Source, Config } from '../types'
 import { buildCardGroups, type CardGroup } from '../card-group'
 
@@ -28,6 +29,7 @@ export function createSourceRegistry(config: Config, runtime: Runtime) {
   if (config.xit?.enabled !== false) {
     sources.push(createXitSource(config.xit, runtime))
   }
+  sources.push(createMiscSource(runtime))
   const cardGroups = buildCardGroups(sources, config.sourceSettings)
   const groupById = new Map<string, CardGroup>()
   const groupForSource = new Map<string, CardGroup>()

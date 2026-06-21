@@ -33,6 +33,11 @@
 // @connect      xueqiu.com
 // @connect      rsshub.app
 // @connect      rsshub.rssforever.com
+// @connect      oauth2.googleapis.com
+// @connect      cloudcode-pa.googleapis.com
+// @connect      openrouter.ai
+// @connect      api-sg-central.trae.ai
+// @connect      chatgpt.com
 // ==/UserScript==
 // ==build.meta==
 // css: src/dashboard/overlay/styles.ts

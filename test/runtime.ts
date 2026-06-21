@@ -20,7 +20,12 @@ export type TestRuntime = Runtime & {
   listeners: Map<string, ValueChangeListener[]>
   menuCommands: MenuCommand[]
   responses: Map<string, { text: string; status?: number; responseHeaders?: string }>
-  lastRequest: { url: string; method: string; headers?: Record<string, string> } | null
+  lastRequest: {
+    url: string
+    method: string
+    headers?: Record<string, string>
+    data?: string
+  } | null
   queueResponse(url: string, text: string, status?: number, responseHeaders?: string): void
   simulateRemoteChange(key: string, newValue: unknown): void
   runMenuCommand(name: string): boolean
@@ -73,6 +78,7 @@ export function createRuntime(dom?: JSDOM): TestRuntime {
         url: details.url,
         method: details.method,
         headers: details.headers,
+        data: details.data,
       }
       const r = responses.get(details.url)
       if (r) {

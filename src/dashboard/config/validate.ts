@@ -227,6 +227,14 @@ export function validateConfig(value: unknown): ConfigValidation {
       return { ok: false, error: 'xit.placement 必须是 "main" 或 "side"' }
     }
   }
+  if ('misc' in value) {
+    const m = value['misc']
+    if (!isPlainObject(m)) {
+      return { ok: false, error: 'misc 必须是对象' }
+    }
+    const r = validateNumberFields(m, 'misc', [['ttlMinutes', 1, Number.POSITIVE_INFINITY]])
+    if (r) return r
+  }
   if ('hupu' in value) {
     const h = value['hupu']
     if (!isPlainObject(h)) {

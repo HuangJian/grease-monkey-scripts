@@ -10,6 +10,7 @@ export const OVERLAY_CSS_FILES = [
   'tnews.css',
   'xueqiu.css',
   'xit.css',
+  'misc.css',
 ] as const
 
 export const OVERLAY_CSS = `/*{{DASHBOARD_CSS}}*/`
