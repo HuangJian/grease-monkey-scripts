@@ -2,7 +2,11 @@ import type { SourceComponentProps } from '../types'
 import { aqiLevel, formatHourLabel, weatherCodeIcon, windDirectionArrow } from './helpers'
 import type { WeatherCityData, WeatherCityEntry, WeatherData, WeatherHourly } from './types'
 
-function remainingHours(hourly: WeatherHourly, currentTime: string, cmaMode: boolean): number[] {
+export function remainingHours(
+  hourly: WeatherHourly,
+  currentTime: string,
+  cmaMode: boolean,
+): number[] {
   const out: number[] = []
   const normalizedCurrent = currentTime.replaceAll('/', '-').replace(' ', 'T')
   hourly.time.some((t, i) => {
@@ -12,6 +16,15 @@ function remainingHours(hourly: WeatherHourly, currentTime: string, cmaMode: boo
     if (cmaMode && out.length >= 8) return true
     return false
   })
+  // CMA hourly table only has 8 slots; by late afternoon they can all be in
+  // the past.  Fall back to the latest available slots so the UI never shows
+  // an empty hourly strip when data was successfully fetched.
+  if (cmaMode && out.length === 0) {
+    const count = Math.min(8, hourly.time.length)
+    for (let i = hourly.time.length - count; i < hourly.time.length; i++) {
+      out.push(i)
+    }
+  }
   return out
 }
 
