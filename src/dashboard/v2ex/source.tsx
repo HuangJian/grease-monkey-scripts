@@ -1,11 +1,8 @@
 import type { Runtime } from '../../runtime'
+import type { AuthorTagMap } from '../../shared/author-labels'
 import type { Source, SourceHeaderProps, SourceSettings } from '../types'
-import {
-  V2EX_AUTHOR_TAGS_KEY,
-  V2EX_AUTHOR_TAGS_LS_KEY,
-  parseAuthorTagMap,
-  type AuthorTagMap,
-} from '../../shared/author-labels'
+import { V2EX_AUTHOR_TAGS_KEY, V2EX_AUTHOR_TAGS_LS_KEY } from '../../shared/author-labels'
+import { syncAuthorTags } from '../author-tags-sync'
 import type { DateFilter } from '../date-filter'
 import { DateFilterGroup } from '../date-filter'
 import { V2exComponent } from './component'
@@ -23,22 +20,15 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
     return hostname === 'v2ex.com' || hostname.endsWith('.v2ex.com')
   }
 
-  async function syncAuthorTags(runtime: Runtime): Promise<void> {
-    try {
-      if (isV2exDomain(runtime.location.hostname)) {
-        const raw = localStorage.getItem(V2EX_AUTHOR_TAGS_LS_KEY)
-        if (raw) {
-          authorTagMap = parseAuthorTagMap(JSON.parse(raw))
-          await runtime.setValue(V2EX_AUTHOR_TAGS_KEY, authorTagMap)
-          return
-        }
-      }
-      let stored = await runtime.getValue<unknown>(V2EX_AUTHOR_TAGS_KEY, null)
-      if (stored === null) stored = await runtime.getValue<unknown>(V2EX_AUTHOR_TAGS_LS_KEY, null)
-      authorTagMap = stored ? parseAuthorTagMap(stored) : {}
-    } catch {
-      authorTagMap = {}
-    }
+  async function loadAuthorTags(runtime: Runtime): Promise<void> {
+    await syncAuthorTags({
+      runtime,
+      isDomain: isV2exDomain,
+      lsKey: V2EX_AUTHOR_TAGS_LS_KEY,
+      gmKey: V2EX_AUTHOR_TAGS_KEY,
+      fallbackGmKey: V2EX_AUTHOR_TAGS_LS_KEY,
+      target: { map: authorTagMap },
+    })
   }
 
   return {
@@ -69,7 +59,7 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
     ),
     async fetch(runtime, _prevData) {
       await state.loadFromStorage(runtime)
-      await syncAuthorTags(runtime)
+      await loadAuthorTags(runtime)
       const prevById = new Map<number, V2exTopic>()
       if (_prevData) {
         for (const t of _prevData) prevById.set(t.id, t)
@@ -91,7 +81,7 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
     },
     async loadState(runtime) {
       await state.loadFromStorage(runtime)
-      await syncAuthorTags(runtime)
+      await loadAuthorTags(runtime)
     },
     createEditor(settings: SourceSettings) {
       return createV2exEditor(options, settings)

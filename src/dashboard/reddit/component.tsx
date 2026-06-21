@@ -4,41 +4,12 @@ import { authorClass, buildAuthorTagHtml, getTotalScore } from '../../shared/aut
 import { escapeHtml, escapeUrl } from '../../utils'
 import { ItemActions } from '../card/primitives'
 import type { DateFilter } from '../date-filter'
-import { dateFilterBounds } from '../date-filter'
+import { createGroupedItemHandlers } from '../item-actions'
+import { applyGroupedDateFilter, formatReplyCount, sourceBadge } from '../shared-utils'
 import type { SourceComponentProps } from '../types'
 import { COLLAPSE_THRESHOLD, type ExpandCollapse } from '../expand-collapse'
 import type { RedditState } from './state'
 import type { RedditRenderData } from './source'
-
-export function applyRedditDateFilter(
-  data: RedditRenderData | null,
-  filter: DateFilter,
-): RedditRenderData | null {
-  const bounds = dateFilterBounds(filter, Date.now())
-  if (!bounds || !data) return data
-  return Object.entries(data).reduce<RedditRenderData>((result, [sub, posts]) => {
-    const filtered = posts.filter((t) => {
-      if (t.created === undefined) return false
-      if (bounds.start !== undefined && t.created < bounds.start) return false
-      if (bounds.end !== undefined && t.created >= bounds.end) return false
-      return true
-    })
-    if (filtered.length > 0) result[sub] = filtered
-    return result
-  }, {})
-}
-
-function formatCommentCount(current: number, readReplies: number | undefined): string {
-  if (readReplies === undefined) return `${current}`
-  if (current <= readReplies) return `${current}`
-  return `${readReplies}+${current - readReplies}`
-}
-
-function sourceBadge(created: number): { icon: string; title: string } {
-  const now = Date.now()
-  const isToday = new Date(created).toDateString() === new Date(now).toDateString()
-  return isToday ? { icon: '🌅', title: '今日主题' } : { icon: '⏳', title: '历史主题' }
-}
 
 export type RedditComponentProps = SourceComponentProps<RedditRenderData> & {
   state: RedditState
@@ -57,7 +28,7 @@ export function RedditComponent({
 }: RedditComponentProps) {
   const [, forceUpdate] = useState(0)
 
-  const dateFiltered = applyRedditDateFilter(data, dateFilter)
+  const dateFiltered = applyGroupedDateFilter(data, dateFilter, (t) => t.created)
   const filtered: RedditRenderData | null =
     dateFilter === '未' && dateFiltered
       ? Object.entries(dateFiltered).reduce<RedditRenderData>((acc, [sub, posts]) => {
@@ -82,52 +53,22 @@ export function RedditComponent({
     forceUpdate((n) => n + 1)
   }
 
-  function handleHide(postId: string) {
-    state.markHidden(postId)
-    if (runtime) {
-      void state.saveToStorage(runtime)
-      void state.removeFromCache(runtime, postId)
-    }
-    forceUpdate((n) => n + 1)
-  }
-
-  function findSubForPost(postId: string): string | null {
-    const entry = Object.entries(filtered!).find(([, posts]) => posts.some((p) => p.id === postId))
+  function findSubForPost(post: { id: string }): string | null {
+    const entry = Object.entries(filtered!).find(([, posts]) => posts.some((p) => p.id === post.id))
     return entry ? entry[0] : null
   }
 
-  function handleBulkRead(hoveredPost: { id: string; numComments: number }) {
-    const sub = findSubForPost(hoveredPost.id)
-    if (!sub) return
-    const posts = state.filterVisible(filtered![sub] ?? [])
-    const idx = posts.findIndex((p) => p.id === hoveredPost.id)
-    if (idx < 0) return
-    const now = Date.now()
-    posts
-      .slice(0, idx + 1)
-      .filter((p) => !state.isRead(p.id))
-      .forEach((p) => {
-        state.markRead(p.id, now, p.numComments)
-      })
-    if (runtime) void state.saveToStorage(runtime)
-    forceUpdate((n) => n + 1)
-  }
-
-  function handleBulkHide(hoveredPost: { id: string }) {
-    const sub = findSubForPost(hoveredPost.id)
-    if (!sub) return
-    const posts = state.filterVisible(filtered![sub] ?? [])
-    const idx = posts.findIndex((p) => p.id === hoveredPost.id)
-    if (idx < 0) return
-    posts.slice(0, idx + 1).forEach((p) => {
-      state.markHidden(p.id)
-      if (runtime) {
-        void state.removeFromCache(runtime, p.id)
-      }
-    })
-    if (runtime) void state.saveToStorage(runtime)
-    forceUpdate((n) => n + 1)
-  }
+  const { handleHide, handleBulkRead, handleBulkHide } = createGroupedItemHandlers<
+    { id: string; numComments: number },
+    string
+  >({
+    state,
+    runtime,
+    forceUpdate: () => forceUpdate((n) => n + 1),
+    getSubForItem: findSubForPost,
+    getVisibleInSub: (sub) => state.filterVisible(filtered![sub] ?? []),
+    repliesOf: (p) => p.numComments,
+  })
 
   function handleToggleSub(sub: string) {
     expandCollapse.toggleCategory(sub, totalPosts)
@@ -140,16 +81,16 @@ export function RedditComponent({
         const visiblePosts = state.filterVisible(filtered[sub] ?? [])
         if (visiblePosts.length === 0) return null
         const isActive = active.has(sub)
-        const collapsedClass = isActive ? '' : ' gm-sp-reddit-section-collapsed'
-        const caretClass = showCaret ? ' gm-sp-reddit-caret-visible' : ''
+        const collapsedClass = isActive ? '' : ' gm-sp-section-collapsed'
+        const caretClass = showCaret ? ' gm-sp-caret-visible' : ''
         return (
-          <section class={`gm-sp-reddit-section${collapsedClass}`} data-sub={escapeHtml(sub)}>
+          <section class={`gm-sp-section${collapsedClass}`} data-sub={escapeHtml(sub)}>
             <h3
-              class="gm-sp-reddit-sub-title"
+              class="gm-sp-section-title"
               data-sub={escapeHtml(sub)}
               onClick={() => handleToggleSub(sub)}
             >
-              <span class={`gm-sp-reddit-caret${caretClass}`}>▾</span>
+              <span class={`gm-sp-caret${caretClass}`}>▾</span>
               r/{escapeHtml(sub)}
             </h3>
             <ol class="gm-sp-list">
@@ -160,7 +101,7 @@ export function RedditComponent({
                 const ac = authorClass(authorTags ? getTotalScore(authorTags) : 0)
                 const titleSuffix = buildAuthorTagHtml(authorTags, escapeHtml)
                 const authorText = author ? `@${escapeHtml(author)}` : ''
-                const commentCount = formatCommentCount(
+                const commentCount = formatReplyCount(
                   post.numComments,
                   state.getReadReplies(post.id),
                 )
@@ -169,7 +110,7 @@ export function RedditComponent({
                     class={`gm-sp-list-item gm-sp-list-item-flex${state.isRead(post.id) ? ' gm-sp-item-read' : ''}`}
                     data-post-id={post.id}
                   >
-                    <span class="gm-sp-reddit-source" title={badge.title}>
+                    <span class="gm-sp-section-source" title={badge.title}>
                       {badge.icon}
                     </span>
                     <span class="gm-sp-item-count" title="评论数">
@@ -183,10 +124,10 @@ export function RedditComponent({
                       onClick={() => handleMarkRead(post.id, post.numComments)}
                       dangerouslySetInnerHTML={{ __html: escapeHtml(post.title) + titleSuffix }}
                     />
-                    <span class="gm-sp-reddit-score" title="得分">
+                    <span class="gm-sp-section-score" title="得分">
                       🏆{post.score}
                     </span>
-                    <span class={`gm-sp-reddit-author${ac}`}>{authorText}</span>
+                    <span class={`gm-sp-section-author${ac}`}>{authorText}</span>
                     <ItemActions
                       onHide={() => handleHide(post.id)}
                       onBulkRead={() => handleBulkRead(post)}

@@ -12,8 +12,8 @@
  */
 
 import { JSDOM } from 'jsdom'
-import { parseCmaPage } from '../src/dashboard/weather/cma/parse-page'
-import { parseCmaNow } from '../src/dashboard/weather/cma/parse-now'
+import { parseCmaPage } from '../../src/dashboard/weather/cma/parse-page'
+import { parseCmaNow } from '../../src/dashboard/weather/cma/parse-now'
 
 // ---------------------------------------------------------------------------
 // Helpers

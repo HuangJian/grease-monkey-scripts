@@ -4,27 +4,11 @@ import { authorClass, buildAuthorTagHtml, getTotalScore } from '../../shared/aut
 import { escapeHtml, escapeUrl } from '../../utils'
 import { ItemActions } from '../card/primitives'
 import type { DateFilter } from '../date-filter'
-import { dateFilterBounds } from '../date-filter'
+import { createItemHandlers } from '../item-actions'
+import { applyDateFilter, formatReplyCount } from '../shared-utils'
 import type { SourceComponentProps } from '../types'
 import type { V2exState } from './state'
 import type { V2exTopic } from './types'
-
-export function applyDateFilter(data: V2exTopic[] | null, filter: DateFilter): V2exTopic[] | null {
-  const bounds = dateFilterBounds(filter, Date.now())
-  if (!bounds || !data) return data
-  return data.filter((t) => {
-    if (t.created === undefined) return false
-    if (bounds.start !== undefined && t.created < bounds.start) return false
-    if (bounds.end !== undefined && t.created >= bounds.end) return false
-    return true
-  })
-}
-
-function formatReplyCount(current: number, readReplies: number | undefined): string {
-  if (readReplies === undefined) return `${current}`
-  if (current <= readReplies) return `${current}`
-  return `${readReplies}+${current - readReplies}`
-}
 
 const SOURCE_BADGES = {
   cross: { icon: '🔥', title: '双源确认热帖' },
@@ -57,7 +41,7 @@ export function V2exComponent({
 }: V2exComponentProps) {
   const [, forceUpdate] = useState(0)
 
-  const dateFiltered = applyDateFilter(data, dateFilter) ?? []
+  const dateFiltered = applyDateFilter(data, dateFilter, (t) => t.created) ?? []
   const visible =
     dateFilter === '未'
       ? dateFiltered.filter((t) => !state.isRead(t.id))
@@ -69,41 +53,13 @@ export function V2exComponent({
     forceUpdate((n) => n + 1)
   }
 
-  function handleHide(topic: V2exTopic) {
-    state.markHidden(topic.id)
-    if (runtime) {
-      void state.saveToStorage(runtime)
-      void state.removeFromCache(runtime, topic.id)
-    }
-    forceUpdate((n) => n + 1)
-  }
-
-  function handleBulkRead(hoveredTopic: V2exTopic) {
-    const idx = visible.findIndex((t) => t.id === hoveredTopic.id)
-    if (idx < 0) return
-    const now = Date.now()
-    visible
-      .slice(0, idx + 1)
-      .filter((t) => !state.isRead(t.id))
-      .forEach((t) => {
-        state.markRead(t.id, now, t.replies)
-      })
-    if (runtime) void state.saveToStorage(runtime)
-    forceUpdate((n) => n + 1)
-  }
-
-  function handleBulkHide(hoveredTopic: V2exTopic) {
-    const idx = visible.findIndex((t) => t.id === hoveredTopic.id)
-    if (idx < 0) return
-    visible.slice(0, idx + 1).forEach((t) => {
-      state.markHidden(t.id)
-      if (runtime) {
-        void state.removeFromCache(runtime, t.id)
-      }
-    })
-    if (runtime) void state.saveToStorage(runtime)
-    forceUpdate((n) => n + 1)
-  }
+  const { handleHide, handleBulkRead, handleBulkHide } = createItemHandlers<V2exTopic>({
+    state,
+    runtime,
+    forceUpdate: () => forceUpdate((n) => n + 1),
+    getVisible: () => visible,
+    repliesOf: (t) => t.replies,
+  })
 
   if (!visible || visible.length === 0) {
     return (
@@ -147,7 +103,7 @@ export function V2exComponent({
                 <span class={ac.trim() || undefined}>@{escapeHtml(username)}</span>
               </span>
               <ItemActions
-                onHide={() => handleHide(topic)}
+                onHide={() => handleHide(topic.id)}
                 onBulkRead={() => handleBulkRead(topic)}
                 onBulkHide={() => handleBulkHide(topic)}
               />

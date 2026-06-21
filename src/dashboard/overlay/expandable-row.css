@@ -1,0 +1,44 @@
+/* Shared expandable row patterns (tnews, xueqiu) */
+
+.gm-sp-expandable-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.gm-sp-expandable-title {
+  color: var(--gm-sp-color-text);
+  font-weight: 500;
+  font-size: 13px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gm-sp-expandable-time {
+  font-size: 11px;
+  color: var(--gm-sp-color-text-muted);
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.gm-sp-expandable-body {
+  display: none;
+  padding: 8px 0 4px 22px;
+  font-size: 12px;
+  color: var(--gm-sp-color-text);
+  border-top: 1px dashed var(--gm-sp-color-bg-muted);
+  margin-top: 4px;
+}
+
+.gm-sp-expandable-body[hidden] {
+  display: none;
+}
+
+.gm-sp-list-item-expanded .gm-sp-expandable-body {
+  display: block;
+}

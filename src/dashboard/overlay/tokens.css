@@ -22,12 +22,37 @@
   --gm-sp-color-danger-border: #fecaca;
   --gm-sp-color-bg-card: #fafbfc;
   --gm-sp-color-stale-bg: #fee2e2;
+  --gm-sp-color-btn-text: #374151;
+  --gm-sp-color-info: #3b82f6;
+  --gm-sp-color-info-hover: #60a5fa;
+  --gm-sp-color-danger-hover: #ef4444;
+  --gm-sp-color-danger-border-hover: #fca5a5;
+  --gm-sp-color-danger-dark: #7f1d1d;
+  --gm-sp-color-chip-bg: #eff6ff;
+  --gm-sp-color-chip-border: #bfdbfe;
+  --gm-sp-color-chip-text: #1e40af;
+  --gm-sp-color-success: #16a34a;
+  --gm-sp-color-warn: #ca8a04;
+  --gm-sp-color-status-bg: #fef3c7;
+  --gm-sp-color-status-text: #92400e;
+  --gm-sp-color-source-v2ex: #047857;
+  --gm-sp-color-traffic-red: #ff5f57;
+  --gm-sp-color-weather-chip: #4b5563;
+  --gm-sp-color-weather-source-failed: #cbd5e1;
+  --gm-sp-color-weather-badge-bg: #f1f5f9;
+  --gm-sp-color-weather-badge-text: #94a3b8;
+  --gm-sp-color-stock-up: #e53935;
+  --gm-sp-color-stock-down: #43a047;
 
   --gm-sp-radius-sm: 4px;
   --gm-sp-radius-md: 6px;
   --gm-sp-radius-lg: 10px;
   --gm-sp-radius-xl: 12px;
   --gm-sp-radius-pill: 999px;
+  --gm-sp-radius-xs: 3px;
+  --gm-sp-radius-2: 2px;
+  --gm-sp-radius-5: 5px;
+  --gm-sp-radius-8: 8px;
 
   --gm-sp-text-xs: 10px;
   --gm-sp-text-sm: 11px;

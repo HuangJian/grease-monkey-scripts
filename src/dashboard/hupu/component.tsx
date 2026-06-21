@@ -4,41 +4,12 @@ import { authorClass, buildAuthorTagHtml, getTotalScore } from '../../shared/aut
 import { escapeHtml, escapeUrl } from '../../utils'
 import { ItemActions } from '../card/primitives'
 import type { DateFilter } from '../date-filter'
-import { dateFilterBounds } from '../date-filter'
+import { createGroupedItemHandlers } from '../item-actions'
+import { applyGroupedDateFilter, formatReplyCount, sourceBadge } from '../shared-utils'
 import type { SourceComponentProps } from '../types'
 import { COLLAPSE_THRESHOLD, type ExpandCollapse } from '../expand-collapse'
 import type { HupuState } from './state'
 import type { HupuRenderData } from './source'
-
-export function applyHupuDateFilter(
-  data: HupuRenderData | null,
-  filter: DateFilter,
-): HupuRenderData | null {
-  const bounds = dateFilterBounds(filter, Date.now())
-  if (!bounds || !data) return data
-  return Object.entries(data).reduce<HupuRenderData>((result, [board, posts]) => {
-    const filtered = posts.filter((t) => {
-      if (t.created === undefined) return false
-      if (bounds.start !== undefined && t.created < bounds.start) return false
-      if (bounds.end !== undefined && t.created >= bounds.end) return false
-      return true
-    })
-    if (filtered.length > 0) result[board] = filtered
-    return result
-  }, {})
-}
-
-function formatReplyCount(current: number, readReplies: number | undefined): string {
-  if (readReplies === undefined) return `${current}`
-  if (current <= readReplies) return `${current}`
-  return `${readReplies}+${current - readReplies}`
-}
-
-function sourceBadge(created: number): { icon: string; title: string } {
-  const now = Date.now()
-  const isToday = new Date(created).toDateString() === new Date(now).toDateString()
-  return isToday ? { icon: '🌅', title: '今日主题' } : { icon: '⏳', title: '历史主题' }
-}
 
 export type HupuComponentProps = SourceComponentProps<HupuRenderData> & {
   state: HupuState
@@ -57,7 +28,7 @@ export function HupuComponent({
 }: HupuComponentProps) {
   const [, forceUpdate] = useState(0)
 
-  const dateFiltered = applyHupuDateFilter(data, dateFilter)
+  const dateFiltered = applyGroupedDateFilter(data, dateFilter, (t) => t.created)
   const filtered: HupuRenderData | null =
     dateFilter === '未' && dateFiltered
       ? Object.entries(dateFiltered).reduce<HupuRenderData>((acc, [board, posts]) => {
@@ -82,52 +53,22 @@ export function HupuComponent({
     forceUpdate((n) => n + 1)
   }
 
-  function handleHide(postId: string) {
-    state.markHidden(postId)
-    if (runtime) {
-      void state.saveToStorage(runtime)
-      void state.removeFromCache(runtime, postId)
-    }
-    forceUpdate((n) => n + 1)
-  }
-
-  function findBoardForPost(postId: string): string | null {
-    const entry = Object.entries(filtered!).find(([, posts]) => posts.some((p) => p.id === postId))
+  function findBoardForPost(post: { id: string }): string | null {
+    const entry = Object.entries(filtered!).find(([, posts]) => posts.some((p) => p.id === post.id))
     return entry ? entry[0] : null
   }
 
-  function handleBulkRead(hoveredPost: { id: string; replies: number }) {
-    const board = findBoardForPost(hoveredPost.id)
-    if (!board) return
-    const posts = state.filterVisible(filtered![board] ?? [])
-    const idx = posts.findIndex((p) => p.id === hoveredPost.id)
-    if (idx < 0) return
-    const now = Date.now()
-    posts
-      .slice(0, idx + 1)
-      .filter((p) => !state.isRead(p.id))
-      .forEach((p) => {
-        state.markRead(p.id, now, p.replies)
-      })
-    if (runtime) void state.saveToStorage(runtime)
-    forceUpdate((n) => n + 1)
-  }
-
-  function handleBulkHide(hoveredPost: { id: string }) {
-    const board = findBoardForPost(hoveredPost.id)
-    if (!board) return
-    const posts = state.filterVisible(filtered![board] ?? [])
-    const idx = posts.findIndex((p) => p.id === hoveredPost.id)
-    if (idx < 0) return
-    posts.slice(0, idx + 1).forEach((p) => {
-      state.markHidden(p.id)
-      if (runtime) {
-        void state.removeFromCache(runtime, p.id)
-      }
-    })
-    if (runtime) void state.saveToStorage(runtime)
-    forceUpdate((n) => n + 1)
-  }
+  const { handleHide, handleBulkRead, handleBulkHide } = createGroupedItemHandlers<
+    { id: string; replies: number },
+    string
+  >({
+    state,
+    runtime,
+    forceUpdate: () => forceUpdate((n) => n + 1),
+    getSubForItem: findBoardForPost,
+    getVisibleInSub: (board) => state.filterVisible(filtered![board] ?? []),
+    repliesOf: (p) => p.replies,
+  })
 
   function handleToggleBoard(board: string) {
     expandCollapse.toggleCategory(board, totalPosts)
@@ -140,16 +81,16 @@ export function HupuComponent({
         const visiblePosts = state.filterVisible(filtered[board] ?? [])
         if (visiblePosts.length === 0) return null
         const isActive = active.has(board)
-        const collapsedClass = isActive ? '' : ' gm-sp-hupu-section-collapsed'
-        const caretClass = showCaret ? ' gm-sp-hupu-caret-visible' : ''
+        const collapsedClass = isActive ? '' : ' gm-sp-section-collapsed'
+        const caretClass = showCaret ? ' gm-sp-caret-visible' : ''
         return (
-          <section class={`gm-sp-hupu-section${collapsedClass}`} data-board={escapeHtml(board)}>
+          <section class={`gm-sp-section${collapsedClass}`} data-board={escapeHtml(board)}>
             <h3
-              class="gm-sp-hupu-sub-title"
+              class="gm-sp-section-title"
               data-board={escapeHtml(board)}
               onClick={() => handleToggleBoard(board)}
             >
-              <span class={`gm-sp-hupu-caret${caretClass}`}>▾</span>
+              <span class={`gm-sp-caret${caretClass}`}>▾</span>
               {escapeHtml(board)}
             </h3>
             <ol class="gm-sp-list">
@@ -166,7 +107,7 @@ export function HupuComponent({
                     class={`gm-sp-list-item gm-sp-list-item-flex${state.isRead(post.id) ? ' gm-sp-item-read' : ''}`}
                     data-post-id={post.id}
                   >
-                    <span class="gm-sp-hupu-source" title={badge.title}>
+                    <span class="gm-sp-section-source" title={badge.title}>
                       {badge.icon}
                     </span>
                     <span class="gm-sp-item-count" title="回复数">
@@ -180,10 +121,10 @@ export function HupuComponent({
                       onClick={() => handleMarkRead(post.id, post.replies)}
                       dangerouslySetInnerHTML={{ __html: escapeHtml(post.title) + titleSuffix }}
                     />
-                    <span class="gm-sp-hupu-score" title="亮了">
+                    <span class="gm-sp-section-score" title="亮了">
                       {post.lights}
                     </span>
-                    <span class={`gm-sp-hupu-author${ac}`}>{authorText}</span>
+                    <span class={`gm-sp-section-author${ac}`}>{authorText}</span>
                     <ItemActions
                       onHide={() => handleHide(post.id)}
                       onBulkRead={() => handleBulkRead(post)}

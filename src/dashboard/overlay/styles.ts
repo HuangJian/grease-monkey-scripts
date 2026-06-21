@@ -4,6 +4,8 @@ export const OVERLAY_CSS_FILES = [
   'layout.css',
   'card.css',
   'editor.css',
+  'section.css',
+  'expandable-row.css',
   'weather.css',
   'novels.css',
   'reddit.css',

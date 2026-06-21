@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { escapeHtml } from '../../utils'
 import { formatRelativeTime, ItemActions } from '../card/primitives'
+import { createItemHandlers } from '../item-actions'
 import type { SourceComponentProps } from '../types'
 import type { TnewsState } from './state'
 import type { TnewsItem } from './types'
@@ -47,7 +48,7 @@ export function TnewsComponent({
     const id = scrollTargetRef.current
     if (!id) return
     scrollTargetRef.current = null
-    const el = document.querySelector(`li[data-item-id="${CSS.escape(id)}"] .gm-sp-tnews-row`)
+    const el = document.querySelector(`li[data-item-id="${CSS.escape(id)}"] .gm-sp-expandable-row`)
     el?.scrollIntoView({ block: 'start', behavior: 'smooth' })
   })
 
@@ -71,42 +72,15 @@ export function TnewsComponent({
     forceUpdate((n) => n + 1)
   }
 
-  function handleHide(item: TnewsItem) {
-    state.markHidden(item.id)
-    if (runtime) {
-      void state.saveToStorage(runtime)
-      void state.removeFromCache(runtime, item.id)
-    }
-    forceUpdate((n) => n + 1)
-  }
-
   const visible = items.filter((it) => !state.isHidden(it.id))
 
-  function handleBulkRead(hoveredItem: TnewsItem) {
-    const idx = visible.findIndex((it) => it.id === hoveredItem.id)
-    if (idx < 0) return
-    const ts = Date.now()
-    visible.slice(0, idx + 1).forEach((it) => {
-      if (!state.isRead(it.id)) {
-        state.markRead(it.id, ts)
-      }
-    })
-    if (runtime) void state.saveToStorage(runtime)
-    forceUpdate((n) => n + 1)
-  }
-
-  function handleBulkHide(hoveredItem: TnewsItem) {
-    const idx = visible.findIndex((it) => it.id === hoveredItem.id)
-    if (idx < 0) return
-    visible.slice(0, idx + 1).forEach((it) => {
-      state.markHidden(it.id)
-      if (runtime) {
-        void state.removeFromCache(runtime, it.id)
-      }
-    })
-    if (runtime) void state.saveToStorage(runtime)
-    forceUpdate((n) => n + 1)
-  }
+  const { handleHide, handleBulkRead, handleBulkHide } = createItemHandlers<TnewsItem>({
+    state,
+    runtime,
+    forceUpdate: () => forceUpdate((n) => n + 1),
+    getVisible: () => visible,
+    repliesOf: () => undefined,
+  })
 
   if (items.length === 0) {
     return (
@@ -132,25 +106,25 @@ export function TnewsComponent({
               class={`gm-sp-list-item${readClass}${expandedClass}`}
               data-item-id={escapeHtml(item.id)}
             >
-              <span class="gm-sp-tnews-row" onClick={() => handleRowClick(item)}>
+              <span class="gm-sp-expandable-row" onClick={() => handleRowClick(item)}>
                 <span
-                  class="gm-sp-tnews-time"
+                  class="gm-sp-expandable-time"
                   title={escapeHtml(TIME_LABEL_FMT.format(new Date(item.pubDate)))}
                 >
                   {escapeHtml(timeText)}
                 </span>
-                <span class="gm-sp-tnews-title" title={escapeHtml(titleText)}>
+                <span class="gm-sp-expandable-title" title={escapeHtml(titleText)}>
                   {escapeHtml(titleText)}
                 </span>
               </span>
               <ItemActions
-                onHide={() => handleHide(item)}
+                onHide={() => handleHide(item.id)}
                 onBulkRead={() => handleBulkRead(item)}
                 onBulkHide={() => handleBulkHide(item)}
               />
               {expanded && (
                 <div
-                  class="gm-sp-tnews-body"
+                  class="gm-sp-expandable-body"
                   dangerouslySetInnerHTML={{ __html: stripImgSizeAttrs(item.descriptionHtml) }}
                 />
               )}

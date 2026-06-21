@@ -7,7 +7,7 @@
   font: inherit;
   font-size: var(--gm-sp-text-md);
   line-height: 1;
-  color: #374151;
+  color: var(--gm-sp-color-btn-text);
   background: transparent;
   border: 1px solid var(--gm-sp-color-border-strong);
   border-radius: var(--gm-sp-radius-md);
@@ -15,7 +15,7 @@
 
 .gm-sp-btn:hover {
   background: var(--gm-sp-color-bg);
-  border-color: #9ca3af;
+  border-color: var(--gm-sp-color-text-soft);
 }
 
 .gm-sp-btn:disabled {
@@ -30,7 +30,7 @@
 .gm-sp-btn-primary {
   background: var(--gm-sp-color-primary);
   border-color: var(--gm-sp-color-primary);
-  color: #ffffff;
+  color: var(--gm-sp-color-bg);
 }
 
 .gm-sp-btn-primary:hover {

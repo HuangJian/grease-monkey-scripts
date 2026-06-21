@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks'
 import type { AntigravityConfig, AntigravityData, AntigravityModelDisplay } from './types'
+import { pctClass } from '../widget-helpers'
 
 type Props = {
   config: AntigravityConfig | null
@@ -24,10 +25,6 @@ export function pickBest(
 
 export function AntigravityWidget({ config, data, error, onConfigure }: Props) {
   const [justSet, setJustSet] = useState(false)
-
-  function pctClass(v: number): string {
-    return v >= 50 ? 'gm-sp-misc-pct-high' : v >= 5 ? 'gm-sp-misc-pct-mid' : 'gm-sp-misc-pct-low'
-  }
 
   if (!config && !justSet) {
     return (

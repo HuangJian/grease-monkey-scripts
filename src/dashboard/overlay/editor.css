@@ -10,7 +10,7 @@
 
 .gm-sp-editor-dialog-panel {
   background: var(--gm-sp-color-bg);
-  border-radius: 12px;
+  border-radius: var(--gm-sp-radius-xl);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
   width: 520px;
   max-width: calc(100vw - 32px);
@@ -70,7 +70,7 @@
   font-size: 13px;
   background: var(--gm-sp-color-bg-subtle);
   border: 1px solid var(--gm-sp-color-border);
-  border-radius: 6px;
+  border-radius: var(--gm-sp-radius-md);
   padding: 6px 10px;
 }
 
@@ -92,7 +92,7 @@
 }
 
 .gm-sp-item-remove:hover {
-  color: #7f1d1d;
+  color: var(--gm-sp-color-danger-dark);
 }
 
 .gm-sp-editor-form [data-action='add'] {
@@ -117,33 +117,8 @@
   min-width: 0;
 }
 
-.gm-sp-editor-row input {
-  font: inherit;
-  padding: 6px 8px;
-  border: 1px solid var(--gm-sp-color-border-strong);
-  border-radius: 6px;
-  background: var(--gm-sp-color-bg);
-  color: inherit;
-  min-width: 0;
-}
-
 .gm-sp-editor-row input[type='number'] {
   max-width: 80px;
-}
-
-.gm-sp-editor-row select {
-  font: inherit;
-  padding: 6px 8px;
-  border: 1px solid var(--gm-sp-color-border-strong);
-  border-radius: 6px;
-  background: var(--gm-sp-color-bg);
-  color: inherit;
-  min-width: 0;
-}
-
-.gm-sp-editor-row input:focus {
-  outline: none;
-  border-color: var(--gm-sp-color-primary);
 }
 
 .gm-sp-editor-actions {
@@ -155,27 +130,12 @@
 }
 
 .gm-sp-editor-btn {
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
   padding: 5px 14px;
-  border-radius: 6px;
-  border: 1px solid var(--gm-sp-color-border-strong);
-  background: var(--gm-sp-color-bg);
-  color: #374151;
-}
-
-.gm-sp-editor-btn:hover {
-  background: var(--gm-sp-color-bg-muted);
-  border-color: var(--gm-sp-color-text-soft);
 }
 
 .gm-sp-editor-error {
   font-size: 12px;
-  color: var(--gm-sp-color-danger);
-  background: var(--gm-sp-color-danger-bg);
-  border: 1px solid var(--gm-sp-color-danger-border);
-  border-radius: 6px;
+  border-radius: var(--gm-sp-radius-md);
   padding: 4px 8px;
 }
 
@@ -203,7 +163,7 @@
   min-width: 0;
   padding: 6px 8px;
   border: 1px solid var(--gm-sp-color-border-strong);
-  border-radius: 6px;
+  border-radius: var(--gm-sp-radius-md);
   background: var(--gm-sp-color-bg);
   color: inherit;
 }
@@ -222,10 +182,10 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  color: #1e40af;
-  border-radius: 999px;
+  background: var(--gm-sp-color-chip-bg);
+  border: 1px solid var(--gm-sp-color-chip-border);
+  color: var(--gm-sp-color-chip-text);
+  border-radius: var(--gm-sp-radius-pill);
   padding: 3px 4px 3px 10px;
   font-size: 12px;
   font-weight: 500;
@@ -239,15 +199,15 @@
   cursor: pointer;
   background: transparent;
   border: 0;
-  color: #1e40af;
+  color: var(--gm-sp-color-chip-text);
   font-size: 14px;
   line-height: 1;
   padding: 0 4px;
-  border-radius: 999px;
+  border-radius: var(--gm-sp-radius-pill);
 }
 
 .gm-sp-editor-chip-remove:hover {
-  background: #1e40af;
+  background: var(--gm-sp-color-chip-text);
   color: var(--gm-sp-color-bg);
 }
 
@@ -259,7 +219,7 @@
   font-size: 10px;
   line-height: 1;
   padding: 0 2px;
-  border-radius: 3px;
+  border-radius: var(--gm-sp-radius-xs);
 }
 
 .gm-sp-editor-chip-move:hover:not(:disabled) {

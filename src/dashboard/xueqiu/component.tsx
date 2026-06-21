@@ -1,20 +1,10 @@
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { ItemActions } from '../card/primitives'
 import type { DateFilter } from '../date-filter'
-import { dateFilterBounds } from '../date-filter'
+import { applyDateFilter } from '../shared-utils'
 import type { SourceComponentProps } from '../types'
 import type { XueqiuState } from './state'
 import type { XueqiuRenderData, XueqiuNewsItem } from './types'
-
-export function applyDateFilter(items: XueqiuNewsItem[], filter: DateFilter): XueqiuNewsItem[] {
-  const bounds = dateFilterBounds(filter, Date.now())
-  if (!bounds) return items
-  return items.filter((item) => {
-    if (bounds.start !== undefined && item.created_at < bounds.start) return false
-    if (bounds.end !== undefined && item.created_at >= bounds.end) return false
-    return true
-  })
-}
 
 function escapeText(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -82,14 +72,14 @@ export function XueqiuComponent({
     const id = scrollTargetRef.current
     if (!id) return
     scrollTargetRef.current = null
-    const el = document.querySelector(`li[data-item-id="${CSS.escape(id)}"] .gm-sp-xueqiu-row`)
+    const el = document.querySelector(`li[data-item-id="${CSS.escape(id)}"] .gm-sp-expandable-row`)
     el?.scrollIntoView({ block: 'start', behavior: 'smooth' })
   })
 
   const news = data?.news ?? []
   const hotPosts = data?.hotPosts ?? []
   const rawItems = mode === 'news' ? news : hotPosts
-  const dateFiltered = applyDateFilter(rawItems, dateFilter)
+  const dateFiltered = applyDateFilter(rawItems, dateFilter, (it) => it.created_at) ?? []
   const items =
     dateFilter === '未'
       ? dateFiltered.filter((it) => {
@@ -164,10 +154,10 @@ export function XueqiuComponent({
     const title = item.title || item.description || item.text
     return (
       <li class={`gm-sp-list-item${readClass}${expandedClass}`} data-item-id={escapeAttr(id)}>
-        <span class="gm-sp-xueqiu-row" onClick={() => handleItemClick(item)}>
-          <span class="gm-sp-xueqiu-time">{escapeText(formatTime(item.created_at))}</span>
+        <span class="gm-sp-expandable-row" onClick={() => handleItemClick(item)}>
+          <span class="gm-sp-expandable-time">{escapeText(formatTime(item.created_at))}</span>
           <span
-            class="gm-sp-xueqiu-text"
+            class="gm-sp-expandable-title"
             dangerouslySetInnerHTML={{ __html: sanitizeHtml(unescapeHtml(title)) }}
           />
           {mode === 'hot' && (
@@ -183,7 +173,7 @@ export function XueqiuComponent({
           onBulkHide={() => handleBulkHide(item)}
         />
         {expanded && (
-          <div class="gm-sp-xueqiu-body">
+          <div class="gm-sp-expandable-body">
             <div
               class="gm-sp-xueqiu-body-text"
               dangerouslySetInnerHTML={{ __html: sanitizeHtml(unescapeHtml(item.text)) }}

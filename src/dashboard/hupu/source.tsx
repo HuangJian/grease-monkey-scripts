@@ -1,11 +1,8 @@
-import {
-  HUPU_AUTHOR_TAGS_KEY,
-  HUPU_AUTHOR_TAGS_LS_KEY,
-  type AuthorTagMap,
-  parseAuthorTagMap,
-} from '../../shared/author-labels'
+import { HUPU_AUTHOR_TAGS_KEY, HUPU_AUTHOR_TAGS_LS_KEY } from '../../shared/author-labels'
+import type { AuthorTagMap } from '../../shared/author-labels'
 import type { Runtime } from '../../runtime'
 import { loadConfigSection } from '../config'
+import { syncAuthorTags } from '../author-tags-sync'
 import type { Source, SourceHeaderProps, SourceSettings } from '../types'
 import type { DateFilter } from '../date-filter'
 import { DateFilterGroup } from '../date-filter'
@@ -25,23 +22,14 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
   let authorTagMap: AuthorTagMap = {}
   const headerState: { dateFilter: DateFilter } = { dateFilter: '全' }
 
-  async function syncAuthorTags(runtime: Runtime): Promise<void> {
-    try {
-      const host = runtime.location.hostname
-      const isHupu = host === 'hupu.com' || host.endsWith('.hupu.com')
-      if (isHupu) {
-        const raw = localStorage.getItem(HUPU_AUTHOR_TAGS_LS_KEY)
-        if (raw) {
-          authorTagMap = parseAuthorTagMap(JSON.parse(raw))
-          await runtime.setValue(HUPU_AUTHOR_TAGS_KEY, authorTagMap)
-          return
-        }
-      }
-      const stored = await runtime.getValue<unknown>(HUPU_AUTHOR_TAGS_KEY, null)
-      authorTagMap = stored ? parseAuthorTagMap(stored) : {}
-    } catch {
-      authorTagMap = {}
-    }
+  async function loadAuthorTags(runtime: Runtime): Promise<void> {
+    await syncAuthorTags({
+      runtime,
+      isDomain: (h) => h === 'hupu.com' || h.endsWith('.hupu.com'),
+      lsKey: HUPU_AUTHOR_TAGS_LS_KEY,
+      gmKey: HUPU_AUTHOR_TAGS_KEY,
+      target: { map: authorTagMap },
+    })
   }
 
   return {
@@ -64,7 +52,7 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
       const fresh = await loadFreshHupuOptions(runtime, options)
       console.debug('[gm-dashboard] hupu.fetch start boards=', fresh.boards)
       await state.loadFromStorage(runtime)
-      await syncAuthorTags(runtime)
+      await loadAuthorTags(runtime)
       const fetchResult = await fetchHupu(runtime, fresh)
       console.debug(
         '[gm-dashboard] hupu.fetch ok boards=',
@@ -101,7 +89,7 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
     ),
     async loadState(runtime) {
       await state.loadFromStorage(runtime)
-      await syncAuthorTags(runtime)
+      await loadAuthorTags(runtime)
     },
     createEditor(settings: SourceSettings) {
       return createHupuEditor(options, settings)

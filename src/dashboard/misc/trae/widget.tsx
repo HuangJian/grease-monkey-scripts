@@ -1,21 +1,12 @@
 import { useState } from 'preact/hooks'
 import type { TraeConfig, TraeData } from './types'
+import { fmtDate, pctClass } from '../widget-helpers'
 
 type Props = {
   config: TraeConfig | null
   data: TraeData | null
   error: string | null
   onConfigure?: () => void
-}
-
-function fmtDate(ts: number): string {
-  const d = new Date(ts * 1000)
-  const month = d.toLocaleString('en', { month: 'short' })
-  return `${month} ${d.getDate()}`
-}
-
-function pctClass(v: number): string {
-  return v >= 50 ? 'gm-sp-misc-pct-high' : v >= 5 ? 'gm-sp-misc-pct-mid' : 'gm-sp-misc-pct-low'
 }
 
 export function TraeWidget({ config, data, error, onConfigure }: Props) {

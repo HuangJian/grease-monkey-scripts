@@ -1,13 +1,8 @@
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
-import { render } from 'preact'
 import { loadConfigSection, validateConfig } from '../config'
+import { createEditorFactory } from '../editor-helpers/createEditorFactory'
 import { readNumberFields, saveConfigSection, saveSourceSettings } from '../editor-helpers'
-import type {
-  SourceEditor,
-  SourceEditorContext,
-  SourceEditorResult,
-  SourceSettings,
-} from '../types'
+import type { SourceEditorContext, SourceEditorResult, SourceSettings } from '../types'
 import type { MiscBadgeType, MiscOptions } from './types'
 import type { Runtime } from '../../runtime'
 
@@ -139,20 +134,12 @@ function MiscEditorForm({ fresh, settings, ctx, handleRef }: MiscEditorFormProps
   )
 }
 
-export function createMiscEditor(options: MiscOptions, settings: SourceSettings): SourceEditor {
-  return async (container, ctx): Promise<SourceEditorResult> => {
-    const fresh = await loadFreshOptions(ctx.runtime, options)
-    const handleRef: { current: SourceEditorResult | null } = { current: null }
-    render(
-      <MiscEditorForm fresh={fresh} settings={settings} ctx={ctx} handleRef={handleRef} />,
-      container,
-    )
-    return {
-      render: () => handleRef.current?.render?.(),
-      save: () => handleRef.current?.save?.(),
-      cancel: () => handleRef.current?.cancel?.(),
-    }
-  }
+export function createMiscEditor(options: MiscOptions, settings: SourceSettings) {
+  return createEditorFactory(
+    (runtime) => loadFreshOptions(runtime, options),
+    MiscEditorForm,
+    (fresh) => ({ fresh, settings }),
+  )
 }
 
 export { loadFreshOptions as loadFreshMiscOptions }

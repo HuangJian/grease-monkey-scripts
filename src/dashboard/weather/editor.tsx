@@ -1,9 +1,9 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks'
-import { render } from 'preact'
 import { escapeHtml } from '../../utils'
 import { loadConfigSection, validateConfig } from '../config'
+import { createEditorFactory } from '../editor-helpers/createEditorFactory'
 import { saveConfigSection } from '../editor-helpers'
-import type { SourceEditor, SourceEditorContext, SourceEditorResult } from '../types'
+import type { SourceEditorContext, SourceEditorResult } from '../types'
 import type { WeatherCity, WeatherSourceOptions } from './types'
 
 function coerceWeatherOptions(
@@ -197,15 +197,10 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
   )
 }
 
-export function createWeatherEditor(options: WeatherSourceOptions): SourceEditor {
-  return async (container, ctx): Promise<SourceEditorResult> => {
-    const fresh = await loadFreshOptions(ctx.runtime, options)
-    const handleRef: { current: SourceEditorResult | null } = { current: null }
-    render(<WeatherEditorForm fresh={fresh} ctx={ctx} handleRef={handleRef} />, container)
-    return {
-      render: () => handleRef.current?.render?.(),
-      save: () => handleRef.current?.save?.(),
-      cancel: () => handleRef.current?.cancel?.(),
-    }
-  }
+export function createWeatherEditor(options: WeatherSourceOptions) {
+  return createEditorFactory(
+    (runtime) => loadFreshOptions(runtime, options),
+    WeatherEditorForm,
+    (fresh) => ({ fresh }),
+  )
 }

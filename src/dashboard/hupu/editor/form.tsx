@@ -1,14 +1,9 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks'
-import { render } from 'preact'
 import { validateConfig } from '../../config'
+import { createEditorFactory } from '../../editor-helpers/createEditorFactory'
 import { readNumberFields, saveConfigSection, saveSourceSettings } from '../../editor-helpers'
 import { SourceSettingsFields, ChipList } from '../../editor-ui'
-import type {
-  SourceEditor,
-  SourceEditorContext,
-  SourceEditorResult,
-  SourceSettings,
-} from '../../types'
+import type { SourceEditorContext, SourceEditorResult, SourceSettings } from '../../types'
 import { normalizeBoardSlug } from '../parser'
 import type { HupuSourceOptions } from '../types'
 import { loadFreshHupuOptions } from '../source'
@@ -160,21 +155,10 @@ export function HupuEditorForm({ fresh, settings, ctx, handleRef }: HupuEditorFo
   )
 }
 
-export function createHupuEditor(
-  options: HupuSourceOptions,
-  settings: SourceSettings,
-): SourceEditor {
-  return async (container, ctx): Promise<SourceEditorResult> => {
-    const fresh = await loadFreshHupuOptions(ctx.runtime, options)
-    const handleRef: { current: SourceEditorResult | null } = { current: null }
-    render(
-      <HupuEditorForm fresh={fresh} settings={settings} ctx={ctx} handleRef={handleRef} />,
-      container,
-    )
-    return {
-      render: () => handleRef.current?.render?.(),
-      save: () => handleRef.current?.save?.(),
-      cancel: () => handleRef.current?.cancel?.(),
-    }
-  }
+export function createHupuEditor(options: HupuSourceOptions, settings: SourceSettings) {
+  return createEditorFactory(
+    (runtime) => loadFreshHupuOptions(runtime, options),
+    HupuEditorForm,
+    (fresh) => ({ fresh, settings }),
+  )
 }

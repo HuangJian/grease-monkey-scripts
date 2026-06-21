@@ -1,0 +1,84 @@
+/* Shared collapsible section patterns (reddit, hupu) */
+
+.gm-sp-section {
+  border-top: 1px solid var(--gm-sp-color-bg-muted);
+  padding: 4px 0;
+}
+
+.gm-sp-section:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.gm-sp-section:has(> .gm-sp-section-title .gm-sp-caret-visible) {
+  cursor: pointer;
+}
+
+.gm-sp-section-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gm-sp-color-text);
+  margin: 0 0 4px;
+  padding: 2px 0;
+  user-select: none;
+}
+
+.gm-sp-caret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--gm-sp-color-btn-text);
+  border-radius: var(--gm-sp-radius-sm);
+  flex-shrink: 0;
+  transition:
+    background 0.12s,
+    transform 0.15s;
+}
+
+.gm-sp-caret-visible:hover {
+  background: var(--gm-sp-color-border);
+}
+
+.gm-sp-section-collapsed > .gm-sp-section-title .gm-sp-caret {
+  transform: rotate(-90deg);
+}
+
+.gm-sp-section-collapsed > .gm-sp-list {
+  display: none;
+}
+
+.gm-sp-section-collapsed > .gm-sp-section-title {
+  margin-bottom: 0;
+}
+
+.gm-sp-section-source {
+  flex: 0 0 auto;
+  font-size: 10px;
+  cursor: help;
+}
+
+.gm-sp-section-source:empty {
+  display: none;
+}
+
+.gm-sp-section-score {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--gm-sp-color-text-muted);
+}
+
+.gm-sp-section-author {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--gm-sp-color-text-muted);
+  white-space: nowrap;
+}

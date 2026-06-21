@@ -1,3 +1,5 @@
+/* Xueqiu-specific styles (shared expandable-row in expandable-row.css) */
+
 .gm-sp-xueqiu {
   font-size: 13px;
 }
@@ -9,63 +11,26 @@
 .gm-sp-xueqiu-section-title {
   font-weight: 600;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--gm-sp-color-text-muted);
   margin-bottom: 6px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-.gm-sp-xueqiu-row {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  cursor: pointer;
-}
-
-.gm-sp-xueqiu-text {
-  color: #1f2328;
-  font-weight: 500;
-  font-size: 13px;
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.gm-sp-xueqiu-time {
-  font-size: 11px;
-  color: #6b7280;
-  font-variant-numeric: tabular-nums;
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
-
 .gm-sp-xueqiu-source {
   font-size: 11px;
-  color: #fff;
-  background: #2563eb;
-  border-radius: 3px;
+  color: var(--gm-sp-color-bg);
+  background: var(--gm-sp-color-primary);
+  border-radius: var(--gm-sp-radius-xs);
   padding: 1px 4px;
   flex: 0 0 auto;
-}
-
-.gm-sp-xueqiu-title {
-  color: #1f2328;
-  font-weight: 500;
-  font-size: 13px;
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .gm-sp-xueqiu-stats {
   display: flex;
   gap: 8px;
   font-size: 11px;
-  color: #6b7280;
+  color: var(--gm-sp-color-text-muted);
   flex: 0 0 auto;
 }
 
@@ -73,19 +38,6 @@
   display: flex;
   align-items: center;
   gap: 2px;
-}
-
-.gm-sp-xueqiu-body {
-  display: none;
-  padding: 8px 0 4px 22px;
-  font-size: 12px;
-  color: #1f2328;
-  border-top: 1px dashed #f3f4f6;
-  margin-top: 4px;
-}
-
-.gm-sp-list-item-expanded .gm-sp-xueqiu-body {
-  display: block;
 }
 
 .gm-sp-xueqiu-body-text {
@@ -97,7 +49,7 @@
 .gm-sp-xueqiu-link {
   display: inline-block;
   margin-top: 8px;
-  color: #2563eb;
+  color: var(--gm-sp-color-primary);
   font-size: 12px;
   text-decoration: none;
 }
@@ -107,9 +59,9 @@
 }
 
 .gm-sp-xueqiu-up {
-  color: #e53935;
+  color: var(--gm-sp-color-stock-up);
 }
 
 .gm-sp-xueqiu-down {
-  color: #43a047;
+  color: var(--gm-sp-color-stock-down);
 }

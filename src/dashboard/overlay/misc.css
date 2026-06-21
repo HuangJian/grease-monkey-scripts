@@ -6,10 +6,10 @@
 }
 
 .gm-sp-misc-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
+  border: 1px solid var(--gm-sp-color-border);
+  border-radius: var(--gm-sp-radius-md);
   padding: 6px 8px;
-  background: #ffffff;
+  background: var(--gm-sp-color-bg);
   min-width: 0;
 }
 
@@ -114,12 +114,12 @@
 
 /* Remaining percentage colors */
 .gm-sp-misc-pct-high {
-  color: #16a34a;
+  color: var(--gm-sp-color-success);
   font-weight: 600;
 }
 
 .gm-sp-misc-pct-mid {
-  color: #ca8a04;
+  color: var(--gm-sp-color-warn);
   font-weight: 600;
 }
 

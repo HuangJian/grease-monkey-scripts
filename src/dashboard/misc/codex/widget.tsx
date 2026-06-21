@@ -1,17 +1,12 @@
 import { useState } from 'preact/hooks'
 import type { CodexConfig, CodexUsageResponse } from './types'
+import { fmtDate, pctClass } from '../widget-helpers'
 
 type Props = {
   config: CodexConfig | null
   data: CodexUsageResponse | null
   error: string | null
   onConfigure?: () => void
-}
-
-function fmtDate(ts: number): string {
-  const d = new Date(ts * 1000)
-  const month = d.toLocaleString('en', { month: 'short' })
-  return `${month} ${d.getDate()}`
 }
 
 export function CodexWidget({ config, data, error, onConfigure }: Props) {
@@ -44,10 +39,6 @@ export function CodexWidget({ config, data, error, onConfigure }: Props) {
   const usedPct = pri?.used_percent ?? 0
   const remainingPct = Math.max(0, 100 - usedPct)
   const resetDate = pri?.reset_at ? fmtDate(pri.reset_at) : '?'
-
-  function pctClass(v: number): string {
-    return v >= 50 ? 'gm-sp-misc-pct-high' : v >= 5 ? 'gm-sp-misc-pct-mid' : 'gm-sp-misc-pct-low'
-  }
 
   return (
     <div class="gm-sp-misc">

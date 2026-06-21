@@ -1,11 +1,8 @@
-import {
-  REDDIT_AUTHOR_TAGS_KEY,
-  REDDIT_AUTHOR_TAGS_LS_KEY,
-  type AuthorTagMap,
-  parseAuthorTagMap,
-} from '../../shared/author-labels'
+import { REDDIT_AUTHOR_TAGS_KEY, REDDIT_AUTHOR_TAGS_LS_KEY } from '../../shared/author-labels'
+import type { AuthorTagMap } from '../../shared/author-labels'
 import type { Runtime } from '../../runtime'
 import { loadConfigSection } from '../config'
+import { syncAuthorTags } from '../author-tags-sync'
 import type { Source, SourceHeaderProps, SourceSettings } from '../types'
 import type { DateFilter } from '../date-filter'
 import { DateFilterGroup } from '../date-filter'
@@ -25,24 +22,15 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
   let authorTagMap: AuthorTagMap = {}
   const headerState: { dateFilter: DateFilter } = { dateFilter: '全' }
 
-  async function syncAuthorTags(runtime: Runtime): Promise<void> {
-    try {
-      const host = runtime.location.hostname
-      const isReddit = host === 'reddit.com' || host.endsWith('.reddit.com')
-      if (isReddit) {
-        const raw = localStorage.getItem(REDDIT_AUTHOR_TAGS_LS_KEY)
-        if (raw) {
-          authorTagMap = parseAuthorTagMap(JSON.parse(raw))
-          await runtime.setValue(REDDIT_AUTHOR_TAGS_KEY, authorTagMap)
-          return
-        }
-      }
-      let stored = await runtime.getValue<unknown>(REDDIT_AUTHOR_TAGS_KEY, null)
-      if (stored === null) stored = await runtime.getValue<unknown>(REDDIT_AUTHOR_TAGS_LS_KEY, null)
-      authorTagMap = stored ? parseAuthorTagMap(stored) : {}
-    } catch {
-      authorTagMap = {}
-    }
+  async function loadAuthorTags(runtime: Runtime): Promise<void> {
+    await syncAuthorTags({
+      runtime,
+      isDomain: (h) => h === 'reddit.com' || h.endsWith('.reddit.com'),
+      lsKey: REDDIT_AUTHOR_TAGS_LS_KEY,
+      gmKey: REDDIT_AUTHOR_TAGS_KEY,
+      fallbackGmKey: REDDIT_AUTHOR_TAGS_LS_KEY,
+      target: { map: authorTagMap },
+    })
   }
 
   return {
@@ -65,7 +53,7 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
       const fresh = await loadFreshRedditOptions(runtime, options)
       console.debug('[gm-dashboard] reddit.fetch start subs=', fresh.subreddits)
       await state.loadFromStorage(runtime)
-      await syncAuthorTags(runtime)
+      await loadAuthorTags(runtime)
       const fetchResult = await fetchReddit(runtime, fresh)
       console.debug(
         '[gm-dashboard] reddit.fetch ok subs=',
@@ -102,7 +90,7 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
     ),
     async loadState(runtime) {
       await state.loadFromStorage(runtime)
-      await syncAuthorTags(runtime)
+      await loadAuthorTags(runtime)
     },
     createEditor(settings: SourceSettings) {
       return createRedditEditor(options, settings)
