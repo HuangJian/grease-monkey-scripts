@@ -1,22 +1,12 @@
 import { STATE_KEY } from '../types'
 import type { Runtime } from '../../runtime'
-import { createItemState } from '../item-state'
+import { createItemState, type ItemState } from '../item-state'
 import { removeItemFromCache } from '../browse-state'
-import type { HupuPost } from './types'
 
 const TOPIC_STATE_TTL = 72 * 60 * 60 * 1000
 
-export type HupuState = {
-  isRead(id: string): boolean
-  isHidden(id: string): boolean
-  getReadReplies(id: string): number | undefined
-  markRead(id: string, ts?: number, replies?: number): void
-  markHidden(id: string, ts?: number): void
-  filterVisible(posts: ReadonlyArray<HupuPost>): HupuPost[]
-  loadFromStorage(runtime: Runtime): Promise<void>
-  saveToStorage(runtime: Runtime): Promise<void>
+export type HupuState = ItemState<string> & {
   removeFromCache(runtime: Runtime, id: string): Promise<void>
-  clear(): void
 }
 
 export function createHupuState(): HupuState {
@@ -26,7 +16,7 @@ export function createHupuState(): HupuState {
   })
 
   return {
-    ...(itemState as unknown as HupuState),
+    ...itemState,
     async removeFromCache(runtime, id) {
       await removeItemFromCache(runtime, 'hupu', id)
     },

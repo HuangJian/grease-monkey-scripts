@@ -1,20 +1,14 @@
 import type { Runtime } from '../../runtime'
 import { STATE_KEY } from '../types'
-import { createItemState, createExpandedState } from '../item-state'
+import { createItemState, createExpandedState, type ItemState } from '../item-state'
 
 const STATE_TTL = 72 * 60 * 60 * 1000
 
-export type XueqiuState = {
-  isRead(id: string): boolean
-  isHidden(id: string): boolean
-  markRead(id: string, ts?: number): void
-  markHidden(id: string, ts?: number): void
+export type XueqiuState = ItemState<string> & {
   isExpanded(id: string): boolean
   toggleExpanded(id: string): boolean
   setExpanded(id: string, expanded: boolean): void
   filterVisible<T extends { id: number | string }>(items: ReadonlyArray<T>): T[]
-  loadFromStorage(runtime: Runtime): Promise<void>
-  saveToStorage(runtime: Runtime): Promise<void>
   removeFromCache(runtime: Runtime, id: string): Promise<void>
   clear(): void
 }
@@ -26,12 +20,11 @@ export function createXueqiuState(): XueqiuState {
   })
   const expanded = createExpandedState()
 
-  const base = itemState as unknown as XueqiuState
   return {
-    ...base,
+    ...itemState,
     ...expanded,
-    filterVisible(items) {
-      return itemState.filterVisible(items.map((it) => ({ ...it, id: String(it.id) })))
+    filterVisible<T extends { id: number | string }>(items: ReadonlyArray<T>) {
+      return itemState.filterVisible(items.map((it) => ({ ...it, id: String(it.id) }))) as T[]
     },
     async removeFromCache(_runtime, _id) {
       // handled by source.tsx filterVisible

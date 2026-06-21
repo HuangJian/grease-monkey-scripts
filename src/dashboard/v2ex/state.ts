@@ -1,20 +1,10 @@
 import type { Runtime } from '../../runtime'
 import { STATE_KEY } from '../types'
-import { createItemState } from '../item-state'
+import { createItemState, type ItemState } from '../item-state'
 import { removeItemFromCache } from '../browse-state'
-import type { V2exTopic } from './types'
 
-export type V2exState = {
-  isRead(id: number): boolean
-  isHidden(id: number): boolean
-  getReadReplies(id: number): number | undefined
-  markRead(id: number, ts?: number, replies?: number): void
-  markHidden(id: number, ts?: number): void
-  filterVisible(topics: ReadonlyArray<V2exTopic>): V2exTopic[]
-  loadFromStorage(runtime: Runtime): Promise<void>
-  saveToStorage(runtime: Runtime): Promise<void>
+export type V2exState = ItemState<number> & {
   removeFromCache(runtime: Runtime, topicId: number): Promise<void>
-  clear(): void
 }
 
 export function createV2exState(): V2exState {
@@ -27,7 +17,7 @@ export function createV2exState(): V2exState {
   })
 
   return {
-    ...(itemState as unknown as V2exState),
+    ...itemState,
     async removeFromCache(runtime, topicId) {
       await removeItemFromCache(runtime, 'v2ex', topicId)
     },
