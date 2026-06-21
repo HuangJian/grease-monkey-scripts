@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
+import { escapeHtml } from '../../utils'
 import { formatRelativeTime, ItemActions } from '../card/primitives'
 import type { SourceComponentProps } from '../types'
 import type { TnewsState } from './state'
@@ -17,14 +18,6 @@ function relativeLabel(pubDate: number, now: number): string {
   const formatted = formatRelativeTime(pubDate, now)
   if (formatted === '从未更新') return TIME_LABEL_FMT.format(new Date(pubDate))
   return formatted
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
 }
 
 function stripLeadingSymbols(s: string): string {
@@ -137,17 +130,17 @@ export function TnewsComponent({
           return (
             <li
               class={`gm-sp-list-item${readClass}${expandedClass}`}
-              data-item-id={escapeAttr(item.id)}
+              data-item-id={escapeHtml(item.id)}
             >
               <span class="gm-sp-tnews-row" onClick={() => handleRowClick(item)}>
                 <span
                   class="gm-sp-tnews-time"
-                  title={escapeAttr(TIME_LABEL_FMT.format(new Date(item.pubDate)))}
+                  title={escapeHtml(TIME_LABEL_FMT.format(new Date(item.pubDate)))}
                 >
-                  {escapeText(timeText)}
+                  {escapeHtml(timeText)}
                 </span>
-                <span class="gm-sp-tnews-title" title={escapeAttr(titleText)}>
-                  {escapeText(titleText)}
+                <span class="gm-sp-tnews-title" title={escapeHtml(titleText)}>
+                  {escapeHtml(titleText)}
                 </span>
               </span>
               <ItemActions

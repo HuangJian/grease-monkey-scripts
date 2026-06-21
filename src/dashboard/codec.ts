@@ -1,3 +1,5 @@
+import type { CachedSource } from './types'
+
 const SOURCE_BASE: Record<string, string> = {
   v2ex: 'https://www.v2ex.com',
   reddit: 'https://www.reddit.com',
@@ -235,108 +237,66 @@ function expandNovelBook(v: Record<string, unknown>): Record<string, unknown> {
   return out
 }
 
-// Per-source compress/expand dispatch
+// Per-source compress/expand dispatch via registry
 
-function compressData(sourceId: string, data: unknown): unknown {
+type CodecShape = 'array' | 'grouped' | 'novels'
+
+type CodecEntry = {
+  shape: CodecShape
+  compress: (v: Record<string, unknown>) => Record<string, unknown>
+  expand: (v: Record<string, unknown>) => Record<string, unknown>
+}
+
+const CODECS: Record<string, CodecEntry> = {
+  v2ex: { shape: 'array', compress: compressV2ex, expand: expandV2ex },
+  reddit: { shape: 'grouped', compress: compressReddit, expand: expandReddit },
+  hupu: { shape: 'grouped', compress: compressHupu, expand: expandHupu },
+  'xueqiu-news': { shape: 'grouped', compress: compressXueqiu, expand: expandXueqiu },
+  'xueqiu-hot': { shape: 'grouped', compress: compressXueqiu, expand: expandXueqiu },
+  tnews: { shape: 'array', compress: compressTnews, expand: expandTnews },
+  novels: { shape: 'novels', compress: compressNovelBook, expand: expandNovelBook },
+}
+
+function transformShape(
+  data: unknown,
+  shape: CodecShape,
+  fn: (v: Record<string, unknown>) => Record<string, unknown>,
+): unknown {
   if (data === null || data === undefined) return data
-  switch (sourceId) {
-    case 'v2ex': {
+  switch (shape) {
+    case 'array': {
       if (!Array.isArray(data)) return data
-      return data.map((v: Record<string, unknown>) => compressV2ex(v))
+      return data.map((v) => fn(v as Record<string, unknown>))
     }
-    case 'reddit': {
+    case 'grouped': {
       const grouped = data as Record<string, unknown[]>
       if (typeof grouped !== 'object') return data
       const out: Record<string, unknown[]> = {}
       for (const key of Object.keys(grouped)) {
-        out[key] = grouped[key].map((v) => compressReddit(v as Record<string, unknown>))
+        out[key] = grouped[key].map((v) => fn(v as Record<string, unknown>))
       }
       return out
-    }
-    case 'hupu': {
-      const grouped = data as Record<string, unknown[]>
-      if (typeof grouped !== 'object') return data
-      const out: Record<string, unknown[]> = {}
-      for (const key of Object.keys(grouped)) {
-        out[key] = grouped[key].map((v) => compressHupu(v as Record<string, unknown>))
-      }
-      return out
-    }
-    case 'xueqiu-news':
-    case 'xueqiu-hot': {
-      const src = data as Record<string, unknown[]>
-      if (typeof src !== 'object' || src === null) return data
-      const out: Record<string, unknown[]> = {}
-      for (const key of Object.keys(src)) {
-        out[key] = src[key].map((v) => compressXueqiu(v as Record<string, unknown>))
-      }
-      return out
-    }
-    case 'tnews': {
-      if (!Array.isArray(data)) return data
-      return data.map((v: Record<string, unknown>) => compressTnews(v))
     }
     case 'novels': {
       const nd = data as { books?: unknown[] } | null
       if (nd && typeof nd === 'object' && Array.isArray(nd.books)) {
-        return { books: nd.books.map((b) => compressNovelBook(b as Record<string, unknown>)) }
+        return { books: nd.books.map((b) => fn(b as Record<string, unknown>)) }
       }
       return data
     }
-    default:
-      return data
   }
 }
 
+function compressData(sourceId: string, data: unknown): unknown {
+  const entry = CODECS[sourceId]
+  if (!entry) return data
+  return transformShape(data, entry.shape, entry.compress)
+}
+
 function expandData(sourceId: string, data: unknown): unknown {
-  if (data === null || data === undefined) return data
-  switch (sourceId) {
-    case 'v2ex': {
-      if (!Array.isArray(data)) return data
-      return data.map((v: Record<string, unknown>) => expandV2ex(v))
-    }
-    case 'reddit': {
-      const grouped = data as Record<string, unknown[]>
-      if (typeof grouped !== 'object') return data
-      const out: Record<string, unknown[]> = {}
-      for (const key of Object.keys(grouped)) {
-        out[key] = grouped[key].map((v) => expandReddit(v as Record<string, unknown>))
-      }
-      return out
-    }
-    case 'hupu': {
-      const grouped = data as Record<string, unknown[]>
-      if (typeof grouped !== 'object') return data
-      const out: Record<string, unknown[]> = {}
-      for (const key of Object.keys(grouped)) {
-        out[key] = grouped[key].map((v) => expandHupu(v as Record<string, unknown>))
-      }
-      return out
-    }
-    case 'xueqiu-news':
-    case 'xueqiu-hot': {
-      const src = data as Record<string, unknown[]>
-      if (typeof src !== 'object' || src === null) return data
-      const out: Record<string, unknown[]> = {}
-      for (const key of Object.keys(src)) {
-        out[key] = src[key].map((v) => expandXueqiu(v as Record<string, unknown>))
-      }
-      return out
-    }
-    case 'tnews': {
-      if (!Array.isArray(data)) return data
-      return data.map((v: Record<string, unknown>) => expandTnews(v))
-    }
-    case 'novels': {
-      const nd = data as { books?: unknown[] } | null
-      if (nd && typeof nd === 'object' && Array.isArray(nd.books)) {
-        return { books: nd.books.map((b) => expandNovelBook(b as Record<string, unknown>)) }
-      }
-      return data
-    }
-    default:
-      return data
-  }
+  const entry = CODECS[sourceId]
+  if (!entry) return data
+  return transformShape(data, entry.shape, entry.expand)
 }
 
 export function compressForStorage<T>(
@@ -356,5 +316,3 @@ export function expandFromStorage<T>(sourceId: string, value: CachedSource<T>): 
     data: expandData(sourceId, value.data) as T,
   }
 }
-
-import type { CachedSource } from './types'

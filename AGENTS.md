@@ -237,6 +237,20 @@ test suite depend on live network availability.
 
 #### No Circular Dependencies
 
+#### Anti-patterns
+
+- **Duplicate switch dispatch** — replace with a registry; new cases touch one place.
+- **Custom escape functions** — use `escapeHtml` from `src/utils.ts`.
+- **Inline shared UI** — import existing shared components instead of duplicating.
+- **Copy-paste CSS class names** — feature classes must match the feature name.
+- **Object reference list ops** — compare by ID, not by reference.
+- **Inconsistent storage keys** — use `{FEATURE}_KEY` (GM) + `{FEATURE}_LS_KEY` (localStorage).
+- **Missing lifecycle methods** — all sources implement the full `Source` interface.
+- **Inconsistent save callbacks** — always call `ctx.refresh?.()` before `ctx.close()`.
+- **Hardcoded CSS colors** — use CSS variables from `tokens.css`.
+- **Uncleaned event listeners** — always remove listeners when the component unmounts.
+- **Duplicate keyboard handling** — centralize in `shortcut.ts`.
+
 #### Code Style
 
 - **Preact event props within Preact trees.** Use `onClick`, `onInput`, `onKeyDown`,

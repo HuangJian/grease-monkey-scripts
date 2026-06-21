@@ -1,6 +1,7 @@
 import type { Runtime } from '../../runtime'
 import { STATE_KEY } from '../types'
-import { createItemState, type ItemState, removeItemFromCacheById } from '../item-state'
+import { createItemState, createExpandedState } from '../item-state'
+import { removeItemFromCache } from '../browse-state'
 import type { TnewsItem } from './types'
 
 const STATE_TTL = 7 * 24 * 60 * 60 * 1000
@@ -21,56 +22,23 @@ export type TnewsState = {
 }
 
 export function createTnewsState(): TnewsState {
-  const itemState: ItemState<string> = createItemState<string>({
+  const itemState = createItemState<string>({
     storageKey: STATE_KEY('tnews'),
     ttlMs: STATE_TTL,
     oldStorageKey: 'gm:tnews:topic-state',
   })
-  const expandedAt = new Map<string, number>()
+  const expanded = createExpandedState()
 
+  const base = itemState as unknown as TnewsState
   return {
-    isRead(id) {
-      return itemState.isRead(id)
-    },
-    isHidden(id) {
-      return itemState.isHidden(id)
-    },
-    markRead(id, ts) {
-      itemState.markRead(id, ts)
-    },
-    markHidden(id, ts) {
-      itemState.markHidden(id, ts)
-    },
-    filterVisible(items) {
-      return itemState.filterVisible(items)
-    },
-    isExpanded(id) {
-      return expandedAt.has(id)
-    },
-    toggleExpanded(id) {
-      if (expandedAt.has(id)) {
-        expandedAt.delete(id)
-        return false
-      }
-      expandedAt.set(id, Date.now())
-      return true
-    },
-    setExpanded(id, expanded) {
-      if (expanded) expandedAt.set(id, Date.now())
-      else expandedAt.delete(id)
-    },
-    async loadFromStorage(runtime) {
-      await itemState.loadFromStorage(runtime)
-    },
-    async saveToStorage(runtime) {
-      await itemState.saveToStorage(runtime)
-    },
+    ...base,
+    ...expanded,
     async removeFromCache(runtime, id) {
-      await removeItemFromCacheById<TnewsItem>(runtime, 'tnews', id)
+      await removeItemFromCache(runtime, 'tnews', id)
     },
     clear() {
       itemState.clear()
-      expandedAt.clear()
+      expanded.clear()
     },
   }
 }

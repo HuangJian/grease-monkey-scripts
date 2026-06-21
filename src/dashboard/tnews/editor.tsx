@@ -106,6 +106,7 @@ function TnewsEditorForm({ fresh, settings, ctx, handleRef }: TnewsEditorFormPro
           onError: (msg) => setError(msg),
           onSuccess: () => {
             void saveSourceSettings(ctx.runtime, 'tnews', { tabTitle, priority, badgeType })
+            ctx.refresh?.()
             ctx.close()
           },
         })

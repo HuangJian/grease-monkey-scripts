@@ -5,26 +5,33 @@ export function unionUnique(a: ReadonlyArray<string>, b: ReadonlyArray<string>):
   return [...new Set([...a, ...b])]
 }
 
-export async function removeFromCachedGrouped<T extends { id: string }>(
+export async function removeItemFromCache(
   runtime: Runtime,
   sourceId: string,
-  id: string,
+  itemId: unknown,
 ): Promise<void> {
   try {
-    const cached = await runtime.getValue<CachedSource<Record<string, T[]>> | null>(
-      CACHE_KEY(sourceId),
-      null,
-    )
-    if (!cached?.data || typeof cached.data !== 'object' || Array.isArray(cached.data)) return
-    const next: Record<string, T[]> = {}
-    let changed = false
-    Object.entries(cached.data).forEach(([key, items]) => {
-      const filtered = items.filter((p) => p.id !== id)
-      if (filtered.length !== items.length) changed = true
-      if (filtered.length > 0) next[key] = filtered
-    })
-    if (!changed) return
-    await runtime.setValue(CACHE_KEY(sourceId), { ...cached, data: next })
+    const key = CACHE_KEY(sourceId)
+    const cached = await runtime.getValue<CachedSource<unknown> | null>(key, null)
+    if (!cached?.data) return
+
+    if (Array.isArray(cached.data)) {
+      const arr = cached.data as Array<{ id: unknown }>
+      const next = arr.filter((it) => it.id !== itemId)
+      if (next.length === arr.length) return
+      await runtime.setValue(key, { ...cached, data: next })
+    } else if (typeof cached.data === 'object' && cached.data !== null) {
+      const grouped = cached.data as Record<string, Array<{ id: unknown }>>
+      const next: Record<string, unknown[]> = {}
+      let changed = false
+      for (const [k, items] of Object.entries(grouped)) {
+        const f = items.filter((p) => p.id !== itemId)
+        if (f.length !== items.length) changed = true
+        if (f.length > 0) next[k] = f
+      }
+      if (!changed) return
+      await runtime.setValue(key, { ...cached, data: next })
+    }
   } catch {
     /* ignore */
   }

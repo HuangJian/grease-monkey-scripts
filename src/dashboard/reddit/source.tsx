@@ -1,4 +1,5 @@
 import {
+  REDDIT_AUTHOR_TAGS_KEY,
   REDDIT_AUTHOR_TAGS_LS_KEY,
   type AuthorTagMap,
   parseAuthorTagMap,
@@ -32,11 +33,12 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
         const raw = localStorage.getItem(REDDIT_AUTHOR_TAGS_LS_KEY)
         if (raw) {
           authorTagMap = parseAuthorTagMap(JSON.parse(raw))
-          await runtime.setValue(REDDIT_AUTHOR_TAGS_LS_KEY, authorTagMap)
+          await runtime.setValue(REDDIT_AUTHOR_TAGS_KEY, authorTagMap)
           return
         }
       }
-      const stored = await runtime.getValue<unknown>(REDDIT_AUTHOR_TAGS_LS_KEY, null)
+      let stored = await runtime.getValue<unknown>(REDDIT_AUTHOR_TAGS_KEY, null)
+      if (stored === null) stored = await runtime.getValue<unknown>(REDDIT_AUTHOR_TAGS_LS_KEY, null)
       authorTagMap = stored ? parseAuthorTagMap(stored) : {}
     } catch {
       authorTagMap = {}

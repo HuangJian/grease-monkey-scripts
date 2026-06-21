@@ -1,7 +1,8 @@
 import type { Runtime } from '../../runtime'
 import type { Source, SourceHeaderProps, SourceSettings } from '../types'
 import {
-  AUTHOR_TAGS_LS_KEY,
+  V2EX_AUTHOR_TAGS_KEY,
+  V2EX_AUTHOR_TAGS_LS_KEY,
   parseAuthorTagMap,
   type AuthorTagMap,
 } from '../../shared/author-labels'
@@ -25,14 +26,15 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
   async function syncAuthorTags(runtime: Runtime): Promise<void> {
     try {
       if (isV2exDomain(runtime.location.hostname)) {
-        const raw = localStorage.getItem(AUTHOR_TAGS_LS_KEY)
+        const raw = localStorage.getItem(V2EX_AUTHOR_TAGS_LS_KEY)
         if (raw) {
           authorTagMap = parseAuthorTagMap(JSON.parse(raw))
-          await runtime.setValue(AUTHOR_TAGS_LS_KEY, authorTagMap)
+          await runtime.setValue(V2EX_AUTHOR_TAGS_KEY, authorTagMap)
           return
         }
       }
-      const stored = await runtime.getValue<unknown>(AUTHOR_TAGS_LS_KEY, null)
+      let stored = await runtime.getValue<unknown>(V2EX_AUTHOR_TAGS_KEY, null)
+      if (stored === null) stored = await runtime.getValue<unknown>(V2EX_AUTHOR_TAGS_LS_KEY, null)
       authorTagMap = stored ? parseAuthorTagMap(stored) : {}
     } catch {
       authorTagMap = {}

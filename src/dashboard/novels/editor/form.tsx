@@ -125,6 +125,7 @@ export function NovelsEditorForm({
           onError: (msg) => setError(msg),
           onSuccess: () => {
             void saveSourceSettings(ctx.runtime, 'novels', { tabTitle, priority, badgeType })
+            ctx.refresh?.()
             ctx.close()
           },
         })

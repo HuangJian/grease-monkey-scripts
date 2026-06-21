@@ -1,6 +1,7 @@
 import type { Runtime } from '../../runtime'
-import { CACHE_KEY, STATE_KEY, type CachedSource } from '../types'
-import { createItemState, type ItemState } from '../item-state'
+import { STATE_KEY } from '../types'
+import { createItemState } from '../item-state'
+import { removeItemFromCache } from '../browse-state'
 import type { V2exTopic } from './types'
 
 export type V2exState = {
@@ -17,7 +18,7 @@ export type V2exState = {
 }
 
 export function createV2exState(): V2exState {
-  const itemState: ItemState<number> = createItemState<number>({
+  const itemState = createItemState<number>({
     storageKey: STATE_KEY('v2ex'),
     ttlMs: 72 * 60 * 60 * 1000,
     oldStorageKey: 'gm:v2ex:topic-state',
@@ -26,45 +27,9 @@ export function createV2exState(): V2exState {
   })
 
   return {
-    isRead(id) {
-      return itemState.isRead(id)
-    },
-    isHidden(id) {
-      return itemState.isHidden(id)
-    },
-    getReadReplies(id) {
-      return itemState.getReadReplies(id)
-    },
-    markRead(id, ts, replies) {
-      itemState.markRead(id, ts, replies)
-    },
-    markHidden(id, ts) {
-      itemState.markHidden(id, ts)
-    },
-    filterVisible(topics) {
-      return itemState.filterVisible(topics)
-    },
-    async loadFromStorage(runtime) {
-      await itemState.loadFromStorage(runtime)
-    },
-    async saveToStorage(runtime) {
-      await itemState.saveToStorage(runtime)
-    },
+    ...(itemState as unknown as V2exState),
     async removeFromCache(runtime, topicId) {
-      try {
-        const cached = await runtime.getValue<CachedSource<V2exTopic[]> | null>(
-          CACHE_KEY('v2ex'),
-          null,
-        )
-        if (!cached?.data || !Array.isArray(cached.data)) return
-        const filtered = cached.data.filter((t) => t.id !== topicId)
-        await runtime.setValue(CACHE_KEY('v2ex'), { ...cached, data: filtered })
-      } catch {
-        /* ignore */
-      }
-    },
-    clear() {
-      itemState.clear()
+      await removeItemFromCache(runtime, 'v2ex', topicId)
     },
   }
 }

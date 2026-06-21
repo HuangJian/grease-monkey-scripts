@@ -135,21 +135,21 @@ export function HupuComponent({
   }
 
   return (
-    <div class="gm-sp-reddit">
+    <div class="gm-sp-hupu">
       {allBoards.map((board) => {
         const visiblePosts = state.filterVisible(filtered[board] ?? [])
         if (visiblePosts.length === 0) return null
         const isActive = active.has(board)
-        const collapsedClass = isActive ? '' : ' gm-sp-reddit-section-collapsed'
-        const caretClass = showCaret ? ' gm-sp-reddit-caret-visible' : ''
+        const collapsedClass = isActive ? '' : ' gm-sp-hupu-section-collapsed'
+        const caretClass = showCaret ? ' gm-sp-hupu-caret-visible' : ''
         return (
-          <section class={`gm-sp-reddit-section${collapsedClass}`} data-board={escapeHtml(board)}>
+          <section class={`gm-sp-hupu-section${collapsedClass}`} data-board={escapeHtml(board)}>
             <h3
-              class="gm-sp-reddit-sub-title"
+              class="gm-sp-hupu-sub-title"
               data-board={escapeHtml(board)}
               onClick={() => handleToggleBoard(board)}
             >
-              <span class={`gm-sp-reddit-caret${caretClass}`}>▾</span>
+              <span class={`gm-sp-hupu-caret${caretClass}`}>▾</span>
               {escapeHtml(board)}
             </h3>
             <ol class="gm-sp-list">
@@ -166,7 +166,7 @@ export function HupuComponent({
                     class={`gm-sp-list-item gm-sp-list-item-flex${state.isRead(post.id) ? ' gm-sp-item-read' : ''}`}
                     data-post-id={post.id}
                   >
-                    <span class="gm-sp-reddit-source" title={badge.title}>
+                    <span class="gm-sp-hupu-source" title={badge.title}>
                       {badge.icon}
                     </span>
                     <span class="gm-sp-item-count" title="回复数">
@@ -180,10 +180,10 @@ export function HupuComponent({
                       onClick={() => handleMarkRead(post.id, post.replies)}
                       dangerouslySetInnerHTML={{ __html: escapeHtml(post.title) + titleSuffix }}
                     />
-                    <span class="gm-sp-reddit-score" title="亮了">
+                    <span class="gm-sp-hupu-score" title="亮了">
                       {post.lights}
                     </span>
-                    <span class={`gm-sp-reddit-author${ac}`}>{authorText}</span>
+                    <span class={`gm-sp-hupu-author${ac}`}>{authorText}</span>
                     <ItemActions
                       onHide={() => handleHide(post.id)}
                       onBulkRead={() => handleBulkRead(post)}

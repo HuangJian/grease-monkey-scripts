@@ -7,6 +7,7 @@ export const OVERLAY_CSS_FILES = [
   'weather.css',
   'novels.css',
   'reddit.css',
+  'hupu.css',
   'tnews.css',
   'xueqiu.css',
   'xit.css',

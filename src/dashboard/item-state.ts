@@ -1,5 +1,4 @@
 import type { Runtime } from '../runtime'
-import { CACHE_KEY, type CachedSource } from './types'
 
 const MINUTE_MS = 60_000
 
@@ -136,18 +135,33 @@ export function createItemState<T extends string | number = string>(
   }
 }
 
-export async function removeItemFromCacheById<TCache extends { id: unknown }>(
-  runtime: Runtime,
-  sourceId: string,
-  id: unknown,
-): Promise<void> {
-  try {
-    const cached = await runtime.getValue<CachedSource<TCache[]> | null>(CACHE_KEY(sourceId), null)
-    if (!cached?.data || !Array.isArray(cached.data)) return
-    const filtered = cached.data.filter((it) => it.id !== id)
-    if (filtered.length === cached.data.length) return
-    await runtime.setValue(CACHE_KEY(sourceId), { ...cached, data: filtered })
-  } catch {
-    /* ignore */
+export type Expandable = {
+  isExpanded(id: string): boolean
+  toggleExpanded(id: string): boolean
+  setExpanded(id: string, expanded: boolean): void
+  clear(): void
+}
+
+export function createExpandedState(): Expandable {
+  const expandedAt = new Map<string, number>()
+  return {
+    isExpanded(id) {
+      return expandedAt.has(id)
+    },
+    toggleExpanded(id) {
+      if (expandedAt.has(id)) {
+        expandedAt.delete(id)
+        return false
+      }
+      expandedAt.set(id, Date.now())
+      return true
+    },
+    setExpanded(id, expanded) {
+      if (expanded) expandedAt.set(id, Date.now())
+      else expandedAt.delete(id)
+    },
+    clear() {
+      expandedAt.clear()
+    },
   }
 }

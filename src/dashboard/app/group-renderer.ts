@@ -50,7 +50,6 @@ export async function renderGroup(
   const caches = await readGroupCaches(deps.runtime, group)
   const activeTabId = deps.activeTabByGroup.get(group.id) ?? group.tabs[0]!.id
   if (isTabsGroup(group)) {
-    card.dataset['source'] = group.id
     render(
       h(TabsCard, {
         group,
@@ -79,7 +78,6 @@ export async function renderGroup(
   } else {
     const source = group.tabs[0]!
     const cached = caches.get(source.id) ?? null
-    card.dataset['source'] = source.id
     render(
       h(RenderCard, {
         source,

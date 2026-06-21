@@ -1,78 +1,41 @@
-import { render } from 'preact'
-import { h } from 'preact'
 import type { Runtime } from '../../runtime'
 import { mountOverlay, type OverlayHandle } from '../shell/mount'
 import type { CardGroup } from '../card-group'
-import type { CachedSource, SourceSettings } from '../types'
-import { RenderCard } from '../card/card'
-import { TabsCard } from '../card/tabs-card'
+import type { SourceSettings } from '../types'
 import { isTabsGroup } from './group-renderer'
 
 export type MountDeps = {
   runtime: Runtime
   cardGroups: CardGroup[]
-  activeTabByGroup: Map<string, string>
-  groupForSource: Map<string, CardGroup>
   sourceSettings: Record<string, SourceSettings>
-  dashboard: { close: () => void; refreshSource: (sourceId: string) => Promise<void> }
-  renderGroupById: (groupId: string) => void
+  dashboard: { close: () => void }
 }
 
-export function mountDashboard(deps: MountDeps): OverlayHandle {
+export type DashboardCleanup = () => void
+
+export function mountDashboard(deps: MountDeps): {
+  handle: OverlayHandle
+  cleanup: DashboardCleanup
+} {
   const newHandle = mountOverlay(deps.runtime.document, () => deps.dashboard.close())
   const onBackdropClick = (e: Event) => {
     if (e.target === newHandle.backdrop) deps.dashboard.close()
   }
-  newHandle.closeBtn.addEventListener('click', () => deps.dashboard.close())
+  const onCloseClick = () => deps.dashboard.close()
+  newHandle.closeBtn.addEventListener('click', onCloseClick)
   newHandle.backdrop.addEventListener('click', onBackdropClick)
-  const now = Date.now()
   deps.cardGroups.forEach((group) => {
     const container = group.placement === 'side' ? newHandle.sideCards : newHandle.mainCards
     const card = document.createElement('div')
     card.className = 'gm-sp-card'
+    card.dataset['source'] = isTabsGroup(group) ? group.id : group.tabs[0]!.id
     container.appendChild(card)
-    if (isTabsGroup(group)) {
-      const activeTabId = deps.activeTabByGroup.get(group.id) ?? group.tabs[0]!.id
-      const emptyCaches = new Map<string, CachedSource<unknown> | null>()
-      group.tabs.forEach((tab) => emptyCaches.set(tab.id, null))
-      card.dataset['source'] = group.id
-      render(
-        h(TabsCard, {
-          group,
-          caches: emptyCaches,
-          now,
-          runtime: deps.runtime,
-          root: newHandle.root,
-          activeTabId,
-          sourceSettings: deps.sourceSettings,
-          onTabChange: (tabId) => {
-            deps.activeTabByGroup.set(group.id, tabId)
-            deps.renderGroupById(group.id)
-          },
-          onRefresh: (sourceId) => deps.dashboard.refreshSource(sourceId),
-          onEdit: (sourceId) => {
-            deps.renderGroupById(deps.groupForSource.get(sourceId)?.id ?? group.id)
-          },
-        }),
-        card,
-      )
-    } else {
-      const source = group.tabs[0]!
-      card.dataset['source'] = source.id
-      render(
-        h(RenderCard, {
-          source,
-          cached: null,
-          ttlMs: source.ttlMs,
-          now,
-          runtime: deps.runtime,
-          root: newHandle.root,
-          onRefresh: () => deps.dashboard.refreshSource(source.id),
-          onRevert: () => deps.renderGroupById(group.id),
-        }),
-        card,
-      )
-    }
   })
-  return newHandle
+  return {
+    handle: newHandle,
+    cleanup: () => {
+      newHandle.closeBtn.removeEventListener('click', onCloseClick)
+      newHandle.backdrop.removeEventListener('click', onBackdropClick)
+    },
+  }
 }

@@ -30,6 +30,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
   const reg = createSourceRegistry(options.config, runtime)
   const activeTabByGroup = new Map<string, string>()
   let handle: OverlayHandle | null = null
+  let cleanupDashboard: (() => void) | null = null
 
   function getRendererDeps(): GroupRendererDeps | null {
     if (!handle) return null
@@ -71,21 +72,14 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
 
   async function open(): Promise<void> {
     if (handle) return
-    handle = mountDashboard({
+    const mounted = mountDashboard({
       runtime,
       cardGroups: reg.cardGroups,
-      activeTabByGroup,
-      groupForSource: reg.groupForSource,
       sourceSettings: options.config.sourceSettings,
-      dashboard: {
-        close: () => dashboard.close(),
-        refreshSource: (sourceId) => dashboard.refreshSource(sourceId),
-      },
-      renderGroupById: (groupId) => {
-        const deps = getRendererDeps()
-        if (deps) void renderGroupById(groupId, reg.groupById, reg.groupForSource, deps)
-      },
+      dashboard: { close: () => dashboard.close() },
     })
+    handle = mounted.handle
+    cleanupDashboard = mounted.cleanup
     await Promise.all(reg.sources.map((s) => s.loadState?.(runtime)))
     const deps = getRendererDeps()
     if (deps) {
@@ -96,6 +90,8 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
 
   function close(): void {
     if (!handle) return
+    cleanupDashboard?.()
+    cleanupDashboard = null
     handle.unmount()
     handle = null
   }

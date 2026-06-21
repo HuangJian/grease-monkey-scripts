@@ -1,7 +1,7 @@
 import { STATE_KEY } from '../types'
 import type { Runtime } from '../../runtime'
-import { createItemState, type ItemState } from '../item-state'
-import { removeFromCachedGrouped } from '../browse-state'
+import { createItemState } from '../item-state'
+import { removeItemFromCache } from '../browse-state'
 import type { HupuPost } from './types'
 
 const TOPIC_STATE_TTL = 72 * 60 * 60 * 1000
@@ -20,41 +20,15 @@ export type HupuState = {
 }
 
 export function createHupuState(): HupuState {
-  const itemState: ItemState<string> = createItemState<string>({
+  const itemState = createItemState<string>({
     storageKey: STATE_KEY('hupu'),
     ttlMs: TOPIC_STATE_TTL,
   })
 
   return {
-    isRead(id) {
-      return itemState.isRead(id)
-    },
-    isHidden(id) {
-      return itemState.isHidden(id)
-    },
-    getReadReplies(id) {
-      return itemState.getReadReplies(id)
-    },
-    markRead(id, ts, replies) {
-      itemState.markRead(id, ts, replies)
-    },
-    markHidden(id, ts) {
-      itemState.markHidden(id, ts)
-    },
-    filterVisible(posts) {
-      return itemState.filterVisible(posts)
-    },
-    async loadFromStorage(runtime) {
-      await itemState.loadFromStorage(runtime)
-    },
-    async saveToStorage(runtime) {
-      await itemState.saveToStorage(runtime)
-    },
+    ...(itemState as unknown as HupuState),
     async removeFromCache(runtime, id) {
-      await removeFromCachedGrouped<HupuPost>(runtime, 'hupu', id)
-    },
-    clear() {
-      itemState.clear()
+      await removeItemFromCache(runtime, 'hupu', id)
     },
   }
 }

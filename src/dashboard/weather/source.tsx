@@ -72,6 +72,9 @@ export function createWeatherSource(options: WeatherSourceOptions): Source<Weath
         ttlMinutes: options.ttlMinutes,
       })
     },
+    async loadState(_runtime) {
+      /* weather is stateless */
+    },
   }
   return source
 }

@@ -132,6 +132,7 @@ function V2exEditorForm({ fresh, settings, ctx, handleRef }: V2exEditorFormProps
           onError: (msg) => setError(msg),
           onSuccess: () => {
             void saveSourceSettings(ctx.runtime, 'v2ex', { tabTitle, priority, badgeType })
+            ctx.refresh?.()
             ctx.close()
           },
         })

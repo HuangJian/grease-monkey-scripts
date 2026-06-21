@@ -183,6 +183,9 @@ export function createMiscSource(runtime: Runtime): Source<MiscData> {
     createEditor(settings: SourceSettings) {
       return createMiscEditor(miscOptions, settings)
     },
+    async loadState(_runtime) {
+      /* misc is stateless */
+    },
   }
 }
 

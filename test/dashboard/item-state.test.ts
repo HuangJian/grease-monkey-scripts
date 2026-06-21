@@ -5,7 +5,8 @@ import {
   type CachedSource,
   STATE_KEY,
 } from '../../src/dashboard/types'
-import { createItemState, removeItemFromCacheById } from '../../src/dashboard/item-state'
+import { createItemState } from '../../src/dashboard/item-state'
+import { removeItemFromCache } from '../../src/dashboard/browse-state'
 import { createRuntime, type TestRuntime } from '../runtime'
 
 const TTL_MS = 10 * 60 * 1000
@@ -219,7 +220,7 @@ describe('createItemState (number IDs)', () => {
   })
 })
 
-describe('removeItemFromCacheById', () => {
+describe('removeItemFromCache', () => {
   let runtime: TestRuntime
 
   beforeEach(() => {
@@ -234,20 +235,49 @@ describe('removeItemFromCacheById', () => {
       fetchedAt: Date.now(),
     }
     runtime.stores[key] = cached
-    await removeItemFromCacheById(runtime, 'test', '1')
+    await removeItemFromCache(runtime, 'test', '1')
     const after = runtime.stores[key] as CachedSource<{ id: string }[]>
     expect(after.data).toHaveLength(1)
     expect(after.data![0].id).toBe('2')
   })
 
+  test('removes item from grouped cache', async () => {
+    const key = CACHE_KEY('test')
+    const cached: CachedSource<Record<string, { id: string }[]>> = {
+      schemaVersion: CACHE_SCHEMA_VERSION,
+      data: { group1: [{ id: '1' }, { id: '2' }], group2: [{ id: '3' }] },
+      fetchedAt: Date.now(),
+    }
+    runtime.stores[key] = cached
+    await removeItemFromCache(runtime, 'test', '1')
+    const after = runtime.stores[key] as CachedSource<Record<string, { id: string }[]>>
+    expect(after.data!.group1).toHaveLength(1)
+    expect(after.data!.group1[0].id).toBe('2')
+    expect(after.data!.group2).toHaveLength(1)
+  })
+
+  test('removes item from grouped cache removes empty groups', async () => {
+    const key = CACHE_KEY('test')
+    const cached: CachedSource<Record<string, { id: string }[]>> = {
+      schemaVersion: CACHE_SCHEMA_VERSION,
+      data: { group1: [{ id: '1' }], group2: [{ id: '2' }] },
+      fetchedAt: Date.now(),
+    }
+    runtime.stores[key] = cached
+    await removeItemFromCache(runtime, 'test', '1')
+    const after = runtime.stores[key] as CachedSource<Record<string, { id: string }[]>>
+    expect(after.data!.group1).toBeUndefined()
+    expect(after.data!.group2).toHaveLength(1)
+  })
+
   test('no-op when cache missing', async () => {
-    await removeItemFromCacheById(runtime, 'test', '1')
+    await removeItemFromCache(runtime, 'test', '1')
     expect(runtime.stores[CACHE_KEY('test')]).toBeUndefined()
   })
 
   test('no-op when data is malformed', async () => {
     runtime.stores[CACHE_KEY('test')] = { schemaVersion: CACHE_SCHEMA_VERSION, data: 'x' }
-    await removeItemFromCacheById(runtime, 'test', '1')
+    await removeItemFromCache(runtime, 'test', '1')
     const after = runtime.stores[CACHE_KEY('test')] as { data: unknown }
     expect(after.data).toBe('x')
   })
@@ -259,7 +289,7 @@ describe('removeItemFromCacheById', () => {
       data: [{ id: '1' }],
       fetchedAt: Date.now(),
     }
-    await removeItemFromCacheById(runtime, 'test', '99')
+    await removeItemFromCache(runtime, 'test', '99')
     const after = runtime.stores[key] as CachedSource<{ id: string }[]>
     expect(after.data).toHaveLength(1)
   })

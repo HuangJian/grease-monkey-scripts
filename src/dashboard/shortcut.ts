@@ -27,8 +27,14 @@ export function createDoubleShiftHandler(
   }
 }
 
-export function handleEscapeKey(e: KeyboardEvent, root: ShadowRoot, onClose: () => void): void {
+export function handleEscapeKey(
+  e: KeyboardEvent,
+  root: ShadowRoot,
+  onClose: () => void,
+  editorRoot?: ShadowRoot | Document,
+): void {
   if (e.key !== 'Escape') return
+  if (editorRoot?.querySelector('.gm-sp-editor-dialog')) return
   const active = root.activeElement
   if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return
   e.stopPropagation()

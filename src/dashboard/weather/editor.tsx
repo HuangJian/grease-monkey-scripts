@@ -100,6 +100,7 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
           validate: validateConfig,
           onError: (msg) => setError(msg),
           onSuccess: () => {
+            ctx.refresh?.()
             ctx.close()
           },
         })

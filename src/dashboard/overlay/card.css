@@ -1,8 +1,8 @@
 .gm-sp-card {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--gm-sp-color-border);
   border-radius: 10px;
   overflow: hidden;
-  background: #fafbfc;
+  background: var(--gm-sp-color-bg-card);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -14,8 +14,8 @@
   flex-wrap: wrap;
   gap: 8px;
   padding: 6px 12px;
-  background: #f3f4f6;
-  border-bottom: 1px solid #e5e7eb;
+  background: var(--gm-sp-color-bg-muted);
+  border-bottom: 1px solid var(--gm-sp-color-border);
   flex: 0 0 auto;
 }
 
@@ -32,7 +32,7 @@
 .gm-sp-refresh-time {
   font-size: 11px;
   font-weight: 400;
-  color: #6b7280;
+  color: var(--gm-sp-color-text-muted);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -42,8 +42,8 @@
   font-size: 10px;
   padding: 1px 5px;
   border-radius: 999px;
-  background: #fee2e2;
-  color: #b91c1c;
+  background: var(--gm-sp-color-stale-bg);
+  color: var(--gm-sp-color-danger);
   white-space: nowrap;
 }
 
@@ -56,14 +56,14 @@
 
 .gm-sp-card-updated {
   font-size: 11px;
-  color: #6b7280;
+  color: var(--gm-sp-color-text-muted);
   white-space: nowrap;
 }
 
 .gm-sp-refresh {
   cursor: pointer;
   background: transparent;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--gm-sp-color-border-strong);
   border-radius: 6px;
   padding: 2px 7px;
   font-size: 12px;
@@ -72,8 +72,8 @@
 }
 
 .gm-sp-refresh:hover {
-  background: #ffffff;
-  border-color: #9ca3af;
+  background: var(--gm-sp-color-bg);
+  border-color: var(--gm-sp-color-text-soft);
 }
 
 .gm-sp-refresh:disabled {
@@ -99,7 +99,7 @@
 .gm-sp-edit {
   cursor: pointer;
   background: transparent;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--gm-sp-color-border-strong);
   border-radius: 6px;
   padding: 2px 6px;
   font-size: 12px;
@@ -108,8 +108,8 @@
 }
 
 .gm-sp-edit:hover {
-  background: #ffffff;
-  border-color: #9ca3af;
+  background: var(--gm-sp-color-bg);
+  border-color: var(--gm-sp-color-text-soft);
 }
 
 .gm-sp-edit:disabled {
@@ -138,7 +138,7 @@
 }
 
 .gm-sp-empty {
-  color: #6b7280;
+  color: var(--gm-sp-color-text-muted);
   font-size: 12px;
   text-align: center;
   padding: 12px 0;
@@ -161,12 +161,12 @@
   padding: 4px 8px;
   margin: 0 -8px;
   border-radius: 4px;
-  border-bottom: 1px dashed #e5e7eb;
+  border-bottom: 1px dashed var(--gm-sp-color-border);
   transition: background 0.12s;
 }
 
 .gm-sp-list-item:hover {
-  background: #f3f4f6;
+  background: var(--gm-sp-color-bg-muted);
 }
 
 .gm-sp-list-item:last-child {
@@ -184,7 +184,7 @@
 }
 
 .gm-sp-item-title {
-  color: #1f2328;
+  color: var(--gm-sp-color-text);
   text-decoration: none;
   font-weight: 500;
   font-size: 13px;
@@ -206,7 +206,7 @@
   font-size: 11px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-  color: #6b7280;
+  color: var(--gm-sp-color-text-muted);
 }
 
 .gm-sp-item-meta {
@@ -214,7 +214,7 @@
   align-items: baseline;
   gap: 8px;
   font-size: 11px;
-  color: #6b7280;
+  color: var(--gm-sp-color-text-muted);
   flex: 0 0 auto;
 }
 
@@ -228,7 +228,7 @@
 
 .gm-sp-author-tag {
   display: inline-block;
-  background: #f3f4f6;
+  background: var(--gm-sp-color-bg-muted);
   padding: 1px 4px;
   border-radius: 3px;
   font-size: 11px;
@@ -252,11 +252,11 @@
 }
 
 .gm-sp-item-hide {
-  background: #f3f4f6;
+  background: var(--gm-sp-color-bg-muted);
   border: 1px solid #3b82f6;
   border-radius: 3px;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--gm-sp-color-text-muted);
   font-size: 11px;
   line-height: 1;
   padding: 4px 6px;
@@ -268,16 +268,16 @@
 
 .gm-sp-item-hide:hover {
   color: #ef4444;
-  background: #fee2e2;
+  background: var(--gm-sp-color-stale-bg);
   border-color: #fca5a5;
 }
 
 .gm-sp-item-bulk-btn {
-  background: #f3f4f6;
+  background: var(--gm-sp-color-bg-muted);
   border: 1px solid #3b82f6;
   border-radius: 3px;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--gm-sp-color-text-muted);
   font-size: 11px;
   line-height: 1;
   padding: 4px 6px;
@@ -289,14 +289,14 @@
 }
 
 .gm-sp-item-bulk-btn:hover {
-  color: #1f2328;
-  background: #e5e7eb;
+  color: var(--gm-sp-color-text);
+  background: var(--gm-sp-color-border);
   border-color: #3b82f6;
 }
 
 .gm-sp-item-bulk-btn-danger:hover {
   color: #ef4444;
-  background: #fee2e2;
+  background: var(--gm-sp-color-stale-bg);
   border-color: #fca5a5;
 }
 
@@ -313,7 +313,7 @@
   align-items: center;
   flex: 0 0 auto;
   gap: 0;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--gm-sp-color-border);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -323,8 +323,8 @@
   font-size: 11px;
   padding: 2px 8px;
   border: none;
-  border-right: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border-right: 1px solid var(--gm-sp-color-border);
+  background: var(--gm-sp-color-bg-subtle);
   color: #374151;
   cursor: pointer;
   outline: none;
@@ -339,17 +339,17 @@
 }
 
 .gm-sp-date-filter-btn:hover {
-  background: #ffffff;
-  color: #1f2328;
+  background: var(--gm-sp-color-bg);
+  color: var(--gm-sp-color-text);
 }
 
 .gm-sp-date-filter-btn-active {
-  background: var(--gm-sp-color-primary, #2563eb);
-  color: #ffffff;
+  background: var(--gm-sp-color-primary, var(--gm-sp-color-primary));
+  color: var(--gm-sp-color-bg);
 }
 
 .gm-sp-date-filter-btn-active:hover {
-  background: var(--gm-sp-color-primary-hover, #1d4ed8);
+  background: var(--gm-sp-color-primary-hover, var(--gm-sp-color-primary-hover));
 }
 
 .gm-sp-v2ex-source {
@@ -390,7 +390,7 @@
   font: inherit;
   font-size: 12px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--gm-sp-color-text-muted);
   white-space: nowrap;
   line-height: 1.4;
   flex: 0 0 auto;
@@ -401,13 +401,13 @@
 }
 
 .gm-sp-tab:hover {
-  color: #1f2328;
+  color: var(--gm-sp-color-text);
   background: rgba(0, 0, 0, 0.04);
 }
 
 .gm-sp-tab-active {
-  color: #1f2328;
-  background: #ffffff;
+  color: var(--gm-sp-color-text);
+  background: var(--gm-sp-color-bg);
 }
 
 .gm-sp-tab-badge {
@@ -418,8 +418,8 @@
   height: 16px;
   padding: 0 5px;
   border-radius: 8px;
-  background: #e5e7eb;
-  color: #6b7280;
+  background: var(--gm-sp-color-border);
+  color: var(--gm-sp-color-text-muted);
   font-size: 10px;
   font-weight: 700;
   line-height: 1;

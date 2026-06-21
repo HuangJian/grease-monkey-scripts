@@ -1,10 +1,12 @@
-/** GM storage key used by v2ex-time-saver */
-export const AUTHOR_TAGS_KEY = 'author_tags'
+/** GM storage key for v2ex author tag data */
+export const V2EX_AUTHOR_TAGS_KEY = 'v2ex_author_tags'
 /** localStorage key shared across scripts for v2ex author tag data */
-export const AUTHOR_TAGS_LS_KEY = 'gm:v2ex:author-tags'
+export const V2EX_AUTHOR_TAGS_LS_KEY = 'gm:v2ex:author-tags'
+/** GM storage key for reddit author tag data */
+export const REDDIT_AUTHOR_TAGS_KEY = 'reddit_author_tags'
 /** localStorage key shared across scripts for reddit author tag data */
 export const REDDIT_AUTHOR_TAGS_LS_KEY = 'gm:reddit:author-tags'
-/** GM storage key used by hupu-time-saver */
+/** GM storage key for hupu author tag data */
 export const HUPU_AUTHOR_TAGS_KEY = 'hupu_author_tags'
 /** localStorage key shared across scripts for hupu author tag data */
 export const HUPU_AUTHOR_TAGS_LS_KEY = 'gm:hupu:author-tags'

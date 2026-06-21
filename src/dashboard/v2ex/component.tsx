@@ -79,7 +79,7 @@ export function V2exComponent({
   }
 
   function handleBulkRead(hoveredTopic: V2exTopic) {
-    const idx = visible.indexOf(hoveredTopic)
+    const idx = visible.findIndex((t) => t.id === hoveredTopic.id)
     if (idx < 0) return
     const now = Date.now()
     visible
@@ -93,7 +93,7 @@ export function V2exComponent({
   }
 
   function handleBulkHide(hoveredTopic: V2exTopic) {
-    const idx = visible.indexOf(hoveredTopic)
+    const idx = visible.findIndex((t) => t.id === hoveredTopic.id)
     if (idx < 0) return
     visible.slice(0, idx + 1).forEach((t) => {
       state.markHidden(t.id)

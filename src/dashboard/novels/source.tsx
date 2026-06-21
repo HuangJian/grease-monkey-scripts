@@ -54,6 +54,9 @@ export function createNovelsSource(
         settings,
       )
     },
+    async loadState(_runtime) {
+      /* novels state is embedded in cache data; no separate state to load */
+    },
   }
 }
 

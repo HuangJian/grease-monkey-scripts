@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { render } from 'preact'
 import { loadConfigSection, validateConfig } from '../config'
 import { saveConfigSection, saveSourceSettings } from '../editor-helpers'
+import { SourceSettingsFields } from '../editor-ui'
 import type {
   SourceEditor,
   SourceEditorContext,
@@ -66,6 +67,7 @@ function XueqiuEditorForm({ fresh, sourceId, settings, ctx, handleRef }: XueqiuE
           onError: (msg) => setError(msg),
           onSuccess: () => {
             void saveSourceSettings(ctx.runtime, sourceId, { tabTitle, priority, badgeType })
+            ctx.refresh?.()
             ctx.close()
           },
         })
@@ -78,41 +80,14 @@ function XueqiuEditorForm({ fresh, sourceId, settings, ctx, handleRef }: XueqiuE
 
   return (
     <div class="gm-sp-editor">
-      <div class="gm-sp-editor-source-settings">
-        <label class="gm-sp-editor-row">
-          <span>Tab 标题</span>
-          <input
-            type="text"
-            class="gm-sp-input"
-            placeholder="留空使用默认"
-            value={tabTitle}
-            onInput={(e) => setTabTitle((e.target as HTMLInputElement).value)}
-          />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>优先级</span>
-          <input
-            type="number"
-            class="gm-sp-input"
-            value={priority}
-            onInput={(e) => setPriority(Number((e.target as HTMLInputElement).value))}
-          />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>Badge 显示</span>
-          <select
-            value={badgeType}
-            onChange={(e) =>
-              setBadgeType((e.target as HTMLSelectElement).value as import('../types').BadgeType)
-            }
-          >
-            <option value="default">默认</option>
-            <option value="none">不显示</option>
-            <option value="allUnread">全部未读数</option>
-            <option value="todayUnread">今日未读数</option>
-          </select>
-        </label>
-      </div>
+      <SourceSettingsFields
+        tabTitle={tabTitle}
+        onTabTitleChange={setTabTitle}
+        priority={priority}
+        onPriorityChange={setPriority}
+        badgeType={badgeType}
+        onBadgeTypeChange={setBadgeType}
+      />
       <div class="gm-sp-editor-form">
         <label class="gm-sp-editor-row">
           <span>TTL（分钟）</span>

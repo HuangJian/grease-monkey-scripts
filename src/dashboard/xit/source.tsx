@@ -84,6 +84,9 @@ export function createXitSource(
     createEditor(_settings: SourceSettings) {
       return createXitEditor()
     },
+    async loadState(_) {
+      /* xit is stateless */
+    },
   }
   return source
 }

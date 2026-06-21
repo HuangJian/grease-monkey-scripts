@@ -9,7 +9,7 @@
 }
 
 .gm-sp-editor-dialog-panel {
-  background: #ffffff;
+  background: var(--gm-sp-color-bg);
   border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
   width: 520px;
@@ -25,7 +25,7 @@
   align-items: center;
   gap: 10px;
   padding: 14px 20px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--gm-sp-color-border);
   flex: 0 0 auto;
 }
 
@@ -68,8 +68,8 @@
   align-items: center;
   gap: 8px 10px;
   font-size: 13px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: var(--gm-sp-color-bg-subtle);
+  border: 1px solid var(--gm-sp-color-border);
   border-radius: 6px;
   padding: 6px 10px;
 }
@@ -85,7 +85,7 @@
   cursor: pointer;
   background: transparent;
   border: none;
-  color: #b91c1c;
+  color: var(--gm-sp-color-danger);
   font-size: 16px;
   line-height: 1;
   padding: 0 4px;
@@ -104,7 +104,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px 16px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--gm-sp-color-border);
   padding-top: 12px;
 }
 
@@ -120,9 +120,9 @@
 .gm-sp-editor-row input {
   font: inherit;
   padding: 6px 8px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--gm-sp-color-border-strong);
   border-radius: 6px;
-  background: #ffffff;
+  background: var(--gm-sp-color-bg);
   color: inherit;
   min-width: 0;
 }
@@ -134,23 +134,23 @@
 .gm-sp-editor-row select {
   font: inherit;
   padding: 6px 8px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--gm-sp-color-border-strong);
   border-radius: 6px;
-  background: #ffffff;
+  background: var(--gm-sp-color-bg);
   color: inherit;
   min-width: 0;
 }
 
 .gm-sp-editor-row input:focus {
   outline: none;
-  border-color: #2563eb;
+  border-color: var(--gm-sp-color-primary);
 }
 
 .gm-sp-editor-actions {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--gm-sp-color-border);
   padding-top: 12px;
 }
 
@@ -160,39 +160,28 @@
   font-size: 13px;
   padding: 5px 14px;
   border-radius: 6px;
-  border: 1px solid #d1d5db;
-  background: #ffffff;
+  border: 1px solid var(--gm-sp-color-border-strong);
+  background: var(--gm-sp-color-bg);
   color: #374151;
 }
 
 .gm-sp-editor-btn:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
-}
-
-.gm-sp-editor-btn-primary {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: #ffffff;
-}
-
-.gm-sp-editor-btn-primary:hover {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
+  background: var(--gm-sp-color-bg-muted);
+  border-color: var(--gm-sp-color-text-soft);
 }
 
 .gm-sp-editor-error {
   font-size: 12px;
-  color: #b91c1c;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  color: var(--gm-sp-color-danger);
+  background: var(--gm-sp-color-danger-bg);
+  border: 1px solid var(--gm-sp-color-danger-border);
   border-radius: 6px;
   padding: 4px 8px;
 }
 
 .gm-sp-editor-empty {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--gm-sp-color-text-soft);
   font-style: italic;
 }
 
@@ -205,7 +194,7 @@
 .gm-sp-editor-label {
   font-size: 13px;
   font-weight: 600;
-  color: #1f2328;
+  color: var(--gm-sp-color-text);
 }
 
 .gm-sp-editor-input {
@@ -213,15 +202,15 @@
   flex: 1 1 auto;
   min-width: 0;
   padding: 6px 8px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--gm-sp-color-border-strong);
   border-radius: 6px;
-  background: #ffffff;
+  background: var(--gm-sp-color-bg);
   color: inherit;
 }
 
 .gm-sp-editor-input:focus {
   outline: none;
-  border-color: #2563eb;
+  border-color: var(--gm-sp-color-primary);
 }
 
 .gm-sp-editor-add-row {
@@ -259,14 +248,14 @@
 
 .gm-sp-editor-chip-remove:hover {
   background: #1e40af;
-  color: #ffffff;
+  color: var(--gm-sp-color-bg);
 }
 
 .gm-sp-editor-chip-move {
   cursor: pointer;
   background: transparent;
   border: 0;
-  color: #6b7280;
+  color: var(--gm-sp-color-text-muted);
   font-size: 10px;
   line-height: 1;
   padding: 0 2px;
@@ -274,8 +263,8 @@
 }
 
 .gm-sp-editor-chip-move:hover:not(:disabled) {
-  background: #e5e7eb;
-  color: #1f2328;
+  background: var(--gm-sp-color-border);
+  color: var(--gm-sp-color-text);
 }
 
 .gm-sp-editor-chip-move:disabled {
@@ -288,7 +277,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--gm-sp-color-border);
   padding-top: 12px;
 }
 
@@ -309,7 +298,7 @@
   gap: 8px 16px;
   padding-bottom: 12px;
   margin-bottom: 14px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--gm-sp-color-border);
 }
 
 .gm-sp-editor-source-settings .gm-sp-editor-row {
