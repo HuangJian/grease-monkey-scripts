@@ -81,7 +81,8 @@ async function fetchKnownEntry(
 
   const prevSeen = prev?.lastSeenChapterUrl
   const needTailPage =
-    prevSeen != null && !home.latestThree.some((c) => c.url === prevSeen) && home.lastPageNumber > 1
+    home.lastPageNumber > 1 &&
+    (prevSeen == null || !home.latestThree.some((c) => c.url === prevSeen))
 
   let chapters: NovelChapter[]
   if (!needTailPage) {
@@ -109,7 +110,7 @@ async function fetchKnownEntry(
 export function mergeTail(
   tailChapters: NovelChapter[],
   latestThree: NovelChapter[],
-  prevSeen: string,
+  prevSeen: string | undefined,
   maxWindow: number,
 ): NovelChapter[] {
   const reversed = [...tailChapters].reverse()

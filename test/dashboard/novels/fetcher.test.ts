@@ -145,6 +145,58 @@ describe('fetchNovels', () => {
     expect(books[0]!.lastSeenChapterUrl).toBe('https://www.sudugu.org/12/c2.html')
   })
 
+  test('bugfix: initial fetch of multi-page book fetches tail and sets lastSeenChapterUrl', async () => {
+    const server = makeServer()
+    server.setResponse(
+      URL_12,
+      homeHtml({
+        title: '龙藏',
+        chapters: [
+          { url: '/12/c10.html', title: '10', label: '今天' },
+          { url: '/12/c9.html', title: '9', label: '昨天' },
+          { url: '/12/c8.html', title: '8', label: '06-01' },
+        ],
+        pages: 2,
+      }),
+    )
+    server.setResponse(
+      'https://www.sudugu.org/12/p-2.html',
+      tailHtml([
+        { url: '/12/c5.html', title: '5' },
+        { url: '/12/c6.html', title: '6' },
+        { url: '/12/c7.html', title: '7' },
+        { url: '/12/c8.html', title: '8' },
+        { url: '/12/c9.html', title: '9' },
+        { url: '/12/c10.html', title: '10' },
+      ]),
+    )
+    const books = await fetchNovels(server.runtime, [{ url: URL_12 }], [], {
+      initialNewChapters: 3,
+      maxLatestWindow: 50,
+    })
+    // Should have fetched both home and tail page
+    expect(server.hits).toEqual([URL_12, 'https://www.sudugu.org/12/p-2.html'])
+    // latestChapters should have the merged list (newest-first, capped to prevSeen)
+    const urls = books[0]!.latestChapters.map((c) => c.url)
+    expect(urls).toEqual([
+      'https://www.sudugu.org/12/c10.html',
+      'https://www.sudugu.org/12/c9.html',
+      'https://www.sudugu.org/12/c8.html',
+      'https://www.sudugu.org/12/c7.html',
+      'https://www.sudugu.org/12/c6.html',
+      'https://www.sudugu.org/12/c5.html',
+    ])
+    // lastSeenChapterUrl should be set to chapters[3].url (the 4th chapter)
+    expect(books[0]!.lastSeenChapterUrl).toBe('https://www.sudugu.org/12/c7.html')
+    // newChapters should return 3 chapters
+    const { newChapters } = await import('../../../src/dashboard/novels/state')
+    expect(newChapters(books[0]!).map((c) => c.url)).toEqual([
+      'https://www.sudugu.org/12/c10.html',
+      'https://www.sudugu.org/12/c9.html',
+      'https://www.sudugu.org/12/c8.html',
+    ])
+  })
+
   test('preserves prev lastSeenChapterUrl across refresh', async () => {
     const server = makeServer()
     server.setResponse(
