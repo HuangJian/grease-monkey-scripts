@@ -66,16 +66,12 @@ describe('applyDateFilter', () => {
   test('filters items outside bounds', () => {
     const now = Date.now()
     const dayMs = 86400000
-    const utcDayStart = Date.UTC(
-      new Date(now).getUTCFullYear(),
-      new Date(now).getUTCMonth(),
-      new Date(now).getUTCDate(),
-    )
+    const localDayStart = new Date(now).setHours(0, 0, 0, 0)
 
     const freshItems = [
-      { id: '1', created: utcDayStart + dayMs * 0.5 }, // 今天 UTC 中午 → "今"
-      { id: '2', created: utcDayStart - dayMs * 0.5 }, // 昨天 UTC 中午 → "昨"
-      { id: '3', created: utcDayStart - dayMs * 5 }, // 5天前 → "早"
+      { id: '1', created: localDayStart + dayMs * 0.5 }, // 今天本地中午 → "今"
+      { id: '2', created: localDayStart - dayMs * 0.5 }, // 昨天本地中午 → "昨"
+      { id: '3', created: localDayStart - dayMs * 5 }, // 5天前 → "早"
     ]
 
     const todayResult = applyDateFilter(freshItems, '今', (i) => i.created)
@@ -101,13 +97,9 @@ describe('applyDateFilter', () => {
 
   test('excludes items with undefined created', () => {
     const now = Date.now()
-    const utcDayStart = Date.UTC(
-      new Date(now).getUTCFullYear(),
-      new Date(now).getUTCMonth(),
-      new Date(now).getUTCDate(),
-    )
+    const localDayStart = new Date(now).setHours(0, 0, 0, 0)
     const itemsWithUndefined = [
-      { id: '1', created: utcDayStart + 3600000 },
+      { id: '1', created: localDayStart + 3600000 },
       { id: '2', created: undefined as number | undefined },
     ]
     const result = applyDateFilter(itemsWithUndefined, '今', (i) => i.created)
@@ -121,18 +113,14 @@ describe('applyGroupedDateFilter', () => {
   test('filters grouped data and drops empty groups', () => {
     const now = Date.now()
     const dayMs = 86400000
-    const utcDayStart = Date.UTC(
-      new Date(now).getUTCFullYear(),
-      new Date(now).getUTCMonth(),
-      new Date(now).getUTCDate(),
-    )
+    const localDayStart = new Date(now).setHours(0, 0, 0, 0)
 
     const grouped = {
       a: [
-        { id: '1', created: utcDayStart + dayMs * 0.5 }, // 今天 UTC 中午 → "今"
-        { id: '2', created: utcDayStart - dayMs * 5 }, // 5天前 → 不在"今"
+        { id: '1', created: localDayStart + dayMs * 0.5 }, // 今天本地中午 → "今"
+        { id: '2', created: localDayStart - dayMs * 5 }, // 5天前 → 不在"今"
       ],
-      b: [{ id: '3', created: utcDayStart - dayMs * 5 }], // 5天前 → 不在"今"
+      b: [{ id: '3', created: localDayStart - dayMs * 5 }], // 5天前 → 不在"今"
     }
 
     const result = applyGroupedDateFilter(grouped, '今', (i) => i.created)

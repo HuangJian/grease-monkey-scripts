@@ -10,7 +10,8 @@ export function dateFilterBounds(
 ): { start?: number; end?: number } | null {
   if (filter === '全') return null
   const d = new Date(now)
-  const ts = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+  // 使用浏览器本地时区计算日期边界
+  const ts = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
   switch (filter) {
     case '今':
       return { start: ts }
