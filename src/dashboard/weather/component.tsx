@@ -1,5 +1,6 @@
 import type { SourceComponentProps } from '../types'
 import { aqiLevel, formatHourLabel, weatherCodeIcon, windDirectionArrow } from './helpers'
+import { precipLabel, windLabel } from './descriptors'
 import type { WeatherCityData, WeatherCityEntry, WeatherData, WeatherHourly } from './types'
 
 export function remainingHours(
@@ -139,6 +140,7 @@ function CityBlock({ data }: { data: WeatherCityData }) {
   const windRot = `${Math.round((windDir + 180) % 360)}deg`
   const arrow = windDirectionArrow(windDir)
   const windSpeed = `${data.current.wind_speed_10m.toFixed(1)} km/h`
+  const windDesc = windLabel(data.current.wind_speed_10m)
   const aq = data.current.air_quality
   const level = aqiLevel(aq?.us_aqi ?? null)
 
@@ -179,15 +181,17 @@ function CityBlock({ data }: { data: WeatherCityData }) {
           <span class="gm-sp-weather-wind-arrow" style={`--gm-sp-wind-rot: ${windRot}`}>
             {arrow}
           </span>{' '}
-          {windSpeed}
+          {windDesc ? `${windSpeed} ${windDesc}` : windSpeed}
         </span>
         <span class="gm-sp-weather-chip gm-sp-weather-precip">
           <span class="gm-sp-weather-precip-icon">
             {data.daily.weather_code[0] != null ? weatherCodeIcon(data.daily.weather_code[0]!) : ''}
           </span>{' '}
-          {data.current.precipitation != null && data.current.precipitation !== undefined
-            ? `${data.current.precipitation.toFixed(1)}mm`
-            : '--'}
+          {(() => {
+            if (data.current.precipitation == null) return ''
+            const label = precipLabel(data.current.precipitation, 'hour')
+            return label ? `${data.current.precipitation.toFixed(1)}mm ${label}` : ''
+          })()}
         </span>
         <span
           class="gm-sp-weather-aqi"
@@ -211,10 +215,12 @@ function CityBlock({ data }: { data: WeatherCityData }) {
                 {Math.round(data.hourly.temperature_2m[i]!)}°
               </span>
               <span class="gm-sp-weather-hour-precip">
-                {data.hourly.precipitation_amount?.[i] != null &&
-                data.hourly.precipitation_amount[i]! > 0
-                  ? `${data.hourly.precipitation_amount[i]!.toFixed(1)}mm`
-                  : '--'}
+                {(() => {
+                  const amt = data.hourly.precipitation_amount?.[i]
+                  if (amt == null || amt <= 0) return '--'
+                  const label = precipLabel(amt, 'hour')
+                  return label ? `${amt.toFixed(1)}mm ${label}` : '--'
+                })()}
               </span>
             </div>
           ))
@@ -234,7 +240,11 @@ function CityBlock({ data }: { data: WeatherCityData }) {
                 {Math.round(min)}° / {Math.round(max)}°
               </span>
               <span class="gm-sp-weather-day-precip">
-                {precip != null ? `${precip.toFixed(1)}mm` : '--'}
+                {(() => {
+                  if (precip == null || precip <= 0) return '--'
+                  const label = precipLabel(precip, 'day')
+                  return label ? `${precip.toFixed(1)}mm ${label}` : '--'
+                })()}
               </span>
             </div>
           )

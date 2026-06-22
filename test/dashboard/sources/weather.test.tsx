@@ -487,7 +487,7 @@ describe('createWeatherSource.render', () => {
     renderComponent(container, source, data)
     expect(within(container).getByText('-2°~5°')).not.toBeNull()
     within(container).getByText('🌡️ 0°')
-    within(container).getByText('12.5 km/h')
+    within(container).getByText(/12\.5 km\/h/)
     const arrow = within(container).getByText('↑') as HTMLElement
     expect(arrow.style.getPropertyValue('--gm-sp-wind-rot')).toBe('225deg')
     const precipChip = within(container).getByText(/2\.5mm/) as HTMLElement
@@ -710,10 +710,11 @@ describe('createWeatherSource.render', () => {
     expect(dayLabelEls.map((e) => e.textContent)).toEqual(['+1', '+2', '+3'])
     const dayPrecipEls = dayLabelEls.map(
       (el) =>
-        within(el.closest('.gm-sp-weather-day') as HTMLElement).getByText(/^(?:--|[\d.]+mm)$/)
-          .textContent,
+        within(el.closest('.gm-sp-weather-day') as HTMLElement).getByText(
+          /^(?:--|[\d.]+mm [\u4e00-\u9fa5])$/,
+        ).textContent,
     )
-    expect(dayPrecipEls).toEqual(['0.0mm', '1.2mm', '3.5mm'])
+    expect(dayPrecipEls).toEqual(['--', '1.2mm 小', '3.5mm 小'])
   })
 
   test('clicking city tab in header switches body to that city', () => {
