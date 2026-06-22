@@ -12,7 +12,7 @@
 // @grant        GM.getValue
 // ==/UserScript==
 // ==build.meta==
-// css: src/hupu-time-saver/hupu-time-saver.css
+// css: hupu-time-saver.css
 // placeholder: /*{{HUPU_TIME_SAVER_CSS}}*/
 // ==/build.meta==
 

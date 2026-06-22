@@ -13,7 +13,7 @@
 // @grant        GM.getValue
 // ==/UserScript==
 // ==build.meta==
-// css: src/v2ex-time-saver/v2ex-time-saver.css
+// css: v2ex-time-saver.css
 // placeholder: /*{{V2EX_TIME_SAVER_CSS}}*/
 // ==/build.meta==
 

@@ -12,7 +12,7 @@
 // @grant        GM.getValue
 // ==/UserScript==
 // ==build.meta==
-// css: src/reddit-time-saver/reddit-time-saver.css
+// css: reddit-time-saver.css
 // placeholder: /*{{REDDIT_TIME_SAVER_CSS}}*/
 // ==/build.meta==
 
