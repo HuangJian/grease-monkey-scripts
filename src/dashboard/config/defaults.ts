@@ -7,12 +7,14 @@ export const DEFAULT_CONFIG: Config = {
   },
   v2ex: {
     ttlMinutes: 30,
+    retentionDays: 7,
     todayMinReplies: 10,
     olderMinReplies: 20,
     ageHalfLifeDays: 2,
   },
   reddit: {
     ttlMinutes: 30,
+    retentionDays: 7,
     todayMinComments: 10,
     olderMinComments: 20,
     ageHalfLifeDays: 2,
@@ -21,6 +23,7 @@ export const DEFAULT_CONFIG: Config = {
   hupu: {
     ttlMinutes: 30,
     boards: ['vote-hot'],
+    retentionDays: 7,
     todayMinReplies: 10,
     olderMinReplies: 20,
     ageHalfLifeDays: 2,
@@ -41,6 +44,7 @@ export const DEFAULT_CONFIG: Config = {
   },
   xueqiu: {
     ttlMinutes: 30,
+    retentionDays: 7,
   },
   misc: {
     ttlMinutes: 10,

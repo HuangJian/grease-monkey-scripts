@@ -1,9 +1,10 @@
 import { REDDIT_AUTHOR_TAGS_KEY, REDDIT_AUTHOR_TAGS_LS_KEY } from '../../shared/author-labels'
 import type { AuthorTagMap } from '../../shared/author-labels'
 import type { Runtime } from '../../runtime'
+import type { CachedSource, Source, SourceHeaderProps, SourceSettings } from '../types'
+import { CACHE_KEY } from '../types'
 import { loadConfigSection } from '../config'
 import { syncAuthorTags } from '../author-tags-sync'
-import type { Source, SourceHeaderProps, SourceSettings } from '../types'
 import type { DateFilter } from '../date-filter'
 import { DateFilterGroup } from '../date-filter'
 import { RedditComponent } from './component'
@@ -17,7 +18,8 @@ import type { RedditPost, RedditSourceOptions } from './types'
 export type RedditRenderData = Record<string, RedditPost[]>
 
 export function createRedditSource(options: RedditSourceOptions): Source<RedditRenderData> {
-  const state = createRedditState()
+  const retentionMs = options.retentionDays * 24 * 60 * 60 * 1000
+  const state = createRedditState({ retentionMs })
   const expandCollapse = createExpandCollapse()
   let authorTagMap: AuthorTagMap = {}
   const headerState: { dateFilter: DateFilter } = { dateFilter: '全' }
@@ -31,6 +33,28 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
       fallbackGmKey: REDDIT_AUTHOR_TAGS_LS_KEY,
       target: { map: authorTagMap },
     })
+  }
+
+  /**
+   * 清理缓存中过期的帖子数据。
+   * 每次 fetch 后调用，删除 created 时间早于 retentionMs 的条目。
+   * 注意：state.ttlMs = retentionMs + 1天，状态比数据多保留 1 天，
+   * 防止 fetch 失败时 pruneExpiredCache 未执行导致状态早于数据消失。
+   */
+  async function pruneExpiredCache(runtime: Runtime): Promise<void> {
+    const cacheKey = CACHE_KEY('reddit')
+    const cached = await runtime.getValue<CachedSource<RedditRenderData> | null>(cacheKey, null)
+    if (!cached?.data || typeof cached.data !== 'object') return
+    const now = Date.now()
+    const pruned: RedditRenderData = {}
+    let changed = false
+    for (const [sub, posts] of Object.entries(cached.data)) {
+      const kept = posts.filter((p) => now - p.created < retentionMs)
+      if (kept.length !== posts.length) changed = true
+      if (kept.length > 0) pruned[sub] = kept
+    }
+    if (!changed) return
+    await runtime.setValue(cacheKey, { ...cached, data: pruned })
   }
 
   return {
@@ -75,6 +99,7 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
         visible[sub] = state.filterVisible(posts)
       })
       await state.saveToStorage(runtime)
+      await pruneExpiredCache(runtime)
       return visible
     },
     RenderComponent: ({ data, root, runtime }) => (
@@ -105,7 +130,10 @@ function coerceRedditOptions(
   return {
     ttlMinutes:
       typeof raw['ttlMinutes'] === 'number' ? (raw['ttlMinutes'] as number) : fallback.ttlMinutes,
-
+    retentionDays:
+      typeof raw['retentionDays'] === 'number'
+        ? (raw['retentionDays'] as number)
+        : fallback.retentionDays,
     todayMinComments:
       typeof raw['todayMinComments'] === 'number'
         ? (raw['todayMinComments'] as number)

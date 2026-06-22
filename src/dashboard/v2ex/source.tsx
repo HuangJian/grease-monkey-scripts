@@ -1,6 +1,6 @@
 import type { Runtime } from '../../runtime'
 import type { AuthorTagMap } from '../../shared/author-labels'
-import type { Source, SourceHeaderProps, SourceSettings } from '../types'
+import type { CachedSource, Source, SourceHeaderProps, SourceSettings } from '../types'
 import { V2EX_AUTHOR_TAGS_KEY, V2EX_AUTHOR_TAGS_LS_KEY } from '../../shared/author-labels'
 import { syncAuthorTags } from '../author-tags-sync'
 import type { DateFilter } from '../date-filter'
@@ -8,11 +8,13 @@ import { DateFilterGroup } from '../date-filter'
 import { V2exComponent } from './component'
 import { createV2exEditor } from './editor'
 import { fetchV2ex } from './fetcher'
+import { CACHE_KEY } from '../types'
 import { createV2exState } from './state'
 import type { V2exSourceOptions, V2exTopic } from './types'
 
 export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]> {
-  const state = createV2exState()
+  const retentionMs = options.retentionDays * 24 * 60 * 60 * 1000
+  const state = createV2exState({ retentionMs })
   let authorTagMap: AuthorTagMap = {}
   const headerState: { dateFilter: DateFilter } = { dateFilter: '全' }
 
@@ -31,9 +33,28 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
     })
   }
 
+  /**
+   * 清理缓存中过期的主题数据。
+   * 每次 fetch 后调用，删除 created 时间早于 retentionMs 的条目。
+   * 注意：state.ttlMs = retentionMs + 1天，状态比数据多保留 1 天，
+   * 防止 fetch 失败时 pruneExpiredCache 未执行导致状态早于数据消失。
+   */
+  async function pruneExpiredCache(runtime: Runtime): Promise<void> {
+    const cacheKey = CACHE_KEY('v2ex')
+    const cached = await runtime.getValue<CachedSource<V2exTopic[]> | null>(cacheKey, null)
+    if (!cached?.data || !Array.isArray(cached.data)) return
+    const now = Date.now()
+    const pruned = cached.data.filter((t) => {
+      if (t.created === undefined) return true // 无 created 的条目保留
+      return now - t.created < retentionMs
+    })
+    if (pruned.length === cached.data.length) return
+    await runtime.setValue(cacheKey, { ...cached, data: pruned })
+  }
+
   return {
     id: 'v2ex',
-    title: 'V2EX \u70ED\u8BAE',
+    title: 'V2EX 热议',
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 0,
@@ -77,6 +98,7 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
       )
       const visible = state.filterVisible(allTopics)
       await state.saveToStorage(runtime)
+      await pruneExpiredCache(runtime)
       return visible
     },
     async loadState(runtime) {

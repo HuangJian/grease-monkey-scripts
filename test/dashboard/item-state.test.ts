@@ -49,8 +49,9 @@ describe('createItemState (string IDs)', () => {
       expect(state.isHidden('2')).toBe(true)
     })
     test('markRead/markHidden accept custom timestamps', () => {
-      state.markRead('1', 1000)
-      state.markHidden('2', 2000)
+      const ts = Date.now() - 1000
+      state.markRead('1', ts)
+      state.markHidden('2', ts)
       expect(state.isRead('1')).toBe(true)
       expect(state.isHidden('2')).toBe(true)
     })

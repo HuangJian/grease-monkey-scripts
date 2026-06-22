@@ -69,7 +69,7 @@ describe('fetchV2ex', () => {
         d.onload({ responseText: html })
       }
     })
-    const state = createV2exState()
+    const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
     const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
     expect(topics.length).toBeGreaterThan(0)
     const ids = topics.map((t) => t.id)
@@ -82,7 +82,7 @@ describe('fetchV2ex', () => {
       captured.push(d)
       d.onload({ responseText: '[]' })
     })
-    const state = createV2exState()
+    const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
     await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
     expect(captured).toHaveLength(2)
     for (const c of captured) expect(c.anonymous).toBe(true)
@@ -90,7 +90,7 @@ describe('fetchV2ex', () => {
 
   test('rejects with combined error when both sources fail', async () => {
     const runtime = makeRuntime((d) => d.onerror?.())
-    const state = createV2exState()
+    const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
     await expect(fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)).rejects.toThrow(
       /v2ex api/,
     )
@@ -102,7 +102,7 @@ describe('fetchV2ex', () => {
       if (d.url.includes('hot.json')) d.onerror?.()
       else d.onload({ responseText: html })
     })
-    const state = createV2exState()
+    const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
     const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
     const pageTopic = topics.find((t) => t.id === 1217291)
     expect(pageTopic).toBeDefined()
@@ -126,7 +126,7 @@ describe('fetchV2ex', () => {
       if (d.url.includes('hot.json')) d.onload({ responseText: '[]' })
       else d.onload({ responseText: html })
     })
-    const state = createV2exState()
+    const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
     const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
     const promoted = topics.find((t) => t.id === 9999)
     expect(promoted).toBeDefined()
@@ -148,7 +148,7 @@ describe('fetchV2ex', () => {
       if (d.url.includes('hot.json')) d.onload({ responseText: '[]' })
       else d.onload({ responseText: html })
     })
-    const state = createV2exState()
+    const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
     const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
     const notPromoted = topics.find((t) => t.id === 8888)
     expect(notPromoted).toBeDefined()
@@ -163,7 +163,7 @@ describe('fetchV2ex', () => {
         d.onerror?.()
       }
     })
-    const state = createV2exState()
+    const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
     const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
     const apiTopic = topics.find((t) => t.id === 1)
     expect(apiTopic).toBeDefined()
@@ -188,7 +188,7 @@ describe('fetchV2ex', () => {
         d.onload({ responseText: html })
       }
     })
-    const state = createV2exState()
+    const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
     const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
     const shared = topics.find((t) => t.id === 1217291)
     expect(shared).toBeDefined()
@@ -213,7 +213,7 @@ describe('fetchV2ex', () => {
         d.onload({ responseText: JSON.stringify([FIXTURE[0], lowReplyTopic]) })
       }
     })
-    const state = createV2exState()
+    const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
     const topics = await fetchV2ex(
       runtime,
       { ...DEFAULT_COUNT_OPTS, todayMinReplies: 5 },

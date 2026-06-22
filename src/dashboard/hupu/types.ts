@@ -22,6 +22,7 @@ export type HupuCountOptions = {
 
 export type HupuSourceOptions = {
   ttlMinutes: number
+  retentionDays: number
   boards: string[]
 } & HupuCountOptions
 

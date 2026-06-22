@@ -1,5 +1,6 @@
 import type { Runtime } from '../../runtime'
 
+import { CACHE_KEY } from '../types'
 import type { Source, SourceSettings, TabLabel } from '../types'
 import { RETENTION_MS } from './constants'
 import { TnewsComponent } from './component'
@@ -16,7 +17,7 @@ export type TnewsHandle = {
 }
 
 export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
-  const state: TnewsState = createTnewsState()
+  const state: TnewsState = createTnewsState({ retentionMs: RETENTION_MS })
   const source: Source<TnewsItem[]> = {
     id: 'tnews',
     title: '竹新社',
@@ -43,9 +44,11 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
       }
       const merged = mergeByLink(prevData ?? [], result.items)
       console.debug('[gm-tnews] merged count=', merged.length)
+
+      // 清理缓存中过期的新闻数据，与 state.ttlMs 保持一致
       const recent = filterByRetention(merged, Date.now(), RETENTION_MS)
       console.debug(
-        '[gm-tnews] retention(7d) count=',
+        '[gm-tnews] retention count=',
         recent.length,
         'dropped=',
         merged.length - recent.length,
@@ -59,6 +62,8 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
         sorted.length - visible.length,
       )
 
+      // 将过滤后的数据写回缓存，确保缓存与 state TTL 一致
+      await saveTnewsCache(runtime, visible)
       await state.saveToStorage(runtime)
       return visible
     },
@@ -77,6 +82,20 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
     },
   }
   return handle
+}
+
+/**
+ * 将过滤后的数据写回缓存，确保缓存中只保留 retention 窗口内的数据。
+ * 注意：state.ttlMs = retentionMs + 1天，状态比数据多保留 1 天，
+ * 防止 fetch 失败时数据未清理导致状态早于数据消失。
+ */
+async function saveTnewsCache(runtime: Runtime, items: TnewsItem[]): Promise<void> {
+  const { saveCache } = await import('../cache')
+  const cacheKey = CACHE_KEY('tnews')
+  await saveCache(runtime, cacheKey, {
+    data: items,
+    fetchedAt: Date.now(),
+  })
 }
 
 export function tnewsTabLabel(data: TnewsItem[] | null, state: TnewsState): TabLabel {

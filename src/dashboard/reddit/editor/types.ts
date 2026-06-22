@@ -11,6 +11,13 @@ export const FORM_FIELDS: {
 }[] = [
   { prop: 'ttlMinutes', label: 'TTL（分钟）', min: 1, errorMsg: 'TTL 必须是 ≥1 的整数' },
   {
+    prop: 'retentionDays',
+    label: '数据保留（天）',
+    min: 1,
+    max: 90,
+    errorMsg: '数据保留必须是 1~90 之间的整数',
+  },
+  {
     prop: 'todayMinComments',
     label: '今日最低评论',
     min: 0,

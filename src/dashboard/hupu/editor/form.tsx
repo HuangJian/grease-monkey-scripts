@@ -62,11 +62,12 @@ export function HupuEditorForm({ fresh, settings, ctx, handleRef }: HupuEditorFo
         if (nums === null) return
         const hupu: HupuSourceOptions = {
           ttlMinutes: Math.round(nums[0]),
-          todayMinReplies: Math.round(nums[1]),
-          olderMinReplies: Math.round(nums[2]),
-          ageHalfLifeDays: nums[3],
-          lightsWeight: nums[4],
-          repliesWeight: nums[5],
+          retentionDays: Math.round(nums[1]),
+          todayMinReplies: Math.round(nums[2]),
+          olderMinReplies: Math.round(nums[3]),
+          ageHalfLifeDays: nums[4],
+          lightsWeight: nums[5],
+          repliesWeight: nums[6],
           boards: [...boards],
         }
         void saveConfigSection({

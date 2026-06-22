@@ -96,6 +96,7 @@ export function validateConfig(value: unknown): ConfigValidation {
     }
     const r = validateNumberFields(v, 'v2ex', [
       ['ttlMinutes', 0, Number.POSITIVE_INFINITY],
+      ['retentionDays', 1, 90],
       ['todayMinReplies', 0, Number.POSITIVE_INFINITY],
       ['olderMinReplies', 0, Number.POSITIVE_INFINITY],
       ['ageHalfLifeDays', 0.1, 30],
@@ -121,6 +122,7 @@ export function validateConfig(value: unknown): ConfigValidation {
     }
     const r2 = validateNumberFields(r, 'reddit', [
       ['ttlMinutes', 1, Number.POSITIVE_INFINITY],
+      ['retentionDays', 1, 90],
       ['todayMinComments', 0, Number.POSITIVE_INFINITY],
       ['olderMinComments', 0, Number.POSITIVE_INFINITY],
       ['ageHalfLifeDays', 0.1, 30],
@@ -212,7 +214,10 @@ export function validateConfig(value: unknown): ConfigValidation {
     if (!isPlainObject(x)) {
       return { ok: false, error: 'xueqiu 必须是对象' }
     }
-    const r = validateNumberFields(x, 'xueqiu', [['ttlMinutes', 1, Number.POSITIVE_INFINITY]])
+    const r = validateNumberFields(x, 'xueqiu', [
+      ['ttlMinutes', 1, Number.POSITIVE_INFINITY],
+      ['retentionDays', 1, 90],
+    ])
     if (r) return r
   }
   if ('xit' in value) {
@@ -254,6 +259,7 @@ export function validateConfig(value: unknown): ConfigValidation {
     }
     const r = validateNumberFields(h, 'hupu', [
       ['ttlMinutes', 1, Number.POSITIVE_INFINITY],
+      ['retentionDays', 1, 90],
       ['todayMinReplies', 0, Number.POSITIVE_INFINITY],
       ['olderMinReplies', 0, Number.POSITIVE_INFINITY],
       ['ageHalfLifeDays', 0.1, 30],

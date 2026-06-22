@@ -24,7 +24,7 @@ describe('xueqiu unread filter with expand', () => {
   let state: XueqiuState
 
   beforeEach(() => {
-    state = createXueqiuState()
+    state = createXueqiuState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
   })
 
   afterEach(() => {

@@ -7,7 +7,6 @@ import type { Runtime, RequestDetails } from '../../../../src/runtime'
 import { createRuntime } from '../../../runtime'
 
 const DEFAULT_COUNT_OPTS = {
-  historyDays: 7,
   todayMinComments: 10,
   olderMinComments: 20,
   ageHalfLifeDays: 2,
@@ -16,6 +15,7 @@ const DEFAULT_COUNT_OPTS = {
 function defaultRedditOpts(over: Partial<RedditSourceOptions> = {}): RedditSourceOptions {
   return {
     ttlMinutes: 30,
+    retentionDays: 7,
     subreddits: ['popular'],
     ...DEFAULT_COUNT_OPTS,
     ...over,

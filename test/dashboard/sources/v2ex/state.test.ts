@@ -4,7 +4,8 @@ import { createV2exState, type V2exState } from '../../../../src/dashboard/v2ex/
 import type { V2exTopic } from '../../../../src/dashboard/v2ex/types'
 import { createRuntime, type TestRuntime } from '../../../runtime'
 
-const TOPIC_STATE_TTL_MS = 72 * 60 * 60 * 1000
+const RETENTION_MS = 7 * 24 * 60 * 60 * 1000
+const STATE_TTL_MS = RETENTION_MS + 24 * 60 * 60 * 1000
 
 function makeTopic(over: Partial<V2exTopic>): V2exTopic {
   return {
@@ -25,7 +26,7 @@ describe('createV2exState', () => {
 
   beforeEach(() => {
     runtime = createRuntime()
-    state = createV2exState()
+    state = createV2exState({ retentionMs: RETENTION_MS })
   })
 
   describe('markRead / isRead / markHidden / isHidden', () => {
@@ -42,8 +43,9 @@ describe('createV2exState', () => {
       expect(state.isHidden(2)).toBe(true)
     })
     test('markRead/markHidden accept a custom timestamp', () => {
-      state.markRead(1, 1000)
-      state.markHidden(2, 2000)
+      const ts = Date.now() - 1000
+      state.markRead(1, ts)
+      state.markHidden(2, ts)
       expect(state.isRead(1)).toBe(true)
       expect(state.isHidden(2)).toBe(true)
     })
@@ -81,20 +83,20 @@ describe('createV2exState', () => {
       state.markRead(1)
       state.markHidden(2)
       await state.saveToStorage(runtime)
-      const restored = createV2exState()
+      const restored = createV2exState({ retentionMs: RETENTION_MS })
       await restored.loadFromStorage(runtime)
       expect(restored.isRead(1)).toBe(true)
       expect(restored.isHidden(2)).toBe(true)
     })
     test('expired read markers are not loaded', async () => {
-      const oldTs = Date.now() - TOPIC_STATE_TTL_MS - 1000
+      const oldTs = Date.now() - STATE_TTL_MS - 1000
       const KEY = 'gm:v2ex:topic-state'
       runtime.stores[KEY] = { '1': { r: oldTs } }
       await state.loadFromStorage(runtime)
       expect(state.isRead(1)).toBe(false)
     })
     test('expired hidden markers are not loaded', async () => {
-      const oldTs = Date.now() - TOPIC_STATE_TTL_MS - 1000
+      const oldTs = Date.now() - STATE_TTL_MS - 1000
       const KEY = 'gm:v2ex:topic-state'
       runtime.stores[KEY] = { '2': { h: oldTs } }
       await state.loadFromStorage(runtime)
@@ -112,11 +114,11 @@ describe('createV2exState', () => {
     })
     test('strips in-memory expired entries on load', async () => {
       const freshTs = Date.now() - 1000
-      const staleTs = Date.now() - TOPIC_STATE_TTL_MS - 1000
+      const staleTs = Date.now() - STATE_TTL_MS - 1000
       state.markRead(1, freshTs)
       state.markRead(99, staleTs)
       await state.saveToStorage(runtime)
-      const restored = createV2exState()
+      const restored = createV2exState({ retentionMs: RETENTION_MS })
       await restored.loadFromStorage(runtime)
       expect(restored.isRead(1)).toBe(true)
       expect(restored.isRead(99)).toBe(false)

@@ -162,7 +162,7 @@ describe('xueqiu hotPosts persistence', () => {
 
     const before = await loadCache<XueqiuRenderData>(runtime, sourceId)
 
-    const { hotSource } = createXueqiuSources({ ttlMinutes: 60 })
+    const { hotSource } = createXueqiuSources({ ttlMinutes: 60, retentionDays: 7 })
     await hotSource.fetch(runtime)
 
     // Cache must be completely unchanged — hotSource only reads, never writes
@@ -187,7 +187,7 @@ describe('xueqiu hotPosts persistence', () => {
     })
 
     // hotSource.fetch must not write hotPosts to xueqiu-hot cache
-    const { hotSource } = createXueqiuSources({ ttlMinutes: 60 })
+    const { hotSource } = createXueqiuSources({ ttlMinutes: 60, retentionDays: 7 })
     await hotSource.fetch(runtime)
 
     // xueqiu-news still has hotPosts

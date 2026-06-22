@@ -4,7 +4,8 @@ import { createRedditState, type RedditState } from '../../../../src/dashboard/r
 import type { RedditPost } from '../../../../src/dashboard/reddit/types'
 import { createRuntime, type TestRuntime } from '../../../runtime'
 
-const TOPIC_STATE_TTL_MS = 72 * 60 * 60 * 1000
+const RETENTION_MS = 7 * 24 * 60 * 60 * 1000
+const STATE_TTL_MS = RETENTION_MS + 24 * 60 * 60 * 1000
 const NOW = Date.now() - 60_000
 
 function makePost(over: Partial<RedditPost>): RedditPost {
@@ -27,7 +28,7 @@ describe('createRedditState', () => {
 
   beforeEach(() => {
     runtime = createRuntime()
-    state = createRedditState()
+    state = createRedditState({ retentionMs: RETENTION_MS })
   })
 
   describe('markRead / markHidden / filterVisible', () => {
@@ -36,8 +37,9 @@ describe('createRedditState', () => {
       expect(state.isHidden('1')).toBe(false)
     })
     test('markRead and markHidden accept custom timestamps', () => {
-      state.markRead('1', 1000)
-      state.markHidden('2', 2000)
+      const ts = Date.now() - 1000
+      state.markRead('1', ts)
+      state.markHidden('2', ts)
       expect(state.isRead('1')).toBe(true)
       expect(state.isHidden('2')).toBe(true)
     })
@@ -64,20 +66,20 @@ describe('createRedditState', () => {
       state.markRead('1')
       state.markHidden('2')
       await state.saveToStorage(runtime)
-      const restored = createRedditState()
+      const restored = createRedditState({ retentionMs: RETENTION_MS })
       await restored.loadFromStorage(runtime)
       expect(restored.isRead('1')).toBe(true)
       expect(restored.isHidden('2')).toBe(true)
     })
     test('expired read markers are not loaded', async () => {
-      const oldTs = Date.now() - TOPIC_STATE_TTL_MS - 1000
+      const oldTs = Date.now() - STATE_TTL_MS - 1000
       const KEY = 'gm:reddit:topic-state'
       runtime.stores[KEY] = { '1': { r: oldTs } }
       await state.loadFromStorage(runtime)
       expect(state.isRead('1')).toBe(false)
     })
     test('expired hidden markers are not loaded', async () => {
-      const oldTs = Date.now() - TOPIC_STATE_TTL_MS - 1000
+      const oldTs = Date.now() - STATE_TTL_MS - 1000
       const KEY = 'gm:reddit:topic-state'
       runtime.stores[KEY] = { '2': { h: oldTs } }
       await state.loadFromStorage(runtime)

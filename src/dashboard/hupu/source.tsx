@@ -3,7 +3,8 @@ import type { AuthorTagMap } from '../../shared/author-labels'
 import type { Runtime } from '../../runtime'
 import { loadConfigSection } from '../config'
 import { syncAuthorTags } from '../author-tags-sync'
-import type { Source, SourceHeaderProps, SourceSettings } from '../types'
+import type { CachedSource, Source, SourceHeaderProps, SourceSettings } from '../types'
+import { CACHE_KEY } from '../types'
 import type { DateFilter } from '../date-filter'
 import { DateFilterGroup } from '../date-filter'
 import { HupuComponent } from './component'
@@ -17,7 +18,8 @@ import type { HupuPost, HupuSourceOptions } from './types'
 export type HupuRenderData = Record<string, HupuPost[]>
 
 export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderData> {
-  const state = createHupuState()
+  const retentionMs = options.retentionDays * 24 * 60 * 60 * 1000
+  const state = createHupuState({ retentionMs })
   const expandCollapse = createExpandCollapse()
   let authorTagMap: AuthorTagMap = {}
   const headerState: { dateFilter: DateFilter } = { dateFilter: '全' }
@@ -30,6 +32,28 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
       gmKey: HUPU_AUTHOR_TAGS_KEY,
       target: { map: authorTagMap },
     })
+  }
+
+  /**
+   * 清理缓存中过期的帖子数据。
+   * 每次 fetch 后调用，删除 created 时间早于 retentionMs 的条目。
+   * 注意：state.ttlMs = retentionMs + 1天，状态比数据多保留 1 天，
+   * 防止 fetch 失败时 pruneExpiredCache 未执行导致状态早于数据消失。
+   */
+  async function pruneExpiredCache(runtime: Runtime): Promise<void> {
+    const cacheKey = CACHE_KEY('hupu')
+    const cached = await runtime.getValue<CachedSource<HupuRenderData> | null>(cacheKey, null)
+    if (!cached?.data || typeof cached.data !== 'object') return
+    const now = Date.now()
+    const pruned: HupuRenderData = {}
+    let changed = false
+    for (const [board, posts] of Object.entries(cached.data)) {
+      const kept = posts.filter((p) => now - p.created < retentionMs)
+      if (kept.length !== posts.length) changed = true
+      if (kept.length > 0) pruned[board] = kept
+    }
+    if (!changed) return
+    await runtime.setValue(cacheKey, { ...cached, data: pruned })
   }
 
   return {
@@ -74,6 +98,7 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
         visible[board] = state.filterVisible(posts)
       })
       await state.saveToStorage(runtime)
+      await pruneExpiredCache(runtime)
       return visible
     },
     RenderComponent: ({ data, root, runtime }) => (
@@ -108,6 +133,10 @@ function coerceHupuOptions(
       Array.isArray(raw['boards']) && (raw['boards'] as unknown[]).length > 0
         ? (raw['boards'] as unknown[]).map((s) => String(s)).filter((s) => s.length > 0)
         : fallback.boards,
+    retentionDays:
+      typeof raw['retentionDays'] === 'number'
+        ? (raw['retentionDays'] as number)
+        : fallback.retentionDays,
     todayMinReplies:
       typeof raw['todayMinReplies'] === 'number'
         ? (raw['todayMinReplies'] as number)

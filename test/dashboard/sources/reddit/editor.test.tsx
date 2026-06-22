@@ -7,6 +7,7 @@ import { createRuntime, type TestRuntime } from '../../../runtime'
 
 const DEFAULTS: RedditSourceOptions = {
   ttlMinutes: 30,
+  retentionDays: 7,
   todayMinComments: 10,
   olderMinComments: 20,
   ageHalfLifeDays: 2,
@@ -154,14 +155,14 @@ describe('createRedditEditor', () => {
     })
     const ns = inputs(container)
     expect((ns[0] as HTMLInputElement).value).toBe('45')
-    expect((ns[1] as HTMLInputElement).value).toBe('5')
-    expect((ns[2] as HTMLInputElement).value).toBe('15')
-    expect((ns[3] as HTMLInputElement).value).toBe('3')
+    expect((ns[2] as HTMLInputElement).value).toBe('5')
+    expect((ns[3] as HTMLInputElement).value).toBe('15')
+    expect((ns[4] as HTMLInputElement).value).toBe('3')
   })
 
   test('saves ageHalfLifeDays to config', async () => {
     const { result } = await mount(runtime, container)
-    const halfLife = inputs(container)[3] as HTMLInputElement
+    const halfLife = inputs(container)[4] as HTMLInputElement
     halfLife.value = '5'
     void result.save?.()
     await new Promise<void>((r) => setTimeout(r, 0))
@@ -171,7 +172,7 @@ describe('createRedditEditor', () => {
 
   test('rejects ageHalfLifeDays out of range', async () => {
     const { result } = await mount(runtime, container)
-    const halfLife = inputs(container)[3] as HTMLInputElement
+    const halfLife = inputs(container)[4] as HTMLInputElement
     halfLife.value = '50'
     void result.save?.()
     expect(within(container).getByText('衰减半衰期必须是 0.1~30 之间')).not.toBeNull()

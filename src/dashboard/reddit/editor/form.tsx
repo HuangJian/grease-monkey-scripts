@@ -62,9 +62,10 @@ export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEdit
         if (nums === null) return
         const reddit: RedditSourceOptions = {
           ttlMinutes: Math.round(nums[0]),
-          todayMinComments: Math.round(nums[1]),
-          olderMinComments: Math.round(nums[2]),
-          ageHalfLifeDays: nums[3],
+          retentionDays: Math.round(nums[1]),
+          todayMinComments: Math.round(nums[2]),
+          olderMinComments: Math.round(nums[3]),
+          ageHalfLifeDays: nums[4],
           subreddits: [...subs],
         }
         void saveConfigSection({

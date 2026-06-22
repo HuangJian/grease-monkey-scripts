@@ -7,7 +7,7 @@ import type {
   SourceSettings,
   TabLabel,
 } from '../types'
-import { loadCache } from '../cache'
+import { loadCache, saveCache } from '../cache'
 import type { DateFilter } from '../date-filter'
 import { DateFilterGroup } from '../date-filter'
 import { XueqiuComponent } from './component'
@@ -33,7 +33,8 @@ const MAIN_SOURCE_ID = 'xueqiu-news'
 const HOT_SOURCE_ID = 'xueqiu-hot'
 
 export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle {
-  const state: XueqiuState = createXueqiuState()
+  const retentionMs = options.retentionDays * 24 * 60 * 60 * 1000
+  const state: XueqiuState = createXueqiuState({ retentionMs })
   const mainHeaderState: { dateFilter: DateFilter } = { dateFilter: '全' }
   const hotHeaderState: { dateFilter: DateFilter } = { dateFilter: '全' }
 
@@ -60,6 +61,7 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
       await state.loadFromStorage(runtime)
       const fresh = await fetchXueqiu(runtime, options)
       await saveXueqiuCache(runtime, fresh)
+      await pruneExpiredCache(runtime)
       const merged = await loadXueqiuCache(runtime)
       const visible: XueqiuRenderData = {
         news: (merged?.news ?? [])
@@ -157,6 +159,33 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
     )
   }
 
+  /**
+   * 清理缓存中过期的雪球数据。
+   * 每次 fetch 后调用，删除 created_at 时间早于 retentionMs 的条目。
+   * 注意：state.ttlMs = retentionMs + 1天，状态比数据多保留 1 天，
+   * 防止 fetch 失败时 pruneExpiredCache 未执行导致状态早于数据消失。
+   */
+  async function pruneExpiredCache(runtime: Runtime): Promise<void> {
+    const cached = await loadCache<XueqiuRenderData>(runtime, MAIN_SOURCE_ID)
+    if (!cached?.data) return
+    const now = Date.now()
+    const prune = (items: XueqiuNewsItem[]) =>
+      items.filter((it) => now - it.created_at < retentionMs)
+    const pruned: XueqiuRenderData = {
+      news: prune(cached.data.news),
+      hotPosts: prune(cached.data.hotPosts),
+    }
+    if (
+      pruned.news.length === cached.data.news.length &&
+      pruned.hotPosts.length === cached.data.hotPosts.length
+    )
+      return
+    await saveCache(runtime, MAIN_SOURCE_ID, {
+      data: pruned,
+      fetchedAt: cached.fetchedAt,
+    })
+  }
+
   return {
     mainSource,
     hotSource,
@@ -173,7 +202,6 @@ async function saveXueqiuCache(runtime: Runtime, data: XueqiuRenderData): Promis
     news: mergeItems(oldCache?.news ?? [], data.news),
     hotPosts: mergeItems(oldCache?.hotPosts ?? [], data.hotPosts),
   }
-  const { saveCache } = await import('../cache')
   await saveCache(runtime, MAIN_SOURCE_ID, {
     data: merged,
     fetchedAt: Date.now(),

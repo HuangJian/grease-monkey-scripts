@@ -19,4 +19,5 @@ export type V2exCountOptions = {
 
 export type V2exSourceOptions = {
   ttlMinutes: number
+  retentionDays: number
 } & V2exCountOptions

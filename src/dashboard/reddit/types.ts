@@ -17,6 +17,7 @@ export type RedditCountOptions = {
 
 export type RedditSourceOptions = {
   ttlMinutes: number
+  retentionDays: number
   subreddits: string[]
 } & RedditCountOptions
 

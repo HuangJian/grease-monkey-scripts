@@ -1,5 +1,6 @@
 export type XueqiuSourceOptions = {
   ttlMinutes: number
+  retentionDays: number
 }
 
 export type XueqiuNewsItem = {

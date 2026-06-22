@@ -2,8 +2,6 @@ import type { Runtime } from '../../runtime'
 import { STATE_KEY } from '../types'
 import { createItemState, createExpandedState, type ItemState } from '../item-state'
 
-const STATE_TTL = 72 * 60 * 60 * 1000
-
 export type XueqiuState = ItemState<string> & {
   isExpanded(id: string): boolean
   toggleExpanded(id: string): boolean
@@ -13,10 +11,15 @@ export type XueqiuState = ItemState<string> & {
   clear(): void
 }
 
-export function createXueqiuState(): XueqiuState {
+export type XueqiuStateOptions = {
+  retentionMs: number
+}
+
+export function createXueqiuState(options: XueqiuStateOptions): XueqiuState {
   const itemState = createItemState<string>({
     storageKey: STATE_KEY('xueqiu'),
-    ttlMs: STATE_TTL,
+    // 状态保留周期 = 历史主题清理周期 + 1 天（避免 fetch 失败时状态早于数据消失）
+    ttlMs: options.retentionMs + 24 * 60 * 60 * 1000,
   })
   const expanded = createExpandedState()
 

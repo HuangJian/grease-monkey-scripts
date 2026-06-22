@@ -18,10 +18,9 @@ import type { V2exCountOptions, V2exTopic } from './types'
  * ⚠️  后续 agent 注意：修改算法时必须同步更新本注释，不要删除！
  *
  * ── 阶段 1：并行抓取 ──────────────────────────────────────────────────────
- *   三个数据源同时请求（Promise.all）：
+ *   两个数据源同时请求（Promise.all）：
  *   ① API  (hot.json)          → parseV2ex()   解析 JSON，提取 id/title/url/replies/created
  *   ② Page (www.v2ex.com/?tab=hot) → parseV2exHotPage() 解析 HTML，提取 DOM 节点信息
- *   ③ History (GM storage)     → state.loadHistory()  读取本地历史，按 historyDays TTL 过滤
  *
  *   任一数据源失败不阻塞；仅当 API 和 Page 同时失败时抛出错误。
  *
@@ -49,12 +48,6 @@ import type { V2exCountOptions, V2exTopic } from './types'
  *   - replies ≤ 0 → score = 0
  *   同分时双源确认 (sources.length > 1) 优先
  *   不做截断，全部返回
- *
- * ── 阶段 5：历史持久化 ──────────────────────────────────────────────────
- *   仅当 API 请求成功时执行 saveHistory：
- *   ① 合并：历史 + 本次 API 结果，同 id 取 max(replies)
- *   ② 清理：移除 created 缺失或 now - created ≥ historyDays×86400000 的条目
- *   ③ 写入 GM storage
  *
  * ══════════════════════════════════════════════════════════════════════════════
  */

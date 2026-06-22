@@ -6,6 +6,7 @@ import { createRuntime, type TestRuntime } from '../../../runtime'
 
 const DEFAULTS: V2exSourceOptions = {
   ttlMinutes: 30,
+  retentionDays: 7,
   todayMinReplies: 10,
   olderMinReplies: 20,
   ageHalfLifeDays: 2,
