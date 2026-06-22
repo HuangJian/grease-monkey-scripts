@@ -141,6 +141,11 @@ function matchDateKeyword(item: XitItem, kw: DateKeyword, offset?: number): bool
     return item.dueDate === null
   }
 
+  // Overdue only applies to actionable items — exclude checked/obsolete.
+  if (kw === 'overdue' && (item.status === 'checked' || item.status === 'obsolete')) {
+    return false
+  }
+
   const range = resolveDateKeyword(kw, offset)
   if (!range) return false
 

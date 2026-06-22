@@ -487,6 +487,29 @@ describe('filterItems', () => {
     }
   })
 
+  it('filters by overdue excludes checked items', () => {
+    const overdueItems = [
+      makeItem({ description: 'overdue open', status: 'open', dueDate: '2026-06-01' }),
+      makeItem({ description: 'overdue checked', status: 'checked', dueDate: '2026-06-01' }),
+      makeItem({ description: 'overdue obsolete', status: 'obsolete', dueDate: '2026-06-01' }),
+      makeItem({ description: 'overdue ongoing', status: 'ongoing', dueDate: '2026-06-01' }),
+      makeItem({ description: 'not overdue', status: 'open', dueDate: '2099-01-01' }),
+    ]
+    const overdueLines = overdueItems.map((item) => item as any)
+
+    const r = parseQuery('overdue')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      const result = filterItems(overdueLines, r.ast)
+      const descs = result.map((l) => (l as XitItem).description)
+      expect(descs).toContain('overdue open')
+      expect(descs).toContain('overdue ongoing')
+      expect(descs).not.toContain('overdue checked')
+      expect(descs).not.toContain('overdue obsolete')
+      expect(descs).not.toContain('not overdue')
+    }
+  })
+
   it('filters by overdue (past dates)', () => {
     // Change task C's dueDate to a past date for this test
     const pastItems = items.map((item) =>
