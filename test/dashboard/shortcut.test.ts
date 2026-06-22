@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 import { JSDOM } from 'jsdom'
-import { createDoubleShiftHandler, isEditableTarget } from '../../src/dashboard/shortcut'
+import {
+  createDoubleShiftHandler,
+  handleEscapeKey,
+  isEditableTarget,
+} from '../../src/dashboard/shortcut'
 
 function makeEvent(
   dom: JSDOM,
@@ -105,5 +109,84 @@ describe('createDoubleShiftHandler', () => {
     now = 1500
     handler(makeEvent(dom, null, 'Shift'))
     expect(fires).toBe(1)
+  })
+})
+
+describe('handleEscapeKey', () => {
+  function makeShadowRoot(dom: JSDOM): ShadowRoot {
+    const host = dom.window.document.createElement('div')
+    return host.attachShadow({ mode: 'closed' })
+  }
+
+  function dispatchEscape(dom: JSDOM, target: EventTarget): KeyboardEvent {
+    const e = new dom.window.KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    })
+    target.dispatchEvent(e)
+    return e
+  }
+
+  test('calls onClose when ESC pressed outside editable elements', () => {
+    const dom = emptyDom()
+    const root = makeShadowRoot(dom)
+    let closed = false
+    const e = dispatchEscape(dom, dom.window.document.body)
+    handleEscapeKey(e, root, () => (closed = true))
+    expect(closed).toBe(true)
+  })
+
+  test('does not close when target is an input element', () => {
+    const dom = new JSDOM('<input id="a">')
+    const root = makeShadowRoot(dom)
+    const input = dom.window.document.getElementById('a')!
+    let closed = false
+    const e = dispatchEscape(dom, input)
+    handleEscapeKey(e, root, () => (closed = true))
+    expect(closed).toBe(false)
+  })
+
+  test('does not close when target is a textarea element', () => {
+    const dom = new JSDOM('<textarea id="b"></textarea>')
+    const root = makeShadowRoot(dom)
+    const textarea = dom.window.document.getElementById('b')!
+    let closed = false
+    const e = dispatchEscape(dom, textarea)
+    handleEscapeKey(e, root, () => (closed = true))
+    expect(closed).toBe(false)
+  })
+
+  test('does not close when target is a select element', () => {
+    const dom = new JSDOM('<select id="c"><option>1</option></select>')
+    const root = makeShadowRoot(dom)
+    const select = dom.window.document.getElementById('c')!
+    let closed = false
+    const e = dispatchEscape(dom, select)
+    handleEscapeKey(e, root, () => (closed = true))
+    expect(closed).toBe(false)
+  })
+
+  test('does not close when target has contenteditable', () => {
+    const dom = new JSDOM('<div id="d" contenteditable="true"></div>')
+    const root = makeShadowRoot(dom)
+    const ce = dom.window.document.getElementById('d')!
+    let closed = false
+    const e = dispatchEscape(dom, ce)
+    handleEscapeKey(e, root, () => (closed = true))
+    expect(closed).toBe(false)
+  })
+
+  test('ignores non-Escape keys', () => {
+    const dom = emptyDom()
+    const root = makeShadowRoot(dom)
+    let closed = false
+    const e = new dom.window.KeyboardEvent('keydown', {
+      key: 'Enter',
+      bubbles: true,
+      cancelable: true,
+    })
+    handleEscapeKey(e, root, () => (closed = true))
+    expect(closed).toBe(false)
   })
 })
