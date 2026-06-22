@@ -5,7 +5,7 @@ import {
   findCommentCells,
   findFirstCommentCell,
   getCommentElementsFromHtmlString,
-} from '../comment-helpers'
+} from './comment-helpers'
 import type { TagPanelCallbacks, QuickLabels } from '../../shared/tag-panel'
 import { enhanceThreadPage } from './thread-page'
 

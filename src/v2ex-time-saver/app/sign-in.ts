@@ -1,4 +1,4 @@
-import type { Runtime } from '../runtime'
+import type { Runtime } from '../../runtime'
 
 export function checkAndDoSignIn(runtime: Runtime): void {
   const linkEl = runtime.document.querySelector("a[href='/mission/daily']")

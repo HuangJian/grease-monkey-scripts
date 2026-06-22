@@ -1,6 +1,6 @@
-import type { Runtime } from '../runtime'
-import type { AuthorTagMap } from '../shared/author-labels'
-import { getTotalScore, tagColor } from '../shared/author-labels'
+import type { Runtime } from '../../runtime'
+import type { AuthorTagMap } from '../../shared/author-labels'
+import { getTotalScore, tagColor } from '../../shared/author-labels'
 
 import { findCommentCells, findFirstCommentCell } from './comment-helpers'
 

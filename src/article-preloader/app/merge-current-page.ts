@@ -1,5 +1,5 @@
 import type { Runtime } from '../../runtime'
-import type { Selectors } from '../selectors'
+import type { Selectors } from '../types'
 import { findChapterLink } from '../selectors'
 import { htmlToDocument, getLinkText, toAbsoluteUrl } from '../../utils'
 import { isEndOfStory } from './chapter-loader'

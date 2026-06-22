@@ -1,4 +1,4 @@
-import type { Selectors } from '../selectors'
+import type { Selectors } from '../types'
 
 let currentListener: ((evt: KeyboardEvent) => void) | null = null
 

@@ -5,7 +5,7 @@ import {
   createReferenceDialog,
   createReferenceHint,
   getOrCreateReferenceHintContainer,
-} from '../../src/v2ex-time-saver/ui'
+} from '../../src/v2ex-time-saver/app/ui'
 import type { Runtime } from '../../src/runtime'
 import { createDom, createRuntime } from '../runtime'
 

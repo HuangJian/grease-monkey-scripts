@@ -7,7 +7,7 @@ import {
   getCommentNumber,
   getLastCommentByAuthorBeforeNumber,
   getTextUntilNextMemberMention,
-} from '../../src/v2ex-time-saver/discussion-embedder'
+} from '../../src/v2ex-time-saver/app/discussion-embedder'
 import type { Runtime } from '../../src/runtime'
 import { createDom, createRuntime } from '../runtime'
 

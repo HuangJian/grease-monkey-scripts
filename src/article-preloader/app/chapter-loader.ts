@@ -1,14 +1,11 @@
 import type { Runtime } from '../../runtime'
-import type { Selectors } from '../selectors'
+import type { Selectors } from '../types'
+import type { ChapterResult } from '../types'
 import { htmlToDocument, toAbsoluteUrl } from '../../utils'
 import { findChapterLink } from '../selectors'
 import { fetchPage } from './request'
 
-export type ChapterResult = {
-  html: string
-  url: string
-  nextChapterUrl: string
-}
+export type { ChapterResult } from '../types'
 
 export function isEndOfStory(nextUrl: string, selectors: Selectors, baseUrl: string): boolean {
   const indexLink = selectors.indexLinkSelector()

@@ -7,18 +7,21 @@ import {
   toRelativeUrl,
 } from '../../shared/author-labels'
 import type { TagPanelCallbacks, QuickLabels } from '../../shared/tag-panel'
-import { checkAndDoSignIn } from '../sign-in'
-import { embedDiscussions } from '../discussion-embedder'
+import { checkAndDoSignIn } from './sign-in'
+import { embedDiscussions } from './discussion-embedder'
 import {
   highlightCommentsAndTopics,
   addTargetToTopicLinks,
   reorderCommentsByHearts,
-} from '../thread-enhancements'
-import { getCommentElementsFromHtmlString } from '../comment-helpers'
+} from './thread-enhancements'
+import { getCommentElementsFromHtmlString } from './comment-helpers'
 import { enhanceThreadPage } from './thread-page'
 import { createMultiPageLoader } from './multi-page-comments'
 import { addStyles } from './styles'
 import { loadAuthorTagMap, persistAuthorTags } from './author-tags'
+import type { V2exApp } from '../types'
+
+export type { V2exApp }
 
 export { authorTagsKeyword } from './author-tags'
 
@@ -26,8 +29,6 @@ export const defaultLabels = {
   shame: '若婴',
   thank: '智者',
 } as const
-
-export type V2exApp = Awaited<ReturnType<typeof createV2exApp>>
 
 export async function startV2exTimeSaver(runtime: Runtime): Promise<void> {
   console.debug('[gm-v2ex-time-saver] start')
@@ -44,7 +45,7 @@ function buildAuthorUrl(runtime: Runtime, commentNumber: number | string): strin
   return `${runtime.location.origin}${runtime.location.pathname}#${commentNumber}`
 }
 
-export async function createV2exApp(runtime: Runtime) {
+export async function createV2exApp(runtime: Runtime): Promise<V2exApp> {
   const authorTagMap = await loadAuthorTagMap(runtime)
 
   function persist(): void {

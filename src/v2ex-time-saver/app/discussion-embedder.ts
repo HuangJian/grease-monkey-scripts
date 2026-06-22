@@ -1,4 +1,4 @@
-import type { Runtime } from '../runtime'
+import type { Runtime } from '../../runtime'
 import { findCommentCells, getCommentNumber } from './comment-helpers'
 import {
   createCollapseExpandButtons,

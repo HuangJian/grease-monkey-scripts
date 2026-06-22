@@ -1,13 +1,13 @@
 import type { Runtime } from '../../runtime'
 import type { AuthorTagMap } from '../../shared/author-labels'
-import { embedDiscussions, addCollapseExpandButtons } from '../discussion-embedder'
+import { embedDiscussions, addCollapseExpandButtons } from './discussion-embedder'
 import {
   reorderCommentsByHearts,
   highlightCommentsAndTopics,
   addTargetToTopicLinks,
   scrollToComment,
-} from '../thread-enhancements'
-import { addWiseCommentNavigator } from '../wise-comment-navigator'
+} from './thread-enhancements'
+import { addWiseCommentNavigator } from './wise-comment-navigator'
 import { addTagPanel } from './tag-buttons'
 import type { TagPanelCallbacks, QuickLabels } from '../../shared/tag-panel'
 

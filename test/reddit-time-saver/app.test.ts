@@ -3,11 +3,10 @@ import { JSDOM } from 'jsdom'
 import {
   BTN_CLASS,
   createRedditApp,
-  getAuthorName,
-  getCommentId,
   PROCESSED_CLASS,
   STORAGE_KEY,
 } from '../../src/reddit-time-saver/app'
+import { getAuthorName, getCommentId } from '../../src/reddit-time-saver/app/author-utils'
 import { createDom, createRuntime } from '../runtime'
 
 function oldRedditHtml() {
@@ -99,7 +98,7 @@ describe('getCommentId', () => {
 })
 
 describe('createRedditApp', () => {
-  let dom: JSDOM
+  let dom: ReturnType<typeof createDom>
 
   beforeEach(() => {
     dom = createDom(oldRedditHtml(), 'https://old.reddit.com/r/test/comments/xyz/')

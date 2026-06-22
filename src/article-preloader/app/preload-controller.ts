@@ -1,5 +1,5 @@
 import type { Runtime } from '../../runtime'
-import type { Selectors } from '../selectors'
+import type { Selectors } from '../types'
 import { isEndOfStory } from './chapter-loader'
 import { wireKeyboardNav } from './keyboard'
 import type { ChapterResult } from './chapter-loader'

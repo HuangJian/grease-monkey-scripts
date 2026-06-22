@@ -1,4 +1,4 @@
-import type { Runtime } from '../runtime'
+import type { Runtime } from '../../runtime'
 
 export function getCommentNumber(comment: Element): string {
   return comment.querySelector('.no')?.textContent?.trim() || ''

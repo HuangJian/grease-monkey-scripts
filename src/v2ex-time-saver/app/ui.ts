@@ -1,4 +1,4 @@
-import type { Runtime } from '../runtime'
+import type { Runtime } from '../../runtime'
 import { getCommentNumber } from './comment-helpers'
 
 export const collapseIconSvg = `

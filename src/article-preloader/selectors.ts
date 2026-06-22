@@ -1,15 +1,6 @@
 import { getLinkText, matchesText } from '../utils'
 import { SITE_CONFIGS } from './config'
-
-export type Selectors = {
-  previousChapterLinkSelector: () => Element | null
-  indexLinkSelector: () => Element | null
-  nextChapterLinkSelector: () => Element | null
-  contentSelector?: string
-  paginationSelector: string
-  matchContinuationText: (text: string) => boolean
-  matchNextChapterText: (text: string) => boolean
-}
+import type { Selectors } from './types'
 
 export function findChapterLink(
   linkSelector: string,

@@ -1,24 +1,6 @@
-export type DirectSelectorConfig = {
-  kind: 'direct'
-  host: string
-  contentSelector?: string
-  previousChapterLinkSelector: string
-  indexLinkSelector: string
-  nextChapterLinkSelector: string
-}
+import type { DirectSelectorConfig, TextPatternConfig, SiteConfig } from './types'
 
-export type TextPatternConfig = {
-  kind: 'text'
-  host: string
-  contentSelector?: string
-  chapterLinkSelector: string
-  previousChapterTextPattern: RegExp
-  nextChapterTextPattern: RegExp
-  continuationPageTextPattern: RegExp
-  indexPageTextPattern: RegExp
-}
-
-export type SiteConfig = DirectSelectorConfig | TextPatternConfig
+export type { DirectSelectorConfig, TextPatternConfig, SiteConfig }
 
 export const SITE_CONFIGS: SiteConfig[] = [
   {

@@ -1,12 +1,8 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
 import { createDom, createRuntime } from '../runtime'
-import {
-  createHupuApp,
-  STORAGE_KEY,
-  BTN_CLASS,
-  PROCESSED_CLASS,
-} from '../../src/hupu-time-saver/app'
+import { createHupuApp } from '../../src/hupu-time-saver/app'
+import { BTN_CLASS, PROCESSED_CLASS } from '../../src/hupu-time-saver/app/tag-buttons'
+import { STORAGE_KEY } from '../../src/hupu-time-saver/app/index'
 
 function hupuHtml(tid = '100') {
   return `<!doctype html>
@@ -82,7 +78,7 @@ function hupuHtml(tid = '100') {
 }
 
 describe('createHupuApp', () => {
-  let dom: JSDOM
+  let dom: ReturnType<typeof createDom>
 
   beforeEach(() => {
     dom = createDom(hupuHtml(), 'https://bbs.hupu.com/100.html')
@@ -224,7 +220,7 @@ describe('createHupuApp', () => {
 })
 
 describe('applyHighlights', () => {
-  let dom: JSDOM
+  let dom: ReturnType<typeof createDom>
 
   beforeEach(() => {
     dom = createDom(hupuHtml(), 'https://bbs.hupu.com/100.html')
