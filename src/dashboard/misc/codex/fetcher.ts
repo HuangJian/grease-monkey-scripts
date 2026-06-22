@@ -1,3 +1,11 @@
+/**
+ * Codex data fetcher.
+ *
+ * Fetches usage data from ChatGPT (Codex) WHAM API.
+ *
+ * Test script: scripts/fetchers/codex-test.user.js
+ *   Install as Tampermonkey userscript to verify fetching.
+ */
 import type { Runtime } from '../../../runtime'
 import type { CodexConfig, CodexUsageResponse } from './types'
 

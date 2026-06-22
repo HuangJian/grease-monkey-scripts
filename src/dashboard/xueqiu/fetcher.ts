@@ -1,3 +1,12 @@
+/**
+ * Xueqiu data fetcher.
+ *
+ * Fetches hot posts and news from xueqiu.com by intercepting XHR responses
+ * via injected script. Requires page to be on xueqiu.com domain.
+ *
+ * Test script: scripts/fetchers/xueqiu-test.user.js
+ *   Install as Tampermonkey userscript and run on xueqiu.com to verify fetching.
+ */
 import { loadCache } from '../cache'
 import type { Runtime } from '../../runtime'
 import type { XueqiuRenderData, XueqiuNewsItem, XueqiuSourceOptions } from './types'

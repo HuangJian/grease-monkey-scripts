@@ -1,3 +1,14 @@
+/**
+ * Weather data fetcher.
+ *
+ * Fetches weather data from Open-Meteo API and CMA (China Meteorological
+ * Administration) page. CMA provides higher-precision current conditions
+ * and hourly precipitation; Open-Meteo provides air quality and fallback.
+ *
+ * Test script: scripts/fetchers/verify-cma.ts
+ *   Run: bun scripts/fetchers/verify-cma.ts [stationId]
+ *   Fetches live CMA page + now JSON and prints parsed daily/hourly precipitation.
+ */
 import type { Runtime } from '../../runtime'
 import { fetchAirQuality } from './air-quality'
 import { requestJson, requestText } from './http'

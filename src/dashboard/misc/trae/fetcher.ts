@@ -1,3 +1,11 @@
+/**
+ * Trae data fetcher.
+ *
+ * Fetches usage/quota data from Trae (ByteDance) API.
+ *
+ * Test script: scripts/fetchers/trae-test.ts
+ *   Run: bun scripts/fetchers/trae-test.ts
+ */
 import type { Runtime } from '../../../runtime'
 import type { TraeConfig, TraeData, TraePack, TraeQuotaEntry, TraeRawResponse } from './types'
 

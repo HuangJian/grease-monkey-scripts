@@ -1,3 +1,11 @@
+/**
+ * Antigravity data fetcher.
+ *
+ * Fetches model usage data from Antigravity API.
+ *
+ * Test script: scripts/fetchers/antigravity-test.user.js
+ *   Install as Tampermonkey userscript to verify fetching.
+ */
 import type { Runtime } from '../../../runtime'
 import type {
   AntigravityConfig,

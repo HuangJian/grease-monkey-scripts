@@ -1,3 +1,11 @@
+/**
+ * OpenRouter data fetcher.
+ *
+ * Fetches free model list and rankings from OpenRouter API.
+ *
+ * Test script: scripts/fetchers/openrouter-test.ts
+ *   Run: bun scripts/fetchers/openrouter-test.ts
+ */
 import type { Runtime } from '../../../runtime'
 import type { OpenRouterData, OpenRouterFreeModel } from './types'
 
