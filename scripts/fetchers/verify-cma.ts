@@ -106,6 +106,14 @@ async function main() {
       print('Temp min', parsed.daily.temperature_2m_min)
       print('Weather codes', parsed.daily.weather_code)
       print('Precipitation sum (daily)', parsed.daily.precipitation_sum)
+      // 逐日打印日期+降水量
+      if (parsed.daily.precipitation_sum) {
+        console.log('\n  Daily precipitation breakdown:')
+        parsed.daily.time.forEach((date, i) => {
+          const sum = parsed.daily.precipitation_sum![i]
+          console.log(`    ${date}: ${sum > 0 ? sum.toFixed(1) + 'mm' : '无降水'}`)
+        })
+      }
 
       if (parsed.hourly) {
         console.log('\n  Hourly data:')
@@ -118,6 +126,25 @@ async function main() {
         print('Pressure (hPa)', parsed.hourly.pressure)
         print('Humidity (%)', parsed.hourly.humidity)
         print('Cloud cover (%)', parsed.hourly.cloud_cover)
+        // 按天分组打印小时降水量
+        if (parsed.hourly.precipitation_amount) {
+          console.log('\n  Hourly precipitation by day:')
+          const byDay = new Map<string, { time: string; precip: number }[]>()
+          parsed.hourly.time.forEach((t, i) => {
+            const day = t.slice(0, 10)
+            if (!byDay.has(day)) byDay.set(day, [])
+            byDay.get(day)!.push({ time: t, precip: parsed.hourly!.precipitation_amount![i] })
+          })
+          for (const [day, items] of byDay) {
+            console.log(`    ${day}:`)
+            items.forEach(({ time, precip }) => {
+              const h = time.slice(11, 16)
+              console.log(`      ${h}: ${precip > 0 ? precip.toFixed(1) + 'mm' : '无降水'}`)
+            })
+            const sum = items.reduce((s, { precip }) => s + (precip > 0 ? precip : 0), 0)
+            console.log(`      → 日合计: ${sum.toFixed(1)}mm`)
+          }
+        }
       } else {
         console.log('\n  No hourly data parsed')
       }
