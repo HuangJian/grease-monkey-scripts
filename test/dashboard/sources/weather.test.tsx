@@ -47,6 +47,7 @@ const FIXTURE = {
     temperature_2m: [-1, -2, -2, 3, 3, -1, -1],
     weather_code: [3, 3, 3, 3, 3, 3, 1],
     precipitation_probability: [0, 0, 0, 0, 10, 60, 10],
+    precipitation_amount: [0, 0, 0, 0, 0.5, 0, 0],
   },
   daily: {
     time: ['2024-01-15', '2024-01-16', '2024-01-17', '2024-01-18'],
@@ -54,6 +55,7 @@ const FIXTURE = {
     temperature_2m_min: [-2.0, -1.2, -3.0, -4.0],
     weather_code: [3, 1, 51, 71],
     precipitation_probability_max: [20, 10, 60, 80],
+    precipitation_sum: [0, 0, 1.2, 3.5],
   },
 }
 
@@ -419,6 +421,7 @@ describe('createWeatherSource.render', () => {
               wind_speed_10m: 12.5,
               wind_direction_10m: 45,
               air_quality: { us_aqi: 42, pm2_5: 8.1, pm10: 12.3 },
+              precipitation: 0,
             },
             hourly: FIXTURE.hourly,
             daily: FIXTURE.daily,
@@ -465,7 +468,9 @@ describe('createWeatherSource.render', () => {
       ;(data.entries[0]!.data.current as unknown as { air_quality: null }).air_quality = null
     }
     renderComponent(container, source, data)
-    expect(within(container).getByText('--')).not.toBeNull()
+    const aqiEl = container.querySelector('.gm-sp-weather-aqi')
+    expect(aqiEl).not.toBeNull()
+    expect(aqiEl!.textContent).toBe('--')
   })
 
   test('renders single-line summary with range, AQI, and chips', () => {
@@ -476,6 +481,7 @@ describe('createWeatherSource.render', () => {
     })
     const data = buildData()
     if (data.entries[0]!.status === 'ok') {
+      data.entries[0]!.data.current.precipitation = 2.5
       data.entries[0]!.cityLabel = '合肥'
     }
     renderComponent(container, source, data)
@@ -484,9 +490,9 @@ describe('createWeatherSource.render', () => {
     within(container).getByText('12.5 km/h')
     const arrow = within(container).getByText('↑') as HTMLElement
     expect(arrow.style.getPropertyValue('--gm-sp-wind-rot')).toBe('225deg')
-    const precipChip = within(container).getByText(/20%/) as HTMLElement
+    const precipChip = within(container).getByText(/2\.5mm/) as HTMLElement
     expect(precipChip.classList.contains('gm-sp-weather-precip')).toBe(true)
-    expect(precipChip.textContent!.replace(/\s+/g, ' ').trim()).toContain('20%')
+    expect(precipChip.textContent!.replace(/\s+/g, ' ').trim()).toContain('2.5mm')
   })
 
   test('renders humidity chip when current.humidity is present', () => {
@@ -616,6 +622,7 @@ describe('createWeatherSource.render', () => {
         temperature_2m: [22, 24, 23, 21, 19, 17, 16, 18],
         weather_code: [1, 1, 2, 3, 3, 2, 2, 1],
         precipitation_probability: [0, 0, 0, 0, 0, 0, 0, 0],
+        precipitation_amount: [0, 0, 0, 0, 0, 0, 0, 0],
       }
     }
     renderComponent(container, source, data)
@@ -652,6 +659,7 @@ describe('createWeatherSource.render', () => {
         temperature_2m: [15, 18, 22, 24, 23, 21, 19, 17, 16, 18],
         weather_code: [1, 1, 1, 1, 2, 3, 3, 2, 2, 1],
         precipitation_probability: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        precipitation_amount: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       }
     }
     renderComponent(container, source, data)
@@ -683,6 +691,7 @@ describe('createWeatherSource.render', () => {
         temperature_2m: [30, 32, 31, 28, 26, 25, 25, 27],
         weather_code: [1, 1, 2, 3, 3, 3, 2, 1],
         precipitation_probability: [0, 0, 0, 0, 0, 0, 0, 0],
+        precipitation_amount: [0, 0, 0, 0, 0, 0, 0, 0],
       }
     }
     renderComponent(container, source, data)
@@ -700,9 +709,11 @@ describe('createWeatherSource.render', () => {
     expect(dayLabelEls).toHaveLength(3)
     expect(dayLabelEls.map((e) => e.textContent)).toEqual(['+1', '+2', '+3'])
     const dayPrecipEls = dayLabelEls.map(
-      (el) => within(el.closest('.gm-sp-weather-day') as HTMLElement).getByText(/%$/).textContent,
+      (el) =>
+        within(el.closest('.gm-sp-weather-day') as HTMLElement).getByText(/^(?:--|[\d.]+mm)$/)
+          .textContent,
     )
-    expect(dayPrecipEls).toEqual(['10%', '60%', '80%'])
+    expect(dayPrecipEls).toEqual(['0.0mm', '1.2mm', '3.5mm'])
   })
 
   test('clicking city tab in header switches body to that city', () => {

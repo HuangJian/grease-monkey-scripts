@@ -64,11 +64,11 @@ describe('parseCmaPage', () => {
     expect(hourly.cloud_cover?.[0]).toBe(41.7)
   })
 
-  test('parses precipitation as null for 无降水 and number for 0.1mm', () => {
+  test('parses precipitation as -1e-9 for 无降水 and number for 0.1mm', () => {
     const result = parseCmaPage(FIXTURE_HTML, makeDOMParser())!
     expect(result.hourly).not.toBeNull()
     const hourly = result.hourly!
-    expect(hourly.precipitation_amount?.[0]).toBeNull()
+    expect(hourly.precipitation_amount?.[0]).toBe(-0.000000001)
     expect(hourly.precipitation_amount?.[1]).toBe(0.1)
     expect(hourly.precipitation_amount?.[3]).toBe(0.5)
   })

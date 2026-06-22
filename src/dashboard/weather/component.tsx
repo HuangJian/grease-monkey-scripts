@@ -139,7 +139,6 @@ function CityBlock({ data }: { data: WeatherCityData }) {
   const windRot = `${Math.round((windDir + 180) % 360)}deg`
   const arrow = windDirectionArrow(windDir)
   const windSpeed = `${data.current.wind_speed_10m.toFixed(1)} km/h`
-  const precipMax = data.daily.precipitation_probability_max[0] ?? 0
   const aq = data.current.air_quality
   const level = aqiLevel(aq?.us_aqi ?? null)
 
@@ -186,7 +185,9 @@ function CityBlock({ data }: { data: WeatherCityData }) {
           <span class="gm-sp-weather-precip-icon">
             {data.daily.weather_code[0] != null ? weatherCodeIcon(data.daily.weather_code[0]!) : ''}
           </span>{' '}
-          {precipMax}%
+          {data.current.precipitation != null && data.current.precipitation !== undefined
+            ? `${data.current.precipitation.toFixed(1)}mm`
+            : '--'}
         </span>
         <span
           class="gm-sp-weather-aqi"
@@ -210,7 +211,10 @@ function CityBlock({ data }: { data: WeatherCityData }) {
                 {Math.round(data.hourly.temperature_2m[i]!)}°
               </span>
               <span class="gm-sp-weather-hour-precip">
-                {data.hourly.precipitation_probability[i] ?? 0}%
+                {data.hourly.precipitation_amount?.[i] != null &&
+                data.hourly.precipitation_amount[i]! > 0
+                  ? `${data.hourly.precipitation_amount[i]!.toFixed(1)}mm`
+                  : '--'}
               </span>
             </div>
           ))
@@ -221,7 +225,7 @@ function CityBlock({ data }: { data: WeatherCityData }) {
           const max = data.daily.temperature_2m_max[j]!
           const min = data.daily.temperature_2m_min[j]!
           const code = data.daily.weather_code[j]!
-          const precip = data.daily.precipitation_probability_max[j] ?? 0
+          const precip = data.daily.precipitation_sum?.[j]
           return (
             <div class="gm-sp-weather-day">
               <span class="gm-sp-weather-day-label">+{j}</span>
@@ -229,7 +233,9 @@ function CityBlock({ data }: { data: WeatherCityData }) {
               <span>
                 {Math.round(min)}° / {Math.round(max)}°
               </span>
-              <span class="gm-sp-weather-day-precip">{precip}%</span>
+              <span class="gm-sp-weather-day-precip">
+                {precip != null ? `${precip.toFixed(1)}mm` : '--'}
+              </span>
             </div>
           )
         })}

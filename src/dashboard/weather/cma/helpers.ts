@@ -73,18 +73,20 @@ export function extractTextCells(row: Element): string[] {
   return cells.map((c) => (c.textContent ?? '').trim())
 }
 
-export function extractPrecipCells(row: Element): (number | null)[] {
+export function extractPrecipCells(row: Element): number[] {
   const cells = row.querySelectorAll('td')
-  const out: (number | null)[] = []
+  const out: number[] = []
+  // 用负值标记"无降水"，累加时过滤掉，避免 null 污染 number[] 类型
+  const NO_PRECIP = -0.000000001
   cells.forEach((c, i) => {
     if (i === 0) return
     const t = (c.textContent ?? '').trim()
     if (t === '无降水' || t === '--') {
-      out.push(null)
+      out.push(NO_PRECIP)
       return
     }
     const m = t.match(/^([\d.]+)mm$/)
-    out.push(m ? parseFloat(m[1]!) : null)
+    out.push(m ? parseFloat(m[1]!) : NO_PRECIP)
   })
   return out
 }

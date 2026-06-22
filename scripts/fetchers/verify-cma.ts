@@ -105,6 +105,7 @@ async function main() {
       print('Temp max', parsed.daily.temperature_2m_max)
       print('Temp min', parsed.daily.temperature_2m_min)
       print('Weather codes', parsed.daily.weather_code)
+      print('Precipitation sum (daily)', parsed.daily.precipitation_sum)
 
       if (parsed.hourly) {
         console.log('\n  Hourly data:')

@@ -62,26 +62,48 @@ export function parseCmaPage(html: string, DOMParserCtor: typeof DOMParser): Cma
 
   if (dailyDates.length === 0) return null
 
+  const hourly = parseCmaHourTable(doc, dailyDates)
+
+  // 按 dayDates 分组累加小时降水量，生成日降水量
+  const precipSum: number[] = new Array(dailyDates.length).fill(0)
+  if (hourly) {
+    const dayIndexMap = new Map<string, number>()
+    dailyDates.forEach((d, i) => dayIndexMap.set(d, i))
+    hourly.hourly.precipitation_amount?.forEach((p, i) => {
+      const dayDate = hourly.dayDates[i]
+      const idx = dayIndexMap.get(dayDate)
+      if (idx != null && p > 0) {
+        precipSum[idx] = (precipSum[idx] ?? 0) + p
+      }
+    })
+    // 只保留有降水数据的日期
+    const hasPrecip = precipSum.some((s) => s > 0)
+    const daily: WeatherDaily = {
+      time: dailyDates,
+      temperature_2m_max: tempMax,
+      temperature_2m_min: tempMin,
+      weather_code: weatherCodes,
+      precipitation_probability_max: [],
+      ...(hasPrecip ? { precipitation_sum: precipSum } : {}),
+    }
+
+    console.debug(
+      '[gm-dashboard] cma.parseCmaPage: ok daily',
+      dailyDates.length,
+      'hourly',
+      hourly.hourly.time.length,
+      'precipSum',
+      precipSum,
+    )
+    return { daily, hourly: hourly.hourly, hourlyDayDates: hourly.dayDates }
+  }
+
   const daily: WeatherDaily = {
     time: dailyDates,
     temperature_2m_max: tempMax,
     temperature_2m_min: tempMin,
     weather_code: weatherCodes,
     precipitation_probability_max: [],
-  }
-
-  const hourly = parseCmaHourTable(doc, dailyDates)
-
-  if (hourly) {
-    console.debug(
-      '[gm-dashboard] cma.parseCmaPage: ok daily',
-      dailyDates.length,
-      'hourly',
-      hourly.hourly.time.length,
-      'dayDates',
-      hourly.dayDates,
-    )
-    return { daily, hourly: hourly.hourly, hourlyDayDates: hourly.dayDates }
   }
 
   console.debug('[gm-dashboard] cma.parseCmaPage: no hourly table, returning daily only')
