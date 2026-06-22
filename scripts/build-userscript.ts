@@ -107,10 +107,15 @@ function resolveVarReferences(css: string, vars: Map<string, string>): string {
 }
 
 function composeOverlayCss(entryCssPath: string): string {
-  // 1. Parse variable definitions from tokens.css
+  // 1. Parse variable definitions from tokens.css (optional — not all scripts use it)
   const tokensPath = resolve(dirname(entryCssPath), 'tokens.css')
-  const tokensCss = readFileSync(tokensPath, 'utf8')
-  const vars = parseCssVariables(tokensCss)
+  let vars = new Map<string, string>()
+  try {
+    const tokensCss = readFileSync(tokensPath, 'utf8')
+    vars = parseCssVariables(tokensCss)
+  } catch {
+    // tokens.css is optional; proceed without variable definitions
+  }
 
   // 2. Use Lightning CSS bundle to resolve all @import rules
   const { code } = bundleCss({
@@ -192,11 +197,16 @@ async function buildUserScript(
   await writeFile(temporarySourceFile, baseSource, 'utf8')
 
   let bundle = ''
+  const captured: string[] = []
   try {
     const buildCmd = mode.debug
       ? $`bun build ${temporarySourceFile} --target=browser --format=iife --outfile=${temporaryOutfile} --sourcemap=none`
       : $`bun build ${temporarySourceFile} --target=browser --format=iife --outfile=${temporaryOutfile} --sourcemap=none --minify`
-    await buildCmd
+    const buildResult = await buildCmd.quiet().throws(false)
+    if (buildResult.stderr) captured.push(buildResult.stderr.toString())
+    if (buildResult.exitCode !== 0) {
+      throw new Error(`bun build exited with code ${buildResult.exitCode}`)
+    }
 
     bundle = await readFile(temporaryOutfile, 'utf8')
 
@@ -219,7 +229,11 @@ async function buildUserScript(
     bundle = bundle.replace(/^\/\/ ==build.meta==\n[\s\S]*?^\/\/ ==\/build.meta==\n/m, '')
 
     await writeFile(outfile, `${metadata}\n\n${bundle}\n// build ${buildHash}`)
-    console.log(`  ✓ ${outfile}`)
+    const { size } = await stat(outfile)
+    console.log(`  ✓ ${outfile}  ${(size / 1024).toFixed(1)} KB`)
+  } catch (error) {
+    if (captured.length) process.stderr.write(captured.join(''))
+    throw error
   } finally {
     await unlink(temporaryOutfile).catch(() => {})
     await unlink(temporarySourceFile).catch(() => {})
@@ -255,11 +269,10 @@ async function main() {
   // installed for ad-hoc troubleshooting without re-editing sources.
   console.log(`Building ${entries.length} script(s) (debug):`)
   for (const entrypoint of entries) {
-    console.log(`\n${basename(dirname(entrypoint))}:`)
     try {
       await buildUserScript(entrypoint, BUILD_MODES[0], buildHash)
     } catch (error) {
-      console.error(`  ✗ Failed:`, error)
+      console.error(`  ✗ ${basename(dirname(entrypoint))}:`, error)
     }
   }
 
@@ -279,11 +292,10 @@ async function main() {
     // Pass 2: build the .user.js variants (minified, no debug/log).
     console.log(`\nBuilding ${entries.length} script(s) (prod):`)
     for (const entrypoint of entries) {
-      console.log(`\n${basename(dirname(entrypoint))}:`)
       try {
         await buildUserScript(entrypoint, BUILD_MODES[1], buildHash)
       } catch (error) {
-        console.error(`  ✗ Failed:`, error)
+        console.error(`  ✗ ${basename(dirname(entrypoint))}:`, error)
       }
     }
   } finally {
