@@ -1,0 +1,20 @@
+/* Dashboard overlay CSS entry point.
+ * Lightning CSS resolves @import automatically.
+ * Only @import rules are processed; the output is a single concatenated+minified CSS.
+ */
+
+@import './tokens.css';
+@import './primitives.css';
+@import './layout.css';
+@import './card.css';
+@import './editor.css';
+@import './section.css';
+@import './expandable-row.css';
+@import './weather.css';
+@import './novels.css';
+@import './reddit.css';
+@import './hupu.css';
+@import './tnews.css';
+@import './xueqiu.css';
+@import './xit.css';
+@import './misc.css';

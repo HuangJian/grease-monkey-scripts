@@ -1,19 +1,2 @@
-export const OVERLAY_CSS_FILES = [
-  'tokens.css',
-  'primitives.css',
-  'layout.css',
-  'card.css',
-  'editor.css',
-  'section.css',
-  'expandable-row.css',
-  'weather.css',
-  'novels.css',
-  'reddit.css',
-  'hupu.css',
-  'tnews.css',
-  'xueqiu.css',
-  'xit.css',
-  'misc.css',
-] as const
-
+/** Placeholder replaced at build time with bundled+minified CSS. */
 export const OVERLAY_CSS = `/*{{DASHBOARD_CSS}}*/`

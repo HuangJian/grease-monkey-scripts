@@ -1,7 +1,9 @@
 import { mkdir, readFile, unlink, writeFile, opendir, stat } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { $ } from 'bun'
+import { bundle as bundleCss, transform } from 'lightningcss'
 
 function stripConsoleFromSource(source: string): string {
   // Strip console.log(...) and console.debug(...) from TypeScript source.
@@ -67,39 +69,73 @@ async function restoreSourceFiles(originals: Map<string, string>): Promise<void>
   }
 }
 
-async function composeOverlayCss(tsPath: string): Promise<string> {
-  const content = await readFile(tsPath, 'utf8')
-  const match = content.match(/OVERLAY_CSS_FILES\s*=\s*\[([\s\S]*?)\]\s*as\s+const/)
-  if (!match) {
-    throw new Error(`Could not parse OVERLAY_CSS_FILES export in ${tsPath}`)
+/**
+ * Parse CSS variable definitions from tokens.css content.
+ * Returns a map like { '--gm-sp-color-text': '#1f2328', ... }
+ */
+function parseCssVariables(tokensCss: string): Map<string, string> {
+  const vars = new Map<string, string>()
+  // Match --name: value; (ignoring comments and whitespace)
+  const re = /(--[a-z][a-z0-9-]+)\s*:\s*([^;]+);/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(tokensCss)) !== null) {
+    vars.set(m[1]!, m[2]!.trim())
   }
-  const fileEntries = match[1]!
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0)
-    .map((s) => {
-      const m = s.match(/^'([^']+)'$/)
-      if (!m) throw new Error(`Expected string literal in OVERLAY_CSS_FILES, got: ${s}`)
-      return m[1]!
-    })
+  return vars
+}
 
-  const baseDir = dirname(tsPath)
-  const parts: string[] = []
-  for (const file of fileEntries) {
-    const fullPath = resolve(baseDir, file)
-    const css = await readFile(fullPath, 'utf8')
-    parts.push(css.trim())
+/**
+ * Replace var(--gm-sp-xxx) references with actual values.
+ * Handles nested var() references by resolving recursively.
+ */
+function resolveVarReferences(css: string, vars: Map<string, string>): string {
+  const MAX_DEPTH = 5
+  let result = css
+  for (let i = 0; i < MAX_DEPTH; i++) {
+    let changed = false
+    result = result.replace(/var\((--[a-z][a-z0-9-]+)\)/g, (_, name) => {
+      const val = vars.get(name)
+      if (val) {
+        changed = true
+        return val
+      }
+      return `var(${name})`
+    })
+    if (!changed) break
   }
-  return parts.join('\n\n')
+  return result
+}
+
+function composeOverlayCss(entryCssPath: string): string {
+  // 1. Parse variable definitions from tokens.css
+  const tokensPath = resolve(dirname(entryCssPath), 'tokens.css')
+  const tokensCss = readFileSync(tokensPath, 'utf8')
+  const vars = parseCssVariables(tokensCss)
+
+  // 2. Use Lightning CSS bundle to resolve all @import rules
+  const { code } = bundleCss({
+    filename: entryCssPath,
+    minify: false,
+  })
+  let bundled = code.toString()
+
+  // 3. Replace var(--gm-sp-xxx) with actual values from tokens.css
+  bundled = resolveVarReferences(bundled, vars)
+
+  // 4. Remove :host rule (variables are now inlined, no need for :host)
+  bundled = bundled.replace(/:host\s*\{[^}]*\}/g, '')
+
+  return bundled
 }
 
 function minifyCss(css: string): string {
-  return css
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\s+/g, ' ')
-    .replace(/\s*([{}:;,])\s*/g, '$1')
-    .replace(/;}/g, '}')
-    .trim()
+  // Lightning CSS transform for high-quality minification
+  const { code } = transform({
+    filename: 'minified.css',
+    code: Buffer.from(css),
+    minify: true,
+  })
+  return code.toString()
 }
 
 const BUILD_MODES = [
@@ -165,12 +201,19 @@ async function buildUserScript(
     bundle = await readFile(temporaryOutfile, 'utf8')
 
     if (buildMeta.css && buildMeta.placeholder) {
-      const css = buildMeta.css.endsWith('.ts')
-        ? await composeOverlayCss(buildMeta.css)
-        : await readFile(buildMeta.css, 'utf8')
-      const processedCss = mode.debug ? css.trim() : minifyCss(css)
-      const escapedCss = processedCss.replace(/`/g, '\\`').replace(/\$/g, '\\$')
-      bundle = bundle.replace(buildMeta.placeholder, escapedCss)
+      const cssPath = resolve(dirname(entrypoint), buildMeta.css)
+      if (mode.debug) {
+        // Debug: bundle CSS but keep variables for runtime theming
+        const { code } = bundleCss({ filename: cssPath, minify: false })
+        const escapedCss = code.toString().replace(/`/g, '\\`').replace(/\$/g, '\\$')
+        bundle = bundle.replace(buildMeta.placeholder, escapedCss)
+      } else {
+        // Prod: bundle + resolve variables to static values + minify
+        const css = await composeOverlayCss(cssPath)
+        const processedCss = minifyCss(css)
+        const escapedCss = processedCss.replace(/`/g, '\\`').replace(/\$/g, '\\$')
+        bundle = bundle.replace(buildMeta.placeholder, escapedCss)
+      }
     }
 
     bundle = bundle.replace(/^\/\/ ==build.meta==\n[\s\S]*?^\/\/ ==\/build.meta==\n/m, '')

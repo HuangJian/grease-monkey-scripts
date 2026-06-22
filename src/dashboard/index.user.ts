@@ -40,7 +40,7 @@
 // @connect      chatgpt.com
 // ==/UserScript==
 // ==build.meta==
-// css: src/dashboard/overlay/styles.ts
+// css: overlay/entry.css
 // placeholder: /*{{DASHBOARD_CSS}}*/
 // ==/build.meta==
 
