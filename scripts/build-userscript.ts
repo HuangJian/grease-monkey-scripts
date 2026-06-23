@@ -295,6 +295,7 @@ async function buildUserScript(
     for (const tmpFile of tempFiles) {
       await unlink(tmpFile).catch(() => {})
     }
+    await unlink(temporaryOutfile).catch(() => {})
   }
 }
 
@@ -321,12 +322,18 @@ async function main() {
   }
 
   console.log(`Building ${entries.length} script(s) (debug):`)
-  for (const entrypoint of entries) {
-    try {
-      await buildUserScript(entrypoint, BUILD_MODES[0], buildHash)
-    } catch (error) {
-      console.error(`  ✗ ${basename(dirname(entrypoint))}:`, error)
-    }
+  const debugResults = await Promise.all(
+    entries.map(async (entrypoint) => {
+      try {
+        await buildUserScript(entrypoint, BUILD_MODES[0], buildHash)
+        return null
+      } catch (error) {
+        return `${basename(dirname(entrypoint))}: ${error}`
+      }
+    }),
+  )
+  for (const err of debugResults) {
+    if (err) console.error(`  ✗ ${err}`)
   }
 
   console.log('\nStripping console.log/debug from source for prod build...')
@@ -340,12 +347,18 @@ async function main() {
 
   try {
     console.log(`\nBuilding ${entries.length} script(s) (prod):`)
-    for (const entrypoint of entries) {
-      try {
-        await buildUserScript(entrypoint, BUILD_MODES[1], buildHash)
-      } catch (error) {
-        console.error(`  ✗ ${basename(dirname(entrypoint))}:`, error)
-      }
+    const prodResults = await Promise.all(
+      entries.map(async (entrypoint) => {
+        try {
+          await buildUserScript(entrypoint, BUILD_MODES[1], buildHash)
+          return null
+        } catch (error) {
+          return `${basename(dirname(entrypoint))}: ${error}`
+        }
+      }),
+    )
+    for (const err of prodResults) {
+      if (err) console.error(`  ✗ ${err}`)
     }
   } finally {
     console.log('\nRestoring source files...')
