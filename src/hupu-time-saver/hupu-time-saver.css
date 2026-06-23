@@ -26,3 +26,61 @@
 .gm-author-tag:hover {
   text-decoration: underline;
 }
+
+/* Media: GIF play overlay */
+.gm-hupu-gif .gm-hupu-gif-play {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  z-index: 1;
+  transition: background 0.15s;
+}
+.gm-hupu-gif .gm-hupu-gif-play:hover {
+  background: rgba(0, 0, 0, 0.65);
+}
+.gm-hupu-gif-playing .gm-hupu-gif-play {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.gm-hupu-gif-playing:hover .gm-hupu-gif-play {
+  opacity: 0.7;
+}
+
+/* Media: image group collapse */
+.gm-hupu-image-group-toggle {
+  display: inline-block;
+  padding: 2px 8px;
+  margin: 4px 0;
+  font-size: 12px;
+  color: #666;
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  cursor: pointer;
+  user-select: none;
+}
+.gm-hupu-image-group-toggle:hover {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.gm-hupu-image-group-placeholder {
+  display: block;
+  padding: 4px 0;
+  font-size: 12px;
+  color: #999;
+}
+
+.gm-hupu-image-hidden {
+  display: none !important;
+}

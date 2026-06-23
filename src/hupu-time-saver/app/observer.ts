@@ -2,6 +2,7 @@ import type { Runtime } from '../../runtime'
 import type { AuthorTagMap } from '../../shared/author-labels'
 import type { QuickLabels } from '../../shared/tag-panel'
 import { applyHighlights } from './highlight'
+import { processMedia } from './media'
 import { processElement } from './tag-buttons'
 
 export function setupObserver(
@@ -20,6 +21,7 @@ export function setupObserver(
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
         if (!(node instanceof Element)) continue
+        processMedia(node)
         processElement(
           runtime,
           authorTagMap,

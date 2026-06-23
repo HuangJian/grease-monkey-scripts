@@ -12,6 +12,7 @@ import { tagPanelCss, type QuickLabels } from '../../shared/tag-panel'
 import { htmlToDocument } from '../../utils'
 import { buildPageUrl, extractNextData, parseNextData, parseReplyList } from '../selectors'
 import { applyHighlights } from './highlight'
+import { processMedia } from './media'
 import { setupObserver } from './observer'
 import { processElement } from './tag-buttons'
 import type { HupuApp } from '../types'
@@ -70,6 +71,16 @@ export async function createHupuApp(runtime: Runtime): Promise<HupuApp> {
     runtime.addStyle(tagPanelCss)
     runtime.addStyle(`/*{{HUPU_TIME_SAVER_CSS}}*/`)
 
+    _disconnectObserver = setupObserver(
+      runtime,
+      authorTagMap,
+      euidToPuidMap,
+      tagAuthor,
+      setTag,
+      unsetTag,
+      QUICK_LABELS,
+    )
+
     const nextData = extractNextData(runtime.document)
     if (!nextData) return
 
@@ -92,17 +103,15 @@ export async function createHupuApp(runtime: Runtime): Promise<HupuApp> {
       runtime.document.body,
     )
     applyHighlights(runtime, authorTagMap, euidToPuidMap)
-    _disconnectObserver = setupObserver(
-      runtime,
-      authorTagMap,
-      euidToPuidMap,
-      tagAuthor,
-      setTag,
-      unsetTag,
-      QUICK_LABELS,
-    )
 
     loadAuthorMapFromOtherPages(threadData.tid, threadData.currentPage, threadData.pageCount)
+
+    const scanMedia = () => processMedia(runtime.document.body)
+    if (document.readyState === 'complete') {
+      scanMedia()
+    } else {
+      window.addEventListener('load', scanMedia, { once: true })
+    }
   }
 
   function loadAuthorMapFromOtherPages(tid: string, currentPage: number, totalPages: number): void {
