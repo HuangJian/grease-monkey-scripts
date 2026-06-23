@@ -1,7 +1,7 @@
 import { mkdir, readFile, unlink, writeFile, opendir, stat } from 'node:fs/promises'
 import { readFileSync, readdirSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
-import { randomBytes } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import { $ } from 'bun'
 import { bundle as bundleCss, transform } from 'lightningcss'
 
@@ -180,7 +180,7 @@ async function buildUserScript(
   entrypoint: string,
   mode: BuildMode,
   buildHash: string,
-): Promise<void> {
+): Promise<string> {
   const name = basename(dirname(entrypoint))
   const scriptDir = dirname(entrypoint)
 
@@ -285,8 +285,8 @@ async function buildUserScript(
     const bundle = await readFile(temporaryOutfile, 'utf8')
 
     await writeFile(outfile, `${metadata}\n\n${bundle}\n// build ${buildHash}`)
-    const { size } = await stat(outfile)
-    console.log(`  ✓ ${outfile}  ${(size / 1024).toFixed(1)} KB`)
+
+    return bundle
   } finally {
     // Restore original source files
     await restoreSourceFiles(originals)
@@ -299,8 +299,22 @@ async function buildUserScript(
   }
 }
 
+function computeHash(content: string): string {
+  return createHash('sha256').update(content).digest('hex').slice(0, 8)
+}
+
+function readExistingHash(debugFile: string): string | null {
+  try {
+    const content = readFileSync(debugFile, 'utf8')
+    const lastLine = content.trimEnd().split('\n').pop()!
+    const match = lastLine.match(/^\/\/ build ([a-f0-9]+)$/)
+    return match ? match[1]! : null
+  } catch {
+    return null
+  }
+}
+
 async function main() {
-  const buildHash = randomBytes(4).toString('hex')
   const srcDir = 'src'
   const entries = []
 
@@ -321,22 +335,6 @@ async function main() {
     return
   }
 
-  console.log(`Building ${entries.length} script(s) (debug):`)
-  const debugResults = await Promise.all(
-    entries.map(async (entrypoint) => {
-      try {
-        await buildUserScript(entrypoint, BUILD_MODES[0], buildHash)
-        return null
-      } catch (error) {
-        return `${basename(dirname(entrypoint))}: ${error}`
-      }
-    }),
-  )
-  for (const err of debugResults) {
-    if (err) console.error(`  ✗ ${err}`)
-  }
-
-  console.log('\nStripping console.log/debug from source for prod build...')
   const originals = await collectSourceFiles(srcDir)
   for (const [path, content] of originals) {
     const stripped = stripConsoleFromSource(content)
@@ -345,27 +343,83 @@ async function main() {
     }
   }
 
+  // Phase 2: Build all prod scripts in parallel, compute content hash
+  const hashes = new Map<string, string>()
+  const prevHashes = new Map<string, string>()
+  const built: string[] = []
+  const errors: string[] = []
+
   try {
-    console.log(`\nBuilding ${entries.length} script(s) (prod):`)
-    const prodResults = await Promise.all(
+    await Promise.all(
       entries.map(async (entrypoint) => {
+        const name = basename(dirname(entrypoint))
+        const debugFile = `dist/${name}.debug.js`
+        prevHashes.set(name, readExistingHash(debugFile) ?? '')
+
         try {
-          await buildUserScript(entrypoint, BUILD_MODES[1], buildHash)
-          return null
+          const bundle = await buildUserScript(entrypoint, BUILD_MODES[1], 'pending')
+          const hash = computeHash(bundle)
+          hashes.set(name, hash)
+          const changed = prevHashes.get(name) !== hash
+          if (changed) {
+            const prodSize = (await stat(`dist/${name}.user.js`)).size
+            let debugSize = 0
+            try {
+              debugSize = (await stat(debugFile)).size
+            } catch {
+              // debug file doesn't exist yet, will be built in Phase 3
+            }
+            built.push(
+              `${name} (${(prodSize / 1024).toFixed(1)}/${(debugSize / 1024).toFixed(1)} KB, ${hash})`,
+            )
+          }
         } catch (error) {
-          return `${basename(dirname(entrypoint))}: ${error}`
+          errors.push(`${name}: ${error}`)
         }
       }),
     )
-    for (const err of prodResults) {
-      if (err) console.error(`  ✗ ${err}`)
+
+    // Phase 3: Build debug scripts only if hash changed
+    const changedNames: string[] = []
+    await Promise.all(
+      entries.map(async (entrypoint) => {
+        const name = basename(dirname(entrypoint))
+        const hash = hashes.get(name)
+        if (!hash) return
+        if (prevHashes.get(name) === hash) return // unchanged
+        changedNames.push(name)
+
+        try {
+          await buildUserScript(entrypoint, BUILD_MODES[0], hash)
+        } catch (error) {
+          errors.push(`${name}: ${error}`)
+        }
+      }),
+    )
+
+    // Re-read debug file sizes after building
+    for (const name of changedNames) {
+      const idx = built.findIndex((s) => s.startsWith(`${name} (`))
+      if (idx !== -1) {
+        const prodSize = (await stat(`dist/${name}.user.js`)).size
+        const debugSize = (await stat(`dist/${name}.debug.js`)).size
+        const hash = hashes.get(name)!
+        built[idx] =
+          `${name} (${(prodSize / 1024).toFixed(1)}/${(debugSize / 1024).toFixed(1)} KB, ${hash})`
+      }
     }
   } finally {
-    console.log('\nRestoring source files...')
     await restoreSourceFiles(originals)
   }
 
-  console.log(`\nBuild hash: ${buildHash}`)
+  if (built.length > 0) {
+    console.log(`✓ [built] ${built.join(', ')}`)
+  } else {
+    console.log('All scripts unchanged, nothing to build.')
+  }
+  for (const err of errors) {
+    console.error(`✗ ${err}`)
+  }
 }
 
 main().catch(console.error)
