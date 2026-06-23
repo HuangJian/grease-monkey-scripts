@@ -1,5 +1,6 @@
 export type HupuApp = {
   start(): void
+  stop(): void
   tagAuthor(id: string, commentNumber: number | string, tag: string, delta: number): void
   setTag(id: string, tag: string, score: number, commentNumber: number | string): void
   unsetTag(id: string, tag: string): void

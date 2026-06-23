@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
+import { beforeEach, describe, expect, test, afterAll } from 'bun:test'
+import { Window } from 'happy-dom'
 import {
   embedDiscussions,
   getCommentAuthorName,
@@ -9,7 +9,7 @@ import {
   getTextUntilNextMemberMention,
 } from '../../src/v2ex-time-saver/app/discussion-embedder'
 import type { Runtime } from '../../src/runtime'
-import { createDom, createRuntime } from '../runtime'
+import { createDom, createRuntime, closeAllWindows } from '../runtime'
 
 function multiMentionThreadHtml() {
   return `
@@ -315,7 +315,7 @@ function heartsPriorityThreadHtml() {
 }
 
 describe('discussion embedder', () => {
-  let dom: JSDOM
+  let dom: Window
   let runtime: Runtime
 
   beforeEach(() => {
@@ -326,25 +326,27 @@ describe('discussion embedder', () => {
   test('uses one primary embedded comment and modal references for extra mentions', async () => {
     embedDiscussions(runtime)
 
-    expect(dom.window.document.querySelectorAll('#r_3')).toHaveLength(1)
-    expect(dom.window.document.querySelector('#r_1 > #r_3')).not.toBeNull()
-    expect(dom.window.document.querySelector('#r_2 > #r_3')).toBeNull()
+    expect(dom.document.querySelectorAll('#r_3')).toHaveLength(1)
+    expect(dom.document.querySelector('#r_1 > #r_3')).not.toBeNull()
+    expect(dom.document.querySelector('#r_2 > #r_3')).toBeNull()
 
-    const referenceButton =
-      dom.window.document.querySelector<HTMLButtonElement>('#r_2 .gm-reference-hint')
-    expect(referenceButton?.textContent).toContain('#3')
+    const referenceButton = dom.document.querySelector(
+      '#r_2 .gm-reference-hint',
+    )! as unknown as HTMLElement
+    const rbText = referenceButton.textContent
+    expect(rbText).toContain('#3')
 
-    referenceButton!.click()
+    ;(referenceButton as HTMLElement).click()
 
-    const dialog = dom.window.document.querySelector('.gm-reference-dialog')
+    const dialog = dom.document.querySelector('.gm-reference-dialog')
     expect(dialog?.textContent).toContain('引用回复 #3')
     expect(dialog?.textContent).toContain('this is the same reply')
     expect(dialog?.querySelectorAll('#r_3')).toHaveLength(0)
 
-    dom.window.document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' }))
+    dom.document.dispatchEvent(new dom.KeyboardEvent('keydown', { key: 'Escape' }))
 
-    expect(dom.window.document.querySelector('.gm-reference-dialog')).toBeNull()
-    expect(dom.window.document.querySelectorAll('#r_3')).toHaveLength(1)
+    expect(dom.document.querySelector('.gm-reference-dialog')).toBeNull()
+    expect(dom.document.querySelectorAll('#r_3')).toHaveLength(1)
   })
 
   test('displays both replying and referenced floors in the modal dialog', async () => {
@@ -353,13 +355,14 @@ describe('discussion embedder', () => {
 
     embedDiscussions(runtime)
 
-    const referenceButton =
-      dom.window.document.querySelector<HTMLButtonElement>('#r_2 .gm-reference-hint')
-    expect(referenceButton).not.toBeNull()
+    const referenceButton = dom.document.querySelector(
+      '#r_2 .gm-reference-hint',
+    )! as unknown as HTMLElement
+    expect(referenceButton as HTMLElement).not.toBeNull()
 
-    referenceButton!.click()
+    ;(referenceButton as HTMLElement).click()
 
-    const dialog = dom.window.document.querySelector('.gm-reference-dialog')
+    const dialog = dom.document.querySelector('.gm-reference-dialog')
     expect(dialog).not.toBeNull()
 
     expect(dialog?.querySelector('.gm-reference-dialog-header')?.textContent).toContain(
@@ -380,8 +383,8 @@ describe('discussion embedder', () => {
     const connector = dialog?.querySelector('.gm-dialog-connector')
     expect(connector).not.toBeNull()
 
-    dom.window.document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' }))
-    expect(dom.window.document.querySelector('.gm-reference-dialog')).toBeNull()
+    dom.document.dispatchEvent(new dom.KeyboardEvent('keydown', { key: 'Escape' }))
+    expect(dom.document.querySelector('.gm-reference-dialog')).toBeNull()
   })
 
   test('parses repeated real-world author mentions with distinct explicit floors', async () => {
@@ -390,12 +393,10 @@ describe('discussion embedder', () => {
 
     embedDiscussions(runtime)
 
-    expect(dom.window.document.querySelectorAll('#r_37')).toHaveLength(1)
-    expect(dom.window.document.querySelector('#r_9 > #r_37')).not.toBeNull()
-    expect(dom.window.document.querySelector('#r_10 > #r_37')).toBeNull()
-    expect(dom.window.document.querySelector('#r_10 .gm-reference-hint')?.textContent).toContain(
-      '#37',
-    )
+    expect(dom.document.querySelectorAll('#r_37')).toHaveLength(1)
+    expect(dom.document.querySelector('#r_9 > #r_37')).not.toBeNull()
+    expect(dom.document.querySelector('#r_10 > #r_37')).toBeNull()
+    expect(dom.document.querySelector('#r_10 .gm-reference-hint')?.textContent).toContain('#37')
   })
 
   test('places reference hints on the referenced comment before its children', async () => {
@@ -404,14 +405,12 @@ describe('discussion embedder', () => {
 
     embedDiscussions(runtime)
 
-    const hint = dom.window.document.querySelector<HTMLButtonElement>(
+    const hint = dom.document.querySelector(
       '#r_2 > .gm-reference-hints .gm-reference-hint',
-    )
-    expect(dom.window.document.querySelector('#r_1 > #r_2')).not.toBeNull()
-    expect(dom.window.document.querySelector('#r_1 > #r_3')).not.toBeNull()
-    expect(
-      dom.window.document.querySelector('#r_1 > .gm-reference-hints .gm-reference-hint'),
-    ).toBeNull()
+    )! as unknown as Element
+    expect(dom.document.querySelector('#r_1 > #r_2')).not.toBeNull()
+    expect(dom.document.querySelector('#r_1 > #r_3')).not.toBeNull()
+    expect(dom.document.querySelector('#r_1 > .gm-reference-hints .gm-reference-hint')).toBeNull()
     expect(hint?.textContent).toContain('#3')
     expect(hint?.textContent).toContain('#2')
   })
@@ -422,14 +421,12 @@ describe('discussion embedder', () => {
 
     embedDiscussions(runtime)
 
-    expect(dom.window.document.querySelector('#r_2 > #r_19')).not.toBeNull()
-    expect(dom.window.document.querySelector('#r_18 > #r_37')).not.toBeNull()
-    expect(
-      dom.window.document.querySelector('#r_2 > .gm-reference-hints .gm-reference-hint'),
-    ).toBeNull()
-    const hint = dom.window.document.querySelector<HTMLButtonElement>(
+    expect(dom.document.querySelector('#r_2 > #r_19')).not.toBeNull()
+    expect(dom.document.querySelector('#r_18 > #r_37')).not.toBeNull()
+    expect(dom.document.querySelector('#r_2 > .gm-reference-hints .gm-reference-hint')).toBeNull()
+    const hint = dom.document.querySelector(
       '#r_19 > .gm-reference-hints .gm-reference-hint',
-    )
+    )! as unknown as Element
     expect(hint?.textContent).toContain('#37')
     expect(hint?.textContent).toContain('#19')
   })
@@ -440,16 +437,16 @@ describe('discussion embedder', () => {
 
     embedDiscussions(runtime)
 
-    expect(dom.window.document.querySelectorAll('#r_4')).toHaveLength(1)
-    expect(dom.window.document.querySelector('#r_2 > #r_4')).not.toBeNull()
-    expect(dom.window.document.querySelector('#r_1 > #r_4')).toBeNull()
-    expect(dom.window.document.querySelector('#r_3 > #r_4')).toBeNull()
+    expect(dom.document.querySelectorAll('#r_4')).toHaveLength(1)
+    expect(dom.document.querySelector('#r_2 > #r_4')).not.toBeNull()
+    expect(dom.document.querySelector('#r_1 > #r_4')).toBeNull()
+    expect(dom.document.querySelector('#r_3 > #r_4')).toBeNull()
 
-    const hintOnAlice = dom.window.document.querySelector('#r_1 .gm-reference-hint')
+    const hintOnAlice = dom.document.querySelector('#r_1 .gm-reference-hint')
     expect(hintOnAlice?.textContent).toContain('#4')
     expect(hintOnAlice?.textContent).toContain('#1')
 
-    const hintOnCarol = dom.window.document.querySelector('#r_3 .gm-reference-hint')
+    const hintOnCarol = dom.document.querySelector('#r_3 .gm-reference-hint')
     expect(hintOnCarol?.textContent).toContain('#4')
     expect(hintOnCarol?.textContent).toContain('#3')
   })
@@ -458,18 +455,18 @@ describe('discussion embedder', () => {
 describe('discussion embedder helpers', () => {
   test('getCommentNumber extracts number from comment', () => {
     const dom = createDom(`<div class="cell" id="r_1"><span class="no">42</span></div>`)
-    const comment = dom.window.document.querySelector('.cell')!
+    const comment = dom.document.querySelector('.cell')! as unknown as Element
 
-    expect(getCommentNumber(comment)).toBe('42')
+    expect(getCommentNumber(comment as unknown as Element)).toBe('42')
   })
 
   test('getCommentAuthorName extracts author from comment', () => {
     const dom = createDom(
       `<div class="cell" id="r_1"><table><tbody><tr><td><strong><a class="dark" href="/member/testuser">testuser</a></strong></td></tr></tbody></table></div>`,
     )
-    const comment = dom.window.document.querySelector('.cell')!
+    const comment = dom.document.querySelector('.cell')! as unknown as Element
 
-    expect(getCommentAuthorName(comment)).toBe('testuser')
+    expect(getCommentAuthorName(comment as unknown as Element)).toBe('testuser')
   })
 
   test('getLastCommentByAuthorBeforeNumber returns last comment before number', () => {
@@ -478,9 +475,11 @@ describe('discussion embedder helpers', () => {
       <div id="r_2"><span class="no">2</span></div>
       <div id="r_3"><span class="no">3</span></div>
     `)
-    const comments = Array.from(dom.window.document.querySelectorAll('#r_1, #r_2, #r_3'))
+    const comments = Array.from(
+      dom.document.querySelectorAll('#r_1, #r_2, #r_3'),
+    ) as unknown as Element[]
 
-    const result = getLastCommentByAuthorBeforeNumber(comments, 3)
+    const result = getLastCommentByAuthorBeforeNumber(comments as unknown as Element[], 3)
     expect(result?.id).toBe('r_2')
   })
 
@@ -488,9 +487,9 @@ describe('discussion embedder helpers', () => {
     const dom = createDom(`
       <a class="mention" href="/member/alice">@alice</a>some text<a class="mention" href="/member/bob">@bob</a>
     `)
-    const mention = dom.window.document.querySelector('.mention')!
+    const mention = dom.document.querySelector('.mention')! as unknown as Element
 
-    expect(getTextUntilNextMemberMention(mention)).toBe('some text')
+    expect(getTextUntilNextMemberMention(mention as unknown as Element)).toBe('some text')
   })
 
   test('getCommentHearts sums heart counts from emoji spans', () => {
@@ -500,13 +499,15 @@ describe('discussion embedder helpers', () => {
         <img alt="❤️"><span>7</span>
       </div>
     `)
-    const comment = dom.window.document.querySelector('.cell')!
-    expect(getCommentHearts(comment)).toBe(10)
+    const comment = dom.document.querySelector('.cell')! as unknown as Element
+    expect(getCommentHearts(comment as unknown as Element)).toBe(10)
   })
 
   test('getCommentHearts returns 0 when no hearts present', () => {
     const dom = createDom(`<div class="cell" id="r_1">no hearts</div>`)
-    const comment = dom.window.document.querySelector('.cell')!
-    expect(getCommentHearts(comment)).toBe(0)
+    const comment = dom.document.querySelector('.cell')! as unknown as Element
+    expect(getCommentHearts(comment as unknown as Element)).toBe(0)
   })
 })
+
+afterAll(() => closeAllWindows())

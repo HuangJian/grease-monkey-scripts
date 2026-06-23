@@ -1,5 +1,6 @@
-import { describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
+import { describe, expect, test, afterAll } from 'bun:test'
+
+import { createHappyDom, closeAllWindows } from '../runtime'
 import {
   buildPageUrl,
   extractEuid,
@@ -140,40 +141,40 @@ describe('extractEuid', () => {
 
 describe('isAuthorNameLink', () => {
   test('对 reply-list-user-info-top-name 返回 true', () => {
-    const dom = new JSDOM('<a class="post-reply-list-user-info-top-name">昵称</a>')
-    const el = dom.window.document.querySelector('a')!
+    const dom = createHappyDom('<a class="post-reply-list-user-info-top-name">昵称</a>')
+    const el = dom.document.querySelector('a')! as unknown as Element
     expect(isAuthorNameLink(el)).toBe(true)
   })
 
   test('对 avatar 链接返回 false', () => {
-    const dom = new JSDOM('<a class="reply-list-avatar-wrapper"><img></a>')
-    const el = dom.window.document.querySelector('a')!
+    const dom = createHappyDom('<a class="reply-list-avatar-wrapper"><img></a>')
+    const el = dom.document.querySelector('a')! as unknown as Element
     expect(isAuthorNameLink(el)).toBe(false)
   })
 
   test('对 OP 链接返回 true', () => {
-    const dom = new JSDOM('<a class="post-user_post-user-comp-info-top-name__N3D4w">楼主</a>')
-    const el = dom.window.document.querySelector('a')!
+    const dom = createHappyDom('<a class="post-user_post-user-comp-info-top-name__N3D4w">楼主</a>')
+    const el = dom.document.querySelector('a')! as unknown as Element
     expect(isAuthorNameLink(el)).toBe(true)
   })
 
   test('对无关链接返回 false', () => {
-    const dom = new JSDOM('<a class="some-other-link">其他</a>')
-    const el = dom.window.document.querySelector('a')!
+    const dom = createHappyDom('<a class="some-other-link">其他</a>')
+    const el = dom.document.querySelector('a')! as unknown as Element
     expect(isAuthorNameLink(el)).toBe(false)
   })
 })
 
 describe('findAllAuthorLinks', () => {
   test('找到所有 my.hupu.com 链接', () => {
-    const dom = new JSDOM(`
+    const dom = createHappyDom(`
       <div>
         <a href="https://my.hupu.com/111">用户A</a>
         <a href="https://my.hupu.com/222">用户B</a>
         <a href="https://other.com/user">其他</a>
       </div>
     `)
-    const links = findAllAuthorLinks(dom.window.document.body)
+    const links = findAllAuthorLinks(dom.document.body as unknown as Element)
     expect(links).toHaveLength(2)
   })
 })
@@ -181,27 +182,27 @@ describe('findAllAuthorLinks', () => {
 describe('extractNextData', () => {
   test('从文档中提取 __NEXT_DATA__ JSON', () => {
     const data = { key: 'value' }
-    const dom = new JSDOM(`
+    const dom = createHappyDom(`
       <html><body>
         <script id="__NEXT_DATA__" type="application/json">${JSON.stringify(data)}</script>
       </body></html>
     `)
-    const result = extractNextData(dom.window.document)
+    const result = extractNextData(dom.document as unknown as Document)
     expect(result).toEqual(data)
   })
 
   test('没有 __NEXT_DATA__ 时返回 null', () => {
-    const dom = new JSDOM('<html><body></body></html>')
-    expect(extractNextData(dom.window.document)).toBeNull()
+    const dom = createHappyDom('<html><body></body></html>')
+    expect(extractNextData(dom.document as unknown as Document)).toBeNull()
   })
 
   test('JSON 格式错误时返回 null', () => {
-    const dom = new JSDOM(`
+    const dom = createHappyDom(`
       <html><body>
         <script id="__NEXT_DATA__" type="application/json">{invalid}</script>
       </body></html>
     `)
-    expect(extractNextData(dom.window.document)).toBeNull()
+    expect(extractNextData(dom.document as unknown as Document)).toBeNull()
   })
 })
 
@@ -211,3 +212,5 @@ describe('buildPageUrl', () => {
     expect(url).toBe('https://bbs.hupu.com/639668673-2.html')
   })
 })
+
+afterAll(() => closeAllWindows())

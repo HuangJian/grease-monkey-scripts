@@ -1,17 +1,17 @@
-import { describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
+import { describe, expect, test, afterAll } from 'bun:test'
+
 import { getLinkText, isAbsoluteUrl, toAbsoluteUrl, matchesText } from '../../src/utils'
 import {
   findChapterLink,
   selectorsFactory,
   startArticlePreloader,
 } from '../../src/article-preloader/app'
-import { createRuntime } from '../runtime'
+import { createHappyDom, createRuntime, closeAllWindows } from '../runtime'
 
 describe('pure helpers', () => {
   test('getLinkText strips all whitespace', () => {
-    const dom = new JSDOM('<html><body><a href="#">  hello  world  </a></body></html>')
-    const link = dom.window.document.querySelector('a')!
+    const dom = createHappyDom('<html><body><a href="#">  hello  world  </a></body></html>')
+    const link = dom.document.querySelector('a')! as unknown as Element
     expect(getLinkText(link)).toBe('helloworld')
   })
 
@@ -43,7 +43,7 @@ describe('pure helpers', () => {
   })
 
   test('findChapterLink finds link by text pattern', () => {
-    const dom = new JSDOM(`
+    const dom = createHappyDom(`
       <html><body>
         <div class="nav">
           <a href="/prev">上一章</a>
@@ -52,23 +52,23 @@ describe('pure helpers', () => {
         </div>
       </body></html>
     `)
-    const doc = dom.window.document
+    const doc = dom.document as unknown as Document
     const link = findChapterLink('.nav a', [/下一章/], doc)
     expect(link?.getAttribute('href')).toBe('/next')
   })
 
   test('findChapterLink returns null when no match', () => {
-    const dom = new JSDOM(`
+    const dom = createHappyDom(`
       <html><body><div class="nav"><a href="/prev">上一章</a></div></body></html>
     `)
-    const doc = dom.window.document
+    const doc = dom.document as unknown as Document
     expect(findChapterLink('.nav a', [/下一章/], doc)).toBeNull()
   })
 })
 
 describe('selectorsFactory', () => {
   test('creates text-pattern selectors for sudugu.org', () => {
-    const dom = new JSDOM(
+    const dom = createHappyDom(
       `
       <html><body>
         <div class="prenext">
@@ -79,9 +79,9 @@ describe('selectorsFactory', () => {
         <div class="con">content</div>
       </body></html>
     `,
-      { url: 'https://www.sudugu.org/chapter/1' },
+      'https://www.sudugu.org/chapter/1',
     )
-    const factory = selectorsFactory('www.sudugu.org', dom.window.document)
+    const factory = selectorsFactory('www.sudugu.org', dom.document as unknown as Document)
 
     expect(factory.contentSelector).toBe('.con')
     expect(factory.previousChapterLinkSelector()?.getAttribute('href')).toBe('/prev')
@@ -93,7 +93,7 @@ describe('selectorsFactory', () => {
   })
 
   test('creates direct selectors for xbiquge.so', () => {
-    const dom = new JSDOM(
+    const dom = createHappyDom(
       `
       <html><body>
         <a id="link-preview" href="/prev">上一章</a>
@@ -102,9 +102,9 @@ describe('selectorsFactory', () => {
         <div id="content">content</div>
       </body></html>
     `,
-      { url: 'https://www.xbiquge.so/book/1/1.html' },
+      'https://www.xbiquge.so/book/1/1.html',
     )
-    const factory = selectorsFactory('www.xbiquge.so', dom.window.document)
+    const factory = selectorsFactory('www.xbiquge.so', dom.document as unknown as Document)
 
     expect(factory.contentSelector).toBe('#content')
     expect(factory.previousChapterLinkSelector()?.getAttribute('href')).toBe('/prev')
@@ -113,8 +113,8 @@ describe('selectorsFactory', () => {
   })
 
   test('throws for unsupported host', () => {
-    const dom = new JSDOM('<html><body></body></html>')
-    expect(() => selectorsFactory('example.com', dom.window.document)).toThrow(
+    const dom = createHappyDom('<html><body></body></html>')
+    expect(() => selectorsFactory('example.com', dom.document as unknown as Document)).toThrow(
       'Unsupported website',
     )
   })
@@ -132,7 +132,7 @@ describe('loadChapter', () => {
         </div>
       </body></html>
     `
-    const dom = new JSDOM('<html><body></body></html>', { url: 'https://www.sudugu.org/chapter/1' })
+    const dom = createHappyDom('<html><body></body></html>', 'https://www.sudugu.org/chapter/1')
     const requests: string[] = []
     const runtime = {
       ...createRuntime(dom),
@@ -184,7 +184,7 @@ describe('loadChapter', () => {
         </div>
       </body></html>
     `
-    const dom = new JSDOM('<html><body></body></html>', { url: 'https://www.sudugu.org/chapter/1' })
+    const dom = createHappyDom('<html><body></body></html>', 'https://www.sudugu.org/chapter/1')
     const runtime = {
       ...createRuntime(dom),
       request: ({
@@ -220,7 +220,7 @@ describe('loadChapter', () => {
   })
 
   test('calls onFailure on request error', () => {
-    const dom = new JSDOM('<html><body></body></html>', { url: 'https://www.sudugu.org/chapter/1' })
+    const dom = createHappyDom('<html><body></body></html>', 'https://www.sudugu.org/chapter/1')
     const runtime = {
       ...createRuntime(dom),
       request: ({ onerror }: { onerror?: () => void }) => {
@@ -244,7 +244,7 @@ describe('loadChapter', () => {
 
   test('skips preload silently when content element is missing on 200', () => {
     const badHtml = `<html><head></head><body><div class="nav"><a href="/next">下一章</a></div></body></html>`
-    const dom = new JSDOM('<html><body></body></html>', { url: 'https://www.sudugu.org/chapter/1' })
+    const dom = createHappyDom('<html><body></body></html>', 'https://www.sudugu.org/chapter/1')
     let succeeded = false
     let failed = false
     const runtime = {
@@ -272,7 +272,7 @@ describe('loadChapter', () => {
 
   test('calls onFailure when content element is missing on non-200', () => {
     const badHtml = `<html><head></head><body><div class="nav"><a href="/next">下一章</a></div></body></html>`
-    const dom = new JSDOM('<html><body></body></html>', { url: 'https://www.sudugu.org/chapter/1' })
+    const dom = createHappyDom('<html><body></body></html>', 'https://www.sudugu.org/chapter/1')
     let failed = false
     const runtime = {
       ...createRuntime(dom),
@@ -319,7 +319,7 @@ describe('loadChapter', () => {
         </div>
       </body></html>
     `
-    const dom = new JSDOM('<html><body></body></html>', { url: 'https://www.sudugu.org/chapter/1' })
+    const dom = createHappyDom('<html><body></body></html>', 'https://www.sudugu.org/chapter/1')
     const requests: Array<{ url: string; onload: (r: { responseText: string }) => void }> = []
     const runtime = {
       ...createRuntime(dom),
@@ -363,7 +363,7 @@ describe('loadChapter', () => {
     expect(result!.nextChapterUrl).toBe('https://www.sudugu.org/chapter/4')
 
     // The output HTML should have a "下一章" link (replacing the original "下一页")
-    const resultDom = new JSDOM(result!.html, { url: 'https://www.sudugu.org/chapter/1' })
+    const resultDom = createHappyDom(result!.html, 'https://www.sudugu.org/chapter/1')
     const navLinks = Array.from(resultDom.window.document.querySelectorAll('.prenext a'))
     const nextLinks = navLinks.filter((a) => a.textContent?.trim() === '下一章')
     expect(nextLinks).toHaveLength(1)
@@ -382,7 +382,7 @@ describe('loadChapter', () => {
         </div>
       </body></html>
     `
-    const dom = new JSDOM('<html><body></body></html>', { url: 'https://www.sudugu.org/chapter/1' })
+    const dom = createHappyDom('<html><body></body></html>', 'https://www.sudugu.org/chapter/1')
     const runtime = {
       ...createRuntime(dom),
       request: ({ onload }: { onload: (r: { responseText: string }) => void }) => {
@@ -416,7 +416,7 @@ describe('mergeCurrentChapterIfNeeded', () => {
         </div>
       </body></html>
     `
-    const dom = new JSDOM(html, { url: 'https://www.sudugu.org/chapter/1' })
+    const dom = createHappyDom(html, 'https://www.sudugu.org/chapter/1')
     let doneCalled = false
     const app = startArticlePreloader(createRuntime(dom))
 
@@ -445,7 +445,7 @@ describe('mergeCurrentChapterIfNeeded', () => {
         </div>
       </body></html>
     `
-    const dom = new JSDOM(currentHtml, { url: 'https://www.sudugu.org/chapter/1' })
+    const dom = createHappyDom(currentHtml, 'https://www.sudugu.org/chapter/1')
     const runtime = {
       ...createRuntime(dom),
       request: ({
@@ -471,7 +471,7 @@ describe('mergeCurrentChapterIfNeeded', () => {
     })
 
     expect(doneCalled).toBe(true)
-    const content = dom.window.document.querySelector('.con')?.textContent
+    const content = dom.document.querySelector('.con')?.textContent
     expect(content).toContain('Page 1')
     expect(content).toContain('Page 2')
   })
@@ -495,7 +495,7 @@ describe('integration: startArticlePreloader', () => {
         </div>
       </body></html>
     `
-    const dom = new JSDOM(currentHtml, { url: 'https://www.sudugu.org/chapter/1' })
+    const dom = createHappyDom(currentHtml, 'https://www.sudugu.org/chapter/1')
     const requestUrls: string[] = []
     const runtime = {
       ...createRuntime(dom),
@@ -516,7 +516,7 @@ describe('integration: startArticlePreloader', () => {
     startArticlePreloader(runtime)
 
     expect(requestUrls.some((u) => u.includes('chapter/2'))).toBe(true)
-    const nextLink = dom.window.document.querySelector('.prenext a')!
+    const nextLink = dom.document.querySelector('.prenext a')!
     expect(nextLink.textContent).toBe('下一章')
   })
 
@@ -530,7 +530,7 @@ describe('integration: startArticlePreloader', () => {
         </div>
       </body></html>
     `
-    const dom = new JSDOM(html, { url: 'https://www.sudugu.org/chapter/5' })
+    const dom = createHappyDom(html, 'https://www.sudugu.org/chapter/5')
     const requestUrls: string[] = []
     const runtime = {
       ...createRuntime(dom),
@@ -544,3 +544,5 @@ describe('integration: startArticlePreloader', () => {
     expect(requestUrls).toHaveLength(0)
   })
 })
+
+afterAll(() => closeAllWindows())

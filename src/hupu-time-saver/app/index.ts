@@ -35,6 +35,7 @@ async function loadAuthorTagMap(runtime: Runtime): Promise<AuthorTagMap> {
 export async function createHupuApp(runtime: Runtime): Promise<HupuApp> {
   const authorTagMap = await loadAuthorTagMap(runtime)
   const euidToPuidMap = new Map<string, string>()
+  let _disconnectObserver: (() => void) | null = null
 
   function persist(): void {
     void runtime.setValue(STORAGE_KEY, authorTagMap)
@@ -91,7 +92,15 @@ export async function createHupuApp(runtime: Runtime): Promise<HupuApp> {
       runtime.document.body,
     )
     applyHighlights(runtime, authorTagMap, euidToPuidMap)
-    setupObserver(runtime, authorTagMap, euidToPuidMap, tagAuthor, setTag, unsetTag, QUICK_LABELS)
+    _disconnectObserver = setupObserver(
+      runtime,
+      authorTagMap,
+      euidToPuidMap,
+      tagAuthor,
+      setTag,
+      unsetTag,
+      QUICK_LABELS,
+    )
 
     loadAuthorMapFromOtherPages(threadData.tid, threadData.currentPage, threadData.pageCount)
   }
@@ -123,6 +132,7 @@ export async function createHupuApp(runtime: Runtime): Promise<HupuApp> {
 
   return {
     start,
+    stop: () => _disconnectObserver?.(),
     tagAuthor,
     setTag,
     unsetTag,

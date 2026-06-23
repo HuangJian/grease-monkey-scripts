@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
+import { beforeEach, describe, expect, test, afterAll } from 'bun:test'
+import { Window } from 'happy-dom'
 import { authorTagsKeyword, createV2exApp, defaultLabels } from '../../src/v2ex-time-saver/app'
 import { extractRedeemUrl } from '../../src/v2ex-time-saver/app/sign-in'
-import { createDom, createRuntime } from '../runtime'
+import { createDom, createRuntime, closeAllWindows } from '../runtime'
 
 function threadHtml() {
   return `
@@ -59,7 +59,7 @@ function threadHtml() {
 }
 
 describe('v2ex app unit flows', () => {
-  let dom: JSDOM
+  let dom: Window
 
   beforeEach(() => {
     dom = createDom(threadHtml())
@@ -80,8 +80,10 @@ describe('v2ex app unit flows', () => {
 
     app.highlightCommentsAndTopics()
 
-    const aliceLink = dom.window.document.querySelector('a[href="/member/alice"]') as HTMLElement
-    const bobLink = dom.window.document.querySelector('a[href="/member/bob"]') as HTMLElement
+    const aliceLink = dom.document.querySelector(
+      'a[href="/member/alice"]',
+    ) as unknown as HTMLElement
+    const bobLink = dom.document.querySelector('a[href="/member/bob"]') as unknown as HTMLElement
 
     const aliceTag = aliceLink.querySelector('a.gm-author-tag')
     expect(aliceTag?.getAttribute('href')).toBe('https://www.v2ex.com/t/123#1')
@@ -191,14 +193,16 @@ describe('v2ex app unit flows', () => {
 
     app.start()
 
-    const topicTagBtn = dom.window.document.querySelector(
+    const topicTagBtn = dom.document.querySelector(
       '.topic_buttons .gm-tag-btn',
-    ) as HTMLElement | null
+    ) as unknown as HTMLElement | null
     expect(topicTagBtn).not.toBeNull()
 
     topicTagBtn!.click()
 
-    const thankBtn = dom.window.document.querySelector('.gm-tag-quick-thank') as HTMLElement | null
+    const thankBtn = dom.document.querySelector(
+      '.gm-tag-quick-thank',
+    ) as unknown as HTMLElement | null
     expect(thankBtn).not.toBeNull()
     thankBtn!.click()
 
@@ -219,17 +223,13 @@ describe('v2ex app unit flows', () => {
 
     app.start()
 
-    const tagBtn = dom.window.document.querySelector('#r_1 .gm-tag-btn') as HTMLElement | null
+    const tagBtn = dom.document.querySelector('#r_1 .gm-tag-btn') as unknown as HTMLElement | null
     expect(tagBtn).not.toBeNull()
     tagBtn!.click()
 
-    const nameInput = dom.window.document.querySelector(
-      '.gm-tag-input-name',
-    ) as HTMLInputElement | null
-    const scoreInput = dom.window.document.querySelector(
-      '.gm-tag-input-score',
-    ) as HTMLInputElement | null
-    const addBtn = dom.window.document.querySelector('.gm-tag-add-btn') as HTMLElement | null
+    const nameInput = dom.document.querySelector('.gm-tag-input-name') as HTMLInputElement | null
+    const scoreInput = dom.document.querySelector('.gm-tag-input-score') as HTMLInputElement | null
+    const addBtn = dom.document.querySelector('.gm-tag-add-btn') as unknown as HTMLElement | null
     expect(nameInput).not.toBeNull()
     expect(scoreInput).not.toBeNull()
     expect(addBtn).not.toBeNull()
@@ -303,9 +303,9 @@ describe('v2ex app unit flows', () => {
 
     app.start()
 
-    const r1 = dom.window.document.getElementById('r_1')!
-    const r2 = dom.window.document.getElementById('r_2')!
-    const r3 = dom.window.document.getElementById('r_3')!
+    const r1 = dom.document.getElementById('r_1')!
+    const r2 = dom.document.getElementById('r_2')!
+    const r3 = dom.document.getElementById('r_3')!
 
     expect(r1.contains(r2)).toBe(true)
     expect(r1.contains(r3)).toBe(true)
@@ -351,16 +351,16 @@ describe('v2ex app integration', () => {
 
     app.start()
 
-    const commentBoxIds = Array.from(
-      dom.window.document.querySelectorAll('#Main > .box > .cell[id]'),
-    ).map((it) => it.id)
+    const commentBoxIds = Array.from(dom.document.querySelectorAll('#Main > .box > .cell[id]')).map(
+      (it) => it.id,
+    )
     expect(commentBoxIds).toEqual(['r_1', 'r_3'])
-    expect(dom.window.document.querySelector('#r_1 > #r_2')).not.toBeNull()
-    const aliceTag = dom.window.document
+    expect(dom.document.querySelector('#r_1 > #r_2')).not.toBeNull()
+    const aliceTag = dom.document
       .querySelector('a[href="/member/alice"]')
       ?.querySelector('a.gm-author-tag')
     expect(aliceTag?.textContent).toBe('低质')
-    expect(dom.window.document.querySelector('.topic-link')?.getAttribute('target')).toBe('_blank')
+    expect(dom.document.querySelector('.topic-link')?.getAttribute('target')).toBe('_blank')
   })
   test('loads page 1 comments from DOM and fetches subsequent pages when on page 1', async () => {
     const page1Html = `
@@ -431,7 +431,7 @@ describe('v2ex app integration', () => {
 
     page2Callback!({ responseText: page2Html })
 
-    const ids = Array.from(dom.window.document.querySelectorAll('#Main > .box > .cell[id]')).map(
+    const ids = Array.from(dom.document.querySelectorAll('#Main > .box > .cell[id]')).map(
       (el) => el.id,
     )
     expect(ids).toContain('r_1')
@@ -529,3 +529,5 @@ describe('auto sign-in', () => {
     expect(requests.some((u) => u.includes('mission'))).toBe(false)
   })
 })
+
+afterAll(() => closeAllWindows())

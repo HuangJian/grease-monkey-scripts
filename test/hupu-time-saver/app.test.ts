@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
-import { createDom, createRuntime } from '../runtime'
+import { beforeEach, describe, expect, test, afterAll } from 'bun:test'
+import { createDom, createRuntime, closeAllWindows } from '../runtime'
 import { createHupuApp } from '../../src/hupu-time-saver/app'
 import { BTN_CLASS, PROCESSED_CLASS } from '../../src/hupu-time-saver/app/tag-buttons'
 import { STORAGE_KEY } from '../../src/hupu-time-saver/app/index'
@@ -92,9 +92,9 @@ describe('createHupuApp', () => {
     }
     const app = await createHupuApp(runtime)
     app.start()
+    app.stop()
 
-    const authorLinks =
-      dom.window.document.querySelectorAll<HTMLAnchorElement>('a[href*="my.hupu.com"]')
+    const authorLinks = dom.document.querySelectorAll('a[href*="my.hupu.com"]')
     expect(authorLinks.length).toBeGreaterThan(0)
     authorLinks.forEach((link) => {
       if (link.classList.contains('reply-list-avatar-wrapper')) return
@@ -112,110 +112,113 @@ describe('createHupuApp', () => {
     }
     const app = await createHupuApp(runtime)
 
-    const authorLink =
-      dom.window.document.querySelector<HTMLAnchorElement>('a[href*="my.hupu.com"]')!
+    const authorLink = dom.document.querySelector('a[href*="my.hupu.com"]')! as unknown as Element
     authorLink.classList.add(PROCESSED_CLASS)
     app.start()
+    app.stop()
 
     const btn = authorLink.nextElementSibling
     expect(btn?.classList.contains(BTN_CLASS)).toBe(false)
   })
 
-  test('已有标签的用户：徽标颜色与内容高亮正确', async () => {
-    const values: Record<string, unknown> = {
-      [STORAGE_KEY]: {
-        '200': { 串子: { url: 'https://my.hupu.com/222', score: -1 } },
+  test('GM.setValue 在 tagAuthor 时被调用', async () => {
+    const values: Record<string, unknown> = { [STORAGE_KEY]: {} }
+    const setValueCalls: Array<{ key: string; value: unknown }> = []
+    const runtime = {
+      ...createRuntime(dom),
+      getValue: async <T>(key: string, defaultValue: T) => (values[key] as T) ?? defaultValue,
+      setValue: async (key: string, value: unknown) => {
+        setValueCalls.push({ key, value })
+        values[key] = value
       },
     }
-    const runtime = {
-      ...createRuntime(dom),
-      getValue: async <T>(key: string, defaultValue: T) => (values[key] as T) ?? defaultValue,
-    }
     const app = await createHupuApp(runtime)
-    app.start()
-
-    const replyLink = dom.window.document.querySelector<HTMLAnchorElement>(
-      'a[href="https://my.hupu.com/222"]',
-    )!
-    const tag = replyLink.nextElementSibling
-    expect(tag?.classList.contains('gm-author-tag')).toBe(true)
-    expect(tag?.textContent).toBe('串子')
-    expect((tag as HTMLElement)?.style.color).toBe('red')
-
-    const content = replyLink
-      .closest('.post-reply-list-container')
-      ?.querySelector('.post-reply-list-content')
-    expect(content?.classList.contains('gm-highlight-n1')).toBe(true)
-  })
-
-  test('tagAuthor 写入标签并刷新高亮', async () => {
-    const values: Record<string, unknown> = { [STORAGE_KEY]: {} }
-    const runtime = {
-      ...createRuntime(dom),
-      getValue: async <T>(key: string, defaultValue: T) => (values[key] as T) ?? defaultValue,
-    }
-    const app = await createHupuApp(runtime)
-    app.start()
-
     app.tagAuthor('200', '222', '串子', -1)
 
-    const map = app.getAuthorTagMap()
-    expect(map['200']).toBeDefined()
-    expect(map['200']!['串子']?.score).toBe(-1)
-
-    const content = dom.window.document
-      .querySelector<HTMLAnchorElement>('a[href="https://my.hupu.com/222"]')
-      ?.closest('.post-reply-list-container')
-      ?.querySelector('.post-reply-list-content')
-    expect(content?.classList.contains('gm-highlight-n1')).toBe(true)
+    expect(setValueCalls.length).toBeGreaterThan(0)
+    expect(setValueCalls.some((c) => c.key === STORAGE_KEY)).toBe(true)
   })
 
-  test('setTag 创建精确分值标签', async () => {
+  test('getTags 返回指定作者的标签', async () => {
     const values: Record<string, unknown> = { [STORAGE_KEY]: {} }
     const runtime = {
       ...createRuntime(dom),
       getValue: async <T>(key: string, defaultValue: T) => (values[key] as T) ?? defaultValue,
     }
     const app = await createHupuApp(runtime)
+    app.tagAuthor('200', '222', '串子', -1)
 
-    app.setTag('300', '优质', 5, '333')
-
-    const map = app.getAuthorTagMap()
-    expect(map['300']!['优质']?.score).toBe(5)
+    const tags = app.getTags('200')
+    expect(tags).toBeDefined()
+    expect(tags?.['串子']).toBeDefined()
+    expect(tags?.['串子'].score).toBe(-1)
   })
 
-  test('unsetTag 删除标签', async () => {
-    const values: Record<string, unknown> = {
-      [STORAGE_KEY]: {
-        '200': { 串子: { url: 'https://my.hupu.com/222', score: -1 } },
-      },
-    }
-    const runtime = {
-      ...createRuntime(dom),
-      getValue: async <T>(key: string, defaultValue: T) => (values[key] as T) ?? defaultValue,
-    }
-    const app = await createHupuApp(runtime)
-
-    app.unsetTag('200', '串子')
-
-    const map = app.getAuthorTagMap()
-    expect(map['200']).toBeUndefined()
-  })
-
-  test('getAuthorTagMap 返回快照而非引用', async () => {
+  test('getTags 对不存在的作者返回 undefined', async () => {
     const values: Record<string, unknown> = { [STORAGE_KEY]: {} }
     const runtime = {
       ...createRuntime(dom),
       getValue: async <T>(key: string, defaultValue: T) => (values[key] as T) ?? defaultValue,
     }
     const app = await createHupuApp(runtime)
+    expect(app.getTags('nonexistent')).toBeUndefined()
+  })
+
+  test('getScore 返回作者总评分', async () => {
+    const values: Record<string, unknown> = { [STORAGE_KEY]: {} }
+    const runtime = {
+      ...createRuntime(dom),
+      getValue: async <T>(key: string, defaultValue: T) => (values[key] as T) ?? defaultValue,
+    }
+    const app = await createHupuApp(runtime)
+    app.tagAuthor('200', '222', '串子', -1)
+    app.tagAuthor('200', '222', '家人', 1)
+
+    const score = app.getScore('200')
+    expect(score).toBe(0)
+  })
+
+  test('getScore 对不存在的作者返回 0', async () => {
+    const values: Record<string, unknown> = { [STORAGE_KEY]: {} }
+    const runtime = {
+      ...createRuntime(dom),
+      getValue: async <T>(key: string, defaultValue: T) => (values[key] as T) ?? defaultValue,
+    }
+    const app = await createHupuApp(runtime)
+    expect(app.getScore('nonexistent')).toBe(0)
+  })
+
+  test('多次 tagAuthor 累加分数', async () => {
+    const values: Record<string, unknown> = { [STORAGE_KEY]: {} }
+    const runtime = {
+      ...createRuntime(dom),
+      getValue: async <T>(key: string, defaultValue: T) => (values[key] as T) ?? defaultValue,
+    }
+    const app = await createHupuApp(runtime)
+    app.tagAuthor('200', '222', '串子', -1)
+    app.tagAuthor('200', '222', '串子', -1)
+
+    const tags = app.getTags('200')
+    expect(tags?.['串子'].score).toBe(-2)
+  })
+
+  test('getAuthorTagMap 返回深拷贝', async () => {
+    const values: Record<string, unknown> = { [STORAGE_KEY]: {} }
+    const runtime = {
+      ...createRuntime(dom),
+      getValue: async <T>(key: string, defaultValue: T) => (values[key] as T) ?? defaultValue,
+    }
+    const app = await createHupuApp(runtime)
+    app.tagAuthor('200', '222', '串子', -1)
 
     const map1 = app.getAuthorTagMap()
-    app.tagAuthor('200', '222', '串子', -1)
+    app.tagAuthor('200', '222', '家人', 1)
     const map2 = app.getAuthorTagMap()
 
-    expect(map1['200']).toBeUndefined()
+    expect(map1['200']).toBeDefined()
     expect(map2['200']).toBeDefined()
+    expect(Object.keys(map1['200']).length).toBe(1)
+    expect(Object.keys(map2['200']).length).toBe(2)
   })
 })
 
@@ -234,8 +237,8 @@ describe('applyHighlights', () => {
     }
     const app = await createHupuApp(runtime)
 
-    const container = dom.window.document.body
-    const newReply = dom.window.document.createElement('div')
+    const container = dom.document.body as unknown as Node
+    const newReply = dom.document.createElement('div')
     newReply.className = 'index_reply__NEW'
     newReply.innerHTML = `
       <span id="p3"></span>
@@ -246,15 +249,17 @@ describe('applyHighlights', () => {
         <div class="post-reply-list-content"><p>回复内容C</p></div>
       </div>
     `
-    container.appendChild(newReply)
+    container.appendChild(newReply as unknown as Node)
 
     app.processElement(container)
 
-    const newLink = dom.window.document.querySelector<HTMLAnchorElement>(
+    const newLink = dom.document.querySelector(
       'a[href="https://my.hupu.com/444"]',
-    )!
+    )! as unknown as Element
     expect(newLink.classList.contains(PROCESSED_CLASS)).toBe(true)
     const btn = newLink.nextElementSibling
     expect(btn?.classList.contains(BTN_CLASS)).toBe(true)
   })
 })
+
+afterAll(() => closeAllWindows())

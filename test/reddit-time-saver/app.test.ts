@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
+import { afterAll, afterEach, beforeEach, describe, expect, test } from 'bun:test'
+
 import {
   BTN_CLASS,
   createRedditApp,
@@ -7,7 +7,7 @@ import {
   STORAGE_KEY,
 } from '../../src/reddit-time-saver/app'
 import { getAuthorName, getCommentId } from '../../src/reddit-time-saver/app/author-utils'
-import { createDom, createRuntime } from '../runtime'
+import { createDom, createHappyDom, createRuntime, closeAllWindows } from '../runtime'
 
 function oldRedditHtml() {
   return `<!doctype html>
@@ -37,62 +37,62 @@ function oldRedditHtml() {
 
 describe('getAuthorName', () => {
   test('extracts username from standard Reddit author link', () => {
-    const dom = new JSDOM('<a href="/user/testuser">testuser</a>')
-    const link = dom.window.document.querySelector('a')!
+    const dom = createHappyDom('<a href="/user/testuser">testuser</a>')
+    const link = dom.document.querySelector('a')! as unknown as Element
     expect(getAuthorName(link)).toBe('testuser')
   })
 
   test('extracts username with trailing slash', () => {
-    const dom = new JSDOM('<a href="/user/testuser/">testuser</a>')
-    const link = dom.window.document.querySelector('a')!
+    const dom = createHappyDom('<a href="/user/testuser/">testuser</a>')
+    const link = dom.document.querySelector('a')! as unknown as Element
     expect(getAuthorName(link)).toBe('testuser')
   })
 
   test('extracts username from full URL', () => {
-    const dom = new JSDOM('<a href="https://www.reddit.com/user/testuser/">testuser</a>')
-    const link = dom.window.document.querySelector('a')!
+    const dom = createHappyDom('<a href="https://www.reddit.com/user/testuser/">testuser</a>')
+    const link = dom.document.querySelector('a')! as unknown as Element
     expect(getAuthorName(link)).toBe('testuser')
   })
 
   test('returns empty string for non-user link', () => {
-    const dom = new JSDOM('<a href="/r/programming">programming</a>')
-    const link = dom.window.document.querySelector('a')!
+    const dom = createHappyDom('<a href="/r/programming">programming</a>')
+    const link = dom.document.querySelector('a')! as unknown as Element
     expect(getAuthorName(link)).toBe('')
   })
 
   test('handles username with special characters', () => {
-    const dom = new JSDOM('<a href="/user/user_name-123/">user_name-123</a>')
-    const link = dom.window.document.querySelector('a')!
+    const dom = createHappyDom('<a href="/user/user_name-123/">user_name-123</a>')
+    const link = dom.document.querySelector('a')! as unknown as Element
     expect(getAuthorName(link)).toBe('user_name-123')
   })
 })
 
 describe('getCommentId', () => {
   test('extracts ID from old Reddit thing element', () => {
-    const dom = new JSDOM(`
+    const dom = createHappyDom(`
       <div class="thing" id="thing_t1_abc123">
         <div class="entry">
           <p class="tagline"><a href="/user/alice">alice</a></p>
         </div>
       </div>
     `)
-    const link = dom.window.document.querySelector('a')!
+    const link = dom.document.querySelector('a')! as unknown as Element
     expect(getCommentId(link)).toBe('thing_t1_abc123')
   })
 
   test('extracts ID from new Reddit shreddit-comment', () => {
-    const dom = new JSDOM(`
+    const dom = createHappyDom(`
       <shreddit-comment id="t1_abc123">
         <a href="/user/alice">alice</a>
       </shreddit-comment>
     `)
-    const link = dom.window.document.querySelector('a')!
+    const link = dom.document.querySelector('a')! as unknown as Element
     expect(getCommentId(link)).toBe('t1_abc123')
   })
 
   test('returns empty when no comment container found', () => {
-    const dom = new JSDOM('<a href="/user/alice">alice</a>')
-    const link = dom.window.document.querySelector('a')!
+    const dom = createHappyDom('<a href="/user/alice">alice</a>')
+    const link = dom.document.querySelector('a')! as unknown as Element
     expect(getCommentId(link)).toBe('')
   })
 })
@@ -104,6 +104,10 @@ describe('createRedditApp', () => {
     dom = createDom(oldRedditHtml(), 'https://old.reddit.com/r/test/comments/xyz/')
   })
 
+  afterEach(() => {
+    dom.window.close()
+  })
+
   test('attaches tag buttons to author links', async () => {
     const values: Record<string, unknown> = { [STORAGE_KEY]: {} }
     const runtime = {
@@ -112,8 +116,9 @@ describe('createRedditApp', () => {
     }
     const app = await createRedditApp(runtime)
     app.start()
+    app.stop()
 
-    const authorLinks = dom.window.document.querySelectorAll('a.author')
+    const authorLinks = dom.document.querySelectorAll('a.author')
     authorLinks.forEach((link) => {
       const btn = link.nextElementSibling
       expect(btn?.classList.contains(BTN_CLASS)).toBe(true)
@@ -129,9 +134,10 @@ describe('createRedditApp', () => {
     }
     const app = await createRedditApp(runtime)
 
-    const authorLink = dom.window.document.querySelector('a.author')!
+    const authorLink = dom.document.querySelector('a.author')! as unknown as Element
     authorLink.classList.add(PROCESSED_CLASS)
     app.start()
+    app.stop()
 
     const btn = authorLink.nextElementSibling
     expect(btn?.classList.contains(BTN_CLASS)).toBe(false)
@@ -149,13 +155,14 @@ describe('createRedditApp', () => {
     }
     const app = await createRedditApp(runtime)
     app.start()
+    app.stop()
 
-    const md = dom.window.document.querySelector('.md')!
+    const md = dom.document.querySelector('.md')! as unknown as Element
     expect(md.classList.contains('gm-highlight-n1')).toBe(true)
-    const tag = dom.window.document.querySelector('.gm-author-tag')
+    const tag = dom.document.querySelector('.gm-author-tag')
     expect(tag?.textContent).toBe('低质')
-    expect((tag as HTMLElement)?.style.color).toBe('red')
-    const bobMd = dom.window.document.querySelectorAll('.md')[1]
+    expect((tag as unknown as unknown as HTMLElement)?.style.color).toBe('red')
+    const bobMd = dom.document.querySelectorAll('.md')[1]
     expect(bobMd.classList.contains('gm-highlight-n1')).toBe(false)
   })
 
@@ -174,8 +181,9 @@ describe('createRedditApp', () => {
     }
     const app = await createRedditApp(runtime)
     app.start()
+    app.stop()
 
-    const md = dom.window.document.querySelector('.md')!
+    const md = dom.document.querySelector('.md')! as unknown as Element
     expect(md.classList.contains('gm-highlight-3')).toBe(true)
   })
 
@@ -187,8 +195,8 @@ describe('createRedditApp', () => {
     }
     const app = await createRedditApp(runtime)
 
-    const container = dom.window.document.querySelector('.commentarea')!
-    const newThing = dom.window.document.createElement('div')
+    const container = dom.document.querySelector('.commentarea')! as unknown as Element
+    const newThing = dom.document.createElement('div')
     newThing.className = 'thing'
     newThing.id = 'thing_t1_abc3'
     newThing.innerHTML = `
@@ -198,11 +206,11 @@ describe('createRedditApp', () => {
         </p>
       </div>
     `
-    container.appendChild(newThing)
+    container.appendChild(newThing as unknown as Node)
 
-    app.processElement(container)
+    app.processElement(container as unknown as Node)
 
-    const carolLink = dom.window.document.querySelector('a[href="/user/carol"]')!
+    const carolLink = dom.document.querySelector('a[href="/user/carol"]')! as unknown as Element
     expect(carolLink.classList.contains(PROCESSED_CLASS)).toBe(true)
     const btn = carolLink.nextElementSibling
     expect(btn?.classList.contains(BTN_CLASS)).toBe(true)
@@ -216,6 +224,7 @@ describe('createRedditApp', () => {
     }
     const app = await createRedditApp(runtime)
     app.start()
+    app.stop()
 
     app.tagAuthor('alice', 'thing_t1_abc1', '低质', -1)
 
@@ -223,7 +232,7 @@ describe('createRedditApp', () => {
     expect(map.alice).toBeDefined()
     expect(map.alice!['低质']?.score).toBe(-1)
 
-    const md = dom.window.document.querySelector('.md')!
+    const md = dom.document.querySelector('.md')! as unknown as Element
     expect(md.classList.contains('gm-highlight-n1')).toBe(true)
   })
 
@@ -259,3 +268,5 @@ describe('createRedditApp', () => {
     expect(map.alice).toBeUndefined()
   })
 })
+
+afterAll(() => closeAllWindows())

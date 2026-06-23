@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
+import { beforeEach, describe, expect, test, afterAll } from 'bun:test'
+import { Window } from 'happy-dom'
 import {
   createCollapseExpandButtons,
   createReferenceDialog,
@@ -7,10 +7,10 @@ import {
   getOrCreateReferenceHintContainer,
 } from '../../src/v2ex-time-saver/app/ui'
 import type { Runtime } from '../../src/runtime'
-import { createDom, createRuntime } from '../runtime'
+import { createDom, createRuntime, closeAllWindows } from '../runtime'
 
 describe('ui components', () => {
-  let dom: JSDOM
+  let dom: Window
   let runtime: Runtime
 
   beforeEach(() => {
@@ -40,7 +40,7 @@ describe('ui components', () => {
   })
 
   test('getOrCreateReferenceHintContainer creates container after table', () => {
-    const cell = dom.window.document.querySelector('.cell')!
+    const cell = dom.document.querySelector('.cell')! as unknown as Element
     const container = getOrCreateReferenceHintContainer(runtime, cell)
 
     expect(container.className).toBe('gm-reference-hints')
@@ -48,7 +48,7 @@ describe('ui components', () => {
   })
 
   test('getOrCreateReferenceHintContainer returns existing container', () => {
-    const cell = dom.window.document.querySelector('.cell')!
+    const cell = dom.document.querySelector('.cell')! as unknown as Element
     const container1 = getOrCreateReferenceHintContainer(runtime, cell)
     const container2 = getOrCreateReferenceHintContainer(runtime, cell)
 
@@ -56,23 +56,25 @@ describe('ui components', () => {
   })
 
   test('createReferenceDialog creates modal with referenced comment', () => {
-    const comment = dom.window.document.querySelector('#r_1')!
+    const comment = dom.document.querySelector('#r_1')! as unknown as Element
     createReferenceDialog(runtime, comment, comment)
 
-    const dialog = dom.window.document.querySelector('.gm-reference-dialog')
+    const dialog = dom.document.querySelector('.gm-reference-dialog')
     expect(dialog).not.toBeNull()
     expect(dialog?.querySelector('.gm-dialog-context-card')).not.toBeNull()
     expect(dialog?.querySelector('.gm-dialog-reply-card')).not.toBeNull()
   })
 
   test('createReferenceDialog closes on Escape key', () => {
-    const comment = dom.window.document.querySelector('#r_1')!
+    const comment = dom.document.querySelector('#r_1')! as unknown as Element
     createReferenceDialog(runtime, comment, comment)
 
-    expect(dom.window.document.querySelector('.gm-reference-dialog')).not.toBeNull()
+    expect(dom.document.querySelector('.gm-reference-dialog')).not.toBeNull()
 
-    dom.window.document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' }))
+    dom.document.dispatchEvent(new dom.KeyboardEvent('keydown', { key: 'Escape' }) as any)
 
-    expect(dom.window.document.querySelector('.gm-reference-dialog')).toBeNull()
+    expect(dom.document.querySelector('.gm-reference-dialog')).toBeNull()
   })
 })
+
+afterAll(() => closeAllWindows())

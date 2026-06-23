@@ -9,9 +9,10 @@ export function setupObserver(
   tagAuthor: (username: string, commentId: string, tag: string, delta: number) => void,
   setTag: (username: string, tag: string, score: number, commentId: string) => void,
   unsetTag: (username: string, tag: string) => void,
-): void {
-  let timer: ReturnType<typeof setTimeout> | null = null
+): () => void {
+  let disconnected = false
   const observer = new runtime.MutationObserver((mutations) => {
+    if (disconnected) return
     let found = false
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
@@ -24,11 +25,8 @@ export function setupObserver(
   })
   observer.observe(runtime.document.body, { childList: true, subtree: true })
 
-  if (timer === null) {
-    timer = setTimeout(function scan() {
-      processElement(runtime, authorTagMap, tagAuthor, setTag, unsetTag, runtime.document.body)
-      applyHighlights(runtime, authorTagMap)
-      timer = setTimeout(scan, 3000)
-    }, 2000)
+  return () => {
+    disconnected = true
+    observer.disconnect()
   }
 }

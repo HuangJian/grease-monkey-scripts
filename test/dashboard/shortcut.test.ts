@@ -1,5 +1,6 @@
-import { describe, expect, test } from 'bun:test'
-import { JSDOM } from 'jsdom'
+import { describe, expect, test, afterAll } from 'bun:test'
+import { Window } from 'happy-dom'
+import { createHappyDom, closeAllWindows } from '../runtime'
 import {
   createDoubleShiftHandler,
   handleEscapeKey,
@@ -7,40 +8,45 @@ import {
 } from '../../src/dashboard/shortcut'
 
 function makeEvent(
-  dom: JSDOM,
+  dom: Window,
   target: EventTarget | null,
   key: string,
   repeat = false,
 ): KeyboardEvent {
-  return new dom.window.KeyboardEvent('keydown', { key, repeat, bubbles: true, cancelable: true })
+  return new dom.KeyboardEvent('keydown', {
+    key,
+    repeat,
+    bubbles: true,
+    cancelable: true,
+  }) as unknown as KeyboardEvent
 }
 
-function dispatch(dom: JSDOM, target: EventTarget | null, key: string, repeat = false): void {
+function dispatch(dom: Window, target: EventTarget | null, key: string, repeat = false): void {
   if (!target) {
     throw new Error('dispatch requires a target')
   }
   target.dispatchEvent(makeEvent(dom, target, key, repeat))
 }
 
-function emptyDom(): JSDOM {
-  return new JSDOM('<!doctype html><html><head></head><body></body></html>')
+function emptyDom(): Window {
+  return createHappyDom('<!doctype html><html><head></head><body></body></html>')
 }
 
 describe('isEditableTarget', () => {
   test('returns true for input/textarea/select', () => {
-    const dom = new JSDOM('<input id="a"><textarea id="b"></textarea><select id="c"></select>')
-    const doc = dom.window.document
-    expect(isEditableTarget(doc.getElementById('a'))).toBe(true)
-    expect(isEditableTarget(doc.getElementById('b'))).toBe(true)
-    expect(isEditableTarget(doc.getElementById('c'))).toBe(true)
+    const dom = createHappyDom('<input id="a"><textarea id="b"></textarea><select id="c"></select>')
+    const doc = dom.document
+    expect(isEditableTarget(doc.getElementById('a') as unknown as Element)).toBe(true)
+    expect(isEditableTarget(doc.getElementById('b') as unknown as Element)).toBe(true)
+    expect(isEditableTarget(doc.getElementById('c') as unknown as Element)).toBe(true)
   })
   test('returns true for contenteditable', () => {
-    const dom = new JSDOM('<div id="a" contenteditable="true"></div>')
-    expect(isEditableTarget(dom.window.document.getElementById('a'))).toBe(true)
+    const dom = createHappyDom('<div id="a" contenteditable="true"></div>')
+    expect(isEditableTarget(dom.document.getElementById('a') as unknown as Element)).toBe(true)
   })
   test('returns false for plain elements and null', () => {
-    const dom = new JSDOM('<div id="a"></div>')
-    expect(isEditableTarget(dom.window.document.getElementById('a'))).toBe(false)
+    const dom = createHappyDom('<div id="a"></div>')
+    expect(isEditableTarget(dom.document.getElementById('a') as unknown as Element)).toBe(false)
     expect(isEditableTarget(null)).toBe(false)
   })
 })
@@ -85,16 +91,16 @@ describe('createDoubleShiftHandler', () => {
     expect(fires).toBe(0)
   })
   test('ignores when focus is in editable element', () => {
-    const dom = new JSDOM('<input id="a">')
-    const input = dom.window.document.getElementById('a')!
+    const dom = createHappyDom('<input id="a">')
+    const input = dom.document.getElementById('a')!
     let fires = 0
     const handler = createDoubleShiftHandler(() => fires++, {
       windowMs: 400,
       isFocusExempt: isEditableTarget,
     })
-    input.addEventListener('keydown', handler)
-    dispatch(dom, input, 'Shift')
-    dispatch(dom, input, 'Shift')
+    ;(input as unknown as EventTarget).addEventListener('keydown', handler as EventListener)
+    dispatch(dom, input as unknown as EventTarget, 'Shift')
+    dispatch(dom, input as unknown as EventTarget, 'Shift')
     expect(fires).toBe(0)
   })
   test('resets state after a successful double press', () => {
@@ -113,17 +119,17 @@ describe('createDoubleShiftHandler', () => {
 })
 
 describe('handleEscapeKey', () => {
-  function makeShadowRoot(dom: JSDOM): ShadowRoot {
-    const host = dom.window.document.createElement('div')
-    return host.attachShadow({ mode: 'closed' })
+  function makeShadowRoot(dom: Window): ShadowRoot {
+    const host = dom.document.createElement('div')
+    return host.attachShadow({ mode: 'closed' }) as unknown as unknown as ShadowRoot
   }
 
-  function dispatchEscape(dom: JSDOM, target: EventTarget): KeyboardEvent {
-    const e = new dom.window.KeyboardEvent('keydown', {
+  function dispatchEscape(dom: Window, target: EventTarget): KeyboardEvent {
+    const e = new dom.KeyboardEvent('keydown', {
       key: 'Escape',
       bubbles: true,
       cancelable: true,
-    })
+    }) as unknown as KeyboardEvent
     target.dispatchEvent(e)
     return e
   }
@@ -132,47 +138,47 @@ describe('handleEscapeKey', () => {
     const dom = emptyDom()
     const root = makeShadowRoot(dom)
     let closed = false
-    const e = dispatchEscape(dom, dom.window.document.body)
+    const e = dispatchEscape(dom, dom.document.body as unknown as unknown as EventTarget)
     handleEscapeKey(e, root, () => (closed = true))
     expect(closed).toBe(true)
   })
 
   test('does not close when target is an input element', () => {
-    const dom = new JSDOM('<input id="a">')
+    const dom = createHappyDom('<input id="a">')
     const root = makeShadowRoot(dom)
-    const input = dom.window.document.getElementById('a')!
+    const input = dom.document.getElementById('a')!
     let closed = false
-    const e = dispatchEscape(dom, input)
+    const e = dispatchEscape(dom, input as unknown as unknown as EventTarget)
     handleEscapeKey(e, root, () => (closed = true))
     expect(closed).toBe(false)
   })
 
   test('does not close when target is a textarea element', () => {
-    const dom = new JSDOM('<textarea id="b"></textarea>')
+    const dom = createHappyDom('<textarea id="b"></textarea>')
     const root = makeShadowRoot(dom)
-    const textarea = dom.window.document.getElementById('b')!
+    const textarea = dom.document.getElementById('b')!
     let closed = false
-    const e = dispatchEscape(dom, textarea)
+    const e = dispatchEscape(dom, textarea as unknown as unknown as EventTarget)
     handleEscapeKey(e, root, () => (closed = true))
     expect(closed).toBe(false)
   })
 
   test('does not close when target is a select element', () => {
-    const dom = new JSDOM('<select id="c"><option>1</option></select>')
+    const dom = createHappyDom('<select id="c"><option>1</option></select>')
     const root = makeShadowRoot(dom)
-    const select = dom.window.document.getElementById('c')!
+    const select = dom.document.getElementById('c')!
     let closed = false
-    const e = dispatchEscape(dom, select)
+    const e = dispatchEscape(dom, select as unknown as unknown as EventTarget)
     handleEscapeKey(e, root, () => (closed = true))
     expect(closed).toBe(false)
   })
 
   test('does not close when target has contenteditable', () => {
-    const dom = new JSDOM('<div id="d" contenteditable="true"></div>')
+    const dom = createHappyDom('<div id="d" contenteditable="true"></div>')
     const root = makeShadowRoot(dom)
-    const ce = dom.window.document.getElementById('d')!
+    const ce = dom.document.getElementById('d')!
     let closed = false
-    const e = dispatchEscape(dom, ce)
+    const e = dispatchEscape(dom, ce as unknown as unknown as EventTarget)
     handleEscapeKey(e, root, () => (closed = true))
     expect(closed).toBe(false)
   })
@@ -181,12 +187,14 @@ describe('handleEscapeKey', () => {
     const dom = emptyDom()
     const root = makeShadowRoot(dom)
     let closed = false
-    const e = new dom.window.KeyboardEvent('keydown', {
+    const e = new dom.KeyboardEvent('keydown', {
       key: 'Enter',
       bubbles: true,
       cancelable: true,
-    })
+    }) as unknown as KeyboardEvent
     handleEscapeKey(e, root, () => (closed = true))
     expect(closed).toBe(false)
   })
 })
+
+afterAll(() => closeAllWindows())

@@ -12,7 +12,16 @@
     "oxc/no-async-endpoint-handlers": "off",
     "no-underscore-dangle": [
       "error",
-      { "allow": ["__vue__", "__xqCaptured", "__xqInjected", "__xqResetCaptured"] }
+      {
+        "allow": [
+          "__vue__",
+          "__xqCaptured",
+          "__xqInjected",
+          "__xqResetCaptured",
+          "_disconnectObserver",
+          "_windows"
+        ]
+      }
     ]
   }
 }

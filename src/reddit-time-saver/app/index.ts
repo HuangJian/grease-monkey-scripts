@@ -29,6 +29,7 @@ async function loadAuthorTagMap(runtime: Runtime): Promise<AuthorTagMap> {
 
 export async function createRedditApp(runtime: Runtime): Promise<RedditApp> {
   const authorTagMap = await loadAuthorTagMap(runtime)
+  let _disconnectObserver: (() => void) | null = null
 
   function persist(): void {
     void runtime.setValue(STORAGE_KEY, authorTagMap)
@@ -69,11 +70,12 @@ export async function createRedditApp(runtime: Runtime): Promise<RedditApp> {
     runtime.addStyle(`/*{{REDDIT_TIME_SAVER_CSS}}*/`)
     processElement(runtime, authorTagMap, tagAuthor, setTag, unsetTag, runtime.document.body)
     applyHighlights(runtime, authorTagMap)
-    setupObserver(runtime, authorTagMap, tagAuthor, setTag, unsetTag)
+    _disconnectObserver = setupObserver(runtime, authorTagMap, tagAuthor, setTag, unsetTag)
   }
 
   return {
     start,
+    stop: () => _disconnectObserver?.(),
     getAuthorTagMap: () => JSON.parse(JSON.stringify(authorTagMap)) as AuthorTagMap,
     tagAuthor,
     setTag,

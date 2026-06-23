@@ -1,5 +1,6 @@
 import type { Runtime, ValueChangeListener } from '../src/runtime'
 import { JSDOM } from 'jsdom'
+import { Window } from 'happy-dom'
 
 // Make Preact state updates synchronous in tests
 import { options as preactOptions } from 'preact'
@@ -9,8 +10,33 @@ preactOptions.debounceRendering = (fn: () => void) => fn()
 // Provide a JSDOM-based DOMParser class for tests that parse XML.
 export const XmlDOMParser = new JSDOM('').window.DOMParser as typeof DOMParser
 
-export function createDom(html: string, url = 'https://www.v2ex.com/t/123'): JSDOM {
-  return new JSDOM(html, { url })
+const _windows: Window[] = []
+
+export function createDom(html: string, url = 'https://www.v2ex.com/t/123'): Window {
+  const win = new Window({ url })
+  win.document.documentElement.innerHTML = html
+  _windows.push(win)
+  return win
+}
+
+/** Create a happy-dom Window for isolated DOM snippets (no URL). */
+export function createHappyDom(html: string, url?: string): Window {
+  const win = new Window({ url: url ?? 'http://localhost' })
+  win.document.documentElement.innerHTML = html
+  _windows.push(win)
+  return win
+}
+
+/** Close all windows created during tests. Call in afterAll/afterEach. */
+export function closeAllWindows(): void {
+  for (const w of _windows) {
+    try {
+      w.close()
+    } catch {
+      /* ignore */
+    }
+  }
+  _windows.length = 0
 }
 
 export type MenuCommand = { id: number; name: string; fn: () => void }
@@ -40,11 +66,12 @@ if (
   }
 }
 
-export function createRuntime(dom?: JSDOM): TestRuntime {
-  const doc = dom?.window.document ?? globalThis.document
-  const loc = dom?.window.location ?? globalThis.location
-  const DOMParserCtor = dom?.window.DOMParser ?? globalThis.DOMParser
-  const MutationObs = dom?.window.MutationObserver ?? globalThis.MutationObserver
+export function createRuntime(dom?: Window): TestRuntime {
+  const doc = (dom?.document ?? globalThis.document) as Runtime['document']
+  const loc = (dom?.location ?? globalThis.location) as Runtime['location']
+  const DOMParserCtor = (dom?.DOMParser ?? globalThis.DOMParser) as typeof DOMParser
+  const MutationObs = (dom?.MutationObserver ??
+    globalThis.MutationObserver) as typeof MutationObserver
   const stores: Record<string, unknown> = {}
   const listeners: Map<string, ValueChangeListener[]> = new Map()
   const menuCommands: MenuCommand[] = []

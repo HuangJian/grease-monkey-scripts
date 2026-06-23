@@ -1,7 +1,6 @@
-import { describe, expect, test, beforeEach } from 'bun:test'
+import { describe, expect, test, beforeEach, afterAll } from 'bun:test'
 import { syncAuthorTags } from '../../src/dashboard/author-tags-sync'
-import { createRuntime, type TestRuntime } from '../runtime'
-import { JSDOM } from 'jsdom'
+import { createHappyDom, createRuntime, type TestRuntime, closeAllWindows } from '../runtime'
 import type { AuthorTagMap } from '../../src/shared/author-labels'
 
 describe('syncAuthorTags', () => {
@@ -9,11 +8,11 @@ describe('syncAuthorTags', () => {
   let target: { map: AuthorTagMap }
 
   beforeEach(() => {
-    const dom = new JSDOM('', { url: 'https://www.reddit.com' })
+    const dom = createHappyDom('', 'https://www.reddit.com')
     runtime = createRuntime(dom)
     target = { map: {} }
     // Clear localStorage
-    dom.window.localStorage.clear()
+    dom.localStorage.clear()
   })
 
   test('loads from localStorage when on matching domain', async () => {
@@ -47,7 +46,7 @@ describe('syncAuthorTags', () => {
   })
 
   test('falls back to GM storage when not on matching domain', async () => {
-    const dom = new JSDOM('', { url: 'https://www.v2ex.com' })
+    const dom = createHappyDom('', 'https://www.v2ex.com')
     runtime = createRuntime(dom)
     const tagData = { bob: { news: { url: '/t/2', score: 3 } } }
     runtime.stores['reddit_author_tags'] = tagData
@@ -64,7 +63,7 @@ describe('syncAuthorTags', () => {
   })
 
   test('uses fallbackGmKey when primary GM key is null', async () => {
-    const dom = new JSDOM('', { url: 'https://www.v2ex.com' })
+    const dom = createHappyDom('', 'https://www.v2ex.com')
     runtime = createRuntime(dom)
     const tagData = { charlie: { sports: { url: '/t/3', score: -2 } } }
     runtime.stores['v2ex_author_tags_fallback'] = tagData
@@ -82,7 +81,7 @@ describe('syncAuthorTags', () => {
   })
 
   test('sets empty map when no data found anywhere', async () => {
-    const freshDom = new JSDOM('', { url: 'https://www.example.com' })
+    const freshDom = createHappyDom('', 'https://www.example.com')
     const freshRuntime = createRuntime(freshDom)
     const freshTarget: { map: AuthorTagMap } = { map: {} }
 
@@ -112,7 +111,7 @@ describe('syncAuthorTags', () => {
   })
 
   test('skips localStorage when not on matching domain', async () => {
-    const dom = new JSDOM('', { url: 'https://www.v2ex.com' })
+    const dom = createHappyDom('', 'https://www.v2ex.com')
     runtime = createRuntime(dom)
     localStorage.setItem('gm:reddit:author-tags', JSON.stringify({ should: 'not load' }))
     runtime.stores['reddit_author_tags'] = { from: { gm: { url: '/t/1', score: 1 } } }
@@ -129,3 +128,5 @@ describe('syncAuthorTags', () => {
     expect(target.map).toEqual({ from: { gm: { url: '/t/1', score: 1 } } })
   })
 })
+
+afterAll(() => closeAllWindows())
