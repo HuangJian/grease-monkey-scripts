@@ -11,11 +11,6 @@
 // @grant        GM.setValue
 // @grant        GM.getValue
 // ==/UserScript==
-// ==build.meta==
-// css: reddit-time-saver.css
-// placeholder: /*{{REDDIT_TIME_SAVER_CSS}}*/
-// ==/build.meta==
-
 import { startRedditTimeSaver } from './app'
 import { createBrowserRuntime } from '../runtime'
 

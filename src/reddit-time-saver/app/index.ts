@@ -7,7 +7,6 @@ import {
   removeTag,
   REDDIT_AUTHOR_TAGS_LS_KEY,
 } from '../../shared/author-labels'
-import { tagPanelCss } from '../../shared/tag-panel'
 import { applyHighlights } from './highlight'
 import { setupObserver } from './observer'
 import { processElement } from './tag-buttons'
@@ -66,8 +65,6 @@ export async function createRedditApp(runtime: Runtime): Promise<RedditApp> {
   }
 
   function start(): void {
-    runtime.addStyle(tagPanelCss)
-    runtime.addStyle(`/*{{REDDIT_TIME_SAVER_CSS}}*/`)
     processElement(runtime, authorTagMap, tagAuthor, setTag, unsetTag, runtime.document.body)
     applyHighlights(runtime, authorTagMap)
     _disconnectObserver = setupObserver(runtime, authorTagMap, tagAuthor, setTag, unsetTag)

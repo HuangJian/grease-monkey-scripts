@@ -39,11 +39,6 @@
 // @connect      api-sg-central.trae.ai
 // @connect      chatgpt.com
 // ==/UserScript==
-// ==build.meta==
-// css: overlay/entry.css
-// placeholder: /*{{DASHBOARD_CSS}}*/
-// ==/build.meta==
-
 // tnews 镜像 fallback：仅对 rsshub.app 域名生效。
 // 如需使用其它公共/私有 RSSHub 镜像，请同时：
 //   1. 在上方 @connect 区添加对应 hostname

@@ -8,7 +8,7 @@ import {
   removeTag,
   HUPU_AUTHOR_TAGS_LS_KEY,
 } from '../../shared/author-labels'
-import { tagPanelCss, type QuickLabels } from '../../shared/tag-panel'
+import type { QuickLabels } from '../../shared/tag-panel'
 import { htmlToDocument } from '../../utils'
 import { buildPageUrl, extractNextData, parseNextData, parseReplyList } from '../selectors'
 import { applyHighlights } from './highlight'
@@ -68,9 +68,6 @@ export async function createHupuApp(runtime: Runtime): Promise<HupuApp> {
   }
 
   function start(): void {
-    runtime.addStyle(tagPanelCss)
-    runtime.addStyle(`/*{{HUPU_TIME_SAVER_CSS}}*/`)
-
     _disconnectObserver = setupObserver(
       runtime,
       authorTagMap,

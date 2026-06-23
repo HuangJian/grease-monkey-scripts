@@ -1,7 +1,8 @@
 import { useLayoutEffect, useRef } from 'preact/hooks'
-import { OVERLAY_CSS } from '../overlay/styles'
 import { render } from 'preact'
 import { OverlayShell } from './overlay-shell'
+
+export const CSS_TO_BE_INJECTED = '/* overlay css placeholder */'
 
 export type OverlayHandle = {
   root: ShadowRoot
@@ -52,7 +53,7 @@ function OverlayMount({ host, handleRef, root, onClose }: OverlayMountProps) {
   return (
     <div ref={containerRef}>
       {onClose && <OverlayShell root={root} document={host.ownerDocument} onClose={onClose} />}
-      <style>{OVERLAY_CSS}</style>
+      <style>{CSS_TO_BE_INJECTED}</style>
       <div class="gm-sp-backdrop" ref={backdropRef}>
         <div class="gm-sp-modal" ref={modalRef}>
           <button type="button" class="gm-sp-corner-close" ref={closeBtnRef} aria-label="close">

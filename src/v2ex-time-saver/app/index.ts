@@ -17,7 +17,6 @@ import {
 import { getCommentElementsFromHtmlString } from './comment-helpers'
 import { enhanceThreadPage } from './thread-page'
 import { createMultiPageLoader } from './multi-page-comments'
-import { addStyles } from './styles'
 import { loadAuthorTagMap, persistAuthorTags } from './author-tags'
 import type { V2exApp } from '../types'
 
@@ -90,7 +89,6 @@ export async function createV2exApp(runtime: Runtime): Promise<V2exApp> {
     const isReadingTopic = runtime.location.href.indexOf('v2ex.com/t/') > 0
     console.debug('[gm-v2ex-time-saver] start', { isReadingTopic, url: runtime.location.href })
 
-    addStyles(runtime)
     checkAndDoSignIn(runtime)
 
     const allPageNumbers = Array.from(

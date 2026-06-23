@@ -11,11 +11,6 @@
 // @grant        GM.setValue
 // @grant        GM.getValue
 // ==/UserScript==
-// ==build.meta==
-// css: hupu-time-saver.css
-// placeholder: /*{{HUPU_TIME_SAVER_CSS}}*/
-// ==/build.meta==
-
 import { createHupuApp } from './app'
 import { createBrowserRuntime } from '../runtime'
 

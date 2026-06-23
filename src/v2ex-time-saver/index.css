@@ -1,3 +1,5 @@
+@import '../shared/tag-panel/tag-panel.css';
+
 .cell[id] > .cell[id] {
   border-left: 2px solid lightblue;
   padding-bottom: 0;

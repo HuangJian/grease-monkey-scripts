@@ -1,4 +1,4 @@
-export const tagPanelCss = `.gm-tag-btn {
+.gm-tag-btn {
   cursor: pointer;
   margin-left: 4px;
   font-size: 12px;
@@ -146,4 +146,4 @@ export const tagPanelCss = `.gm-tag-btn {
 }
 .gm-tag-quick-thank {
   color: #080;
-}`
+}

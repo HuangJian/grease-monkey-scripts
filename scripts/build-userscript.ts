@@ -1,13 +1,11 @@
 import { mkdir, readFile, unlink, writeFile, opendir, stat } from 'node:fs/promises'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { $ } from 'bun'
 import { bundle as bundleCss, transform } from 'lightningcss'
 
 function stripConsoleFromSource(source: string): string {
-  // Strip console.log(...) and console.debug(...) from TypeScript source.
-  // Since source is unminified, each call is well-formatted with balanced parens.
   const CONSOLE_RE = /console\.(log|debug)\(/
   let result = source
   let match: RegExpExecArray | null
@@ -16,7 +14,6 @@ function stripConsoleFromSource(source: string): string {
     const start = match.index
     const parenStart = match[0].length - 1 + start
 
-    // Find matching ')' by counting balanced parens
     let depth = 1
     let i = parenStart + 1
     while (i < result.length && depth > 0) {
@@ -27,14 +24,11 @@ function stripConsoleFromSource(source: string): string {
     }
     const callEnd = i
 
-    // Consume trailing semicolon
     let end = callEnd
     if (end < result.length && result[end] === ';') end++
 
-    // Consume preceding whitespace/newline so no blank lines are left
     let begin = start
     while (begin > 0 && (result[begin - 1] === ' ' || result[begin - 1] === '\t')) begin--
-    // Also consume one preceding newline if present
     if (begin > 0 && result[begin - 1] === '\n') begin--
 
     result = result.slice(0, begin) + result.slice(end)
@@ -69,13 +63,8 @@ async function restoreSourceFiles(originals: Map<string, string>): Promise<void>
   }
 }
 
-/**
- * Parse CSS variable definitions from tokens.css content.
- * Returns a map like { '--gm-sp-color-text': '#1f2328', ... }
- */
 function parseCssVariables(tokensCss: string): Map<string, string> {
   const vars = new Map<string, string>()
-  // Match --name: value; (ignoring comments and whitespace)
   const re = /(--[a-z][a-z0-9-]+)\s*:\s*([^;]+);/g
   let m: RegExpExecArray | null
   while ((m = re.exec(tokensCss)) !== null) {
@@ -84,10 +73,6 @@ function parseCssVariables(tokensCss: string): Map<string, string> {
   return vars
 }
 
-/**
- * Replace var(--gm-sp-xxx) references with actual values.
- * Handles nested var() references by resolving recursively.
- */
 function resolveVarReferences(css: string, vars: Map<string, string>): string {
   const MAX_DEPTH = 5
   let result = css
@@ -106,41 +91,82 @@ function resolveVarReferences(css: string, vars: Map<string, string>): string {
   return result
 }
 
-function composeOverlayCss(entryCssPath: string): string {
-  // 1. Parse variable definitions from tokens.css (optional — not all scripts use it)
-  const tokensPath = resolve(dirname(entryCssPath), 'tokens.css')
-  let vars = new Map<string, string>()
-  try {
-    const tokensCss = readFileSync(tokensPath, 'utf8')
-    vars = parseCssVariables(tokensCss)
-  } catch {
-    // tokens.css is optional; proceed without variable definitions
-  }
-
-  // 2. Use Lightning CSS bundle to resolve all @import rules
-  const { code } = bundleCss({
-    filename: entryCssPath,
-    minify: false,
-  })
-  let bundled = code.toString()
-
-  // 3. Replace var(--gm-sp-xxx) with actual values from tokens.css
-  bundled = resolveVarReferences(bundled, vars)
-
-  // 4. Remove :host rule (variables are now inlined, no need for :host)
-  bundled = bundled.replace(/:host\s*\{[^}]*\}/g, '')
-
-  return bundled
-}
-
 function minifyCss(css: string): string {
-  // Lightning CSS transform for high-quality minification
   const { code } = transform({
     filename: 'minified.css',
     code: Buffer.from(css),
     minify: true,
   })
   return code.toString()
+}
+
+/**
+ * Build CSS from index.css and return the processed CSS string.
+ * For debug mode, variables are resolved but output is not minified.
+ * For prod mode, output is fully minified.
+ */
+function buildCss(scriptDir: string, debug: boolean): string {
+  const indexCssPath = resolve(scriptDir, 'index.css')
+
+  try {
+    readFileSync(indexCssPath, 'utf8')
+  } catch {
+    return ''
+  }
+
+  // Resolve @import rules using Lightning CSS bundle
+  const { code } = bundleCss({
+    filename: indexCssPath,
+    minify: false,
+  })
+  let css = code.toString()
+
+  // Resolve CSS variables from tokens.css — search recursively in scriptDir
+  const tokensPath = findTokensCss(scriptDir)
+  if (tokensPath) {
+    const tokensCss = readFileSync(tokensPath, 'utf8')
+    const vars = parseCssVariables(tokensCss)
+    css = resolveVarReferences(css, vars)
+  }
+
+  // Remove :host rule (variables are now inlined)
+  css = css.replace(/:host\s*\{[^}]*\}/g, '')
+
+  if (!debug) {
+    css = minifyCss(css)
+  }
+
+  return css
+}
+
+function findTokensCss(dir: string): string | null {
+  // Check current dir
+  const direct = resolve(dir, 'tokens.css')
+  try {
+    readFileSync(direct, 'utf8')
+    return direct
+  } catch {}
+  // Check one level of subdirectories
+  try {
+    const entries = readdirSync(dir, { withFileTypes: true })
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const nested = resolve(dir, entry.name, 'tokens.css')
+        try {
+          readFileSync(nested, 'utf8')
+          return nested
+        } catch {}
+      }
+    }
+  } catch {}
+  return null
+}
+
+/**
+ * Escape a string for safe embedding in a JS template literal.
+ */
+function escapeForTemplateLiteral(css: string): string {
+  return css.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$')
 }
 
 const BUILD_MODES = [
@@ -156,6 +182,7 @@ async function buildUserScript(
   buildHash: string,
 ): Promise<void> {
   const name = basename(dirname(entrypoint))
+  const scriptDir = dirname(entrypoint)
 
   const entrypointSource = await readFile(entrypoint, 'utf8')
 
@@ -168,75 +195,106 @@ async function buildUserScript(
     throw new Error(`Missing userscript metadata block in ${entrypoint}`)
   }
 
-  const buildMetaMatch = entrypointSource.match(
-    /^\/\/ ==build.meta==\n[\s\S]*?^\/\/ ==\/build.meta==/m,
-  )
-  const buildMeta: Record<string, string> = {}
-  if (buildMetaMatch) {
-    const lines = buildMetaMatch[0].split('\n').slice(1, -1)
-    for (const line of lines) {
-      const lineTrimmed = line.trim()
-      if (lineTrimmed.startsWith('// ')) {
-        const content = lineTrimmed.slice(3)
-        const [key, value] = content.split(':').map((s) => s.trim())
-        if (key && value) buildMeta[key] = value
-      }
-    }
-  }
-  const baseSource = entrypointSource.replace(buildMetaMatch ? buildMetaMatch[0] : '', '')
-
   await mkdir('dist', { recursive: true })
 
   const outfile = `dist/${name}${mode.suffix}`
   const temporaryOutfile = `dist/.${name}${mode.debug ? '.debug' : '.prod'}.bundle.js`
-  const temporarySourceFile = join(
-    dirname(entrypoint),
-    `.index${mode.debug ? '' : '.prod'}.user.ts`,
-  )
 
-  await writeFile(temporarySourceFile, baseSource, 'utf8')
+  // Build CSS from index.css
+  const css = buildCss(scriptDir, mode.debug)
 
-  let bundle = ''
-  const captured: string[] = []
+  // Collect original source files for restoration
+  const originals = await collectSourceFiles(scriptDir)
+
+  // Temporary files to clean up
+  const tempFiles: string[] = []
+
   try {
+    if (css) {
+      // Generate .css-module.ts
+      const cssModulePath = join(scriptDir, '.css-module.ts')
+      const escapedCss = escapeForTemplateLiteral(css)
+      await writeFile(cssModulePath, `export default \`${escapedCss}\`\n`, 'utf8')
+      tempFiles.push(cssModulePath)
+
+      const isDashboard = (content: string) => content.includes('CSS_TO_BE_INJECTED')
+
+      // Inject CSS into source files
+      for (const [srcPath, content] of originals) {
+        let modified = content
+
+        // Dashboard: replace CSS_TO_BE_INJECTED placeholder with actual CSS
+        if (isDashboard(modified)) {
+          modified = modified.replace(
+            /export const CSS_TO_BE_INJECTED = .*$/m,
+            `export const CSS_TO_BE_INJECTED = \`${escapedCss}\``,
+          )
+        }
+
+        // Simple scripts: inject GM_addStyle into the entry file
+        if (srcPath === entrypoint && !isDashboard(modified)) {
+          const importStatement = "import __css from './.css-module'"
+          // Insert import after the last existing import
+          const importRe = /^import\s.+?;\n/gm
+          let lastImportEnd = 0
+          let im: RegExpExecArray | null
+          while ((im = importRe.exec(modified)) !== null) {
+            lastImportEnd = im.index + im[0].length
+          }
+          if (lastImportEnd > 0) {
+            modified =
+              modified.slice(0, lastImportEnd) +
+              importStatement +
+              '\n' +
+              modified.slice(lastImportEnd)
+          } else {
+            modified = importStatement + '\n' + modified
+          }
+          // Inject GM_addStyle call before the app start call
+          // Pattern: "void someApp(createBrowserRuntime())"
+          modified = modified.replace(
+            /void\s+(\w+)\(createBrowserRuntime\(\)\)/,
+            'GM_addStyle(__css)\nvoid $1(createBrowserRuntime())',
+          )
+        }
+
+        if (modified !== content) {
+          await writeFile(srcPath, modified, 'utf8')
+        }
+      }
+    }
+
+    // Write temporary entrypoint (with ==build.meta== already removed from source)
+    const baseSource = entrypointSource.replace(
+      /^\/\/ ==build.meta==\n[\s\S]*?^\/\/ ==\/build.meta==\n/m,
+      '',
+    )
+    const temporarySourceFile = join(scriptDir, `.index${mode.debug ? '' : '.prod'}.user.ts`)
+    await writeFile(temporarySourceFile, baseSource, 'utf8')
+    tempFiles.push(temporarySourceFile)
+
     const buildCmd = mode.debug
       ? $`bun build ${temporarySourceFile} --target=browser --format=iife --outfile=${temporaryOutfile} --sourcemap=none`
       : $`bun build ${temporarySourceFile} --target=browser --format=iife --outfile=${temporaryOutfile} --sourcemap=none --minify`
     const buildResult = await buildCmd.quiet().throws(false)
-    if (buildResult.stderr) captured.push(buildResult.stderr.toString())
     if (buildResult.exitCode !== 0) {
-      throw new Error(`bun build exited with code ${buildResult.exitCode}`)
+      const stderr = buildResult.stderr?.toString() ?? ''
+      throw new Error(`bun build exited with code ${buildResult.exitCode}\n${stderr}`)
     }
 
-    bundle = await readFile(temporaryOutfile, 'utf8')
-
-    if (buildMeta.css && buildMeta.placeholder) {
-      const cssPath = resolve(dirname(entrypoint), buildMeta.css)
-      if (mode.debug) {
-        // Debug: bundle CSS but keep variables for runtime theming
-        const { code } = bundleCss({ filename: cssPath, minify: false })
-        const escapedCss = code.toString().replace(/`/g, '\\`').replace(/\$/g, '\\$')
-        bundle = bundle.replace(buildMeta.placeholder, escapedCss)
-      } else {
-        // Prod: bundle + resolve variables to static values + minify
-        const css = await composeOverlayCss(cssPath)
-        const processedCss = minifyCss(css)
-        const escapedCss = processedCss.replace(/`/g, '\\`').replace(/\$/g, '\\$')
-        bundle = bundle.replace(buildMeta.placeholder, escapedCss)
-      }
-    }
-
-    bundle = bundle.replace(/^\/\/ ==build.meta==\n[\s\S]*?^\/\/ ==\/build.meta==\n/m, '')
+    const bundle = await readFile(temporaryOutfile, 'utf8')
 
     await writeFile(outfile, `${metadata}\n\n${bundle}\n// build ${buildHash}`)
     const { size } = await stat(outfile)
     console.log(`  ✓ ${outfile}  ${(size / 1024).toFixed(1)} KB`)
-  } catch (error) {
-    if (captured.length) process.stderr.write(captured.join(''))
-    throw error
   } finally {
-    await unlink(temporaryOutfile).catch(() => {})
-    await unlink(temporarySourceFile).catch(() => {})
+    // Restore original source files
+    await restoreSourceFiles(originals)
+
+    // Clean up temporary files
+    for (const tmpFile of tempFiles) {
+      await unlink(tmpFile).catch(() => {})
+    }
   }
 }
 
@@ -252,9 +310,7 @@ async function main() {
       try {
         await stat(entryPoint)
         entries.push(entryPoint)
-      } catch {
-        // No index.user.ts, skip
-      }
+      } catch {}
     }
   }
   await dir.close()
@@ -264,9 +320,6 @@ async function main() {
     return
   }
 
-  // Pass 1: build the .debug.js variants with console.debug/log kept
-  // intact. Stripping happens in pass 2 so the debug bundles can be
-  // installed for ad-hoc troubleshooting without re-editing sources.
   console.log(`Building ${entries.length} script(s) (debug):`)
   for (const entrypoint of entries) {
     try {
@@ -276,9 +329,6 @@ async function main() {
     }
   }
 
-  // Strip console.log/debug from source files before the prod build.
-  // We rewrite source in place and restore afterwards. The build script
-  // is the only thing that ever sees the stripped form.
   console.log('\nStripping console.log/debug from source for prod build...')
   const originals = await collectSourceFiles(srcDir)
   for (const [path, content] of originals) {
@@ -289,7 +339,6 @@ async function main() {
   }
 
   try {
-    // Pass 2: build the .user.js variants (minified, no debug/log).
     console.log(`\nBuilding ${entries.length} script(s) (prod):`)
     for (const entrypoint of entries) {
       try {
