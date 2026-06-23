@@ -14,7 +14,7 @@ describe('mountOverlay', () => {
   })
 
   test('appends host to document.body (not documentElement)', () => {
-    const handle = mountOverlay(document)
+    const handle = mountOverlay(document, runtime)
     const host = document.getElementById('gm-dashboard') as HTMLElement
     expect(host).not.toBeNull()
     expect(host.parentElement).toBe(document.body)
@@ -22,14 +22,14 @@ describe('mountOverlay', () => {
   })
 
   test('uses closed shadow root (host.shadowRoot is null)', () => {
-    const handle = mountOverlay(document)
+    const handle = mountOverlay(document, runtime)
     const host = document.getElementById('gm-dashboard') as HTMLElement
     expect(host.shadowRoot).toBeNull()
     expect(handle.root).not.toBeNull()
   })
 
   test('exposes backdrop, modal, mainCards, sideCards via the root', () => {
-    const handle = mountOverlay(document)
+    const handle = mountOverlay(document, runtime)
     expect(handle.root.querySelector('.gm-sp-backdrop')).toBe(handle.backdrop)
     expect(handle.root.querySelector('.gm-sp-modal')).toBe(handle.modal)
     expect(handle.root.querySelector('.gm-sp-cards-main')).toBe(handle.mainCards)
@@ -37,21 +37,21 @@ describe('mountOverlay', () => {
   })
 
   test('injects <style> node with overlay css', () => {
-    const handle = mountOverlay(document)
+    const handle = mountOverlay(document, runtime)
     const style = handle.root.querySelector('style')
     expect(style).not.toBeNull()
     expect((style as HTMLStyleElement).textContent.length).toBeGreaterThan(0)
   })
 
   test('unmount removes host from document.body', () => {
-    const handle = mountOverlay(document)
+    const handle = mountOverlay(document, runtime)
     handle.unmount()
     expect(document.getElementById('gm-dashboard')).toBeNull()
   })
 
   test('mounting twice produces two independent roots', () => {
-    const a = mountOverlay(document)
-    const b = mountOverlay(document)
+    const a = mountOverlay(document, runtime)
+    const b = mountOverlay(document, runtime)
     expect(a.root).not.toBe(b.root)
     a.unmount()
     expect(b.root.querySelector('.gm-sp-backdrop')).not.toBeNull()
@@ -59,7 +59,7 @@ describe('mountOverlay', () => {
   })
 
   test('runtime mock document still works through runtime.document', () => {
-    mountOverlay(document)
+    mountOverlay(document, runtime)
     expect(runtime.document.body.children.length).toBe(1)
   })
 })

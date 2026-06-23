@@ -17,7 +17,7 @@ export function mountDashboard(deps: MountDeps): {
   handle: OverlayHandle
   cleanup: DashboardCleanup
 } {
-  const newHandle = mountOverlay(deps.runtime.document, () => deps.dashboard.close())
+  const newHandle = mountOverlay(deps.runtime.document, deps.runtime, () => deps.dashboard.close())
   const onBackdropClick = (e: Event) => {
     if (e.target === newHandle.backdrop) deps.dashboard.close()
   }
