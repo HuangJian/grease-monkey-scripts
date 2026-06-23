@@ -25,12 +25,11 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
   const headerState: { dateFilter: DateFilter } = { dateFilter: '全' }
 
   async function loadAuthorTags(runtime: Runtime): Promise<void> {
-    await syncAuthorTags({
+    authorTagMap = await syncAuthorTags({
       runtime,
       isDomain: (h) => h === 'hupu.com' || h.endsWith('.hupu.com'),
       lsKey: HUPU_AUTHOR_TAGS_LS_KEY,
       gmKey: HUPU_AUTHOR_TAGS_KEY,
-      target: { map: authorTagMap },
     })
   }
 

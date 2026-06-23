@@ -25,13 +25,11 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
   const headerState: { dateFilter: DateFilter } = { dateFilter: '全' }
 
   async function loadAuthorTags(runtime: Runtime): Promise<void> {
-    await syncAuthorTags({
+    authorTagMap = await syncAuthorTags({
       runtime,
       isDomain: (h) => h === 'reddit.com' || h.endsWith('.reddit.com'),
       lsKey: REDDIT_AUTHOR_TAGS_LS_KEY,
       gmKey: REDDIT_AUTHOR_TAGS_KEY,
-      fallbackGmKey: REDDIT_AUTHOR_TAGS_LS_KEY,
-      target: { map: authorTagMap },
     })
   }
 

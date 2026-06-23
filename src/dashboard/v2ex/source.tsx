@@ -23,13 +23,12 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
   }
 
   async function loadAuthorTags(runtime: Runtime): Promise<void> {
-    await syncAuthorTags({
+    authorTagMap = await syncAuthorTags({
       runtime,
       isDomain: isV2exDomain,
       lsKey: V2EX_AUTHOR_TAGS_LS_KEY,
       gmKey: V2EX_AUTHOR_TAGS_KEY,
-      fallbackGmKey: V2EX_AUTHOR_TAGS_LS_KEY,
-      target: { map: authorTagMap },
+      fallbackGmKey: 'author_tags',
     })
   }
 

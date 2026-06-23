@@ -8,27 +8,26 @@ export type SyncAuthorTagsOpts = {
   lsKey: string
   gmKey: string
   fallbackGmKey?: string
-  target: { map: AuthorTagMap }
 }
 
-export async function syncAuthorTags(opts: SyncAuthorTagsOpts): Promise<void> {
-  const { runtime, isDomain, lsKey, gmKey, fallbackGmKey, target } = opts
+export async function syncAuthorTags(opts: SyncAuthorTagsOpts): Promise<AuthorTagMap> {
+  const { runtime, isDomain, lsKey, gmKey, fallbackGmKey } = opts
   try {
     const host = runtime.location.hostname
     if (isDomain(host)) {
       const raw = localStorage.getItem(lsKey)
       if (raw) {
-        target.map = parseAuthorTagMap(JSON.parse(raw))
-        await runtime.setValue(gmKey, target.map)
-        return
+        const map = parseAuthorTagMap(JSON.parse(raw))
+        await runtime.setValue(gmKey, map)
+        return map
       }
     }
     let stored = await runtime.getValue<unknown>(gmKey, null)
     if (stored === null && fallbackGmKey) {
       stored = await runtime.getValue<unknown>(fallbackGmKey, null)
     }
-    target.map = stored ? parseAuthorTagMap(stored) : {}
+    return stored ? parseAuthorTagMap(stored) : {}
   } catch {
-    target.map = {}
+    return {}
   }
 }
