@@ -1,0 +1,130 @@
+.gm-hdz-btn {
+  z-index: 2147483647;
+  color: #333;
+  cursor: pointer;
+  user-select: none;
+  background: #fff;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  position: fixed;
+  box-shadow: 0 1px 4px #0000001f;
+}
+
+.gm-hdz-btn:hover {
+  background: #f0f0f0;
+  border-color: #999;
+}
+
+.gm-hdz-popup-wrap {
+  position: fixed;
+  z-index: 2147483647;
+  top: 12px;
+  right: 12px;
+}
+
+.gm-hdz-popup {
+  color: #222;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  max-width: 360px;
+  max-height: 320px;
+  padding: 12px 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-y: auto;
+  box-shadow: 0 4px 16px #00000026;
+}
+
+.gm-hdz-popup-header {
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+  display: flex;
+}
+
+.gm-hdz-popup-char {
+  color: #1a1a1a;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.gm-hdz-popup-py {
+  color: #666;
+  font-size: 13px;
+}
+
+.gm-hdz-popup-close {
+  color: #fff;
+  cursor: pointer;
+  background: #999;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 14px;
+  line-height: 1;
+  text-align: center;
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  z-index: 1;
+}
+
+.gm-hdz-popup-close:hover {
+  background: #666;
+}
+
+.gm-hdz-popup-senses {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gm-hdz-popup-sense {
+  border-bottom: 1px solid #f0f0f0;
+  padding: 3px 0;
+}
+
+.gm-hdz-popup-sense:last-child {
+  border-bottom: none;
+}
+
+.gm-hdz-popup-sense-num {
+  color: #888;
+  width: 18px;
+  font-size: 12px;
+  display: inline-block;
+}
+
+.gm-hdz-popup-footer {
+  text-align: right;
+  border-top: 1px solid #eee;
+  margin-top: 10px;
+  padding-top: 8px;
+}
+
+.gm-hdz-popup-footer a {
+  color: #1677cc;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.gm-hdz-popup-footer a:hover {
+  text-decoration: underline;
+}
+
+.gm-hdz-popup-error {
+  color: #999;
+  font-size: 13px;
+}
