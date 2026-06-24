@@ -26,7 +26,7 @@ export function mountDashboard(deps: MountDeps): {
   newHandle.backdrop.addEventListener('click', onBackdropClick)
   deps.cardGroups.forEach((group) => {
     const container = group.placement === 'side' ? newHandle.sideCards : newHandle.mainCards
-    const card = document.createElement('div')
+    const card = deps.runtime.document.createElement('div')
     card.className = 'gm-sp-card'
     card.dataset['source'] = isTabsGroup(group) ? group.id : group.tabs[0]!.id
     container.appendChild(card)

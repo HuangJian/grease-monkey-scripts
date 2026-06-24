@@ -6,11 +6,11 @@ export function getCommentNumber(comment: Element): string {
 
 export function findCommentBox(doc: ParentNode): Element | null {
   const boxes = doc.querySelectorAll('#Main > .box')
-  console.log('[v2ex] findCommentBox', { boxCount: boxes.length })
+  console.debug('[v2ex] findCommentBox', { boxCount: boxes.length })
   for (const box of boxes) {
     const cells = box.querySelectorAll(':scope > .cell[id]')
     const firstCellText = box.querySelector(':scope > .cell')?.textContent?.trim().slice(0, 50)
-    console.log('[v2ex] findCommentBox - check box', {
+    console.debug('[v2ex] findCommentBox - check box', {
       id: (box as Element).id || '(none)',
       class: (box as Element).className || '(none)',
       cellCount: cells.length,
@@ -41,11 +41,11 @@ export function getCommentElementsFromHtmlString(
   const domParser = new runtime.DOMParser()
   const dom = domParser.parseFromString(htmlString, 'text/html')
   const cells = dom.querySelectorAll('#Main > .box > .cell[id]')
-  console.log('[v2ex] getCommentElementsFromHtmlString', { count: cells.length })
+  console.debug('[v2ex] getCommentElementsFromHtmlString', { count: cells.length })
   if (cells.length === 0) {
     const boxCount = dom.querySelectorAll('#Main > .box').length
     const cellCount = dom.querySelectorAll('#Main > .box > .cell[id]').length
-    console.log('[v2ex] getCommentElementsFromHtmlString - no cells', { boxCount, cellCount })
+    console.debug('[v2ex] getCommentElementsFromHtmlString - no cells', { boxCount, cellCount })
   }
   return cells
 }

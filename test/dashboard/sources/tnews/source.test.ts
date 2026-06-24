@@ -134,6 +134,19 @@ describe('createTnewsSource.fetch', () => {
     expect(links).toContain('https://t.me/y/2')
     expect(links).not.toContain('https://t.me/x/1')
   })
+
+  test('fetch does not write to a double-prefixed cache key', async () => {
+    const fixture = loadFixture()
+    const runtime = makeRuntime((d) => {
+      d.onload({ responseText: fixture, status: 200 })
+    })
+    const { source } = createTnewsSource(DEFAULT_OPTS)
+    await source.fetch(runtime, undefined)
+    // The old saveTnewsCache bug wrote to 'dashboard:v2:dashboard:v2:tnews'
+    // (double-prefix). fetch should NOT write any cache key directly —
+    // refreshSource saves the returned data to 'dashboard:v2:tnews'.
+    expect(runtime.stores['dashboard:v2:dashboard:v2:tnews']).toBeUndefined()
+  })
 })
 
 describe('createTnewsSource state handle', () => {

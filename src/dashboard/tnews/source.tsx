@@ -1,6 +1,5 @@
 import type { Runtime } from '../../runtime'
 
-import { CACHE_KEY } from '../types'
 import type { Source, SourceSettings, TabLabel } from '../types'
 import { RETENTION_MS } from './constants'
 import { TnewsComponent } from './component'
@@ -62,8 +61,6 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
         sorted.length - visible.length,
       )
 
-      // 将过滤后的数据写回缓存，确保缓存与 state TTL 一致
-      await saveTnewsCache(runtime, visible)
       await state.saveToStorage(runtime)
       return visible
     },
@@ -82,20 +79,6 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
     },
   }
   return handle
-}
-
-/**
- * 将过滤后的数据写回缓存，确保缓存中只保留 retention 窗口内的数据。
- * 注意：state.ttlMs = retentionMs + 1天，状态比数据多保留 1 天，
- * 防止 fetch 失败时数据未清理导致状态早于数据消失。
- */
-async function saveTnewsCache(runtime: Runtime, items: TnewsItem[]): Promise<void> {
-  const { saveCache } = await import('../cache')
-  const cacheKey = CACHE_KEY('tnews')
-  await saveCache(runtime, cacheKey, {
-    data: items,
-    fetchedAt: Date.now(),
-  })
 }
 
 export function tnewsTabLabel(data: TnewsItem[] | null, state: TnewsState): TabLabel {

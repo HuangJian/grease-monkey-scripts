@@ -5,6 +5,7 @@ import { createV2exSource } from '../../../../src/dashboard/v2ex/source'
 import type { V2exSourceOptions, V2exTopic } from '../../../../src/dashboard/v2ex/types'
 import type { RequestDetails } from '../../../../src/runtime'
 import { STATE_KEY } from '../../../../src/dashboard/types'
+import { loadCache, saveCache } from '../../../../src/dashboard/cache'
 import { createRuntime, type TestRuntime } from '../../../runtime'
 
 const DEFAULTS: V2exSourceOptions = {
@@ -100,5 +101,51 @@ describe('createV2exSource', () => {
     const source = createV2exSource({ ...DEFAULTS, todayMinReplies: 1 })
     const result = await source.fetch(runtime, undefined)
     expect(result).toEqual([])
+  })
+
+  test('pruneExpiredCache correctly prunes old items from compressed cache', async () => {
+    const runtime: TestRuntime = {
+      ...createRuntime(),
+      request: (d: RequestDetails) => {
+        d.onload({ responseText: '[]' })
+      },
+    }
+    const now = Date.now()
+    const retentionMs = DEFAULTS.retentionDays * 24 * 60 * 60 * 1000
+    const oldTopic: V2exTopic = {
+      id: 1,
+      title: 'old',
+      url: 'https://www.v2ex.com/t/1',
+      replies: 50,
+      member: { username: 'a' },
+      node: { title: 'n' },
+      created: now - retentionMs - 1000,
+      sources: [],
+    }
+    const newTopic: V2exTopic = {
+      id: 2,
+      title: 'new',
+      url: 'https://www.v2ex.com/t/2',
+      replies: 50,
+      member: { username: 'b' },
+      node: { title: 'n' },
+      created: now - 1000,
+      sources: [],
+    }
+    // Save compressed cache — data stored with short field names (t, c, etc.)
+    await saveCache(runtime, 'v2ex', {
+      data: [oldTopic, newTopic],
+      fetchedAt: now,
+    })
+
+    const source = createV2exSource({ ...DEFAULTS, todayMinReplies: 0, olderMinReplies: 0 })
+    // fetch triggers pruneExpiredCache at the end
+    await source.fetch(runtime, [oldTopic, newTopic])
+
+    // Verify the old topic was pruned from the stored cache
+    const cached = await loadCache<V2exTopic[]>(runtime, 'v2ex')
+    const items = cached?.data ?? []
+    expect(items).toHaveLength(1)
+    expect(items[0]?.id).toBe(2)
   })
 })

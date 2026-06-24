@@ -115,7 +115,7 @@ export function getMentionedComments(
 
 export function embedDiscussions(runtime: Runtime): void {
   const comments = findCommentCells(runtime.document)
-  console.log('[v2ex] embedDiscussions', { commentCount: comments.length })
+  console.debug('[v2ex] embedDiscussions', { commentCount: comments.length })
 
   const commentByNumber = new Map<string, Element>(
     comments
@@ -141,7 +141,7 @@ export function embedDiscussions(runtime: Runtime): void {
     }))
     .filter(({ mentionedComments }) => mentionedComments.length > 0)
 
-  console.log('[v2ex] embedDiscussions plans', { planCount: plans.length })
+  console.debug('[v2ex] embedDiscussions plans', { planCount: plans.length })
 
   plans.forEach(({ currentComment, mentionedComments }) => {
     if (mentionedComments.length === 0) {

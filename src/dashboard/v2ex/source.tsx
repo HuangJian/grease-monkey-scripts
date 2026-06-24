@@ -1,6 +1,6 @@
 import type { Runtime } from '../../runtime'
 import type { AuthorTagMap } from '../../shared/author-labels'
-import type { CachedSource, Source, SourceHeaderProps, SourceSettings } from '../types'
+import type { Source, SourceHeaderProps, SourceSettings } from '../types'
 import { V2EX_AUTHOR_TAGS_KEY, V2EX_AUTHOR_TAGS_LS_KEY } from '../../shared/author-labels'
 import { syncAuthorTags } from '../author-tags-sync'
 import type { DateFilter } from '../date-filter'
@@ -8,7 +8,7 @@ import { DateFilterGroup } from '../date-filter'
 import { V2exComponent } from './component'
 import { createV2exEditor } from './editor'
 import { fetchV2ex } from './fetcher'
-import { CACHE_KEY } from '../types'
+import { loadCache, saveCache } from '../cache'
 import { createV2exState } from './state'
 import type { V2exSourceOptions, V2exTopic } from './types'
 
@@ -39,8 +39,7 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
    * 防止 fetch 失败时 pruneExpiredCache 未执行导致状态早于数据消失。
    */
   async function pruneExpiredCache(runtime: Runtime): Promise<void> {
-    const cacheKey = CACHE_KEY('v2ex')
-    const cached = await runtime.getValue<CachedSource<V2exTopic[]> | null>(cacheKey, null)
+    const cached = await loadCache<V2exTopic[]>(runtime, 'v2ex')
     if (!cached?.data || !Array.isArray(cached.data)) return
     const now = Date.now()
     const pruned = cached.data.filter((t) => {
@@ -48,7 +47,10 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
       return now - t.created < retentionMs
     })
     if (pruned.length === cached.data.length) return
-    await runtime.setValue(cacheKey, { ...cached, data: pruned })
+    await saveCache(runtime, 'v2ex', {
+      data: pruned,
+      fetchedAt: cached.fetchedAt,
+    })
   }
 
   return {

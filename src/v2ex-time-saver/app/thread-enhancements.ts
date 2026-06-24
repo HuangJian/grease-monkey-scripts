@@ -77,7 +77,7 @@ export function highlightCommentsAndTopics(runtime: Runtime, authorTagMap: Autho
 export function reorderCommentsByHearts(runtime: Runtime): void {
   const heartsFlagKey = 'data-hearts'
   const comments = findCommentCells(runtime.document)
-  console.log('[v2ex] reorderCommentsByHearts', { commentCount: comments.length })
+  console.debug('[v2ex] reorderCommentsByHearts', { commentCount: comments.length })
 
   comments.forEach((comment) => {
     const hearts = Array.from(comment.querySelectorAll('[alt="❤️"]'))
@@ -87,10 +87,10 @@ export function reorderCommentsByHearts(runtime: Runtime): void {
   })
 
   const countsElement = findFirstCommentCell(runtime.document)
-  console.log('[v2ex] reorderCommentsByHearts countsElement', { found: !!countsElement })
+  console.debug('[v2ex] reorderCommentsByHearts countsElement', { found: !!countsElement })
 
   const withHearts = comments.filter((it) => it.getAttribute(heartsFlagKey) !== '0')
-  console.log('[v2ex] reorderCommentsByHearts withHearts', { count: withHearts.length })
+  console.debug('[v2ex] reorderCommentsByHearts withHearts', { count: withHearts.length })
 
   withHearts
     .reverse()

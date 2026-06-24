@@ -37,6 +37,7 @@ export function DateFilterGroup({ value, onChange, trailing }: DateFilterGroupPr
     <div class="gm-sp-date-filter">
       {DATE_OPTIONS.map((opt) => (
         <button
+          key={opt}
           type="button"
           class={`gm-sp-date-filter-btn${value === opt ? ' gm-sp-date-filter-btn-active' : ''}`}
           onClick={() => onChange(opt)}

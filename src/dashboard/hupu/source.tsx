@@ -3,8 +3,8 @@ import type { AuthorTagMap } from '../../shared/author-labels'
 import type { Runtime } from '../../runtime'
 import { loadConfigSection } from '../config'
 import { syncAuthorTags } from '../author-tags-sync'
-import type { CachedSource, Source, SourceHeaderProps, SourceSettings } from '../types'
-import { CACHE_KEY } from '../types'
+import type { Source, SourceHeaderProps, SourceSettings } from '../types'
+import { loadCache, saveCache } from '../cache'
 import type { DateFilter } from '../date-filter'
 import { DateFilterGroup } from '../date-filter'
 import { HupuComponent } from './component'
@@ -40,8 +40,7 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
    * 防止 fetch 失败时 pruneExpiredCache 未执行导致状态早于数据消失。
    */
   async function pruneExpiredCache(runtime: Runtime): Promise<void> {
-    const cacheKey = CACHE_KEY('hupu')
-    const cached = await runtime.getValue<CachedSource<HupuRenderData> | null>(cacheKey, null)
+    const cached = await loadCache<HupuRenderData>(runtime, 'hupu')
     if (!cached?.data || typeof cached.data !== 'object') return
     const now = Date.now()
     const pruned: HupuRenderData = {}
@@ -52,7 +51,10 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
       if (kept.length > 0) pruned[board] = kept
     }
     if (!changed) return
-    await runtime.setValue(cacheKey, { ...cached, data: pruned })
+    await saveCache(runtime, 'hupu', {
+      data: pruned,
+      fetchedAt: cached.fetchedAt,
+    })
   }
 
   return {
