@@ -1,47 +1,34 @@
-import { mkdir, readFile, unlink, writeFile, opendir, stat } from 'node:fs/promises'
+/**
+ * Userscript build script.
+ *
+ * Pipeline per script:
+ *   1. Build debug bundle (original source, unminified) → compute content hash
+ *   2. Strip console.log/debug from source if any script changed
+ *   3. Build prod bundle (stripped source, minified) → reuse same hash
+ *
+ * Hash is SHA-256 of the bundle content (first 8 hex chars). If the hash
+ * matches the existing file on disk, the build is skipped.
+ */
+
+import { mkdir, readdir, readFile, stat, unlink, writeFile } from 'node:fs/promises'
 import { readFileSync, readdirSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { createHash } from 'node:crypto'
 import { $ } from 'bun'
 import { bundle as bundleCss, transform } from 'lightningcss'
 
-function stripConsoleFromSource(source: string): string {
-  const CONSOLE_RE = /console\.(log|debug)\(/
-  let result = source
-  let match: RegExpExecArray | null
+// ---------------------------------------------------------------------------
+// Source file helpers
+// ---------------------------------------------------------------------------
 
-  while ((match = CONSOLE_RE.exec(result)) !== null) {
-    const start = match.index
-    const parenStart = match[0].length - 1 + start
-
-    let depth = 1
-    let i = parenStart + 1
-    while (i < result.length && depth > 0) {
-      const ch = result[i]!
-      if (ch === '(') depth++
-      else if (ch === ')') depth--
-      i++
-    }
-    const callEnd = i
-
-    let end = callEnd
-    if (end < result.length && result[end] === ';') end++
-
-    let begin = start
-    while (begin > 0 && (result[begin - 1] === ' ' || result[begin - 1] === '\t')) begin--
-    if (begin > 0 && result[begin - 1] === '\n') begin--
-
-    result = result.slice(0, begin) + result.slice(end)
-    CONSOLE_RE.lastIndex = begin
-  }
-
-  return result
-}
-
+/**
+ * Recursively collect all .ts/.tsx source files (excluding .d.ts) under dir.
+ * Returns a Map<absolutePath, fileContent> for later restoration.
+ */
 async function collectSourceFiles(dir: string): Promise<Map<string, string>> {
   const originals = new Map<string, string>()
-  const entries = await opendir(dir)
-  for await (const entry of entries) {
+  const entries = await readdir(dir, { withFileTypes: true })
+  for (const entry of entries) {
     const full = join(dir, entry.name)
     if (entry.isDirectory()) {
       const nested = await collectSourceFiles(full)
@@ -53,16 +40,65 @@ async function collectSourceFiles(dir: string): Promise<Map<string, string>> {
       originals.set(full, await readFile(full, 'utf8'))
     }
   }
-  await entries.close()
   return originals
 }
 
+/** Write every file back to its original content. */
 async function restoreSourceFiles(originals: Map<string, string>): Promise<void> {
   for (const [path, content] of originals) {
     await writeFile(path, content, 'utf8')
   }
 }
 
+// ---------------------------------------------------------------------------
+// console.log / console.debug stripper
+// ---------------------------------------------------------------------------
+
+/**
+ * Remove console.log(...) and console.debug(...) calls from source.
+ * Handles nested parentheses and trailing semicolons.
+ */
+function stripConsoleFromSource(source: string): string {
+  const CONSOLE_RE = /console\.(log|debug)\(/
+  let result = source
+  let match: RegExpExecArray | null
+
+  while ((match = CONSOLE_RE.exec(result)) !== null) {
+    const start = match.index
+    const parenStart = match[0].length - 1 + start
+
+    // Find matching closing paren
+    let depth = 1
+    let i = parenStart + 1
+    while (i < result.length && depth > 0) {
+      const ch = result[i]!
+      if (ch === '(') depth++
+      else if (ch === ')') depth--
+      i++
+    }
+    const callEnd = i
+
+    // Include trailing semicolon if present
+    let end = callEnd
+    if (end < result.length && result[end] === ';') end++
+
+    // Include leading whitespace/newline
+    let begin = start
+    while (begin > 0 && (result[begin - 1] === ' ' || result[begin - 1] === '\t')) begin--
+    if (begin > 0 && result[begin - 1] === '\n') begin--
+
+    result = result.slice(0, begin) + result.slice(end)
+    CONSOLE_RE.lastIndex = begin
+  }
+
+  return result
+}
+
+// ---------------------------------------------------------------------------
+// CSS pipeline
+// ---------------------------------------------------------------------------
+
+/** Parse CSS custom properties (--xxx: value;) into a Map. */
 function parseCssVariables(tokensCss: string): Map<string, string> {
   const vars = new Map<string, string>()
   const re = /(--[a-z][a-z0-9-]+)\s*:\s*([^;]+);/g
@@ -73,6 +109,7 @@ function parseCssVariables(tokensCss: string): Map<string, string> {
   return vars
 }
 
+/** Replace var(--name) references with their values, up to MAX_DEPTH passes. */
 function resolveVarReferences(css: string, vars: Map<string, string>): string {
   const MAX_DEPTH = 5
   let result = css
@@ -91,9 +128,10 @@ function resolveVarReferences(css: string, vars: Map<string, string>): string {
   return result
 }
 
+/** Minify CSS using Lightning CSS. */
 function minifyCss(css: string): string {
   const { code } = transform({
-    filename: 'minified.css',
+    filename: 'tokens.css',
     code: Buffer.from(css),
     minify: true,
   })
@@ -101,9 +139,13 @@ function minifyCss(css: string): string {
 }
 
 /**
- * Build CSS from index.css and return the processed CSS string.
- * For debug mode, variables are resolved but output is not minified.
- * For prod mode, output is fully minified.
+ * Build CSS from a script directory's index.css.
+ *
+ * Steps:
+ *   1. Bundle index.css via Lightning CSS (resolves @import)
+ *   2. Resolve var(--xxx) references from tokens.css
+ *   3. Remove :host {} blocks (Web Components syntax)
+ *   4. Minify for prod builds
  */
 function buildCss(scriptDir: string, debug: boolean): string {
   const indexCssPath = resolve(scriptDir, 'index.css')
@@ -114,14 +156,12 @@ function buildCss(scriptDir: string, debug: boolean): string {
     return ''
   }
 
-  // Resolve @import rules using Lightning CSS bundle
   const { code } = bundleCss({
     filename: indexCssPath,
     minify: false,
   })
   let css = code.toString()
 
-  // Resolve CSS variables from tokens.css — search recursively in scriptDir
   const tokensPath = findTokensCss(scriptDir)
   if (tokensPath) {
     const tokensCss = readFileSync(tokensPath, 'utf8')
@@ -129,7 +169,6 @@ function buildCss(scriptDir: string, debug: boolean): string {
     css = resolveVarReferences(css, vars)
   }
 
-  // Remove :host rule (variables are now inlined)
   css = css.replace(/:host\s*\{[^}]*\}/g, '')
 
   if (!debug) {
@@ -139,35 +178,57 @@ function buildCss(scriptDir: string, debug: boolean): string {
   return css
 }
 
+/** Find tokens.css in dir or its immediate subdirectories. */
 function findTokensCss(dir: string): string | null {
-  // Check current dir
   const direct = resolve(dir, 'tokens.css')
   try {
     readFileSync(direct, 'utf8')
     return direct
   } catch {}
-  // Check one level of subdirectories
-  try {
-    const entries = readdirSync(dir, { withFileTypes: true })
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        const nested = resolve(dir, entry.name, 'tokens.css')
-        try {
-          readFileSync(nested, 'utf8')
-          return nested
-        } catch {}
-      }
+  for (const sub of readdirSync(dir, { withFileTypes: true })) {
+    if (sub.isDirectory()) {
+      const nested = resolve(dir, sub.name, 'tokens.css')
+      try {
+        readFileSync(nested, 'utf8')
+        return nested
+      } catch {}
     }
-  } catch {}
+  }
   return null
 }
 
-/**
- * Escape a string for safe embedding in a JS template literal.
- */
+/** Escape special characters for safe embedding in a JS template literal. */
 function escapeForTemplateLiteral(css: string): string {
   return css.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$')
 }
+
+// ---------------------------------------------------------------------------
+// Hash utilities
+// ---------------------------------------------------------------------------
+
+/** Compute SHA-256 hash of content, return first 8 hex chars. */
+function computeHash(content: string): string {
+  return createHash('sha256').update(content).digest('hex').slice(0, 8)
+}
+
+/**
+ * Read the build hash from an existing output file.
+ * Expects the last line to be "// build <hash>".
+ */
+function readExistingHash(file: string): string | null {
+  try {
+    const content = readFileSync(file, 'utf8')
+    const lastLine = content.trimEnd().split('\n').pop()!
+    const match = lastLine.match(/^\/\/ build ([a-f0-9]+)$/)
+    return match ? match[1]! : null
+  } catch {
+    return null
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Build modes
+// ---------------------------------------------------------------------------
 
 const BUILD_MODES = [
   { suffix: '.debug.js', debug: true },
@@ -176,18 +237,25 @@ const BUILD_MODES = [
 
 type BuildMode = (typeof BUILD_MODES)[number]
 
-async function buildUserScript(
-  entrypoint: string,
-  mode: BuildMode,
-  buildHash: string,
-): Promise<string> {
+// ---------------------------------------------------------------------------
+// Core: build a single userscript
+// ---------------------------------------------------------------------------
+
+/**
+ * Build one userscript and return the final file content (metadata + bundle).
+ *
+ * For simple scripts: injects GM_addStyle(__css) into the entry file.
+ * For Dashboard: replaces CSS_TO_BE_INJECTED placeholder in mount.tsx.
+ */
+async function buildUserScript(entrypoint: string, mode: BuildMode): Promise<string> {
   const name = basename(dirname(entrypoint))
   const scriptDir = dirname(entrypoint)
 
-  const entrypointSource = await readFile(entrypoint, 'utf8')
+  let entrypointSource = await readFile(entrypoint, 'utf8')
 
+  // Extract userscript metadata block (// ==UserScript== ... // ==/UserScript==)
   const metadataMatch = entrypointSource.match(
-    /^\/\/ ==UserScript==\n[\s\S]*?^\/\/ ==\/UserScript==/m,
+    /^\/\/ ==UserScript==[\s\S]*?^\/\/ ==\/UserScript==/m,
   )
   const metadata = metadataMatch ? metadataMatch[0] : null
 
@@ -197,181 +265,130 @@ async function buildUserScript(
 
   await mkdir('dist', { recursive: true })
 
-  const outfile = `dist/${name}${mode.suffix}`
   const temporaryOutfile = `dist/.${name}${mode.debug ? '.debug' : '.prod'}.bundle.js`
 
-  // Build CSS from index.css
   const css = buildCss(scriptDir, mode.debug)
 
-  // Collect original source files for restoration
   const originals = await collectSourceFiles(scriptDir)
 
-  // Temporary files to clean up
   const tempFiles: string[] = []
 
   try {
     if (css) {
-      // Generate .css-module.ts
-      const cssModulePath = join(scriptDir, '.css-module.ts')
       const escapedCss = escapeForTemplateLiteral(css)
-      await writeFile(cssModulePath, `export default \`${escapedCss}\`\n`, 'utf8')
-      tempFiles.push(cssModulePath)
-
-      const isDashboard = (content: string) => content.includes('CSS_TO_BE_INJECTED')
-
-      // Inject CSS into source files
       for (const [srcPath, content] of originals) {
-        let modified = content
-
         // Dashboard: replace CSS_TO_BE_INJECTED placeholder with actual CSS
-        if (isDashboard(modified)) {
-          modified = modified.replace(
+        const isDashboard = content.includes('CSS_TO_BE_INJECTED')
+        if (isDashboard) {
+          const modified = content.replace(
             /export const CSS_TO_BE_INJECTED = .*$/m,
             `export const CSS_TO_BE_INJECTED = \`${escapedCss}\``,
           )
+          await writeFile(srcPath, modified, 'utf8')
         }
 
-        // Simple scripts: inject GM_addStyle into the entry file
-        if (srcPath === entrypoint && !isDashboard(modified)) {
-          const importStatement = "import __css from './.css-module'"
-          // Insert import after the last existing import
-          const importRe = /^import\s.+?;\n/gm
+        // Simple scripts: inject GM_addStyle() call after the last import
+        if (srcPath === entrypoint && !isDashboard) {
+          const importRe = /^import\s.+?\n/gm
           let lastImportEnd = 0
           let im: RegExpExecArray | null
-          while ((im = importRe.exec(modified)) !== null) {
+          while ((im = importRe.exec(content)) !== null) {
             lastImportEnd = im.index + im[0].length
           }
+          const injection = `\n\nGM_addStyle(\`${escapedCss}\`)\n`
           if (lastImportEnd > 0) {
-            modified =
-              modified.slice(0, lastImportEnd) +
-              importStatement +
-              '\n' +
-              modified.slice(lastImportEnd)
+            entrypointSource =
+              content.slice(0, lastImportEnd) + injection + content.slice(lastImportEnd)
           } else {
-            modified = importStatement + '\n' + modified
+            entrypointSource = injection + content
           }
-          // Inject GM_addStyle call before the app start call
-          // Pattern: "void someApp(createBrowserRuntime())"
-          modified = modified.replace(
-            /void\s+(\w+)\(createBrowserRuntime\(\)\)/,
-            'GM_addStyle(__css)\nvoid $1(createBrowserRuntime())',
-          )
-        }
-
-        if (modified !== content) {
-          await writeFile(srcPath, modified, 'utf8')
         }
       }
     }
 
-    // Write temporary entrypoint (with ==build.meta== already removed from source)
+    // Remove ==build.meta== block (should no longer exist, but safety net)
     const baseSource = entrypointSource.replace(
-      /^\/\/ ==build.meta==\n[\s\S]*?^\/\/ ==\/build.meta==\n/m,
+      /^\/\/ ==build.meta==[\s\S]*?^\/\/ ==\/build.meta==/m,
       '',
     )
     const temporarySourceFile = join(scriptDir, `.index${mode.debug ? '' : '.prod'}.user.ts`)
     await writeFile(temporarySourceFile, baseSource, 'utf8')
     tempFiles.push(temporarySourceFile)
 
-    const buildCmd = mode.debug
-      ? $`bun build ${temporarySourceFile} --target=browser --format=iife --outfile=${temporaryOutfile} --sourcemap=none`
-      : $`bun build ${temporarySourceFile} --target=browser --format=iife --outfile=${temporaryOutfile} --sourcemap=none --minify`
-    const buildResult = await buildCmd.quiet().throws(false)
-    if (buildResult.exitCode !== 0) {
-      const stderr = buildResult.stderr?.toString() ?? ''
-      throw new Error(`bun build exited with code ${buildResult.exitCode}\n${stderr}`)
-    }
+    // Build with bun
+    const args = [
+      'build',
+      temporarySourceFile,
+      '--target=browser',
+      '--format=iife',
+      `--outfile=${temporaryOutfile}`,
+      '--sourcemap=none',
+    ]
+    if (!mode.debug) args.push('--minify')
+    await $`bun ${args}`.quiet().throws(false)
 
     const bundle = await readFile(temporaryOutfile, 'utf8')
 
-    await writeFile(outfile, `${metadata}\n\n${bundle}\n// build ${buildHash}`)
-
-    return bundle
+    return `${metadata}\n\n${bundle}`
   } finally {
-    // Restore original source files
+    // Always restore source files and clean up temp files
     await restoreSourceFiles(originals)
-
-    // Clean up temporary files
-    for (const tmpFile of tempFiles) {
-      await unlink(tmpFile).catch(() => {})
-    }
-    await unlink(temporaryOutfile).catch(() => {})
-  }
-}
-
-function computeHash(content: string): string {
-  return createHash('sha256').update(content).digest('hex').slice(0, 8)
-}
-
-function readExistingHash(debugFile: string): string | null {
-  try {
-    const content = readFileSync(debugFile, 'utf8')
-    const lastLine = content.trimEnd().split('\n').pop()!
-    const match = lastLine.match(/^\/\/ build ([a-f0-9]+)$/)
-    return match ? match[1]! : null
-  } catch {
-    return null
-  }
-}
-
-async function main() {
-  const srcDir = 'src'
-  const entries = []
-
-  const dir = await opendir(srcDir)
-  for await (const dirent of dir) {
-    if (dirent.isDirectory()) {
-      const entryPoint = join(srcDir, dirent.name, 'index.user.ts')
+    for (const f of [...tempFiles, temporaryOutfile]) {
       try {
-        await stat(entryPoint)
-        entries.push(entryPoint)
+        await unlink(f)
       } catch {}
     }
   }
-  await dir.close()
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+async function main() {
+  const srcDir = 'src'
+  const entries: string[] = []
+
+  // Discover all scripts: directories under src/ with an index.user.ts
+  for (const entry of await readdir(srcDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+    const ep = join(srcDir, entry.name, 'index.user.ts')
+    try {
+      await readFile(ep)
+      entries.push(ep)
+    } catch {}
+  }
 
   if (entries.length === 0) {
     console.log('No index.user.ts files found in src subdirectories')
     return
   }
 
+  // Snapshot all source files for restoration at the end
   const originals = await collectSourceFiles(srcDir)
-  for (const [path, content] of originals) {
-    const stripped = stripConsoleFromSource(content)
-    if (stripped !== content) {
-      await writeFile(path, stripped, 'utf8')
-    }
-  }
 
-  // Phase 2: Build all prod scripts in parallel, compute content hash
   const hashes = new Map<string, string>()
-  const prevHashes = new Map<string, string>()
   const built: string[] = []
   const errors: string[] = []
 
   try {
+    // Phase 1: Build all debug scripts in parallel (original source, unminified)
+    // Hash is computed from the debug bundle content.
     await Promise.all(
       entries.map(async (entrypoint) => {
         const name = basename(dirname(entrypoint))
-        const debugFile = `dist/${name}.debug.js`
-        prevHashes.set(name, readExistingHash(debugFile) ?? '')
+        const prodFile = `dist/${name}.user.js`
+        const prevHash = readExistingHash(prodFile) ?? ''
 
         try {
-          const bundle = await buildUserScript(entrypoint, BUILD_MODES[1], 'pending')
+          const bundle = await buildUserScript(entrypoint, BUILD_MODES[0])
           const hash = computeHash(bundle)
           hashes.set(name, hash)
-          const changed = prevHashes.get(name) !== hash
-          if (changed) {
-            const prodSize = (await stat(`dist/${name}.user.js`)).size
-            let debugSize = 0
-            try {
-              debugSize = (await stat(debugFile)).size
-            } catch {
-              // debug file doesn't exist yet, will be built in Phase 3
-            }
-            built.push(
-              `${name} (${(prodSize / 1024).toFixed(1)}/${(debugSize / 1024).toFixed(1)} KB, ${hash})`,
-            )
+
+          if (prevHash !== hash) {
+            const outfile = `dist/${name}${BUILD_MODES[0].suffix}`
+            await writeFile(outfile, `${bundle}\n// build ${hash}`)
+            built.push(`${name} (${hash})`)
           }
         } catch (error) {
           errors.push(`${name}: ${error}`)
@@ -379,34 +396,49 @@ async function main() {
       }),
     )
 
-    // Phase 3: Build debug scripts only if hash changed
-    const changedNames: string[] = []
+    // Phase 2: If any script changed, strip console once, then build prod.
+    // Stripping is done once globally (idempotent) before any prod build.
+    const hasChanges = entries.some((entrypoint) => {
+      const name = basename(dirname(entrypoint))
+      const hash = hashes.get(name)
+      if (!hash) return false
+      return readExistingHash(`dist/${name}.user.js`) !== hash
+    })
+
+    if (hasChanges) {
+      for (const [path, content] of originals) {
+        const stripped = stripConsoleFromSource(content)
+        if (stripped !== content) await writeFile(path, stripped, 'utf8')
+      }
+    }
+
     await Promise.all(
       entries.map(async (entrypoint) => {
         const name = basename(dirname(entrypoint))
         const hash = hashes.get(name)
         if (!hash) return
-        if (prevHashes.get(name) === hash) return // unchanged
-        changedNames.push(name)
+        const prodFile = `dist/${name}.user.js`
+        if (readExistingHash(prodFile) === hash) return
 
         try {
-          await buildUserScript(entrypoint, BUILD_MODES[0], hash)
+          const bundle = await buildUserScript(entrypoint, BUILD_MODES[1])
+          await writeFile(prodFile, `${bundle}\n// build ${hash}`)
         } catch (error) {
-          errors.push(`${name}: ${error}`)
+          errors.push(`${name} prod: ${error}`)
         }
       }),
     )
 
-    // Re-read debug file sizes after building
-    for (const name of changedNames) {
+    // Update built entries with actual file sizes
+    for (const entrypoint of entries) {
+      const name = basename(dirname(entrypoint))
+      if (!built.some((s) => s.startsWith(`${name} (`))) continue
       const idx = built.findIndex((s) => s.startsWith(`${name} (`))
-      if (idx !== -1) {
-        const prodSize = (await stat(`dist/${name}.user.js`)).size
-        const debugSize = (await stat(`dist/${name}.debug.js`)).size
-        const hash = hashes.get(name)!
-        built[idx] =
-          `${name} (${(prodSize / 1024).toFixed(1)}/${(debugSize / 1024).toFixed(1)} KB, ${hash})`
-      }
+      const prodSize = (await stat(`dist/${name}.user.js`)).size
+      const debugSize = (await stat(`dist/${name}.debug.js`)).size
+      const hash = hashes.get(name)!
+      built[idx] =
+        `${name} (${(prodSize / 1024).toFixed(1)}/${(debugSize / 1024).toFixed(1)} KB, ${hash})`
     }
   } finally {
     await restoreSourceFiles(originals)
@@ -420,6 +452,7 @@ async function main() {
   for (const err of errors) {
     console.error(`✗ ${err}`)
   }
+  if (errors.length > 0) process.exit(1)
 }
 
-main().catch(console.error)
+void main()
