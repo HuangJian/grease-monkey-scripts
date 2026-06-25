@@ -34,6 +34,7 @@ export type Runtime = {
   getValue<T>(key: string, defaultValue: T): Promise<T>
   setValue(key: string, value: unknown): Promise<void> | void
   deleteValue(key: string): Promise<void> | void
+  listValues(): Promise<string[]>
   request(details: RequestDetails): void
   addStyle(css: string): void
   addEventListener(
@@ -52,6 +53,7 @@ declare const GM: {
   getValue<T>(key: string, defaultValue: T): Promise<T>
   setValue(key: string, value: unknown): Promise<void> | void
   deleteValue(key: string): Promise<void> | void
+  listValues(): Promise<string[]>
 }
 
 declare function GM_xmlhttpRequest(details: {
@@ -92,6 +94,7 @@ export function createBrowserRuntime(): Runtime {
     getValue: (key, defaultValue) => GM.getValue(key, defaultValue),
     setValue: (key, value) => GM.setValue(key, value),
     deleteValue: (key) => GM.deleteValue(key),
+    listValues: () => GM.listValues(),
     request: (details) => GM_xmlhttpRequest(details),
     addStyle: (css) => GM_addStyle(css),
     addEventListener: (target, type, listener, options) => {

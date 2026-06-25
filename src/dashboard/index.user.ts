@@ -17,9 +17,11 @@
 // @grant        GM.getValue
 // @grant        GM.setValue
 // @grant        GM.deleteValue
+// @grant        GM.listValues
 // @grant        GM_addValueChangeListener
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addElement
+// @grant        GM_addStyle
 // @grant        unsafeWindow
 // @grant        GM_registerMenuCommand
 // @connect      api.open-meteo.com

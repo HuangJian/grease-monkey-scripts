@@ -126,6 +126,7 @@ export function createRuntime(dom?: Window): TestRuntime {
     deleteValue: (key) => {
       delete stores[key]
     },
+    listValues: async () => Object.keys(stores),
     request: (details) => {
       lastRequest = {
         url: details.url,

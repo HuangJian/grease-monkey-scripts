@@ -72,13 +72,13 @@ Match validation to risk.
 
 Scoped validation commands:
 
-| Command | Use for |
-|---|---|
-| `bun run typecheck` | Type errors |
-| `bun run test` | Behavior changes (silent wrapper: failures re-run individually with output) |
-| `bun run test:verbose` | Full raw test output |
-| `bun run lint` | Style issues |
-| `bun run check` | Comprehensive: typecheck + lint + format + tests + build |
+| Command                | Use for                                                                     |
+| ---------------------- | --------------------------------------------------------------------------- |
+| `bun run typecheck`    | Type errors                                                                 |
+| `bun run test`         | Behavior changes (silent wrapper: failures re-run individually with output) |
+| `bun run test:verbose` | Full raw test output                                                        |
+| `bun run lint`         | Style issues                                                                |
+| `bun run check`        | Comprehensive: typecheck + lint + format + tests + build                    |
 
 ## Task Workflows
 

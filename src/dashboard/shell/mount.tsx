@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'preact/hooks'
+import { useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { render } from 'preact'
 import type { Runtime } from '../../runtime'
 import { OverlayShell } from './overlay-shell'
@@ -10,6 +10,7 @@ import {
   applyImportData,
   formatExportFilename,
 } from '../export-import'
+import { showSaveDialog } from '../save-dialog'
 
 export const CSS_TO_BE_INJECTED = '/* overlay css placeholder */'
 
@@ -47,6 +48,7 @@ function OverlayMount({ host, handleRef, root, runtime, onClose }: OverlayMountP
   const sideCardsRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [hovered, setHovered] = useState(false)
 
   useLayoutEffect(() => {
     roots.set(host, root)
@@ -93,21 +95,34 @@ function OverlayMount({ host, handleRef, root, runtime, onClose }: OverlayMountP
     input.click()
   }
 
+  const handleSave = (): void => {
+    showSaveDialog(root, runtime)
+  }
+
   return (
     <div ref={containerRef}>
       {onClose && <OverlayShell root={root} document={host.ownerDocument} onClose={onClose} />}
       <style>{CSS_TO_BE_INJECTED}</style>
       <div class="gm-sp-backdrop" ref={backdropRef}>
         <div class="gm-sp-modal" ref={modalRef}>
-          <div class="gm-sp-corner-actions">
-            <div class="gm-sp-corner-kebab" aria-label="menu">
+          <div
+            class="gm-sp-corner-actions"
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+          >
+            <div
+              class={`gm-sp-corner-kebab${hovered ? ' gm-sp-corner-kebab-hidden' : ''}`}
+              aria-label="menu"
+            >
               <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
                 <circle cx="8" cy="4" r="1.5" />
                 <circle cx="8" cy="8" r="1.5" />
                 <circle cx="8" cy="12" r="1.5" />
               </svg>
             </div>
-            <div class="gm-sp-corner-actions-group">
+            <div
+              class={`gm-sp-corner-actions-group${hovered ? ' gm-sp-corner-actions-group-visible' : ''}`}
+            >
               <button
                 type="button"
                 class="gm-sp-corner-btn gm-sp-corner-btn-close"
@@ -164,6 +179,26 @@ function OverlayMount({ host, handleRef, root, runtime, onClose }: OverlayMountP
                   height="12"
                 >
                   <path d="M8 10V2M4 7l4-4 4 4M3 12h10" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="gm-sp-corner-btn gm-sp-corner-btn-action"
+                aria-label="save"
+                onClick={handleSave}
+              >
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                  stroke-linejoin="round"
+                  width="12"
+                  height="12"
+                >
+                  <path d="M2.5 2.5h8l3 3v8h-11z" />
+                  <path d="M5 2.5v3.5h4V2.5" />
+                  <path d="M5 9h6v4.5H5z" />
                 </svg>
               </button>
             </div>
