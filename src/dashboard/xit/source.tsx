@@ -1,9 +1,11 @@
 import type { Runtime } from '../../runtime'
 import type { Source, SourceHeaderProps, SourceSettings } from '../types'
+import { loadCache, saveCache } from '../cache'
 import { XitHeaderControls, type XitHeaderState } from './component/header'
 import { XitBody } from './component/body'
 import { createXitEditor } from './editor'
 import { parseXitText } from './parser'
+import { resetRecurringTasks } from './recurring-reset'
 import type { XitData } from './types'
 
 export const DEFAULT_XIT_TEXT = `xit (xit 语法规范):
@@ -84,16 +86,23 @@ export function createXitSource(
       )
     },
     async fetch(runtimeArg, prevData) {
-      if (prevData?.text) {
-        return prevData
-      }
-      return { text: DEFAULT_XIT_TEXT }
+      const text = prevData?.text ?? DEFAULT_XIT_TEXT
+      return { text: await resetRecurringTasks(runtimeArg, text) }
     },
     createEditor(_settings: SourceSettings) {
       return createXitEditor()
     },
-    async loadState(_) {
-      /* xit is stateless */
+    async loadState(runtime) {
+      const cached = await loadCache<XitData>(runtime, 'xit')
+      if (!cached?.data?.text) return
+      const newText = await resetRecurringTasks(runtime, cached.data.text)
+      if (newText !== cached.data.text) {
+        await saveCache(runtime, 'xit', {
+          data: { text: newText },
+          fetchedAt: cached.fetchedAt,
+          error: cached.error,
+        })
+      }
     },
   }
   return source
