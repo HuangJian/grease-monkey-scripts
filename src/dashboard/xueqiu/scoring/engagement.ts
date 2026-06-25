@@ -7,8 +7,8 @@
 import type { XueqiuNewsItem } from '../types'
 
 export function computeEngagementScore(item: XueqiuNewsItem): number {
-  const replies = item.reply_count ?? 0
-  const likes = item.like_count ?? 0
+  const replies = item.reply_count
+  const likes = item.like_count
 
   const LOG_201 = Math.log(201)
   const LOG_501 = Math.log(501)

@@ -72,7 +72,7 @@ export function parseCmaPage(html: string, DOMParserCtor: typeof DOMParser): Cma
   if (allHourly) {
     const dayIndexMap = new Map<string, number>()
     dailyDates.forEach((d, i) => dayIndexMap.set(d, i))
-    allHourly.hourly.precipitation_amount?.forEach((p, i) => {
+    allHourly.hourly.precipitation_amount.forEach((p, i) => {
       const dayDate = allHourly.dayDates[i]
       const idx = dayIndexMap.get(dayDate)
       if (idx != null && p > 0) {
@@ -88,7 +88,9 @@ export function parseCmaPage(html: string, DOMParserCtor: typeof DOMParser): Cma
     temperature_2m_min: tempMin,
     weather_code: weatherCodes,
     precipitation_probability_max: [],
-    ...(hasPrecip ? { precipitation_sum: precipSum.map((s) => Math.round(s * 10) / 10) } : {}),
+    ...(hasPrecip
+      ? { precipitation_sum: precipSum.map((s) => Math.round(s * 10) / 10) }
+      : { precipitation_sum: [] }),
   }
 
   if (allHourly) {
@@ -234,16 +236,15 @@ function parseAllCmaHourTables(
       temperature_2m: allTemps,
       weather_code: allWeatherCodes,
       precipitation_probability: [],
-      pressure: allPressures.length === allTimes.length ? allPressures : undefined,
-      humidity: allHumidities.length === allTimes.length ? allHumidities : undefined,
-      cloud_cover: allCloudCovers.length === allTimes.length ? allCloudCovers : undefined,
-      precipitation_amount:
-        allPrecipAmounts.length === allTimes.length ? allPrecipAmounts : undefined,
-      wind_speed_10m: allWindSpeeds.length === allTimes.length ? allWindSpeeds : undefined,
+      pressure: allPressures.length === allTimes.length ? allPressures : [],
+      humidity: allHumidities.length === allTimes.length ? allHumidities : [],
+      cloud_cover: allCloudCovers.length === allTimes.length ? allCloudCovers : [],
+      precipitation_amount: allPrecipAmounts.length === allTimes.length ? allPrecipAmounts : [],
+      wind_speed_10m: allWindSpeeds.length === allTimes.length ? allWindSpeeds : [],
       wind_direction_10m:
         allWindDirs.length === allTimes.length && allWindDirs.every(Number.isFinite)
           ? allWindDirs
-          : undefined,
+          : [],
     },
     dayDates: allDayDates,
   }

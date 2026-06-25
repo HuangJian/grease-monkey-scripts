@@ -71,12 +71,10 @@ export function TabsCard({
     root,
     onRefresh: () => onRefreshCallback(activeTab.id),
     onEdit,
-    onHeaderChange: activeTab.headerState
-      ? () => {
-          console.debug('[gm-tabs-card] onHeaderChange triggered for', activeTab.id)
-          setHeaderVersion((n) => n + 1)
-        }
-      : undefined,
+    onHeaderChange: () => {
+      console.debug('[gm-tabs-card] onHeaderChange triggered for', activeTab.id)
+      setHeaderVersion((n) => n + 1)
+    },
   }
 
   const headerContent = HeaderComp ? <HeaderComp {...headerProps} /> : null
@@ -110,15 +108,13 @@ export function TabsCard({
         data-tab-id={tab.id}
         hidden={!isActive}
       >
-        {Comp ? (
-          <Comp
-            data={data as never}
-            root={root}
-            runtime={runtime}
-            onNotify={() => onTabChange(tab.id)}
-            onHeaderChange={tab.headerState ? () => setHeaderVersion((n) => n + 1) : undefined}
-          />
-        ) : null}
+        <Comp
+          data={data as never}
+          root={root}
+          runtime={runtime}
+          onNotify={() => onTabChange(tab.id)}
+          onHeaderChange={() => setHeaderVersion((n) => n + 1)}
+        />
       </div>
     )
   })

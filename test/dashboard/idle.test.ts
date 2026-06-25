@@ -23,10 +23,13 @@ describe('opportunistic idle refresh', () => {
     }
     const oldCache: CachedSource<unknown> = {
       schemaVersion: CACHE_SCHEMA_VERSION,
+      data: null,
+      error: '',
       fetchedAt: Date.now() - 2 * 60 * 60 * 1000, // 2h old
     }
     runtime.stores[CACHE_KEY('v2ex')] = oldCache
-    runtime.request = ((d) => d.onload({ responseText: '[]' })) as typeof runtime.request
+    runtime.request = ((d) =>
+      d.onload({ responseText: '[]', status: 200, responseHeaders: '' })) as typeof runtime.request
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     expect(idleCb).not.toBeNull()
@@ -41,10 +44,12 @@ describe('opportunistic idle refresh', () => {
     runtime.requestIdleCallback = () => {}
     runtime.request = ((d) => {
       called++
-      d.onload({ responseText: '[]' })
+      d.onload({ responseText: '[]', status: 200, responseHeaders: '' })
     }) as typeof runtime.request
     const freshCache: CachedSource<unknown> = {
       schemaVersion: CACHE_SCHEMA_VERSION,
+      data: null,
+      error: '',
       fetchedAt: Date.now(),
     }
     runtime.stores[CACHE_KEY('v2ex')] = freshCache

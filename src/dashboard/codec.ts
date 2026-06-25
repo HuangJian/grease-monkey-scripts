@@ -56,8 +56,8 @@ function compressV2ex(v: Record<string, unknown>): Record<string, unknown> {
   }
   if (m && typeof m.username === 'string') out.a = m.username
   if (n && typeof n.title === 'string') out.nt = n.title
-  if (v.sources !== undefined) out.sr = v.sources
-  if (v.created !== undefined) out.c = compressTimestamp(v.created as number | undefined)
+  if (Array.isArray(v.sources) && v.sources.length > 0) out.sr = v.sources
+  if (typeof v.created === 'number' && v.created > 0) out.c = compressTimestamp(v.created)
   return out
 }
 
@@ -70,9 +70,9 @@ function expandV2ex(v: Record<string, unknown>): Record<string, unknown> {
     replies: v.r,
     member: { username: v.a ?? '' },
     node: { title: v.nt ?? '' },
+    sources: v.sr ?? [],
+    created: expandTimestamp(v.c as number | undefined) ?? 0,
   }
-  if (v.sr !== undefined) out.sources = v.sr
-  if (v.c !== undefined) out.created = expandTimestamp(v.c as number | undefined)
   return out
 }
 
@@ -147,7 +147,7 @@ function compressXueqiu(v: Record<string, unknown>): Record<string, unknown> {
     c: compressTimestamp((v.created_at ?? v.c) as number | undefined),
     r: v.reply_count ?? v.r,
   }
-  if (v.like_count !== undefined) out.lc = v.like_count
+  if (typeof v.like_count === 'number' && v.like_count > 0) out.lc = v.like_count
   const desc = String(v.description ?? v.d ?? '')
   const text = String(v.text ?? v.x ?? '')
   if (desc !== text) out.d = desc
@@ -163,8 +163,8 @@ function expandXueqiu(v: Record<string, unknown>): Record<string, unknown> {
     target: expandUrl('xueqiu-news', String(v.u ?? '')),
     created_at: expandTimestamp(v.c as number | undefined) ?? 0,
     reply_count: v.r ?? 0,
+    like_count: v.lc ?? 0,
   }
-  if (v.lc !== undefined) out.like_count = v.lc
   if (v.d !== undefined) out.description = v.d
   return out
 }
@@ -196,14 +196,17 @@ function expandTnews(v: Record<string, unknown>): Record<string, unknown> {
 function compressNovelChapter(v: Record<string, unknown>): Record<string, unknown> {
   if (isShortItem(v)) return v
   const out: Record<string, unknown> = { u: v.url ?? v.u, t: v.title ?? v.t }
-  if (v.postedAt !== undefined) out.pa = compressTimestamp(v.postedAt as number | undefined)
+  if (typeof v.postedAt === 'number' && v.postedAt > 0) out.pa = compressTimestamp(v.postedAt)
   return out
 }
 
 function expandNovelChapter(v: Record<string, unknown>): Record<string, unknown> {
   if (v.url !== undefined) return v
-  const out: Record<string, unknown> = { url: v.u ?? '', title: v.t ?? '' }
-  if (v.pa !== undefined) out.postedAt = expandTimestamp(v.pa as number | undefined)
+  const out: Record<string, unknown> = {
+    url: v.u ?? '',
+    title: v.t ?? '',
+    postedAt: expandTimestamp(v.pa as number | undefined) ?? 0,
+  }
   return out
 }
 
@@ -217,8 +220,8 @@ function compressNovelBook(v: Record<string, unknown>): Record<string, unknown> 
     lcs: chapters.map(compressNovelChapter),
     fa: compressTimestamp((v.fetchedAt ?? v.fa) as number | undefined),
   }
-  if (v.lastSeenChapterUrl !== undefined) out.lu = v.lastSeenChapterUrl
-  if (v.error !== undefined) out.e = v.error
+  if (v.lastSeenChapterUrl) out.lu = v.lastSeenChapterUrl
+  if (v.error) out.e = v.error
   return out
 }
 
@@ -231,9 +234,9 @@ function expandNovelBook(v: Record<string, unknown>): Record<string, unknown> {
     title: v.t ?? '',
     latestChapters: chapters.map(expandNovelChapter),
     fetchedAt: expandTimestamp(v.fa as number | undefined) ?? 0,
+    lastSeenChapterUrl: v.lu ?? '',
+    error: v.e ?? '',
   }
-  if (v.lu !== undefined) out.lastSeenChapterUrl = v.lu
-  if (v.e !== undefined) out.error = v.e
   return out
 }
 
@@ -314,5 +317,6 @@ export function expandFromStorage<T>(sourceId: string, value: CachedSource<T>): 
   return {
     ...value,
     data: expandData(sourceId, value.data) as T,
+    error: value.error ?? '',
   }
 }

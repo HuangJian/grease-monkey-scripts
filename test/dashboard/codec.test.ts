@@ -3,7 +3,7 @@ import { compressForStorage, expandFromStorage } from '../../src/dashboard/codec
 import { CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/dashboard/types'
 
 function roundTrip<T>(sourceId: string, data: T, fetchedAt: number = Date.now()): T {
-  const cached = { data, fetchedAt, error: undefined as string | undefined }
+  const cached = { data, fetchedAt, error: '' }
   const compressed = compressForStorage(sourceId, cached)
   const stored = { ...compressed, schemaVersion: CACHE_SCHEMA_VERSION } as CachedSource<T>
   const expanded = expandFromStorage(sourceId, stored)
@@ -42,7 +42,7 @@ describe('codec round-trip: v2ex', () => {
         node: { title: '' },
       },
     ]
-    const compressed = compressForStorage('v2ex', { data, fetchedAt: Date.now() })
+    const compressed = compressForStorage('v2ex', { data, fetchedAt: Date.now(), error: '' })
     const items = compressed.data as Record<string, unknown>[]
     expect(items[0].u).toBe('/t/1')
   })
@@ -92,7 +92,7 @@ describe('codec round-trip: reddit', () => {
         },
       ],
     }
-    const compressed = compressForStorage('reddit', { data, fetchedAt: Date.now() })
+    const compressed = compressForStorage('reddit', { data, fetchedAt: Date.now(), error: '' })
     const groups = compressed.data as Record<string, Record<string, unknown>[]>
     expect(groups.test[0].u).toBe('/r/test/comments/x')
   })
@@ -157,7 +157,7 @@ describe('codec round-trip: xueqiu-news', () => {
         },
       ],
     }
-    const compressed = compressForStorage('xueqiu-news', { data, fetchedAt: Date.now() })
+    const compressed = compressForStorage('xueqiu-news', { data, fetchedAt: Date.now(), error: '' })
     const groups = compressed.data as Record<string, Record<string, unknown>[]>
     expect(groups.news[0].u).toBe('/1')
   })
@@ -209,7 +209,7 @@ describe('codec round-trip: novels', () => {
 describe('codec: short item passthrough', () => {
   test('items with only t field pass through unchanged', () => {
     const data = [{ id: '1', t: 'short' }]
-    const compressed = compressForStorage('v2ex', { data, fetchedAt: Date.now() })
+    const compressed = compressForStorage('v2ex', { data, fetchedAt: Date.now(), error: '' })
     const items = compressed.data as Record<string, unknown>[]
     expect(items[0].t).toBe('short')
     expect(items[0].id).toBe('1')
@@ -219,7 +219,11 @@ describe('codec: short item passthrough', () => {
 describe('codec: unknown source passthrough', () => {
   test('unknown sourceId returns data unchanged', () => {
     const data = { foo: 'bar' }
-    const compressed = compressForStorage('unknown-source', { data, fetchedAt: Date.now() })
+    const compressed = compressForStorage('unknown-source', {
+      data,
+      fetchedAt: Date.now(),
+      error: '',
+    })
     expect(compressed.data).toBe(data)
 
     const stored = { ...compressed, schemaVersion: CACHE_SCHEMA_VERSION } as CachedSource<unknown>

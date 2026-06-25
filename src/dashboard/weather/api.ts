@@ -78,7 +78,7 @@ async function fetchCmaNowJson(runtime: Runtime, stationId: string): Promise<unk
 }
 
 async function fetchCmaCity(runtime: Runtime, city: WeatherCity): Promise<WeatherCityData> {
-  const stationId = city.cmaStationId!
+  const stationId = city.cmaStationId
   console.debug('[gm-dashboard] cma.fetchCmaCity: station', stationId, 'city', city.cityLabel)
   const [om, pageHtml, nowJson] = await Promise.allSettled([
     fetchOpenMeteoBase(runtime, city.latitude, city.longitude),
@@ -172,11 +172,11 @@ async function fetchCmaCity(runtime: Runtime, city: WeatherCity): Promise<Weathe
     }
   }
 
-  const pageWindMs = data.hourly.wind_speed_10m?.[0]
+  const pageWindMs = data.hourly.wind_speed_10m[0]
   if (typeof pageWindMs === 'number' && Number.isFinite(pageWindMs)) {
     data.current.wind_speed_10m = pageWindMs * 3.6
   }
-  const pageWindDir = data.hourly.wind_direction_10m?.[0]
+  const pageWindDir = data.hourly.wind_direction_10m[0]
   if (typeof pageWindDir === 'number' && Number.isFinite(pageWindDir)) {
     data.current.wind_direction_10m = pageWindDir
   }

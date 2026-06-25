@@ -51,7 +51,7 @@ function BookBlock({
   const unread = newChapters(book)
 
   if (book.siteId === 'unknown') {
-    const errorText = book.error ?? '未知站点，暂不支持'
+    const errorText = book.error || '未知站点，暂不支持'
     return (
       <div class="gm-sp-novels-book gm-sp-novels-book-unknown" data-book-url={bookUrl}>
         <div class="gm-sp-novels-book-header">
@@ -160,8 +160,7 @@ function ChapterList({
 }
 
 function ChapterItem({ chapter, onMarkSeen }: { chapter: NovelChapter; onMarkSeen: () => void }) {
-  const timeText =
-    chapter.postedAt !== undefined ? formatPostedAt(chapter.postedAt) : FALLBACK_DATE_LABEL
+  const timeText = chapter.postedAt > 0 ? formatPostedAt(chapter.postedAt) : FALLBACK_DATE_LABEL
   const href = escapeUrl(chapter.url)
   return (
     <li class="gm-sp-novels-chapter">
@@ -185,7 +184,7 @@ function ChapterItem({ chapter, onMarkSeen }: { chapter: NovelChapter; onMarkSee
 }
 
 function ReadChapterItem({ chapter, book }: { chapter: NovelChapter; book: NovelBook }) {
-  const timeText = formatPostedAt(chapter.postedAt ?? book.fetchedAt) + '【已读】'
+  const timeText = formatPostedAt(chapter.postedAt || book.fetchedAt) + '【已读】'
   return (
     <li class="gm-sp-novels-chapter">
       <a

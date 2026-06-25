@@ -131,13 +131,13 @@ export async function fetchV2ex(
   const now = Date.now()
 
   full = full.filter((t) => {
-    if (t.created !== undefined && t.created < todayStartMs) {
+    if (t.created > 0 && t.created < todayStartMs) {
       if (t.replies < countOptions.olderMinReplies) return false
     }
     if (
-      t.created !== undefined &&
+      t.created > 0 &&
       t.created >= todayStartMs &&
-      t.sources?.length === 1 &&
+      t.sources.length === 1 &&
       t.sources[0] === 'page' &&
       t.replies < countOptions.todayMinReplies
     ) {

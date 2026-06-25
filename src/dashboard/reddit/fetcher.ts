@@ -3,7 +3,7 @@ import { MAX_RETRIES_ON_429, REDDIT_API_URL, REDDIT_HOSTS, REDDIT_USER_AGENT } f
 import { normalizeSubredditName, parseRedditListing } from './parser'
 import type { RedditFetchResult, RedditPost, RedditSourceOptions } from './types'
 
-function parseRetryAfter(headers: string | undefined): number {
+function parseRetryAfter(headers: string): number {
   if (!headers) return 0
   const match = headers.match(/^retry-after:\s*(\d+)/im)
   if (!match) return 0
@@ -62,7 +62,7 @@ function fetchOneSub(runtime: Runtime, subreddit: string): Promise<FetchOutcome>
             advanceHost()
             return
           }
-          if (response.status && response.status >= 400) {
+          if (response.status >= 400) {
             settle({
               ok: false,
               error: `http ${response.status}`,

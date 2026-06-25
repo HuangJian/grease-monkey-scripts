@@ -50,21 +50,14 @@ export function createWeatherSource(options: WeatherSourceOptions): Source<Weath
         onTabChange={(i: number) => {
           console.debug('[gm-weather] header tab click:', i, 'prev:', headerState.activeCityIndex)
           headerState.activeCityIndex = i
-          console.debug('[gm-weather] calling onHeaderChange:', !!props.onHeaderChange)
-          props.onHeaderChange?.()
+          console.debug('[gm-weather] calling onHeaderChange')
+          props.onHeaderChange()
         }}
       />
     ),
     RenderComponent: (props) => {
       console.debug('[gm-weather] body render, activeIndex:', headerState.activeCityIndex)
-      return (
-        <WeatherComponent
-          data={props.data}
-          root={props.root}
-          runtime={props.runtime}
-          activeIndex={headerState.activeCityIndex}
-        />
-      )
+      return <WeatherComponent {...props} activeIndex={headerState.activeCityIndex} />
     },
     createEditor(_settings: SourceSettings) {
       return createWeatherEditor({

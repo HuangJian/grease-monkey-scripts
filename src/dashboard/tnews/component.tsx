@@ -48,7 +48,7 @@ export function TnewsComponent({
     const id = scrollTargetRef.current
     if (!id) return
     scrollTargetRef.current = null
-    const el = runtime?.document.querySelector(
+    const el = runtime.document.querySelector(
       `li[data-item-id="${CSS.escape(id)}"] .gm-sp-expandable-row`,
     )
     el?.scrollIntoView({ block: 'start', behavior: 'smooth' })
@@ -69,7 +69,7 @@ export function TnewsComponent({
     if (!wasExpanded) {
       scrollTargetRef.current = item.id
     }
-    if (runtime) void state.saveToStorage(runtime)
+    void state.saveToStorage(runtime)
     notify?.()
     forceUpdate((n) => n + 1)
   }

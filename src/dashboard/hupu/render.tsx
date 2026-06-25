@@ -11,7 +11,7 @@ export function renderHupu(
   container: HTMLElement,
   data: HupuRenderData | null,
   state: HupuState,
-  runtime: Runtime | null,
+  runtime: Runtime,
   expandCollapse: ExpandCollapse,
   authorTagMap: AuthorTagMap = {},
   dateFilter: DateFilter = '全',
@@ -20,8 +20,10 @@ export function renderHupu(
   render(
     <HupuComponent
       data={data}
+      root={undefined as any}
+      runtime={runtime}
+      onHeaderChange={() => {}}
       state={state}
-      runtime={runtime ?? undefined}
       expandCollapse={expandCollapse}
       authorTagMap={authorTagMap}
       dateFilter={dateFilter}

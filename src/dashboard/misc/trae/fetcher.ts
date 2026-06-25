@@ -53,7 +53,7 @@ export async function fetchTraeData(runtime: Runtime, config: TraeConfig): Promi
       },
       data: JSON.stringify({ require_usage: true }),
       onload(resp) {
-        resolve({ status: resp.status ?? 0, body: resp.responseText })
+        resolve({ status: resp.status, body: resp.responseText })
       },
       onerror: () => reject(new Error(`trae: network error`)),
       ontimeout: () => reject(new Error(`trae: timeout`)),

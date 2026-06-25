@@ -42,7 +42,7 @@ export function fetchCodexUsage(
         authorization: `Bearer ${config.token}`,
       },
       onload(response) {
-        if (response.status && response.status >= 400) {
+        if (response.status >= 400) {
           reject(new Error(`codex: http ${response.status}`))
           return
         }

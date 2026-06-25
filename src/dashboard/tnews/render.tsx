@@ -8,12 +8,19 @@ export function renderTnews(
   container: HTMLElement,
   items: TnewsItem[] | null,
   state: TnewsState,
-  runtime: Runtime | null,
+  runtime: Runtime,
   now: number,
 ): void {
   render(null, container)
   render(
-    <TnewsComponent data={items} state={state} runtime={runtime ?? undefined} now={now} />,
+    <TnewsComponent
+      data={items}
+      root={undefined as any}
+      runtime={runtime}
+      onHeaderChange={() => {}}
+      state={state}
+      now={now}
+    />,
     container,
   )
 }

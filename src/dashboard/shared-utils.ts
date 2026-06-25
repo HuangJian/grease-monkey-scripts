@@ -14,15 +14,14 @@ export function sourceBadge(created: number): { icon: string; title: string } {
 }
 
 export function applyDateFilter<T>(
-  items: T[] | null,
+  items: T[],
   filter: DateFilter,
-  getCreated: (item: T) => number | undefined,
-): T[] | null {
+  getCreated: (item: T) => number,
+): T[] {
   const bounds = dateFilterBounds(filter, Date.now())
-  if (!bounds || !items) return items
+  if (!bounds) return items
   return items.filter((item) => {
     const created = getCreated(item)
-    if (created === undefined) return false
     if (bounds.start !== undefined && created < bounds.start) return false
     if (bounds.end !== undefined && created >= bounds.end) return false
     return true
@@ -30,16 +29,15 @@ export function applyDateFilter<T>(
 }
 
 export function applyGroupedDateFilter<T>(
-  data: Record<string, T[]> | null,
+  data: Record<string, T[]>,
   filter: DateFilter,
-  getCreated: (item: T) => number | undefined,
-): Record<string, T[]> | null {
+  getCreated: (item: T) => number,
+): Record<string, T[]> {
   const bounds = dateFilterBounds(filter, Date.now())
-  if (!bounds || !data) return data
+  if (!bounds) return data
   return Object.entries(data).reduce<Record<string, T[]>>((result, [key, items]) => {
     const filtered = items.filter((item) => {
       const created = getCreated(item)
-      if (created === undefined) return false
       if (bounds.start !== undefined && created < bounds.start) return false
       if (bounds.end !== undefined && created >= bounds.end) return false
       return true

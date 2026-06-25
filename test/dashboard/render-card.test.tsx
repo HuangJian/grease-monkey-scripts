@@ -5,8 +5,13 @@ import { CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/dashboard/typ
 
 afterEach(cleanup)
 
-function cached<T>(partial: Omit<CachedSource<T>, 'schemaVersion'>): CachedSource<T> {
-  return { schemaVersion: CACHE_SCHEMA_VERSION, ...partial }
+function cached<T>(partial: { data?: T; fetchedAt: number; error?: string }): CachedSource<T> {
+  return {
+    schemaVersion: CACHE_SCHEMA_VERSION,
+    data: partial.data ?? null,
+    fetchedAt: partial.fetchedAt,
+    error: partial.error ?? '',
+  }
 }
 
 function renderWithChrome({

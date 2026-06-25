@@ -118,6 +118,7 @@ export function createMiscSource(runtime: Runtime): Source<MiscData> {
     },
     groupId: 'browse',
     order: 10,
+    headerState: {},
     getTabLabel(data: MiscData | null): TabLabel {
       const badge =
         miscOptions.badgeType === 'none' || !data

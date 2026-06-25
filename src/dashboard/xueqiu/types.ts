@@ -12,7 +12,7 @@ export type XueqiuNewsItem = {
   created_at: number
   status_id: number
   reply_count: number
-  like_count?: number
+  like_count: number
   share_count: number
   view_count: number
   sub_type: number

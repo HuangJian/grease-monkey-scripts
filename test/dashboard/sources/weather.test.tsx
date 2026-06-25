@@ -140,12 +140,16 @@ describe('parseAirQuality', () => {
 
 describe('fetchAirQuality', () => {
   test('resolves with parsed data', async () => {
-    const runtime = makeRuntime((d) => d.onload({ responseText: JSON.stringify(AIR_QUALITY) }))
+    const runtime = makeRuntime((d) =>
+      d.onload({ responseText: JSON.stringify(AIR_QUALITY), status: 200, responseHeaders: '' }),
+    )
     const aq = await fetchAirQuality(runtime, 39.9, 116.4)
     expect(aq.us_aqi).toBe(42)
   })
   test('rejects on bad JSON', async () => {
-    const runtime = makeRuntime((d) => d.onload({ responseText: 'nope' }))
+    const runtime = makeRuntime((d) =>
+      d.onload({ responseText: 'nope', status: 200, responseHeaders: '' }),
+    )
     await expect(fetchAirQuality(runtime, 39.9, 116.4)).rejects.toThrow()
   })
 })
@@ -154,8 +158,9 @@ describe('fetchWeather', () => {
   test('resolves with parsed data and air_quality on success', async () => {
     let i = 0
     const runtime = makeRuntime((d) => {
-      if (i++ === 0) d.onload({ responseText: JSON.stringify(FIXTURE) })
-      else d.onload({ responseText: JSON.stringify(AIR_QUALITY) })
+      if (i++ === 0)
+        d.onload({ responseText: JSON.stringify(FIXTURE), status: 200, responseHeaders: '' })
+      else d.onload({ responseText: JSON.stringify(AIR_QUALITY), status: 200, responseHeaders: '' })
     })
     const data = await fetchWeather(runtime, 39.9, 116.4)
     expect(data.current.temperature_2m).toBe(3.4)
@@ -164,7 +169,8 @@ describe('fetchWeather', () => {
   test('still resolves when AQI call fails (air_quality null)', async () => {
     let i = 0
     const runtime = makeRuntime((d) => {
-      if (i++ === 0) d.onload({ responseText: JSON.stringify(FIXTURE) })
+      if (i++ === 0)
+        d.onload({ responseText: JSON.stringify(FIXTURE), status: 200, responseHeaders: '' })
       else d.onerror?.()
     })
     const data = await fetchWeather(runtime, 39.9, 116.4)
@@ -175,22 +181,24 @@ describe('fetchWeather', () => {
     await expect(fetchWeather(runtime, 39.9, 116.4)).rejects.toThrow('network error')
   })
   test('rejects on bad JSON', async () => {
-    const runtime = makeRuntime((d) => d.onload({ responseText: 'not-json' }))
+    const runtime = makeRuntime((d) =>
+      d.onload({ responseText: 'not-json', status: 200, responseHeaders: '' }),
+    )
     await expect(fetchWeather(runtime, 39.9, 116.4)).rejects.toThrow()
   })
 })
 
 describe('fetchWeatherAll', () => {
   const cities: WeatherCity[] = [
-    { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ' },
-    { latitude: 31.2, longitude: 121.5, cityLabel: 'SH' },
+    { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ', cmaStationId: '' },
+    { latitude: 31.2, longitude: 121.5, cityLabel: 'SH', cmaStationId: '' },
   ]
   test('returns ok entry per city when all fetch', async () => {
     const runtime = makeRuntime((d) => {
       if (d.url.includes('air-quality-api')) {
-        d.onload({ responseText: JSON.stringify(AIR_QUALITY) })
+        d.onload({ responseText: JSON.stringify(AIR_QUALITY), status: 200, responseHeaders: '' })
       } else {
-        d.onload({ responseText: JSON.stringify(FIXTURE) })
+        d.onload({ responseText: JSON.stringify(FIXTURE), status: 200, responseHeaders: '' })
       }
     })
     const result = await fetchWeatherAll(runtime, cities)
@@ -209,9 +217,9 @@ describe('fetchWeatherAll', () => {
       if (d.url.includes('latitude=31.2')) {
         d.onerror?.()
       } else if (d.url.includes('air-quality-api')) {
-        d.onload({ responseText: JSON.stringify(AIR_QUALITY) })
+        d.onload({ responseText: JSON.stringify(AIR_QUALITY), status: 200, responseHeaders: '' })
       } else {
-        d.onload({ responseText: JSON.stringify(FIXTURE) })
+        d.onload({ responseText: JSON.stringify(FIXTURE), status: 200, responseHeaders: '' })
       }
     })
     const result = await fetchWeatherAll(runtime, cities)
@@ -237,13 +245,13 @@ describe('fetchWeatherAll', () => {
     const cmaNowJson = readFileSync(join(import.meta.dir, '..', 'fixtures', 'cma-now.json'), 'utf8')
     const runtime = makeRuntime((d) => {
       if (d.url.includes('weather.cma.cn/web/weather/')) {
-        d.onload({ responseText: cmaPageHtml })
+        d.onload({ responseText: cmaPageHtml, status: 200, responseHeaders: '' })
       } else if (d.url.includes('weather.cma.cn/api/now/')) {
-        d.onload({ responseText: cmaNowJson })
+        d.onload({ responseText: cmaNowJson, status: 200, responseHeaders: '' })
       } else if (d.url.includes('air-quality-api')) {
-        d.onload({ responseText: JSON.stringify(AIR_QUALITY) })
+        d.onload({ responseText: JSON.stringify(AIR_QUALITY), status: 200, responseHeaders: '' })
       } else {
-        d.onload({ responseText: JSON.stringify(FIXTURE) })
+        d.onload({ responseText: JSON.stringify(FIXTURE), status: 200, responseHeaders: '' })
       }
     })
     const result = await fetchWeatherAll(runtime, [
@@ -258,8 +266,8 @@ describe('fetchWeatherAll', () => {
     expect(data.current.pressure).toBe(998)
     expect(data.current.wind_direction_10m).toBe(45)
     expect(data.current.wind_speed_10m).toBeCloseTo(9.0, 1)
-    expect(data.hourly.wind_speed_10m?.[0]).toBe(2.5)
-    expect(data.hourly.wind_direction_10m?.[0]).toBe(45)
+    expect(data.hourly.wind_speed_10m[0]).toBe(2.5)
+    expect(data.hourly.wind_direction_10m[0]).toBe(45)
     expect(data.current.air_quality?.us_aqi).toBe(42)
     expect(data.daily.time.length).toBeGreaterThanOrEqual(2)
     expect(data.daily.temperature_2m_max[0]).toBe(28)
@@ -288,13 +296,13 @@ describe('fetchWeatherAll', () => {
     })
     const runtime = makeRuntime((d) => {
       if (d.url.includes('weather.cma.cn/web/weather/')) {
-        d.onload({ responseText: cmaPageHtml })
+        d.onload({ responseText: cmaPageHtml, status: 200, responseHeaders: '' })
       } else if (d.url.includes('weather.cma.cn/api/now/')) {
-        d.onload({ responseText: cmaNowCalm })
+        d.onload({ responseText: cmaNowCalm, status: 200, responseHeaders: '' })
       } else if (d.url.includes('air-quality-api')) {
-        d.onload({ responseText: JSON.stringify(AIR_QUALITY) })
+        d.onload({ responseText: JSON.stringify(AIR_QUALITY), status: 200, responseHeaders: '' })
       } else {
-        d.onload({ responseText: JSON.stringify(FIXTURE) })
+        d.onload({ responseText: JSON.stringify(FIXTURE), status: 200, responseHeaders: '' })
       }
     })
     const result = await fetchWeatherAll(runtime, [
@@ -312,9 +320,9 @@ describe('fetchWeatherAll', () => {
       } else if (d.url.includes('weather.cma.cn/api/now/')) {
         d.onerror?.()
       } else if (d.url.includes('air-quality-api')) {
-        d.onload({ responseText: JSON.stringify(AIR_QUALITY) })
+        d.onload({ responseText: JSON.stringify(AIR_QUALITY), status: 200, responseHeaders: '' })
       } else {
-        d.onload({ responseText: JSON.stringify(FIXTURE) })
+        d.onload({ responseText: JSON.stringify(FIXTURE), status: 200, responseHeaders: '' })
       }
     })
     const result = await fetchWeatherAll(runtime, [
@@ -354,7 +362,7 @@ describe('windDirectionArrow', () => {
 describe('createWeatherSource', () => {
   test('declares side placement', () => {
     const source = createWeatherSource({
-      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X', cmaStationId: '' }],
       ttlMinutes: 60,
     })
     expect(source.placement).toBe('side')
@@ -379,7 +387,7 @@ describe('createWeatherSource', () => {
       },
     }
     const source = createWeatherSource({
-      cities: [{ latitude: 39.9, longitude: 116.4, cityLabel: '北京' }],
+      cities: [{ latitude: 39.9, longitude: 116.4, cityLabel: '北京', cmaStationId: '' }],
       ttlMinutes: 60,
     })
     const result = await source.fetch(runtime)
@@ -399,11 +407,19 @@ describe('createWeatherSource.render', () => {
 
   function renderComponent(
     container: HTMLElement,
-    source: { RenderComponent?: ComponentType<any> },
+    source: { RenderComponent: ComponentType<any> },
     data: unknown,
   ) {
-    const Comp = source.RenderComponent!
-    render(<Comp data={data} />, { container })
+    const Comp = source.RenderComponent
+    render(
+      <Comp
+        data={data}
+        root={undefined as any}
+        runtime={undefined as any}
+        onHeaderChange={() => {}}
+      />,
+      { container },
+    )
   }
 
   function buildData() {
@@ -434,7 +450,7 @@ describe('createWeatherSource.render', () => {
   test('renders -- placeholder when data is null', () => {
     const container = containerEl()
     const source = createWeatherSource({
-      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X', cmaStationId: '' }],
       ttlMinutes: 60,
     })
     renderComponent(container, source, null)
@@ -448,7 +464,7 @@ describe('createWeatherSource.render', () => {
   test('renders AQI badge with US AQI value and Chinese level (no AQI prefix)', () => {
     const container = containerEl()
     const source = createWeatherSource({
-      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X', cmaStationId: '' }],
       ttlMinutes: 60,
     })
     renderComponent(container, source, buildData())
@@ -460,7 +476,7 @@ describe('createWeatherSource.render', () => {
   test('falls back to -- AQI when air quality missing', () => {
     const container = containerEl()
     const source = createWeatherSource({
-      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X', cmaStationId: '' }],
       ttlMinutes: 60,
     })
     const data = buildData()
@@ -476,7 +492,7 @@ describe('createWeatherSource.render', () => {
   test('renders single-line summary with range, AQI, and chips', () => {
     const container = containerEl()
     const source = createWeatherSource({
-      cities: [{ latitude: 0, longitude: 0, cityLabel: '合肥' }],
+      cities: [{ latitude: 0, longitude: 0, cityLabel: '合肥', cmaStationId: '' }],
       ttlMinutes: 60,
     })
     const data = buildData()
@@ -498,7 +514,7 @@ describe('createWeatherSource.render', () => {
   test('renders humidity chip when current.humidity is present', () => {
     const container = containerEl()
     const source = createWeatherSource({
-      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X', cmaStationId: '' }],
       ttlMinutes: 60,
     })
     const data = buildData()
@@ -512,7 +528,7 @@ describe('createWeatherSource.render', () => {
   test('omits humidity chip when current.humidity is absent', () => {
     const container = containerEl()
     const source = createWeatherSource({
-      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X', cmaStationId: '' }],
       ttlMinutes: 60,
     })
     renderComponent(container, source, buildData())
@@ -522,7 +538,7 @@ describe('createWeatherSource.render', () => {
   test('wind arrow rotates +180deg so a north wind points south', () => {
     const container = containerEl()
     const source = createWeatherSource({
-      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X', cmaStationId: '' }],
       ttlMinutes: 60,
     })
     const data = buildData()
@@ -537,7 +553,7 @@ describe('createWeatherSource.render', () => {
   test('wind arrow wraps at 360deg for 270deg wind (becomes 90deg)', () => {
     const container = containerEl()
     const source = createWeatherSource({
-      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X', cmaStationId: '' }],
       ttlMinutes: 60,
     })
     const data = buildData()
@@ -552,7 +568,7 @@ describe('createWeatherSource.render', () => {
   test('renders source attribution with CMA link when cmaUrl is set', () => {
     const container = containerEl()
     const source = createWeatherSource({
-      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X', cmaStationId: '' }],
       ttlMinutes: 60,
     })
     const data = buildData()
@@ -571,7 +587,7 @@ describe('createWeatherSource.render', () => {
   test('omits source attribution when cmaUrl is missing even if source is cma', () => {
     const container = containerEl()
     const source = createWeatherSource({
-      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X', cmaStationId: '' }],
       ttlMinutes: 60,
     })
     const data = buildData()
@@ -585,7 +601,7 @@ describe('createWeatherSource.render', () => {
   test('renders hourly cells only for remaining hours of current day', () => {
     const container = containerEl()
     const source = createWeatherSource({
-      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X', cmaStationId: '' }],
       ttlMinutes: 60,
     })
     renderComponent(container, source, buildData())
@@ -600,7 +616,7 @@ describe('createWeatherSource.render', () => {
   test('renders all CMA hourly slots including next-morning hours when source is cma', () => {
     const container = containerEl()
     const source = createWeatherSource({
-      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X', cmaStationId: '' }],
       ttlMinutes: 60,
     })
     const data = buildData()
@@ -701,7 +717,7 @@ describe('createWeatherSource.render', () => {
   test('renders 3 day pills for +1/+2/+3 only (today moved to summary)', () => {
     const container = containerEl()
     const source = createWeatherSource({
-      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X' }],
+      cities: [{ latitude: 0, longitude: 0, cityLabel: 'X', cmaStationId: '' }],
       ttlMinutes: 60,
     })
     renderComponent(container, source, buildData())
@@ -721,8 +737,8 @@ describe('createWeatherSource.render', () => {
     const container = containerEl()
     const source = createWeatherSource({
       cities: [
-        { latitude: 0, longitude: 0, cityLabel: 'BJ' },
-        { latitude: 30, longitude: 120, cityLabel: 'SH' },
+        { latitude: 0, longitude: 0, cityLabel: 'BJ', cmaStationId: '' },
+        { latitude: 30, longitude: 120, cityLabel: 'SH', cmaStationId: '' },
       ],
       ttlMinutes: 60,
     })
@@ -752,7 +768,7 @@ describe('createWeatherSource.render', () => {
 
     function rerender() {
       const HeaderComp = source.RenderHeader!
-      const BodyComp = source.RenderComponent!
+      const BodyComp = source.RenderComponent
       render(
         <div>
           <HeaderComp
@@ -763,6 +779,7 @@ describe('createWeatherSource.render', () => {
             runtime={createRuntime()}
             root={undefined as any}
             onRefresh={async () => {}}
+            onEdit={() => {}}
             onHeaderChange={() => rerender()}
           />
           <BodyComp

@@ -41,7 +41,7 @@ describe('fetchReddit', () => {
     const calls: RequestDetails[] = []
     const runtime = makeRuntime((d) => {
       calls.push(d)
-      d.onload({ responseText: JSON.stringify(json) })
+      d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
     })
     const result = await fetchReddit(runtime, defaultRedditOpts())
     expect(result.posts).toHaveLength(1)
@@ -55,7 +55,7 @@ describe('fetchReddit', () => {
     let captured: RequestDetails | undefined
     const runtime = makeRuntime((d) => {
       captured = d
-      d.onload({ responseText: JSON.stringify(json) })
+      d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
     })
     await fetchReddit(runtime, defaultRedditOpts())
     expect(captured!.anonymous).toBe(false)
@@ -100,9 +100,9 @@ describe('fetchReddit', () => {
     }
     const runtime = makeRuntime((d) => {
       if (d.url.includes('/r/funny/')) {
-        d.onload({ responseText: JSON.stringify(funny) })
+        d.onload({ responseText: JSON.stringify(funny), status: 200, responseHeaders: '' })
       } else {
-        d.onload({ responseText: JSON.stringify(popular) })
+        d.onload({ responseText: JSON.stringify(popular), status: 200, responseHeaders: '' })
       }
     })
     const result = await fetchReddit(
@@ -117,7 +117,7 @@ describe('fetchReddit', () => {
   test('parser populates created field on parsed posts', async () => {
     const json = loadFixture()
     const runtime = makeRuntime((d) => {
-      d.onload({ responseText: JSON.stringify(json) })
+      d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
     })
     const result = await fetchReddit(runtime, defaultRedditOpts())
     for (const { posts } of result.posts) {
@@ -131,7 +131,7 @@ describe('fetchReddit', () => {
     const json = loadFixture()
     const runtime = makeRuntime((d) => {
       if (d.url.includes('/r/askscience/')) d.onerror?.()
-      else d.onload({ responseText: JSON.stringify(json) })
+      else d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
     })
     const result = await fetchReddit(
       runtime,
@@ -155,7 +155,7 @@ describe('fetchReddit', () => {
       if (calls === 1) {
         d.onload({ responseText: '', status: 429, responseHeaders: 'retry-after: 0' })
       } else {
-        d.onload({ responseText: JSON.stringify(json) })
+        d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
       }
     })
     const result = await fetchReddit(runtime, defaultRedditOpts())
@@ -172,7 +172,7 @@ describe('fetchReddit', () => {
     let calls = 0
     const runtime = makeRuntime((d) => {
       calls++
-      d.onload({ responseText: '', status: 500 })
+      d.onload({ responseText: '', status: 500, responseHeaders: '' })
     })
     await expect(fetchReddit(runtime, defaultRedditOpts())).rejects.toThrow(/http 500/)
     expect(calls).toBe(1)
@@ -182,7 +182,7 @@ describe('fetchReddit', () => {
     const urls: string[] = []
     const runtime = makeRuntime((d) => {
       urls.push(d.url)
-      d.onload({ responseText: JSON.stringify(json) })
+      d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
     })
     await fetchReddit(runtime, defaultRedditOpts({ subreddits: ['/r/Funny', ' AWESOME '] }))
     expect(urls.some((u) => u.includes('/r/funny/'))).toBe(true)
@@ -194,7 +194,7 @@ describe('fetchReddit', () => {
     const urls: string[] = []
     const runtime = makeRuntime((d) => {
       urls.push(d.url)
-      d.onload({ responseText: JSON.stringify(json) })
+      d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
     })
     await fetchReddit(
       runtime,
@@ -208,9 +208,9 @@ describe('fetchReddit', () => {
     const runtime = makeRuntime((d) => {
       urls.push(d.url)
       if (d.url.includes('old.reddit.com')) {
-        d.onload({ responseText: '', status: 403 })
+        d.onload({ responseText: '', status: 403, responseHeaders: '' })
       } else {
-        d.onload({ responseText: JSON.stringify(json) })
+        d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
       }
     })
     const result = await fetchReddit(runtime, defaultRedditOpts())
@@ -221,7 +221,7 @@ describe('fetchReddit', () => {
   })
   test('both hosts 403: throws http 403', async () => {
     const runtime = makeRuntime((d) => {
-      d.onload({ responseText: '', status: 403 })
+      d.onload({ responseText: '', status: 403, responseHeaders: '' })
     })
     await expect(fetchReddit(runtime, defaultRedditOpts())).rejects.toThrow(/http 403/)
   })

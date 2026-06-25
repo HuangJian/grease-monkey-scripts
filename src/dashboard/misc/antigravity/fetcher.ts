@@ -40,7 +40,7 @@ function gmFetch(
       data: opts.body,
       timeout: opts.timeout ?? 20000,
       onload(resp) {
-        resolve({ status: resp.status ?? 0, body: resp.responseText })
+        resolve({ status: resp.status, body: resp.responseText })
       },
       onerror: () => reject(new Error(`antigravity: network error ${opts.url}`)),
       ontimeout: () => reject(new Error(`antigravity: timeout ${opts.url}`)),

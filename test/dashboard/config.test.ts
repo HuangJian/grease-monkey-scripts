@@ -128,6 +128,7 @@ describe('cache load/save', () => {
     runtime.stores[CACHE_KEY('v2ex')] = {
       schemaVersion: CACHE_SCHEMA_VERSION + 99,
       fetchedAt: 1234,
+      error: '',
     }
     expect(await loadCache<unknown>(runtime, 'v2ex')).toBeNull()
   })
@@ -136,6 +137,7 @@ describe('cache load/save', () => {
     const result = await saveCache<{ a: number }>(runtime, 'v2ex', {
       data: { a: 1 },
       fetchedAt: 1234,
+      error: '',
     })
     expect(result).toBeUndefined()
     const loaded = await loadCache<{ a: number }>(runtime, 'v2ex')
@@ -150,6 +152,7 @@ describe('cache load/save', () => {
     const result = await saveCache<{ s: string }>(runtime, 'v2ex', {
       data: { s: big },
       fetchedAt: Date.now(),
+      error: '',
     })
     expect(result).toBeUndefined()
     const stored = runtime.stores[CACHE_KEY('v2ex')] as CachedSource<{ s: string }>
@@ -161,6 +164,8 @@ describe('staleness', () => {
   const ttlMs = 60_000
   const v = (fetchedAt: number): CachedSource<unknown> => ({
     schemaVersion: CACHE_SCHEMA_VERSION,
+    data: null,
+    error: '',
     fetchedAt,
   })
   test('isStale: missing cache is stale', () => {

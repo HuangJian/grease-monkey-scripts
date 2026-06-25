@@ -53,7 +53,7 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
         value={mainHeaderState.dateFilter}
         onChange={(f) => {
           mainHeaderState.dateFilter = f
-          props.onHeaderChange?.()
+          props.onHeaderChange()
         }}
       />
     ),
@@ -75,11 +75,9 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
     async loadState(runtime) {
       await state.loadFromStorage(runtime)
     },
-    RenderComponent: ({ data, root, runtime }) => (
+    RenderComponent: (props) => (
       <XueqiuComponent
-        data={data}
-        root={root}
-        runtime={runtime}
+        {...props}
         state={state}
         mode="news"
         dateFilter={mainHeaderState.dateFilter}
@@ -105,7 +103,7 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
         value={hotHeaderState.dateFilter}
         onChange={(f) => {
           hotHeaderState.dateFilter = f
-          props.onHeaderChange?.()
+          props.onHeaderChange()
         }}
       />
     ),
@@ -130,11 +128,15 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
     },
   }
 
-  function HotRankedView({ root, runtime, onNotify }: SourceComponentProps<XueqiuRenderData>) {
+  function HotRankedView({
+    root,
+    runtime,
+    onNotify,
+    onHeaderChange,
+  }: SourceComponentProps<XueqiuRenderData>) {
     const [data, setData] = useState<XueqiuRenderData | null>(null)
 
     useLayoutEffect(() => {
-      if (!runtime) return
       loadCache<XueqiuRenderData>(runtime, MAIN_SOURCE_ID).then((cached) => {
         if (!cached?.data) {
           setData({ news: [], hotPosts: [] })
@@ -151,6 +153,7 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
         data={data}
         root={root}
         runtime={runtime}
+        onHeaderChange={onHeaderChange}
         state={state}
         mode="hot"
         dateFilter={hotHeaderState.dateFilter}
@@ -183,6 +186,7 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
     await saveCache(runtime, MAIN_SOURCE_ID, {
       data: pruned,
       fetchedAt: cached.fetchedAt,
+      error: '',
     })
   }
 
@@ -205,6 +209,7 @@ async function saveXueqiuCache(runtime: Runtime, data: XueqiuRenderData): Promis
   await saveCache(runtime, MAIN_SOURCE_ID, {
     data: merged,
     fetchedAt: Date.now(),
+    error: '',
   })
 }
 

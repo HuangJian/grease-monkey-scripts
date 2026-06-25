@@ -54,6 +54,7 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
     await saveCache(runtime, 'hupu', {
       data: pruned,
       fetchedAt: cached.fetchedAt,
+      error: '',
     })
   }
 
@@ -69,7 +70,7 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
         value={headerState.dateFilter}
         onChange={(f) => {
           headerState.dateFilter = f
-          props.onHeaderChange?.()
+          props.onHeaderChange()
         }}
       />
     ),
@@ -102,11 +103,9 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
       await pruneExpiredCache(runtime)
       return visible
     },
-    RenderComponent: ({ data, root, runtime }) => (
+    RenderComponent: (props) => (
       <HupuComponent
-        data={data}
-        root={root}
-        runtime={runtime}
+        {...props}
         state={state}
         expandCollapse={expandCollapse}
         authorTagMap={authorTagMap}

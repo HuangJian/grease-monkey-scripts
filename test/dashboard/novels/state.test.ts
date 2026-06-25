@@ -3,7 +3,7 @@ import { initialSeenUrl, isNewChapter, newChapters } from '../../../src/dashboar
 import type { NovelBook, NovelChapter } from '../../../src/dashboard/novels/types'
 
 function chapter(url: string, title = url): NovelChapter {
-  return { url, title }
+  return { url, title, postedAt: 0 }
 }
 
 function book(over: Partial<NovelBook>): NovelBook {
@@ -13,19 +13,21 @@ function book(over: Partial<NovelBook>): NovelBook {
     title: 'T',
     latestChapters: [],
     fetchedAt: 0,
+    lastSeenChapterUrl: '',
+    error: '',
     ...over,
   }
 }
 
 describe('initialSeenUrl', () => {
-  test('returns undefined for empty list', () => {
-    expect(initialSeenUrl([], 3)).toBeUndefined()
+  test('returns empty string for empty list', () => {
+    expect(initialSeenUrl([], 3)).toBe('')
   })
-  test('returns undefined when fewer chapters than threshold', () => {
-    expect(initialSeenUrl([chapter('a'), chapter('b')], 3)).toBeUndefined()
+  test('returns empty string when fewer chapters than threshold', () => {
+    expect(initialSeenUrl([chapter('a'), chapter('b')], 3)).toBe('')
   })
-  test('returns undefined when exactly equal to threshold', () => {
-    expect(initialSeenUrl([chapter('a'), chapter('b'), chapter('c')], 3)).toBeUndefined()
+  test('returns empty string when exactly equal to threshold', () => {
+    expect(initialSeenUrl([chapter('a'), chapter('b'), chapter('c')], 3)).toBe('')
   })
   test('returns the chapter at index N when more than threshold', () => {
     const chapters = [chapter('a'), chapter('b'), chapter('c'), chapter('d'), chapter('e')]
@@ -38,7 +40,7 @@ describe('initialSeenUrl', () => {
 })
 
 describe('isNewChapter', () => {
-  test('all NEW when lastSeen is undefined', () => {
+  test('all NEW when lastSeen is empty', () => {
     const b = book({ latestChapters: [chapter('a'), chapter('b')] })
     expect(isNewChapter(chapter('a'), b)).toBe(true)
     expect(isNewChapter(chapter('b'), b)).toBe(true)
@@ -84,7 +86,7 @@ describe('newChapters', () => {
     })
     expect(newChapters(b).map((c) => c.url)).toEqual(['c3'])
   })
-  test('returns all chapters when lastSeen is undefined', () => {
+  test('returns all chapters when lastSeen is empty', () => {
     const b = book({ latestChapters: [chapter('c3'), chapter('c2'), chapter('c1')] })
     expect(newChapters(b).map((c) => c.url)).toEqual(['c3', 'c2', 'c1'])
   })

@@ -43,6 +43,9 @@ export function parseWeather(json: unknown): WeatherCityData | null {
       wind_speed_10m: current.wind_speed_10m,
       wind_direction_10m: current.wind_direction_10m,
       air_quality: null,
+      humidity: 0,
+      pressure: 0,
+      precipitation: 0,
       source: 'open-meteo',
     },
     hourly: {
@@ -50,6 +53,12 @@ export function parseWeather(json: unknown): WeatherCityData | null {
       temperature_2m: hourly.temperature_2m as number[],
       weather_code: hourly.weather_code as number[],
       precipitation_probability: hourly.precipitation_probability as number[],
+      pressure: [],
+      humidity: [],
+      cloud_cover: [],
+      precipitation_amount: [],
+      wind_speed_10m: [],
+      wind_direction_10m: [],
     },
     daily: {
       time: daily.time as string[],
@@ -57,6 +66,9 @@ export function parseWeather(json: unknown): WeatherCityData | null {
       temperature_2m_min: daily.temperature_2m_min as number[],
       weather_code: daily.weather_code as number[],
       precipitation_probability_max: daily.precipitation_probability_max as number[],
+      precipitation_sum: [],
     },
+    cmaUrl: '',
+    cmaFailed: false,
   }
 }

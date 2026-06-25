@@ -130,6 +130,7 @@ export async function applyImportData(runtime: Runtime, data: ExportData): Promi
     await saveCache(runtime, XIT_CACHE_KEY, {
       data: cached.data,
       fetchedAt: cached.fetchedAt ?? Date.now(),
+      error: '',
     })
   }
 

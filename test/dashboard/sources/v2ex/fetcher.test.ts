@@ -15,7 +15,7 @@ const FIXTURE = [
     replies: 10,
     member: { username: 'alice' },
     node: { title: 'node-a' },
-    sources: [] as const,
+    sources: [],
     created: Date.now() - 24 * 60 * 60 * 1000,
   },
   {
@@ -25,7 +25,7 @@ const FIXTURE = [
     replies: 20,
     member: { username: 'bob' },
     node: { title: 'node-b' },
-    sources: [] as const,
+    sources: [],
     created: Date.now() - 24 * 60 * 60 * 1000,
   },
   {
@@ -35,7 +35,7 @@ const FIXTURE = [
     replies: 30,
     member: { username: 'carol' },
     node: { title: 'node-c' },
-    sources: [] as const,
+    sources: [],
     created: Date.now() - 24 * 60 * 60 * 1000,
   },
 ]
@@ -64,9 +64,9 @@ describe('fetchV2ex', () => {
     const html = loadPageFixture()
     const runtime = makeRuntime((d) => {
       if (d.url.includes('hot.json')) {
-        d.onload({ responseText: JSON.stringify(FIXTURE) })
+        d.onload({ responseText: JSON.stringify(FIXTURE), status: 200, responseHeaders: '' })
       } else {
-        d.onload({ responseText: html })
+        d.onload({ responseText: html, status: 200, responseHeaders: '' })
       }
     })
     const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
@@ -80,7 +80,7 @@ describe('fetchV2ex', () => {
     const captured: RequestDetails[] = []
     const runtime = makeRuntime((d) => {
       captured.push(d)
-      d.onload({ responseText: '[]' })
+      d.onload({ responseText: '[]', status: 200, responseHeaders: '' })
     })
     const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
     await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
@@ -100,7 +100,7 @@ describe('fetchV2ex', () => {
     const html = loadPageFixture()
     const runtime = makeRuntime((d) => {
       if (d.url.includes('hot.json')) d.onerror?.()
-      else d.onload({ responseText: html })
+      else d.onload({ responseText: html, status: 200, responseHeaders: '' })
     })
     const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
     const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
@@ -123,8 +123,9 @@ describe('fetchV2ex', () => {
     const html = `<html><body><div class="cell item"><a class="topic-link" href="/t/9999">Yesterday topic</a><span class="topic_info"><span title="${yesterdayStr}">1 day ago</span></span><span class="count_orange">50</span></div></body></html>`
 
     const runtime = makeRuntime((d) => {
-      if (d.url.includes('hot.json')) d.onload({ responseText: '[]' })
-      else d.onload({ responseText: html })
+      if (d.url.includes('hot.json'))
+        d.onload({ responseText: '[]', status: 200, responseHeaders: '' })
+      else d.onload({ responseText: html, status: 200, responseHeaders: '' })
     })
     const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
     const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
@@ -145,8 +146,9 @@ describe('fetchV2ex', () => {
     const html = `<html><body><div class="cell item"><a class="topic-link" href="/t/8888">Today topic</a><span class="topic_info"><span title="${todayStr}">1 hour ago</span></span><span class="count_orange">10</span></div></body></html>`
 
     const runtime = makeRuntime((d) => {
-      if (d.url.includes('hot.json')) d.onload({ responseText: '[]' })
-      else d.onload({ responseText: html })
+      if (d.url.includes('hot.json'))
+        d.onload({ responseText: '[]', status: 200, responseHeaders: '' })
+      else d.onload({ responseText: html, status: 200, responseHeaders: '' })
     })
     const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
     const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
@@ -158,7 +160,7 @@ describe('fetchV2ex', () => {
   test('falls back to api when page fails', async () => {
     const runtime = makeRuntime((d) => {
       if (d.url.includes('hot.json')) {
-        d.onload({ responseText: JSON.stringify(FIXTURE) })
+        d.onload({ responseText: JSON.stringify(FIXTURE), status: 200, responseHeaders: '' })
       } else {
         d.onerror?.()
       }
@@ -183,9 +185,9 @@ describe('fetchV2ex', () => {
     }
     const runtime = makeRuntime((d) => {
       if (d.url.includes('hot.json')) {
-        d.onload({ responseText: JSON.stringify([sharedTopic]) })
+        d.onload({ responseText: JSON.stringify([sharedTopic]), status: 200, responseHeaders: '' })
       } else {
-        d.onload({ responseText: html })
+        d.onload({ responseText: html, status: 200, responseHeaders: '' })
       }
     })
     const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
@@ -203,14 +205,18 @@ describe('fetchV2ex', () => {
       replies: 2,
       member: { username: 'u' },
       node: { title: 'n' },
-      sources: [] as const,
+      sources: [],
       created: Date.now(),
     }
     const runtime = makeRuntime((d) => {
       if (d.url.includes('hot.json')) {
-        d.onload({ responseText: JSON.stringify([FIXTURE[0]]) })
+        d.onload({ responseText: JSON.stringify([FIXTURE[0]]), status: 200, responseHeaders: '' })
       } else {
-        d.onload({ responseText: JSON.stringify([FIXTURE[0], lowReplyTopic]) })
+        d.onload({
+          responseText: JSON.stringify([FIXTURE[0], lowReplyTopic]),
+          status: 200,
+          responseHeaders: '',
+        })
       }
     })
     const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })

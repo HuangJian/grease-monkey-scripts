@@ -13,7 +13,7 @@ export function parseV2ex(json: unknown, maxItems: number): V2exTopic[] {
     const title = typeof t.title === 'string' ? t.title : ''
     const url = typeof t.url === 'string' ? t.url : ''
     const replies = typeof t.replies === 'number' ? t.replies : Number(t.replies ?? 0)
-    const created = typeof t.created === 'number' ? t.created * 1000 : Number(t.created ?? 0) * 1000
+    const created = (typeof t.created === 'number' ? t.created : Number(t.created) || 0) * 1000
     const memberObj = t.member as Record<string, unknown> | undefined
     const nodeObj = t.node as Record<string, unknown> | undefined
     const member =
@@ -32,7 +32,7 @@ export function parseV2ex(json: unknown, maxItems: number): V2exTopic[] {
       member,
       node,
       sources: [],
-      created: Number.isFinite(created) && created > 0 ? created : undefined,
+      created: Number.isFinite(created) && created > 0 ? created : 0,
     })
     return topics.length >= maxItems
   })
@@ -76,7 +76,7 @@ export function parseV2exHotPage(
     const repliesText = countEl?.textContent?.trim() ?? '0'
     const replies = Number(repliesText)
     const timeEl = row.querySelector('.topic_info > span[title]')
-    const created = timeEl ? parseCreatedFromTitle(timeEl.getAttribute('title') ?? '') : undefined
+    const created = timeEl ? (parseCreatedFromTitle(timeEl.getAttribute('title') ?? '') ?? 0) : 0
     topics.push({
       id,
       title,
@@ -109,7 +109,7 @@ export function mergeV2exTopics(
 
   apiTopics.forEach((topic) => {
     if (!Number.isFinite(topic.id) || topic.id <= 0) return
-    byId.set(topic.id, { ...topic, sources: topic.sources?.length ? [...topic.sources] : ['api'] })
+    byId.set(topic.id, { ...topic, sources: topic.sources.length ? [...topic.sources] : ['api'] })
   })
 
   pageTopics.forEach((topic) => {
@@ -120,7 +120,7 @@ export function mergeV2exTopics(
         ...existing,
         replies: Math.max(existing.replies, topic.replies),
         sources: ['api', 'page'],
-        created: existing.created ?? topic.created,
+        created: existing.created || topic.created,
       })
     } else {
       byId.set(topic.id, { ...topic, sources: ['page'] })
@@ -130,7 +130,7 @@ export function mergeV2exTopics(
   const todayStartMs = getTodayStartMs()
 
   byId.forEach((topic) => {
-    if (topic.sources?.length === 1 && topic.sources[0] === 'page' && topic.created !== undefined) {
+    if (topic.sources.length === 1 && topic.sources[0] === 'page' && topic.created > 0) {
       if (topic.created < todayStartMs) {
         topic.sources = ['api']
       }
@@ -138,11 +138,7 @@ export function mergeV2exTopics(
   })
 
   const filtered = Array.from(byId.values()).filter((topic) => {
-    if (
-      dropApiOnly &&
-      topic.sources?.includes('page') === false &&
-      topic.sources?.includes('api') === true
-    ) {
+    if (dropApiOnly && !topic.sources.includes('page') && topic.sources.includes('api')) {
       return false
     }
     return true
@@ -159,7 +155,7 @@ export function mergeV2exTopics(
  */
 export function computeSortScore(topic: V2exTopic, now: number, halfLifeDays: number): number {
   if (!Number.isFinite(topic.replies) || topic.replies <= 0) return 0
-  const createdMs = topic.created ?? 0
+  const createdMs = topic.created
   return computeTimeDecay(createdMs > 0 ? createdMs : now, now, halfLifeDays) * topic.replies
 }
 
@@ -176,8 +172,8 @@ export function sortByDecayedScore(
     const scoreA = computeSortScore(a, now, halfLifeDays)
     const scoreB = computeSortScore(b, now, halfLifeDays)
     if (scoreB !== scoreA) return scoreB - scoreA
-    const aCross = (a.sources?.length ?? 0) > 1 ? 1 : 0
-    const bCross = (b.sources?.length ?? 0) > 1 ? 1 : 0
+    const aCross = a.sources.length > 1 ? 1 : 0
+    const bCross = b.sources.length > 1 ? 1 : 0
     return bCross - aCross
   })
 }

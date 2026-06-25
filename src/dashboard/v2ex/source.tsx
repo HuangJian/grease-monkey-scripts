@@ -43,13 +43,14 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
     if (!cached?.data || !Array.isArray(cached.data)) return
     const now = Date.now()
     const pruned = cached.data.filter((t) => {
-      if (t.created === undefined) return true // 无 created 的条目保留
+      if (t.created === 0) return true // 无 created 的条目保留
       return now - t.created < retentionMs
     })
     if (pruned.length === cached.data.length) return
     await saveCache(runtime, 'v2ex', {
       data: pruned,
       fetchedAt: cached.fetchedAt,
+      error: '',
     })
   }
 
@@ -65,15 +66,13 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
         value={headerState.dateFilter}
         onChange={(f) => {
           headerState.dateFilter = f
-          props.onHeaderChange?.()
+          props.onHeaderChange()
         }}
       />
     ),
-    RenderComponent: ({ data, root, runtime }) => (
+    RenderComponent: (props) => (
       <V2exComponent
-        data={data}
-        root={root}
-        runtime={runtime}
+        {...props}
         state={state}
         authorTagMap={authorTagMap}
         dateFilter={headerState.dateFilter}

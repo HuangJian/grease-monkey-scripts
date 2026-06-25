@@ -11,7 +11,7 @@ export function renderReddit(
   container: HTMLElement,
   data: RedditRenderData | null,
   state: RedditState,
-  runtime: Runtime | null,
+  runtime: Runtime,
   expandCollapse: ExpandCollapse,
   authorTagMap: AuthorTagMap = {},
   dateFilter: DateFilter = '全',
@@ -20,8 +20,10 @@ export function renderReddit(
   render(
     <RedditComponent
       data={data}
+      root={undefined as any}
+      runtime={runtime}
+      onHeaderChange={() => {}}
       state={state}
-      runtime={runtime ?? undefined}
       expandCollapse={expandCollapse}
       authorTagMap={authorTagMap}
       dateFilter={dateFilter}

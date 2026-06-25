@@ -29,7 +29,7 @@ function req<T>(runtime: Runtime, url: string): Promise<T> {
       timeout: 20000,
       headers: { accept: 'application/json' },
       onload(response) {
-        if (response.status && response.status >= 400) {
+        if (response.status >= 400) {
           reject(new Error(`openrouter: http ${response.status}`))
           return
         }

@@ -28,9 +28,9 @@ export function HupuComponent({
 }: HupuComponentProps) {
   const [, forceUpdate] = useState(0)
 
-  const dateFiltered = applyGroupedDateFilter(data, dateFilter, (t) => t.created)
-  const filtered: HupuRenderData | null =
-    dateFilter === '未' && dateFiltered
+  const dateFiltered = applyGroupedDateFilter(data ?? {}, dateFilter, (t) => t.created)
+  const filtered: HupuRenderData =
+    dateFilter === '未'
       ? Object.entries(dateFiltered).reduce<HupuRenderData>((acc, [board, posts]) => {
           const unread = posts.filter((p) => !state.isRead(p.id))
           if (unread.length > 0) acc[board] = unread
@@ -38,7 +38,7 @@ export function HupuComponent({
         }, {})
       : dateFiltered
 
-  if (!filtered || Object.keys(filtered).length === 0) {
+  if (Object.keys(filtered).length === 0) {
     return <div class="gm-sp-empty">暂无数据</div>
   }
 
@@ -49,12 +49,12 @@ export function HupuComponent({
 
   function handleMarkRead(postId: string, replies: number) {
     state.markRead(postId, Date.now(), replies)
-    if (runtime) void state.saveToStorage(runtime)
+    void state.saveToStorage(runtime)
     forceUpdate((n) => n + 1)
   }
 
   function findBoardForPost(post: { id: string }): string | null {
-    const entry = Object.entries(filtered!).find(([, posts]) => posts.some((p) => p.id === post.id))
+    const entry = Object.entries(filtered).find(([, posts]) => posts.some((p) => p.id === post.id))
     return entry ? entry[0] : null
   }
 
@@ -66,7 +66,7 @@ export function HupuComponent({
     runtime,
     forceUpdate: () => forceUpdate((n) => n + 1),
     getSubForItem: findBoardForPost,
-    getVisibleInSub: (board) => state.filterVisible(filtered![board] ?? []),
+    getVisibleInSub: (board) => state.filterVisible(filtered[board] ?? []),
     repliesOf: (p) => p.replies,
   })
 

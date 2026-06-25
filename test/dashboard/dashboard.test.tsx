@@ -65,9 +65,12 @@ describe('createDashboard', () => {
           replies: 5,
           member: { username: 'u' },
           node: { title: 'n' },
+          sources: [],
+          created: Date.now(),
         },
       ],
       fetchedAt: Date.now() - 60_000,
+      error: '',
     }
     runtime.stores[CACHE_KEY('v2ex')] = v2exCache
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
@@ -92,6 +95,8 @@ describe('createDashboard', () => {
           replies: 5,
           member: { username: 'u' },
           node: { title: 'n' },
+          sources: [],
+          created: Date.now(),
         },
         {
           id: 2,
@@ -100,9 +105,12 @@ describe('createDashboard', () => {
           replies: 3,
           member: { username: 'v' },
           node: { title: 'm' },
+          sources: [],
+          created: Date.now(),
         },
       ],
       fetchedAt: Date.now() - 60_000,
+      error: '',
     }
     runtime.stores[CACHE_KEY('v2ex')] = v2exCache
     const now = Date.now()
@@ -139,6 +147,7 @@ describe('createDashboard', () => {
         ],
       },
       fetchedAt: Date.now() - 60_000,
+      error: '',
     }
     runtime.stores[CACHE_KEY('reddit')] = redditCache
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
@@ -166,10 +175,12 @@ describe('createDashboard', () => {
             title: 'A',
             latestChapters: [{ url: 'c1', title: 'c1', postedAt: Date.now() }],
             fetchedAt: Date.now(),
+            error: '',
           },
         ],
       },
       fetchedAt: Date.now(),
+      error: '',
     }
     runtime.stores[CACHE_KEY('novels')] = novelsCache
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
@@ -240,11 +251,14 @@ describe('createDashboard', () => {
       replies: 1,
       member: { username: 'live' },
       node: { title: 'live' },
+      sources: [],
+      created: Date.now(),
     }
     const newCache: CachedSource<unknown> = {
       schemaVersion: CACHE_SCHEMA_VERSION,
       data: [topic],
       fetchedAt: Date.now(),
+      error: '',
     }
     runtime.simulateRemoteChange(CACHE_KEY('v2ex'), newCache)
     await new Promise((r) => setTimeout(r, 0))
@@ -262,7 +276,7 @@ describe('createDashboard', () => {
     runtime.request = ((d) => {
       seenUrls.push(d.url)
       reqAnonymous = d.anonymous
-      d.onload({ responseText: '[]' })
+      d.onload({ responseText: '[]', status: 200, responseHeaders: '' })
     }) as typeof runtime.request
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
@@ -289,6 +303,7 @@ describe('createDashboard', () => {
       schemaVersion: CACHE_SCHEMA_VERSION,
       data: [oldTopic],
       fetchedAt: 1000,
+      error: '',
     }
     runtime.stores[CACHE_KEY('v2ex')] = oldCache
     runtime.request = ((d) => d.onerror?.()) as typeof runtime.request
@@ -302,7 +317,8 @@ describe('createDashboard', () => {
   })
 
   test('refreshSource re-renders the open card after writing (no listener needed)', async () => {
-    runtime.request = ((d) => d.onload({ responseText: '[]' })) as typeof runtime.request
+    runtime.request = ((d) =>
+      d.onload({ responseText: '[]', status: 200, responseHeaders: '' })) as typeof runtime.request
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     await dashboard.open()
@@ -319,7 +335,7 @@ describe('createDashboard', () => {
     let called = 0
     runtime.request = ((d) => {
       called++
-      d.onload({ responseText: '[]' })
+      d.onload({ responseText: '[]', status: 200, responseHeaders: '' })
     }) as typeof runtime.request
     runtime.stores['dashboard:v2:lock:v2ex'] = { owner: 'other', expiresAt: Date.now() + 60_000 }
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
@@ -332,7 +348,7 @@ describe('createDashboard', () => {
     let fetchCount = 0
     runtime.request = ((d) => {
       fetchCount++
-      d.onload({ responseText: '[]' })
+      d.onload({ responseText: '[]', status: 200, responseHeaders: '' })
     }) as typeof runtime.request
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()

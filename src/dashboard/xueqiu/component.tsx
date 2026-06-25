@@ -72,7 +72,7 @@ export function XueqiuComponent({
     const id = scrollTargetRef.current
     if (!id) return
     scrollTargetRef.current = null
-    const el = runtime?.document.querySelector(
+    const el = runtime.document.querySelector(
       `li[data-item-id="${CSS.escape(id)}"] .gm-sp-expandable-row`,
     )
     el?.scrollIntoView({ block: 'start', behavior: 'smooth' })
@@ -81,7 +81,7 @@ export function XueqiuComponent({
   const news = data?.news ?? []
   const hotPosts = data?.hotPosts ?? []
   const rawItems = mode === 'news' ? news : hotPosts
-  const dateFiltered = applyDateFilter(rawItems, dateFilter, (it) => it.created_at) ?? []
+  const dateFiltered = applyDateFilter(rawItems, dateFilter, (it) => it.created_at)
   const items =
     dateFilter === '未'
       ? dateFiltered.filter((it) => {
@@ -103,17 +103,15 @@ export function XueqiuComponent({
     if (!wasExpanded) {
       scrollTargetRef.current = id
     }
-    if (runtime) void state.saveToStorage(runtime)
+    void state.saveToStorage(runtime)
     notify?.()
     forceUpdate((n) => n + 1)
   }
 
   function handleHide(id: string) {
     state.markHidden(id)
-    if (runtime) {
-      void state.saveToStorage(runtime)
-      void state.removeFromCache(runtime, id)
-    }
+    void state.saveToStorage(runtime)
+    void state.removeFromCache(runtime, id)
     forceUpdate((n) => n + 1)
   }
 
@@ -128,7 +126,7 @@ export function XueqiuComponent({
         state.markRead(id, now)
       }
     })
-    if (runtime) void state.saveToStorage(runtime)
+    void state.saveToStorage(runtime)
     forceUpdate((n) => n + 1)
   }
 
@@ -139,11 +137,9 @@ export function XueqiuComponent({
     items.slice(0, idx + 1).forEach((it) => {
       const id = String(it.id)
       state.markHidden(id)
-      if (runtime) {
-        void state.removeFromCache(runtime, id)
-      }
+      void state.removeFromCache(runtime, id)
     })
-    if (runtime) void state.saveToStorage(runtime)
+    void state.saveToStorage(runtime)
     forceUpdate((n) => n + 1)
   }
 

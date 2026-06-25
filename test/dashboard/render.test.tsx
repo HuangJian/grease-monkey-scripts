@@ -14,13 +14,19 @@ function stubSource(): Source<{ msg: string }> {
     id: 'stub',
     title: 'Stub Source',
     ttlMs: 60_000,
+    headerState: {},
     fetch: () => Promise.resolve({ msg: 'hi' }),
     RenderComponent: ({ data }) => <span>{(data as { msg: string } | null)?.msg ?? ''}</span>,
   }
 }
 
-function cached<T>(partial: Omit<CachedSource<T>, 'schemaVersion'>): CachedSource<T> {
-  return { schemaVersion: CACHE_SCHEMA_VERSION, ...partial }
+function cached<T>(partial: { data?: T; fetchedAt: number; error?: string }): CachedSource<T> {
+  return {
+    schemaVersion: CACHE_SCHEMA_VERSION,
+    data: partial.data ?? null,
+    fetchedAt: partial.fetchedAt,
+    error: partial.error ?? '',
+  }
 }
 
 function suppressConsoleError(fn: () => void): void {
@@ -199,6 +205,7 @@ describe('renderCard', () => {
       id: 'edit',
       title: 'E',
       ttlMs: 60_000,
+      headerState: {},
       fetch: () => Promise.resolve({ msg: 'x' }),
       RenderComponent: ({ data }) => <span>{(data as { msg: string } | null)?.msg ?? ''}</span>,
       createEditor: () => (c) => {

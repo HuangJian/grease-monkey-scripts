@@ -4,6 +4,7 @@ import {
   createGroupedItemHandlers,
   type ItemHandlerState,
 } from '../../src/dashboard/item-actions'
+import { createRuntime } from '../runtime'
 
 type TestItem = { id: string; replies?: number }
 
@@ -50,6 +51,7 @@ describe('createItemHandlers', () => {
     forceUpdateCallCount = 0
     handlers = createItemHandlers<TestItem>({
       state: state as ItemHandlerState<TestItem>,
+      runtime: createRuntime(),
       forceUpdate: () => {
         forceUpdateCallCount++
       },
@@ -156,6 +158,7 @@ describe('createGroupedItemHandlers', () => {
     test('marks item hidden and calls forceUpdate', () => {
       const handlers = createGroupedItemHandlers<TestItem, string>({
         state,
+        runtime: createRuntime(),
         forceUpdate: () => {
           forceUpdateCallCount++
         },
@@ -172,6 +175,7 @@ describe('createGroupedItemHandlers', () => {
     test('marks items in the same group up to hovered', () => {
       const handlers = createGroupedItemHandlers<TestItem, string>({
         state,
+        runtime: createRuntime(),
         forceUpdate: () => {
           forceUpdateCallCount++
         },
@@ -188,6 +192,7 @@ describe('createGroupedItemHandlers', () => {
     test('no-op when hovered item group not found', () => {
       const handlers = createGroupedItemHandlers<TestItem, string>({
         state,
+        runtime: createRuntime(),
         forceUpdate: () => {
           forceUpdateCallCount++
         },
@@ -203,6 +208,7 @@ describe('createGroupedItemHandlers', () => {
     test('marks items in the same group up to hovered', () => {
       const handlers = createGroupedItemHandlers<TestItem, string>({
         state,
+        runtime: createRuntime(),
         forceUpdate: () => {
           forceUpdateCallCount++
         },

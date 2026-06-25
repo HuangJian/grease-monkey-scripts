@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { cleanup, within } from '@testing-library/preact'
+import type { WeatherCity } from '../../../src/dashboard/weather/types'
 import { createWeatherEditor } from '../../../src/dashboard/weather/editor'
 import { CONFIG_KEY } from '../../../src/dashboard/types'
 import { createRuntime, type TestRuntime } from '../../runtime'
@@ -7,8 +8,8 @@ import { createRuntime, type TestRuntime } from '../../runtime'
 async function mount(
   runtime: TestRuntime,
   container: HTMLElement,
-  initialCities: { latitude: number; longitude: number; cityLabel: string }[] = [
-    { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ' },
+  initialCities: WeatherCity[] = [
+    { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ', cmaStationId: '' },
   ],
 ) {
   let revertCalls = 0
@@ -43,8 +44,8 @@ describe('createWeatherEditor', () => {
 
   test('renders initial cities as list items', async () => {
     await mount(runtime, container, [
-      { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ' },
-      { latitude: 31.2, longitude: 121.5, cityLabel: 'SH' },
+      { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ', cmaStationId: '' },
+      { latitude: 31.2, longitude: 121.5, cityLabel: 'SH', cmaStationId: '' },
     ])
     within(container).getByText('BJ')
     within(container).getByText('SH')
@@ -72,23 +73,25 @@ describe('createWeatherEditor', () => {
 
   test('removes a city when its × is clicked', async () => {
     await mount(runtime, container, [
-      { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ' },
-      { latitude: 31.2, longitude: 121.5, cityLabel: 'SH' },
+      { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ', cmaStationId: '' },
+      { latitude: 31.2, longitude: 121.5, cityLabel: 'SH', cmaStationId: '' },
     ])
     within(container).getAllByRole('button', { name: 'remove' })[0]!.click()
     within(container).getByText('SH')
   })
 
   test('cancel calls close', async () => {
-    const handle = await mount(runtime, container, [{ latitude: 1, longitude: 2, cityLabel: 'A' }])
+    const handle = await mount(runtime, container, [
+      { latitude: 1, longitude: 2, cityLabel: 'A', cmaStationId: '' },
+    ])
     handle.result.cancel?.()
     expect(handle.closeCalls()).toBe(1)
   })
 
   test('save persists the patch', async () => {
     const { result } = await mount(runtime, container, [
-      { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ' },
-      { latitude: 31.2, longitude: 121.5, cityLabel: 'SH' },
+      { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ', cmaStationId: '' },
+      { latitude: 31.2, longitude: 121.5, cityLabel: 'SH', cmaStationId: '' },
     ])
     void result.save?.()
     await new Promise<void>((r) => setTimeout(r, 0))

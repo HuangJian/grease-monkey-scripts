@@ -18,8 +18,8 @@ const SOURCE_BADGES = {
 
 function sourceBadge(topic: V2exTopic): { icon: string; title: string } | null {
   const sources = topic.sources
-  const isFromApi = sources?.includes('api') ?? false
-  const isFromPage = sources?.includes('page') ?? false
+  const isFromApi = sources.includes('api')
+  const isFromPage = sources.includes('page')
   if (isFromApi && isFromPage) return SOURCE_BADGES.cross
   if (isFromPage) return SOURCE_BADGES.page
   if (isFromApi) return SOURCE_BADGES.api
@@ -41,7 +41,7 @@ export function V2exComponent({
 }: V2exComponentProps) {
   const [, forceUpdate] = useState(0)
 
-  const dateFiltered = applyDateFilter(data, dateFilter, (t) => t.created) ?? []
+  const dateFiltered = applyDateFilter(data ?? [], dateFilter, (t) => t.created)
   const visible =
     dateFilter === '未'
       ? dateFiltered.filter((t) => !state.isRead(t.id))
@@ -49,7 +49,7 @@ export function V2exComponent({
 
   function handleMarkRead(topic: V2exTopic) {
     state.markRead(topic.id, Date.now(), topic.replies)
-    if (runtime) void state.saveToStorage(runtime)
+    void state.saveToStorage(runtime)
     forceUpdate((n) => n + 1)
   }
 

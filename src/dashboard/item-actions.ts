@@ -11,7 +11,7 @@ export type ItemHandlerState<T extends { id: string | number }> = {
 
 export function createItemHandlers<T extends { id: string | number }>(opts: {
   state: ItemHandlerState<T>
-  runtime?: Runtime
+  runtime: Runtime
   forceUpdate: () => void
   getVisible: () => T[]
   repliesOf?: (item: T) => number | undefined
@@ -24,10 +24,8 @@ export function createItemHandlers<T extends { id: string | number }>(opts: {
 
   function handleHide(id: T['id']) {
     state.markHidden(id)
-    if (runtime) {
-      void state.saveToStorage(runtime)
-      void state.removeFromCache(runtime, id)
-    }
+    void state.saveToStorage(runtime)
+    void state.removeFromCache(runtime, id)
     forceUpdate()
   }
 
@@ -42,7 +40,7 @@ export function createItemHandlers<T extends { id: string | number }>(opts: {
       .forEach((it) => {
         state.markRead(it.id, now, repliesOf?.(it))
       })
-    if (runtime) void state.saveToStorage(runtime)
+    void state.saveToStorage(runtime)
     forceUpdate()
   }
 
@@ -52,11 +50,9 @@ export function createItemHandlers<T extends { id: string | number }>(opts: {
     if (idx < 0) return
     visible.slice(0, idx + 1).forEach((it) => {
       state.markHidden(it.id)
-      if (runtime) {
-        void state.removeFromCache(runtime, it.id)
-      }
+      void state.removeFromCache(runtime, it.id)
     })
-    if (runtime) void state.saveToStorage(runtime)
+    void state.saveToStorage(runtime)
     forceUpdate()
   }
 
@@ -68,7 +64,7 @@ export function createGroupedItemHandlers<
   G extends string = string,
 >(opts: {
   state: ItemHandlerState<T>
-  runtime?: Runtime
+  runtime: Runtime
   forceUpdate: () => void
   getSubForItem: (item: T) => G | null
   getVisibleInSub: (sub: G) => T[]
@@ -82,10 +78,8 @@ export function createGroupedItemHandlers<
 
   function handleHide(id: T['id']) {
     state.markHidden(id)
-    if (runtime) {
-      void state.saveToStorage(runtime)
-      void state.removeFromCache(runtime, id)
-    }
+    void state.saveToStorage(runtime)
+    void state.removeFromCache(runtime, id)
     forceUpdate()
   }
 
@@ -102,7 +96,7 @@ export function createGroupedItemHandlers<
       .forEach((p) => {
         state.markRead(p.id, now, repliesOf?.(p))
       })
-    if (runtime) void state.saveToStorage(runtime)
+    void state.saveToStorage(runtime)
     forceUpdate()
   }
 
@@ -114,11 +108,9 @@ export function createGroupedItemHandlers<
     if (idx < 0) return
     posts.slice(0, idx + 1).forEach((p) => {
       state.markHidden(p.id)
-      if (runtime) {
-        void state.removeFromCache(runtime, p.id)
-      }
+      void state.removeFromCache(runtime, p.id)
     })
-    if (runtime) void state.saveToStorage(runtime)
+    void state.saveToStorage(runtime)
     forceUpdate()
   }
 

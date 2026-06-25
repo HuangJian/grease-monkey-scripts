@@ -2,7 +2,7 @@ export type WeatherCity = {
   latitude: number
   longitude: number
   cityLabel: string
-  cmaStationId?: string
+  cmaStationId: string
 }
 
 export type WeatherCurrent = {
@@ -13,10 +13,10 @@ export type WeatherCurrent = {
   wind_speed_10m: number
   wind_direction_10m: number
   air_quality: WeatherAirQuality | null
-  humidity?: number
-  pressure?: number
-  precipitation?: number
-  source?: 'open-meteo' | 'cma'
+  humidity: number
+  pressure: number
+  precipitation: number
+  source: 'open-meteo' | 'cma'
 }
 
 export type WeatherAirQuality = {
@@ -30,12 +30,12 @@ export type WeatherHourly = {
   temperature_2m: number[]
   weather_code: number[]
   precipitation_probability: number[]
-  pressure?: number[]
-  humidity?: number[]
-  cloud_cover?: number[]
-  precipitation_amount?: number[]
-  wind_speed_10m?: number[]
-  wind_direction_10m?: number[]
+  pressure: number[]
+  humidity: number[]
+  cloud_cover: number[]
+  precipitation_amount: number[]
+  wind_speed_10m: number[]
+  wind_direction_10m: number[]
 }
 
 export type WeatherDaily = {
@@ -44,15 +44,15 @@ export type WeatherDaily = {
   temperature_2m_min: number[]
   weather_code: number[]
   precipitation_probability_max: number[]
-  precipitation_sum?: number[]
+  precipitation_sum: number[]
 }
 
 export type WeatherCityData = {
   current: WeatherCurrent
   hourly: WeatherHourly
   daily: WeatherDaily
-  cmaUrl?: string
-  cmaFailed?: boolean
+  cmaUrl: string
+  cmaFailed: boolean
 }
 
 export type WeatherCityEntry =

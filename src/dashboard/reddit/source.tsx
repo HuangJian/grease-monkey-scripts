@@ -54,6 +54,7 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
     await saveCache(runtime, 'reddit', {
       data: pruned,
       fetchedAt: cached.fetchedAt,
+      error: '',
     })
   }
 
@@ -69,7 +70,7 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
         value={headerState.dateFilter}
         onChange={(f) => {
           headerState.dateFilter = f
-          props.onHeaderChange?.()
+          props.onHeaderChange()
         }}
       />
     ),
@@ -102,11 +103,9 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
       await pruneExpiredCache(runtime)
       return visible
     },
-    RenderComponent: ({ data, root, runtime }) => (
+    RenderComponent: (props) => (
       <RedditComponent
-        data={data}
-        root={root}
-        runtime={runtime}
+        {...props}
         state={state}
         expandCollapse={expandCollapse}
         authorTagMap={authorTagMap}

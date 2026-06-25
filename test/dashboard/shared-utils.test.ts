@@ -55,7 +55,6 @@ describe('applyDateFilter', () => {
     { id: '1', created: 100 },
     { id: '2', created: 200 },
     { id: '3', created: 300 },
-    { id: '4', created: undefined as number | undefined },
   ]
 
   test('returns original items for unknown filter', () => {
@@ -75,37 +74,21 @@ describe('applyDateFilter', () => {
     ]
 
     const todayResult = applyDateFilter(freshItems, '今', (i) => i.created)
-    expect(todayResult).not.toBeNull()
-    expect(todayResult!.length).toBe(1)
-    expect(todayResult![0].id).toBe('1')
+    expect(todayResult.length).toBe(1)
+    expect(todayResult[0].id).toBe('1')
 
     const yesterdayResult = applyDateFilter(freshItems, '昨', (i) => i.created)
-    expect(yesterdayResult).not.toBeNull()
-    expect(yesterdayResult!.length).toBe(1)
-    expect(yesterdayResult![0].id).toBe('2')
+    expect(yesterdayResult.length).toBe(1)
+    expect(yesterdayResult[0].id).toBe('2')
 
     const olderResult = applyDateFilter(freshItems, '早', (i) => i.created)
-    expect(olderResult).not.toBeNull()
-    expect(olderResult!.length).toBe(1)
-    expect(olderResult![0].id).toBe('3')
+    expect(olderResult.length).toBe(1)
+    expect(olderResult[0].id).toBe('3')
   })
 
-  test('returns null for null input', () => {
-    const result = applyDateFilter(null, '今', (i: { created: number }) => i.created)
-    expect(result).toBeNull()
-  })
-
-  test('excludes items with undefined created', () => {
-    const now = Date.now()
-    const localDayStart = new Date(now).setHours(0, 0, 0, 0)
-    const itemsWithUndefined = [
-      { id: '1', created: localDayStart + 3600000 },
-      { id: '2', created: undefined as number | undefined },
-    ]
-    const result = applyDateFilter(itemsWithUndefined, '今', (i) => i.created)
-    expect(result).not.toBeNull()
-    expect(result!.length).toBe(1)
-    expect(result![0].id).toBe('1')
+  test('returns empty array for empty input', () => {
+    const result = applyDateFilter([], '今', (i: { created: number }) => i.created)
+    expect(result).toEqual([])
   })
 })
 
@@ -124,15 +107,9 @@ describe('applyGroupedDateFilter', () => {
     }
 
     const result = applyGroupedDateFilter(grouped, '今', (i) => i.created)
-    expect(result).not.toBeNull()
-    expect(Object.keys(result!)).toEqual(['a'])
-    expect(result!['a'].length).toBe(1)
-    expect(result!['a'][0].id).toBe('1')
-  })
-
-  test('returns null for null input', () => {
-    const result = applyGroupedDateFilter(null, '今', (i: { created: number }) => i.created)
-    expect(result).toBeNull()
+    expect(Object.keys(result)).toEqual(['a'])
+    expect(result['a'].length).toBe(1)
+    expect(result['a'][0].id).toBe('1')
   })
 
   test('returns original data for unknown filter', () => {
@@ -148,7 +125,11 @@ describe('applyGroupedDateFilter', () => {
     }
 
     const result = applyGroupedDateFilter(grouped, '今', (i) => i.created)
-    expect(result).not.toBeNull()
-    expect(Object.keys(result!)).toEqual([])
+    expect(Object.keys(result)).toEqual([])
+  })
+
+  test('returns empty object for empty input', () => {
+    const result = applyGroupedDateFilter({}, '今', (i: { created: number }) => i.created)
+    expect(result).toEqual({})
   })
 })

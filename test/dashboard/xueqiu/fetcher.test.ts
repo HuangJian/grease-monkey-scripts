@@ -158,6 +158,7 @@ describe('xueqiu hotPosts persistence', () => {
         hotPosts: [makeItem(100), makeItem(200)],
       } satisfies XueqiuRenderData,
       fetchedAt: Date.now(),
+      error: '',
     })
 
     const before = await loadCache<XueqiuRenderData>(runtime, sourceId)
@@ -184,6 +185,7 @@ describe('xueqiu hotPosts persistence', () => {
         hotPosts: [makeItem(100), makeItem(200)],
       } satisfies XueqiuRenderData,
       fetchedAt: Date.now(),
+      error: '',
     })
 
     // hotSource.fetch must not write hotPosts to xueqiu-hot cache

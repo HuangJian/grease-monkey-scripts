@@ -33,6 +33,7 @@ describe('buildExportData', () => {
       schemaVersion: 2,
       data: { text: '[ ] task 1\n[x] task 2' },
       fetchedAt: 1700000000000,
+      error: '',
     })
     expect(data['dashboard:v2:xit-filters']).toEqual({
       filters: [{ id: 'f1', name: 'Open', query: 'status:open', isDefault: true }],
@@ -154,7 +155,9 @@ describe('applyImportData', () => {
 
     const importData = {
       [CONFIG_KEY]: {
-        weather: { cities: [{ latitude: 31.23, longitude: 121.47, cityLabel: '上海' }] },
+        weather: {
+          cities: [{ latitude: 31.23, longitude: 121.47, cityLabel: '上海', cmaStationId: '' }],
+        },
       },
     }
     const validation = validateImportData(importData)
@@ -163,7 +166,7 @@ describe('applyImportData', () => {
 
     const saved = (await runtime.getValue(CONFIG_KEY, null)) as unknown as typeof DEFAULT_CONFIG
     expect(saved.weather.cities).toEqual([
-      { latitude: 31.23, longitude: 121.47, cityLabel: '上海' },
+      { latitude: 31.23, longitude: 121.47, cityLabel: '上海', cmaStationId: '' },
     ])
     expect(saved.shortcut.enabled).toBe(true)
     expect(saved.xit.enabled).toBe(true)

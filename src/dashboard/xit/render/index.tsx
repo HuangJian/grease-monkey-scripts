@@ -32,5 +32,14 @@ export function renderXit(container: HTMLElement, data: XitData | null): void {
     saveForm: null,
     editFilter: null,
   }
-  render(<XitBody data={data} headerState={headerState} />, container)
+  render(
+    <XitBody
+      data={data}
+      root={undefined as any}
+      runtime={undefined as any}
+      onHeaderChange={() => {}}
+      headerState={headerState}
+    />,
+    container,
+  )
 }

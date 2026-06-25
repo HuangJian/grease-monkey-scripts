@@ -2,7 +2,7 @@ import type { Config } from '../types'
 
 export const DEFAULT_CONFIG: Config = {
   weather: {
-    cities: [{ latitude: 39.9042, longitude: 116.4074, cityLabel: '北京' }],
+    cities: [{ latitude: 39.9042, longitude: 116.4074, cityLabel: '北京', cmaStationId: '' }],
     ttlMinutes: 60,
   },
   v2ex: {

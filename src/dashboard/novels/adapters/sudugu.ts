@@ -84,10 +84,8 @@ function parseHome(
     if (!url || !chapterTitle) return
     const labelEl = li.querySelector('i')
     const labelText = (labelEl?.textContent ?? '').trim()
-    const postedAt = labelText ? parseChapterLabel(labelText, now) : undefined
-    const chapter: NovelChapter = { url, title: chapterTitle }
-    if (postedAt !== undefined) chapter.postedAt = postedAt
-    latestThree.push(chapter)
+    const postedAt = labelText ? (parseChapterLabel(labelText, now) ?? 0) : 0
+    latestThree.push({ url, title: chapterTitle, postedAt })
   })
 
   const lastPageNumber = parseLastPageNumber(doc)
@@ -118,7 +116,7 @@ function parseChapterList(html: string, pageUrl: string, domParser: DOMParser): 
     const url = toAbsoluteUrl(href, pageUrl)
     const title = (anchor.textContent ?? '').trim()
     if (!url || !title) return
-    chapters.push({ url, title })
+    chapters.push({ url, title, postedAt: 0 })
   })
   return chapters
 }

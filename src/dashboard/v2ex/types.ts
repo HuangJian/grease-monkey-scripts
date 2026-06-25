@@ -7,8 +7,8 @@ export type V2exTopic = {
   replies: number
   member: { username: string }
   node: { title: string }
-  sources?: ReadonlyArray<V2exSource>
-  created?: number
+  sources: V2exSource[]
+  created: number
 }
 
 export type V2exCountOptions = {

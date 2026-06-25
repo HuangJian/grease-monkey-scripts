@@ -18,11 +18,13 @@ export function createNovelsSource(
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 2,
-    RenderComponent: ({ data, root }) => (
+    headerState: {},
+    RenderComponent: ({ data, root, onHeaderChange }) => (
       <NovelsComponent
         data={data}
         root={root}
         runtime={runtime}
+        onHeaderChange={onHeaderChange}
         onMarkSeen={(bookUrl) => {
           void markSeen(runtime, bookUrl, data)
         }}
@@ -132,5 +134,6 @@ async function markSeen(runtime: Runtime, bookUrl: string, data: NovelData | nul
   await saveCache(runtime, 'novels', {
     data: { books },
     fetchedAt: Date.now(),
+    error: '',
   })
 }

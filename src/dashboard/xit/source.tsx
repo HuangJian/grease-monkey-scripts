@@ -68,12 +68,20 @@ export function createXitSource(
         onHeaderChange={props.onHeaderChange}
       />
     ),
-    RenderComponent: ({ data, root, runtime: r, onHeaderChange: _onHeaderChange }) => {
+    RenderComponent: ({ data, root, runtime: r, onHeaderChange }) => {
       const text = data?.text ?? ''
       const lines = parseXitText(text)
       headerState.lines = lines
       headerState.tagCounts = getTagCounts(lines)
-      return <XitBody data={data} root={root} runtime={r} headerState={headerState} />
+      return (
+        <XitBody
+          data={data}
+          root={root}
+          runtime={r}
+          onHeaderChange={onHeaderChange}
+          headerState={headerState}
+        />
+      )
     },
     async fetch(runtimeArg, prevData) {
       if (prevData?.text) {

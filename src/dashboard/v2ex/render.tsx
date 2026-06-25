@@ -9,15 +9,17 @@ export function renderV2ex(
   container: HTMLElement,
   data: V2exTopic[] | null,
   state: V2exState,
-  runtime: Runtime | null,
+  runtime: Runtime,
   authorTagMap: AuthorTagMap = {},
 ): void {
   render(null, container)
   render(
     <V2exComponent
       data={data}
+      root={undefined as any}
+      runtime={runtime}
+      onHeaderChange={() => {}}
       state={state}
-      runtime={runtime!}
       authorTagMap={authorTagMap}
       dateFilter="全"
     />,

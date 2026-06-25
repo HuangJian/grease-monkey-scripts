@@ -51,9 +51,9 @@ export function parseCmaNow(json: unknown): CmaNow | null {
     wind_speed_10m: parseBeaufortText(scaleText) ?? 0,
     wind_direction_10m: CMA_WIND_DIR_TO_DEG[dirText] ?? 0,
     air_quality: null,
-    humidity: humidity ?? undefined,
-    pressure: pressure ?? undefined,
-    precipitation: precipitation ?? undefined,
+    humidity: humidity ?? 0,
+    pressure: pressure ?? 0,
+    precipitation: precipitation ?? 0,
     source: 'cma',
   }
 

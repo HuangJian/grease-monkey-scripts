@@ -37,14 +37,15 @@ describe('cross-tab broadcast', () => {
     runtime.addValueChangeListener('k', (_key, _old, value, remote) =>
       fired.push({ value, remote }),
     )
-    const next = { schemaVersion: CACHE_SCHEMA_VERSION, fetchedAt: 1 }
+    const next = { schemaVersion: CACHE_SCHEMA_VERSION, data: null, error: '', fetchedAt: 1 }
     runtime.simulateRemoteChange('k', next)
     expect(fired).toEqual([{ value: next, remote: true }])
     expect(runtime.stores['k']).toBe(next)
   })
 
   test('writing tab re-renders the card without relying on listener', async () => {
-    runtime.request = ((d) => d.onload({ responseText: '[]' })) as typeof runtime.request
+    runtime.request = ((d) =>
+      d.onload({ responseText: '[]', status: 200, responseHeaders: '' })) as typeof runtime.request
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     await dashboard.open()
@@ -70,11 +71,14 @@ describe('cross-tab broadcast', () => {
       replies: 7,
       member: { username: 'u' },
       node: { title: 'n' },
+      sources: [],
+      created: Date.now(),
     }
     const newCache: CachedSource<unknown> = {
       schemaVersion: CACHE_SCHEMA_VERSION,
       data: [topic],
       fetchedAt: Date.now(),
+      error: '',
     }
     runtime.simulateRemoteChange(CACHE_KEY('v2ex'), newCache)
     await new Promise((r) => setTimeout(r, 0))
@@ -106,6 +110,7 @@ describe('cross-tab broadcast', () => {
         ],
       },
       fetchedAt: Date.now(),
+      error: '',
     }
     runtime.simulateRemoteChange(CACHE_KEY('reddit'), newCache)
     await new Promise((r) => setTimeout(r, 0))

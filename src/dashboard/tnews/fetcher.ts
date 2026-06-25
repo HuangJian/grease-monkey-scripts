@@ -23,7 +23,7 @@ function fetchOnce(runtime: Runtime, url: string): Promise<string> {
         Accept: 'application/rss+xml, application/xml, text/xml, */*',
       },
       onload(response) {
-        if (response.status && response.status >= 400) {
+        if (response.status >= 400) {
           reject(new Error(`http ${response.status}`))
           return
         }

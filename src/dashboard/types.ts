@@ -18,9 +18,9 @@ export type Lock = { owner: string; expiresAt: number }
 
 export type CachedSource<T> = {
   schemaVersion: number
-  data?: T
+  data: T | null
   fetchedAt: number
-  error?: string
+  error: string
 }
 
 import type { WeatherCity } from './weather/types'
@@ -115,10 +115,10 @@ export type SourceSettings = {
 
 export type SourceComponentProps<T> = {
   data: T | null
-  root?: ShadowRoot
-  runtime?: Runtime
+  root: ShadowRoot
+  runtime: Runtime
   onNotify?: () => void
-  onHeaderChange?: () => void
+  onHeaderChange: () => void
 }
 
 export type SourceHeaderProps<T> = {
@@ -130,7 +130,7 @@ export type SourceHeaderProps<T> = {
   root: ShadowRoot
   onRefresh: () => Promise<void>
   onEdit?: () => void
-  onHeaderChange?: () => void
+  onHeaderChange: () => void
 }
 
 export type Source<T> = {
@@ -144,8 +144,8 @@ export type Source<T> = {
   readonly dialogTitle?: string | VNode
   readonly hideHeaderActions?: boolean
   readonly RenderHeader?: ComponentType<SourceHeaderProps<any>>
-  readonly RenderComponent?: ComponentType<SourceComponentProps<any>>
-  headerState?: Record<string, unknown>
+  readonly RenderComponent: ComponentType<SourceComponentProps<any>>
+  headerState: Record<string, unknown>
   fetch(runtime: Runtime, prevData?: T): Promise<T>
   loadState?(runtime: Runtime): Promise<void>
   createEditor?: (settings: SourceSettings) => SourceEditor

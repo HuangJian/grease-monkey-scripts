@@ -5,8 +5,8 @@ import type { NovelBook, NovelChapter, NovelEntry } from '../../../src/dashboard
 import type { RequestDetails } from '../../../src/runtime'
 import { createRuntime, type TestRuntime } from '../../runtime'
 
-function chapter(url: string, title = url, postedAt?: number): NovelChapter {
-  return postedAt !== undefined ? { url, title, postedAt } : { url, title }
+function chapter(url: string, title = url, postedAt: number = 0): NovelChapter {
+  return { url, title, postedAt }
 }
 
 function homeHtml(opts: {
@@ -63,7 +63,7 @@ function makeServer(): FakeServer {
       d.onerror?.()
       return
     }
-    d.onload({ responseText: body, status: 200 })
+    d.onload({ responseText: body, status: 200, responseHeaders: '' })
   }) as TestRuntime['request']
   return {
     runtime,
@@ -102,7 +102,7 @@ describe('fetchNovels', () => {
     expect(books[0]!.title).toBe('九龙夺嫡')
     expect(books[0]!.siteId).toBe('sudugu')
     expect(books[0]!.latestChapters).toHaveLength(3)
-    expect(books[0]!.error).toBeUndefined()
+    expect(books[0]!.error).toBe('')
   })
 
   test('initialSeenUrl applies when no prev', async () => {
@@ -122,7 +122,7 @@ describe('fetchNovels', () => {
       initialNewChapters: 3,
       maxLatestWindow: 50,
     })
-    expect(books[0]!.lastSeenChapterUrl).toBeUndefined()
+    expect(books[0]!.lastSeenChapterUrl).toBe('')
   })
 
   test('initialSeenUrl picks index N when more chapters than threshold', async () => {
@@ -217,6 +217,7 @@ describe('fetchNovels', () => {
       latestChapters: [chapter('https://www.sudugu.org/166/c4.html', '4')],
       lastSeenChapterUrl: 'https://www.sudugu.org/166/c4.html',
       fetchedAt: 1000,
+      error: '',
     }
     const books = await fetchNovels(server.runtime, [{ url: URL_166 }], [prev])
     expect(books[0]!.lastSeenChapterUrl).toBe('https://www.sudugu.org/166/c4.html')
@@ -254,6 +255,7 @@ describe('fetchNovels', () => {
       latestChapters: [chapter('https://www.sudugu.org/12/c5.html', '5')],
       lastSeenChapterUrl: 'https://www.sudugu.org/12/c5.html',
       fetchedAt: 1000,
+      error: '',
     }
     const books = await fetchNovels(server.runtime, [{ url: URL_12 }], [prev])
     expect(server.hits).toEqual([URL_12, 'https://www.sudugu.org/12/p-2.html'])
@@ -266,8 +268,8 @@ describe('fetchNovels', () => {
       'https://www.sudugu.org/12/c6.html',
       'https://www.sudugu.org/12/c5.html',
     ])
-    expect(books[0]!.latestChapters[0]!.postedAt).toBeDefined()
-    expect(books[0]!.latestChapters[3]!.postedAt).toBeUndefined()
+    expect(books[0]!.latestChapters[0]!.postedAt).toBeGreaterThan(0)
+    expect(books[0]!.latestChapters[3]!.postedAt).toBe(0)
   })
 
   test('skips tail page when prevSeen is within latest three', async () => {
@@ -291,6 +293,7 @@ describe('fetchNovels', () => {
       latestChapters: [chapter('https://www.sudugu.org/12/c9.html', '9')],
       lastSeenChapterUrl: 'https://www.sudugu.org/12/c9.html',
       fetchedAt: 1000,
+      error: '',
     }
     const books = await fetchNovels(server.runtime, [{ url: URL_12 }], [prev])
     expect(server.hits).toEqual([URL_12])
@@ -306,6 +309,7 @@ describe('fetchNovels', () => {
       latestChapters: [chapter('https://other.example/book/1/c1', 'old')],
       lastSeenChapterUrl: 'https://other.example/book/1/c1',
       fetchedAt: 1000,
+      error: '',
     }
     const books = await fetchNovels(server.runtime, [{ url: URL_OTHER }], [prev])
     expect(server.hits).toEqual([])
@@ -334,6 +338,7 @@ describe('fetchNovels', () => {
       latestChapters: [chapter('https://www.sudugu.org/166/c4.html', '4')],
       lastSeenChapterUrl: 'https://www.sudugu.org/166/c4.html',
       fetchedAt: 1000,
+      error: '',
     }
     const books = await fetchNovels(server.runtime, [{ url: URL_166 }], [prev])
     expect(books[0]!.error).toMatch(/network error/)
@@ -363,6 +368,7 @@ describe('fetchNovels', () => {
             chapters: [{ url: `${d.url}c1.html`, title: '1', label: '今天' }],
           }),
           status: 200,
+          responseHeaders: '',
         })
       }, 5)
     }) as TestRuntime['request']
@@ -397,6 +403,7 @@ describe('fetchNovels', () => {
             chapters: [{ url: `${d.url}c1.html`, title: '1', label: '今天' }],
           }),
           status: 200,
+          responseHeaders: '',
         })
       }, 5)
     }) as TestRuntime['request']
@@ -489,7 +496,7 @@ describe('mergeTail', () => {
     const byUrl = new Map(out.map((c) => [c.url, c.postedAt]))
     expect(byUrl.get('c3')).toBe(1000)
     expect(byUrl.get('c2')).toBe(2000)
-    expect(byUrl.get('c1')).toBeUndefined()
+    expect(byUrl.get('c1')).toBe(0)
   })
 
   test('caps to maxWindow', () => {

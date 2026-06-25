@@ -40,7 +40,7 @@ describe('createTnewsSource.fetch', () => {
     const fetched: string[] = []
     const runtime = makeRuntime((d) => {
       fetched.push(d.url)
-      d.onload({ responseText: fixture, status: 200 })
+      d.onload({ responseText: fixture, status: 200, responseHeaders: '' })
     })
     runtime.stores['dashboard:v2:config'] = {
       tnews: { feeds: ['https://custom.example/feed'], mirrors: [] },
@@ -55,7 +55,7 @@ describe('createTnewsSource.fetch', () => {
     const fetched: string[] = []
     const runtime = makeRuntime((d) => {
       fetched.push(d.url)
-      d.onload({ responseText: fixture, status: 200 })
+      d.onload({ responseText: fixture, status: 200, responseHeaders: '' })
     })
     const { source } = createTnewsSource(DEFAULT_OPTS)
     await source.fetch(runtime, undefined)
@@ -74,7 +74,7 @@ describe('createTnewsSource.fetch', () => {
       <description><![CDATA[<p>newer version</p>]]></description></item>
     </channel></rss>`
     const runtime = makeRuntime((d) => {
-      d.onload({ responseText: freshXml, status: 200 })
+      d.onload({ responseText: freshXml, status: 200, responseHeaders: '' })
     })
     const { source, state } = createTnewsSource(DEFAULT_OPTS)
     const recentPrev: import('../../../../src/dashboard/tnews/types').TnewsItem[] = [
@@ -120,6 +120,7 @@ describe('createTnewsSource.fetch', () => {
       d.onload({
         responseText: d.url.includes('x/') ? oldXml : recentXml,
         status: 200,
+        responseHeaders: '',
       })
     })
     const { source } = createTnewsSource({
@@ -138,7 +139,7 @@ describe('createTnewsSource.fetch', () => {
   test('fetch does not write to a double-prefixed cache key', async () => {
     const fixture = loadFixture()
     const runtime = makeRuntime((d) => {
-      d.onload({ responseText: fixture, status: 200 })
+      d.onload({ responseText: fixture, status: 200, responseHeaders: '' })
     })
     const { source } = createTnewsSource(DEFAULT_OPTS)
     await source.fetch(runtime, undefined)

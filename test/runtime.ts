@@ -45,7 +45,7 @@ export type TestRuntime = Runtime & {
   stores: Record<string, unknown>
   listeners: Map<string, ValueChangeListener[]>
   menuCommands: MenuCommand[]
-  responses: Map<string, { text: string; status?: number; responseHeaders?: string }>
+  responses: Map<string, { text: string; status: number; responseHeaders: string }>
   lastRequest: {
     url: string
     method: string
@@ -99,7 +99,7 @@ export function createRuntime(dom?: Window): TestRuntime {
   const stores: Record<string, unknown> = {}
   const listeners: Map<string, ValueChangeListener[]> = new Map()
   const menuCommands: MenuCommand[] = []
-  const responses: Map<string, { text: string; status?: number; responseHeaders?: string }> =
+  const responses: Map<string, { text: string; status: number; responseHeaders: string }> =
     new Map()
   let lastRequest: TestRuntime['lastRequest'] = null
   let nextId = 1
@@ -137,7 +137,7 @@ export function createRuntime(dom?: Window): TestRuntime {
       if (r) {
         details.onload({
           responseText: r.text,
-          status: r.status ?? 200,
+          status: r.status,
           responseHeaders: r.responseHeaders,
         })
       } else {
@@ -167,7 +167,7 @@ export function createRuntime(dom?: Window): TestRuntime {
     },
     addElement: (_parentNode, _tagName, _attributes) => document.createElement(_tagName),
     queueResponse(url, text, status, responseHeaders) {
-      responses.set(url, { text, status, responseHeaders })
+      responses.set(url, { text, status: status ?? 200, responseHeaders: responseHeaders ?? '' })
     },
     simulateRemoteChange(key, newValue) {
       const oldValue = stores[key]

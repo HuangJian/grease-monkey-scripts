@@ -102,8 +102,9 @@ async function fetchKnownEntry(
     title: home.title ?? entry.alias ?? hostnameFallback(entry.url),
     latestChapters: chapters,
     fetchedAt: now,
+    lastSeenChapterUrl: lastSeen,
+    error: '',
   }
-  if (lastSeen !== undefined) book.lastSeenChapterUrl = lastSeen
   return book
 }
 
@@ -119,7 +120,7 @@ export function mergeTail(
 
   const labelByUrl = new Map<string, number>()
   latestThree
-    .filter((c): c is NovelChapter & { postedAt: number } => c.postedAt !== undefined)
+    .filter((c): c is NovelChapter & { postedAt: number } => c.postedAt > 0)
     .forEach((c) => labelByUrl.set(c.url, c.postedAt))
 
   const enriched = sliced.map((c) => {
@@ -136,9 +137,9 @@ function buildUnknownBook(entry: NovelEntry, prev: NovelBook | undefined): Novel
     title: prev?.title ?? entry.alias ?? hostnameFallback(entry.url),
     latestChapters: prev?.latestChapters ?? [],
     fetchedAt: prev?.fetchedAt ?? Date.now(),
+    lastSeenChapterUrl: prev?.lastSeenChapterUrl ?? '',
     error: '未知站点，暂不支持',
   }
-  if (prev?.lastSeenChapterUrl !== undefined) book.lastSeenChapterUrl = prev.lastSeenChapterUrl
   return book
 }
 
@@ -154,9 +155,9 @@ function buildFailureBook(
     title: prev?.title ?? entry.alias ?? hostnameFallback(entry.url),
     latestChapters: prev?.latestChapters ?? [],
     fetchedAt: prev?.fetchedAt ?? Date.now(),
+    lastSeenChapterUrl: prev?.lastSeenChapterUrl ?? '',
     error: message,
   }
-  if (prev?.lastSeenChapterUrl !== undefined) book.lastSeenChapterUrl = prev.lastSeenChapterUrl
   return book
 }
 

@@ -12,5 +12,14 @@ export function renderNovels(
   ctx: RenderNovelsContext,
 ): void {
   render(null, container)
-  render(<NovelsComponent data={data} onMarkSeen={ctx.onMarkSeen} />, container)
+  render(
+    <NovelsComponent
+      data={data}
+      root={undefined as any}
+      runtime={undefined as any}
+      onHeaderChange={() => {}}
+      onMarkSeen={ctx.onMarkSeen}
+    />,
+    container,
+  )
 }

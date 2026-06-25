@@ -45,7 +45,7 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
   const handleAdd = useCallback(() => {
     setError('')
     const label = labelRef.current?.value.trim()
-    const cma = cmaRef.current?.value.trim()
+    const cma = cmaRef.current?.value.trim() ?? ''
     const lat = Number(latRef.current?.value)
     const lon = Number(lonRef.current?.value)
     if (!label) {
@@ -60,9 +60,7 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
       setError('CMA 站点 ID 必须是 5 位数字')
       return
     }
-    const city: WeatherCity = cma
-      ? { cityLabel: label, latitude: lat, longitude: lon, cmaStationId: cma }
-      : { cityLabel: label, latitude: lat, longitude: lon }
+    const city: WeatherCity = { cityLabel: label, latitude: lat, longitude: lon, cmaStationId: cma }
     setCities((prev) => [...prev, city])
     if (labelRef.current) labelRef.current.value = ''
     if (cmaRef.current) cmaRef.current.value = ''

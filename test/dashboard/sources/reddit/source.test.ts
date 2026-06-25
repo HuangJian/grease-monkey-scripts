@@ -57,7 +57,7 @@ describe('createRedditSource.fetch reads fresh config', () => {
     const fetchedUrls: string[] = []
     const runtime = makeRuntime((d) => {
       fetchedUrls.push(d.url)
-      d.onload({ responseText: JSON.stringify(json) })
+      d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
     })
     const source = createRedditSource(defaultRedditOpts({ subreddits: ['popular'] }))
     runtime.stores['dashboard:v2:config'] = {
@@ -75,7 +75,7 @@ describe('createRedditSource.fetch reads fresh config', () => {
     const fetchedUrls: string[] = []
     const runtime = makeRuntime((d) => {
       fetchedUrls.push(d.url)
-      d.onload({ responseText: JSON.stringify(json) })
+      d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
     })
     const source = createRedditSource(defaultRedditOpts({ subreddits: ['popular'] }))
     await source.fetch(runtime, undefined)
@@ -85,7 +85,7 @@ describe('createRedditSource.fetch reads fresh config', () => {
   test('fetch returns a Map keyed by sub', async () => {
     const json = loadFixture()
     const runtime = makeRuntime((d) => {
-      d.onload({ responseText: JSON.stringify(json) })
+      d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
     })
     const source = createRedditSource(defaultRedditOpts({ subreddits: ['funny', 'aww'] }))
     const data = await source.fetch(runtime, undefined)
@@ -120,7 +120,15 @@ describe('createRedditSource.render uses ctx.runtime when runtimeRef is null', (
     }
 
     // Simulate mount flow: render before any fetch() call
-    render(h(source.RenderComponent!, { data, root: undefined, runtime }), { container })
+    render(
+      h(source.RenderComponent, {
+        data,
+        root: undefined as any,
+        runtime,
+        onHeaderChange: () => {},
+      }),
+      { container },
+    )
 
     const link = within(container).getByRole('link', { name: 'test post' }) as HTMLAnchorElement
     link.click()

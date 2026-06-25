@@ -6,6 +6,7 @@ import {
   selectorsFactory,
   startArticlePreloader,
 } from '../../src/article-preloader/app'
+import type { RequestDetails } from '../../src/runtime'
 import { createHappyDom, createRuntime, closeAllWindows } from '../runtime'
 
 describe('pure helpers', () => {
@@ -136,15 +137,9 @@ describe('loadChapter', () => {
     const requests: string[] = []
     const runtime = {
       ...createRuntime(dom),
-      request: ({
-        url,
-        onload,
-      }: {
-        url: string
-        onload: (r: { responseText: string }) => void
-      }) => {
+      request: ({ url, onload }: { url: string; onload: RequestDetails['onload'] }) => {
         requests.push(url)
-        onload({ responseText: chapterHtml })
+        onload({ responseText: chapterHtml, status: 200, responseHeaders: '' })
       },
     }
 
@@ -187,17 +182,11 @@ describe('loadChapter', () => {
     const dom = createHappyDom('<html><body></body></html>', 'https://www.sudugu.org/chapter/1')
     const runtime = {
       ...createRuntime(dom),
-      request: ({
-        url,
-        onload,
-      }: {
-        url: string
-        onload: (r: { responseText: string }) => void
-      }) => {
+      request: ({ url, onload }: { url: string; onload: RequestDetails['onload'] }) => {
         if (url.includes('p=2')) {
-          onload({ responseText: page2Html })
+          onload({ responseText: page2Html, status: 200, responseHeaders: '' })
         } else {
-          onload({ responseText: page1Html })
+          onload({ responseText: page1Html, status: 200, responseHeaders: '' })
         }
       },
     }
@@ -249,8 +238,8 @@ describe('loadChapter', () => {
     let failed = false
     const runtime = {
       ...createRuntime(dom),
-      request: ({ onload }: { onload: (r: { responseText: string }) => void }) => {
-        onload({ responseText: badHtml })
+      request: ({ onload }: { onload: RequestDetails['onload'] }) => {
+        onload({ responseText: badHtml, status: 200, responseHeaders: '' })
       },
     }
 
@@ -276,8 +265,8 @@ describe('loadChapter', () => {
     let failed = false
     const runtime = {
       ...createRuntime(dom),
-      request: ({ onload }: { onload: (r: { responseText: string; status?: number }) => void }) => {
-        onload({ responseText: badHtml, status: 404 })
+      request: ({ onload }: { onload: RequestDetails['onload'] }) => {
+        onload({ responseText: badHtml, status: 404, responseHeaders: '' })
       },
     }
 
@@ -320,16 +309,10 @@ describe('loadChapter', () => {
       </body></html>
     `
     const dom = createHappyDom('<html><body></body></html>', 'https://www.sudugu.org/chapter/1')
-    const requests: Array<{ url: string; onload: (r: { responseText: string }) => void }> = []
+    const requests: Array<{ url: string; onload: RequestDetails['onload'] }> = []
     const runtime = {
       ...createRuntime(dom),
-      request: ({
-        url,
-        onload,
-      }: {
-        url: string
-        onload: (r: { responseText: string }) => void
-      }) => {
+      request: ({ url, onload }: { url: string; onload: RequestDetails['onload'] }) => {
         requests.push({ url, onload })
       },
     }
@@ -348,11 +331,11 @@ describe('loadChapter', () => {
     // Trigger the chain of continuation fetches
     for (const req of requests) {
       if (req.url.includes('p=2')) {
-        req.onload({ responseText: page2Html })
+        req.onload({ responseText: page2Html, status: 200, responseHeaders: '' })
       } else if (req.url.includes('p=3')) {
-        req.onload({ responseText: page3Html })
+        req.onload({ responseText: page3Html, status: 200, responseHeaders: '' })
       } else {
-        req.onload({ responseText: page1Html })
+        req.onload({ responseText: page1Html, status: 200, responseHeaders: '' })
       }
     }
 
@@ -385,8 +368,8 @@ describe('loadChapter', () => {
     const dom = createHappyDom('<html><body></body></html>', 'https://www.sudugu.org/chapter/1')
     const runtime = {
       ...createRuntime(dom),
-      request: ({ onload }: { onload: (r: { responseText: string }) => void }) => {
-        onload({ responseText: circularHtml })
+      request: ({ onload }: { onload: RequestDetails['onload'] }) => {
+        onload({ responseText: circularHtml, status: 200, responseHeaders: '' })
       },
     }
 
@@ -448,17 +431,11 @@ describe('mergeCurrentChapterIfNeeded', () => {
     const dom = createHappyDom(currentHtml, 'https://www.sudugu.org/chapter/1')
     const runtime = {
       ...createRuntime(dom),
-      request: ({
-        url,
-        onload,
-      }: {
-        url: string
-        onload: (r: { responseText: string }) => void
-      }) => {
+      request: ({ url, onload }: { url: string; onload: RequestDetails['onload'] }) => {
         if (url.includes('p=2')) {
-          onload({ responseText: page2Html })
+          onload({ responseText: page2Html, status: 200, responseHeaders: '' })
         } else {
-          onload({ responseText: currentHtml })
+          onload({ responseText: currentHtml, status: 200, responseHeaders: '' })
         }
       },
     }
@@ -499,16 +476,10 @@ describe('integration: startArticlePreloader', () => {
     const requestUrls: string[] = []
     const runtime = {
       ...createRuntime(dom),
-      request: ({
-        url,
-        onload,
-      }: {
-        url: string
-        onload: (r: { responseText: string }) => void
-      }) => {
+      request: ({ url, onload }: { url: string; onload: RequestDetails['onload'] }) => {
         requestUrls.push(url)
         if (url.includes('chapter/2')) {
-          onload({ responseText: nextHtml })
+          onload({ responseText: nextHtml, status: 200, responseHeaders: '' })
         }
       },
     }

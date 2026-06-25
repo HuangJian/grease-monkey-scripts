@@ -146,7 +146,7 @@ describe('suduguAdapter.parseChapterList', () => {
     expect(last.url).toBe('https://www.sudugu.org/12/3873955.html')
     expect(last.title).toBe('第1302章 敌人和朋友')
     for (const c of chapters) {
-      expect(c.postedAt).toBeUndefined()
+      expect(c.postedAt).toBe(0)
     }
   })
   test('returns empty for empty html', () => {

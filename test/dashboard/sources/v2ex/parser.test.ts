@@ -19,7 +19,7 @@ const FIXTURE = [
     replies: 10,
     member: { username: 'alice' },
     node: { title: 'node-a' },
-    sources: [] as const,
+    sources: [],
   },
   {
     id: 2,
@@ -28,7 +28,7 @@ const FIXTURE = [
     replies: 20,
     member: { username: 'bob' },
     node: { title: 'node-b' },
-    sources: [] as const,
+    sources: [],
   },
   {
     id: 3,
@@ -37,7 +37,7 @@ const FIXTURE = [
     replies: 30,
     member: { username: 'carol' },
     node: { title: 'node-c' },
-    sources: [] as const,
+    sources: [],
   },
 ]
 
@@ -135,6 +135,7 @@ describe('mergeV2exTopics', () => {
       member: { username: '' },
       node: { title: '' },
       sources: [],
+      created: 0,
       ...over,
     }
   }
@@ -227,10 +228,10 @@ describe('mergeV2exTopics', () => {
     expect(merged.map((t) => t.id)).toEqual([2, 1])
   })
   test('historical api topics retain api source when merged as first arg', () => {
-    const historical = [topic({ id: 100, replies: 30, sources: ['api'] as const })]
+    const historical = [topic({ id: 100, replies: 30, sources: ['api'] })]
     const current = [
-      topic({ id: 1, replies: 50, sources: ['page'] as const }),
-      topic({ id: 100, replies: 40, sources: ['api', 'page'] as const }),
+      topic({ id: 1, replies: 50, sources: ['page'] }),
+      topic({ id: 100, replies: 40, sources: ['api', 'page'] }),
     ]
     const merged = mergeV2exTopics(historical, current, false)
     const t100 = merged.find((t) => t.id === 100)!
@@ -244,14 +245,32 @@ describe('computeSortScore', () => {
     const now = Date.now()
     expect(
       computeSortScore(
-        { id: 1, replies: 0, title: '', url: '', member: { username: '' }, node: { title: '' } },
+        {
+          id: 1,
+          replies: 0,
+          title: '',
+          url: '',
+          member: { username: '' },
+          node: { title: '' },
+          sources: [],
+          created: 0,
+        },
         now,
         2,
       ),
     ).toBe(0)
     expect(
       computeSortScore(
-        { id: 1, replies: NaN, title: '', url: '', member: { username: '' }, node: { title: '' } },
+        {
+          id: 1,
+          replies: NaN,
+          title: '',
+          url: '',
+          member: { username: '' },
+          node: { title: '' },
+          sources: [],
+          created: 0,
+        },
         now,
         2,
       ),
@@ -260,7 +279,16 @@ describe('computeSortScore', () => {
   test('does not decay topics without created time', () => {
     const now = Date.now()
     const score = computeSortScore(
-      { id: 1, replies: 100, title: '', url: '', member: { username: '' }, node: { title: '' } },
+      {
+        id: 1,
+        replies: 100,
+        title: '',
+        url: '',
+        member: { username: '' },
+        node: { title: '' },
+        sources: [],
+        created: 0,
+      },
       now,
       2,
     )
@@ -277,6 +305,7 @@ describe('computeSortScore', () => {
         url: '',
         member: { username: '' },
         node: { title: '' },
+        sources: [],
         created: oneDayAgo,
       },
       now,
@@ -296,6 +325,7 @@ describe('computeSortScore', () => {
         url: '',
         member: { username: '' },
         node: { title: '' },
+        sources: [],
         created: twoDaysAgo,
       },
       now,
@@ -310,7 +340,16 @@ describe('sortByDecayedScore', () => {
     const now = Date.now()
     const yesterday = now - 24 * 60 * 60 * 1000
     const topics = [
-      { id: 1, replies: 30, title: '', url: '', member: { username: '' }, node: { title: '' } },
+      {
+        id: 1,
+        replies: 30,
+        title: '',
+        url: '',
+        member: { username: '' },
+        node: { title: '' },
+        sources: [],
+        created: 0,
+      },
       {
         id: 2,
         replies: 100,
@@ -318,6 +357,7 @@ describe('sortByDecayedScore', () => {
         url: '',
         member: { username: '' },
         node: { title: '' },
+        sources: [],
         created: yesterday,
       },
     ]
@@ -326,7 +366,7 @@ describe('sortByDecayedScore', () => {
   })
   test('cross-source topics win ties', () => {
     const now = Date.now()
-    const topics = [
+    const topics: V2exTopic[] = [
       {
         id: 1,
         replies: 100,
@@ -334,7 +374,8 @@ describe('sortByDecayedScore', () => {
         url: '',
         member: { username: '' },
         node: { title: '' },
-        sources: ['api'] as const,
+        sources: ['api'],
+        created: 0,
       },
       {
         id: 2,
@@ -343,7 +384,8 @@ describe('sortByDecayedScore', () => {
         url: '',
         member: { username: '' },
         node: { title: '' },
-        sources: ['api', 'page'] as const,
+        sources: ['api', 'page'],
+        created: 0,
       },
     ]
     const sorted = sortByDecayedScore(topics, now, 2)

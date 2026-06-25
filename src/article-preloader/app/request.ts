@@ -11,8 +11,7 @@ export function fetchPage(
     url: toAbsoluteUrl(url, runtime.location.href),
     method: 'GET',
     timeout: 120000,
-    onload: (response) =>
-      onSuccess({ html: response.responseText, status: response.status ?? 200 }),
+    onload: (response) => onSuccess({ html: response.responseText, status: response.status }),
     onerror: onFailure,
     ontimeout: onFailure,
   })

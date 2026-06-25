@@ -16,6 +16,7 @@ function makeTopic(over: Partial<V2exTopic>): V2exTopic {
     member: { username: '' },
     node: { title: '' },
     sources: [],
+    created: 0,
     ...over,
   }
 }
@@ -132,6 +133,7 @@ describe('createV2exState', () => {
         schemaVersion: CACHE_SCHEMA_VERSION,
         data: [makeTopic({ id: 1 }), makeTopic({ id: 2 })],
         fetchedAt: Date.now(),
+        error: '',
       }
       runtime.stores[cacheKey] = cached
       await state.removeFromCache(runtime, 1)

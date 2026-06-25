@@ -9,11 +9,8 @@ import { CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/dashboard/typ
 import { createRuntime } from '../runtime'
 import type { Source, TabLabel } from '../../src/dashboard/types'
 
-function cached<T>(data: T | null, fetchedAt = 1_000_000, error?: string): CachedSource<T> {
-  const out: CachedSource<T> = { schemaVersion: CACHE_SCHEMA_VERSION, fetchedAt }
-  if (data !== null) out.data = data
-  if (error) out.error = error
-  return out
+function cached<T>(data: T | null, fetchedAt = 1_000_000, error = ''): CachedSource<T> {
+  return { schemaVersion: CACHE_SCHEMA_VERSION, data, fetchedAt, error }
 }
 
 function makeSource(opts: {
@@ -32,6 +29,7 @@ function makeSource(opts: {
     id: opts.id,
     title: opts.title,
     ttlMs: 60_000,
+    headerState: {},
     fetch: () => Promise.resolve(null as never),
     RenderComponent: (props: { data: unknown }) => {
       const ref = useRef<HTMLDivElement>(null)

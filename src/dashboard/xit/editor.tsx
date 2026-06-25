@@ -61,6 +61,7 @@ function XitEditorForm({ initialText, targetLine, ctx, handleRef }: XitEditorFor
         await saveCache(ctx.runtime, 'xit', {
           data: { text: textRef.current },
           fetchedAt: Date.now(),
+          error: '',
         })
         ctx.close()
       },

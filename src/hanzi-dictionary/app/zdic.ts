@@ -32,7 +32,7 @@ export function queryZdic(
       method: 'GET',
       timeout: 10000,
       onload(response) {
-        if (response.status && (response.status < 200 || response.status >= 300)) {
+        if (response.status < 200 || response.status >= 300) {
           resolve({ ok: false, error: { word: trimmed, url } })
           return
         }

@@ -26,7 +26,7 @@ function fetchOneBoard(
       anonymous: true,
       headers: { 'User-Agent': HUPU_USER_AGENT },
       onload(response) {
-        if (response.status && response.status >= 400) {
+        if (response.status >= 400) {
           settle({ posts: [], error: `http ${response.status}` })
           return
         }

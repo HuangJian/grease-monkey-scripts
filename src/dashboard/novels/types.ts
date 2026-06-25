@@ -6,7 +6,7 @@ export type NovelEntry = {
 export type NovelChapter = {
   url: string
   title: string
-  postedAt?: number
+  postedAt: number
 }
 
 export type NovelBook = {
@@ -14,9 +14,9 @@ export type NovelBook = {
   siteId: string
   title: string
   latestChapters: NovelChapter[]
-  lastSeenChapterUrl?: string
+  lastSeenChapterUrl: string
   fetchedAt: number
-  error?: string
+  error: string
 }
 
 export type NovelData = {

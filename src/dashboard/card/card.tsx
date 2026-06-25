@@ -42,7 +42,7 @@ export function RenderCard<T>({
   onRefresh,
   onRevert,
 }: CardOptions<T>) {
-  const Comp = source.RenderComponent!
+  const Comp = source.RenderComponent
   const HeaderComp = source.RenderHeader
   const data = (cached?.data ?? null) as T | null
   const [, setHeaderVersion] = useState(0)
@@ -64,7 +64,7 @@ export function RenderCard<T>({
     root,
     onRefresh,
     onEdit,
-    onHeaderChange: source.headerState ? () => setHeaderVersion((n) => n + 1) : undefined,
+    onHeaderChange: () => setHeaderVersion((n) => n + 1),
   }
 
   const header: ComponentChildren = HeaderComp ? (
@@ -99,7 +99,7 @@ export function RenderCard<T>({
         data={data}
         root={root}
         runtime={runtime}
-        onHeaderChange={source.headerState ? () => setHeaderVersion((n) => n + 1) : undefined}
+        onHeaderChange={() => setHeaderVersion((n) => n + 1)}
       />
     </Card>
   )

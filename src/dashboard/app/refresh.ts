@@ -15,7 +15,7 @@ export async function refreshSource(runtime: Runtime, source: Source<unknown>): 
   let next: Omit<CachedSource<unknown>, 'schemaVersion'> | null = null
   try {
     const data = await source.fetch(runtime, oldCache?.data)
-    next = { data, fetchedAt: Date.now() }
+    next = { data, fetchedAt: Date.now(), error: '' }
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     console.debug('[gm-dashboard] refreshSource fetch-threw sourceId=', source.id, 'msg=', message)

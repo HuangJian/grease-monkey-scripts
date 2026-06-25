@@ -28,9 +28,9 @@ export function RedditComponent({
 }: RedditComponentProps) {
   const [, forceUpdate] = useState(0)
 
-  const dateFiltered = applyGroupedDateFilter(data, dateFilter, (t) => t.created)
-  const filtered: RedditRenderData | null =
-    dateFilter === '未' && dateFiltered
+  const dateFiltered = applyGroupedDateFilter(data ?? {}, dateFilter, (t) => t.created)
+  const filtered: RedditRenderData =
+    dateFilter === '未'
       ? Object.entries(dateFiltered).reduce<RedditRenderData>((acc, [sub, posts]) => {
           const unread = posts.filter((p) => !state.isRead(p.id))
           if (unread.length > 0) acc[sub] = unread
@@ -38,7 +38,7 @@ export function RedditComponent({
         }, {})
       : dateFiltered
 
-  if (!filtered || Object.keys(filtered).length === 0) {
+  if (Object.keys(filtered).length === 0) {
     return <div class="gm-sp-empty">暂无数据</div>
   }
 
@@ -49,12 +49,12 @@ export function RedditComponent({
 
   function handleMarkRead(postId: string, numComments: number) {
     state.markRead(postId, Date.now(), numComments)
-    if (runtime) void state.saveToStorage(runtime)
+    void state.saveToStorage(runtime)
     forceUpdate((n) => n + 1)
   }
 
   function findSubForPost(post: { id: string }): string | null {
-    const entry = Object.entries(filtered!).find(([, posts]) => posts.some((p) => p.id === post.id))
+    const entry = Object.entries(filtered).find(([, posts]) => posts.some((p) => p.id === post.id))
     return entry ? entry[0] : null
   }
 
@@ -66,7 +66,7 @@ export function RedditComponent({
     runtime,
     forceUpdate: () => forceUpdate((n) => n + 1),
     getSubForItem: findSubForPost,
-    getVisibleInSub: (sub) => state.filterVisible(filtered![sub] ?? []),
+    getVisibleInSub: (sub) => state.filterVisible(filtered[sub] ?? []),
     repliesOf: (p) => p.numComments,
   })
 

@@ -234,6 +234,7 @@ describe('removeItemFromCache', () => {
       schemaVersion: CACHE_SCHEMA_VERSION,
       data: [{ id: '1' }, { id: '2' }],
       fetchedAt: Date.now(),
+      error: '',
     }
     runtime.stores[key] = cached
     await removeItemFromCache(runtime, 'test', '1')
@@ -248,6 +249,7 @@ describe('removeItemFromCache', () => {
       schemaVersion: CACHE_SCHEMA_VERSION,
       data: { group1: [{ id: '1' }, { id: '2' }], group2: [{ id: '3' }] },
       fetchedAt: Date.now(),
+      error: '',
     }
     runtime.stores[key] = cached
     await removeItemFromCache(runtime, 'test', '1')
@@ -263,6 +265,7 @@ describe('removeItemFromCache', () => {
       schemaVersion: CACHE_SCHEMA_VERSION,
       data: { group1: [{ id: '1' }], group2: [{ id: '2' }] },
       fetchedAt: Date.now(),
+      error: '',
     }
     runtime.stores[key] = cached
     await removeItemFromCache(runtime, 'test', '1')
@@ -289,6 +292,7 @@ describe('removeItemFromCache', () => {
       schemaVersion: CACHE_SCHEMA_VERSION,
       data: [{ id: '1' }],
       fetchedAt: Date.now(),
+      error: '',
     }
     await removeItemFromCache(runtime, 'test', '99')
     const after = runtime.stores[key] as CachedSource<{ id: string }[]>

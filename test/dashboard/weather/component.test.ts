@@ -16,6 +16,12 @@ const cmaHourly: WeatherHourly = {
   temperature_2m: [28.9, 29.4, 23, 21.2, 19.9, 17.2, 23.3, 26.7],
   weather_code: [2, 2, 2, 0, 0, 0, 0, 2],
   precipitation_probability: [0, 0, 0, 0, 0, 0, 0, 0],
+  pressure: [],
+  humidity: [],
+  cloud_cover: [],
+  precipitation_amount: [],
+  wind_speed_10m: [],
+  wind_direction_10m: [],
 }
 
 describe('remainingHours', () => {

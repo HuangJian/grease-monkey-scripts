@@ -28,7 +28,7 @@ describe('fetchTnews', () => {
     const fetched: string[] = []
     const runtime = makeRuntime((d) => {
       fetched.push(d.url)
-      d.onload({ responseText: fixture, status: 200 })
+      d.onload({ responseText: fixture, status: 200, responseHeaders: '' })
     })
     const result = await fetchTnews(runtime, {
       feeds: ['https://rsshub.app/telegram/channel/tnews365'],
@@ -49,7 +49,7 @@ describe('fetchTnews', () => {
         return
       }
       if (d.url.includes('mirror-a')) {
-        d.onload({ responseText: fixture, status: 200 })
+        d.onload({ responseText: fixture, status: 200, responseHeaders: '' })
         return
       }
       d.onerror?.()
@@ -68,7 +68,7 @@ describe('fetchTnews', () => {
     const runtime = makeRuntime((d) => {
       fetched.push(d.url)
       if (d.url.includes('mirror-a')) {
-        d.onload({ responseText: fixture, status: 200 })
+        d.onload({ responseText: fixture, status: 200, responseHeaders: '' })
         return
       }
       d.onerror?.()
@@ -112,7 +112,7 @@ describe('fetchTnews', () => {
     const fixture = loadFixture()
     const runtime = makeRuntime((d) => {
       if (d.url.includes('ok.com')) {
-        d.onload({ responseText: fixture, status: 200 })
+        d.onload({ responseText: fixture, status: 200, responseHeaders: '' })
         return
       }
       d.onerror?.()
@@ -137,8 +137,9 @@ describe('fetchTnews', () => {
       <description><![CDATA[<p>new</p>]]></description></item>
     </channel></rss>`
     const runtime = makeRuntime((d) => {
-      if (d.url.includes('feed-a')) d.onload({ responseText: old, status: 200 })
-      else d.onload({ responseText: recent, status: 200 })
+      if (d.url.includes('feed-a'))
+        d.onload({ responseText: old, status: 200, responseHeaders: '' })
+      else d.onload({ responseText: recent, status: 200, responseHeaders: '' })
     })
     const result = await fetchTnews(runtime, {
       feeds: ['https://x.com/feed-a', 'https://y.com/feed-b'],
@@ -160,6 +161,7 @@ describe('fetchTnews', () => {
       d.onload({
         responseText: '<?xml version="1.0"?><rss version="2.0"><channel></channel></rss>',
         status: 200,
+        responseHeaders: '',
       })
     })
     await fetchTnews(runtime, {
@@ -171,7 +173,7 @@ describe('fetchTnews', () => {
 
   test('rejects primary URL with non-2xx status', async () => {
     const runtime = makeRuntime((d) => {
-      d.onload({ responseText: 'bad', status: 503 })
+      d.onload({ responseText: 'bad', status: 503, responseHeaders: '' })
     })
     await expect(
       fetchTnews(runtime, {

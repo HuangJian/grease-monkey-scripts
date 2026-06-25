@@ -39,24 +39,22 @@ export function XitHeaderControls({
   const hs = headerState
 
   useEffect(() => {
-    if (runtime) {
-      loadFilters(runtime).then((store) => {
-        hs.filterStore = store
-        const defaultFilter = getDefaultFilter(store)
-        if (defaultFilter && !hs.query && searchRef.current) {
-          hs.query = defaultFilter.query
-          searchRef.current.value = defaultFilter.query
-        }
-        onHeaderChange?.()
-      })
-    }
+    loadFilters(runtime).then((store) => {
+      hs.filterStore = store
+      const defaultFilter = getDefaultFilter(store)
+      if (defaultFilter && !hs.query && searchRef.current) {
+        hs.query = defaultFilter.query
+        searchRef.current.value = defaultFilter.query
+      }
+      onHeaderChange()
+    })
   }, [])
 
   function onSearchInput(value: string) {
     hs.query = value
     const result = parseQuery(value)
     hs.queryError = result.ok ? null : result.error
-    onHeaderChange?.()
+    onHeaderChange()
   }
 
   function onClear() {
@@ -64,7 +62,7 @@ export function XitHeaderControls({
     hs.queryError = null
     if (searchRef.current) searchRef.current.value = ''
     searchRef.current?.focus()
-    onHeaderChange?.()
+    onHeaderChange()
   }
 
   function onSaveFilter(name: string, q: string) {
@@ -73,7 +71,7 @@ export function XitHeaderControls({
       hs.saveForm = null
       loadFilters(runtime).then((store) => {
         hs.filterStore = store
-        onHeaderChange?.()
+        onHeaderChange()
       })
     })
   }
@@ -83,7 +81,7 @@ export function XitHeaderControls({
     setDefaultFilter(runtime, filterId).then(() => {
       loadFilters(runtime).then((store) => {
         hs.filterStore = store
-        onHeaderChange?.()
+        onHeaderChange()
       })
     })
   }
@@ -94,7 +92,7 @@ export function XitHeaderControls({
       hs.editFilter = null
       loadFilters(runtime).then((store) => {
         hs.filterStore = store
-        onHeaderChange?.()
+        onHeaderChange()
       })
     })
   }
@@ -104,7 +102,7 @@ export function XitHeaderControls({
     deleteFilter(runtime, filterId).then(() => {
       loadFilters(runtime).then((store) => {
         hs.filterStore = store
-        onHeaderChange?.()
+        onHeaderChange()
       })
     })
   }
@@ -114,7 +112,7 @@ export function XitHeaderControls({
     hs.queryError = null
     if (searchRef.current) searchRef.current.value = filter.query
     searchRef.current?.focus()
-    onHeaderChange?.()
+    onHeaderChange()
   }
 
   function onTagClick(tag: string) {
@@ -129,7 +127,7 @@ export function XitHeaderControls({
     if (searchRef.current) searchRef.current.value = newQuery
     const result = parseQuery(newQuery)
     hs.queryError = result.ok ? null : result.error
-    onHeaderChange?.()
+    onHeaderChange()
   }
 
   function handleBlur(e: FocusEvent) {
@@ -138,7 +136,7 @@ export function XitHeaderControls({
       hs.showFilters = false
       hs.saveForm = null
       hs.editFilter = null
-      onHeaderChange?.()
+      onHeaderChange()
     }
   }
 
@@ -164,7 +162,7 @@ export function XitHeaderControls({
             onInput={(e) => onSearchInput((e.target as HTMLInputElement).value)}
             onFocus={() => {
               hs.showFilters = true
-              onHeaderChange?.()
+              onHeaderChange()
             }}
             onBlur={handleBlur}
           />
@@ -181,7 +179,7 @@ export function XitHeaderControls({
           onClick={() => {
             if (hs.query) {
               hs.saveForm = { type: 'save', name: '', query: hs.query }
-              onHeaderChange?.()
+              onHeaderChange()
             }
           }}
         >
@@ -225,7 +223,7 @@ export function XitHeaderControls({
                         onClick={(e) => {
                           e.stopPropagation()
                           hs.editFilter = f
-                          onHeaderChange?.()
+                          onHeaderChange()
                         }}
                       >
                         ✏
@@ -270,7 +268,7 @@ export function XitHeaderControls({
               onSave={(name, q) => onSaveFilter(name, q)}
               onCancel={() => {
                 hs.saveForm = null
-                onHeaderChange?.()
+                onHeaderChange()
               }}
             />
           )}
@@ -281,7 +279,7 @@ export function XitHeaderControls({
               onSave={(name, q) => onFilterEdit(hs.editFilter!, name, q)}
               onCancel={() => {
                 hs.editFilter = null
-                onHeaderChange?.()
+                onHeaderChange()
               }}
             />
           )}

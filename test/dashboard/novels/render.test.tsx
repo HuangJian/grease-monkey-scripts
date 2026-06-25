@@ -5,8 +5,8 @@ import type { NovelBook, NovelData } from '../../../src/dashboard/novels/types'
 // oxlint-disable-next-line no-unassigned-import
 import '../../runtime'
 
-function chapter(url: string, title: string, postedAt?: number) {
-  return postedAt != null ? { url, title, postedAt } : { url, title }
+function chapter(url: string, title: string, postedAt: number = 0) {
+  return { url, title, postedAt }
 }
 
 function book(
@@ -15,6 +15,8 @@ function book(
   return {
     latestChapters: [],
     fetchedAt: 0,
+    lastSeenChapterUrl: '',
+    error: '',
     ...overrides,
   }
 }

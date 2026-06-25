@@ -50,9 +50,18 @@ describe('createV2exSource', () => {
         member: { username: 'alice' },
         node: { title: 'node-a' },
         sources: [],
+        created: 0,
       },
     ]
-    render(h(source.RenderComponent!, { data }), { container })
+    render(
+      h(source.RenderComponent, {
+        data,
+        root: undefined as any,
+        runtime: createRuntime(),
+        onHeaderChange: () => {},
+      }),
+      { container },
+    )
     expect(within(container).getAllByRole('listitem')).toHaveLength(1)
   })
 
@@ -61,9 +70,9 @@ describe('createV2exSource', () => {
       ...createRuntime(),
       request: (d: RequestDetails) => {
         if (d.url.includes('hot.json')) {
-          d.onload({ responseText: '[]' })
+          d.onload({ responseText: '[]', status: 200, responseHeaders: '' })
         } else {
-          d.onload({ responseText: '[]' })
+          d.onload({ responseText: '[]', status: 200, responseHeaders: '' })
         }
       },
     }
@@ -91,9 +100,11 @@ describe('createV2exSource', () => {
                 sources: [],
               },
             ]),
+            status: 200,
+            responseHeaders: '',
           })
         } else {
-          d.onload({ responseText: '[]' })
+          d.onload({ responseText: '[]', status: 200, responseHeaders: '' })
         }
       },
     }
@@ -107,7 +118,7 @@ describe('createV2exSource', () => {
     const runtime: TestRuntime = {
       ...createRuntime(),
       request: (d: RequestDetails) => {
-        d.onload({ responseText: '[]' })
+        d.onload({ responseText: '[]', status: 200, responseHeaders: '' })
       },
     }
     const now = Date.now()
@@ -136,6 +147,7 @@ describe('createV2exSource', () => {
     await saveCache(runtime, 'v2ex', {
       data: [oldTopic, newTopic],
       fetchedAt: now,
+      error: '',
     })
 
     const source = createV2exSource({ ...DEFAULTS, todayMinReplies: 0, olderMinReplies: 0 })

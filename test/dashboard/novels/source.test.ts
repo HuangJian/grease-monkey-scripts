@@ -74,6 +74,8 @@ describe('createNovelsSource', () => {
           title: '九龙夺嫡',
           latestChapters: [],
           fetchedAt: 1000,
+          lastSeenChapterUrl: '',
+          error: '',
         },
       ],
     }
