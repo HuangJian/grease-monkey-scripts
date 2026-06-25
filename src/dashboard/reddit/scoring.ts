@@ -11,7 +11,7 @@ import type { RedditCountOptions, RedditPost } from './types'
  * ── 阶段 2：双源融合去重 ─────────────────────────────────────────────────
  *   mergeSubPosts(perSubLive, history) 执行：
  *   ① 按 sub 分组 live 帖子
- *   ② 从 URL (/r/{sub}/comments/) 提取帖子归属的 sub，以此匹配 live 子组
+ *   ② 验证 live 帖子归属：从 URL (/r/{sub}/comments/) 提取 sub，与当前分组的 sub 不匹配则跳过；prev 帖子直接使用缓存分组中的 sub 进行匹配
  *   ③ 对每个 sub：合并同 id 的 history 条目（取 max(score), max(numComments), min(created)）
  *   ④ 跨 sub 去重（seenIds）
  *   ⑤ 剩余 history 条目匹配到对应 sub
@@ -48,7 +48,7 @@ function subFromUrl(url: string): string | undefined {
 
 export function mergeSubPosts(
   perSubLive: ReadonlyArray<{ sub: string; posts: RedditPost[] }>,
-  prevById: Map<string, RedditPost>,
+  prevById: Map<string, { sub: string; post: RedditPost }>,
 ): Array<{ sub: string; posts: RedditPost[] }> {
   const liveBySub = new Map<string, RedditPost[]>()
   perSubLive
@@ -67,10 +67,9 @@ export function mergeSubPosts(
       if (urlSub !== undefined && urlSub !== sub) return
       byId.set(p.id, p)
     })
-    prevById.forEach((prev, id) => {
+    prevById.forEach(({ sub: prevSub, post: prev }, id) => {
       if (seenIds.has(id)) return
-      const urlSub = subFromUrl(prev.url)
-      if (urlSub !== undefined && urlSub !== sub) return
+      if (prevSub !== sub) return
       const existing = byId.get(id)
       if (existing) {
         byId.set(id, {
@@ -89,17 +88,15 @@ export function mergeSubPosts(
     out.push({ sub, posts })
   })
 
-  prevById.forEach((prev) => {
+  prevById.forEach(({ sub: prevSub, post: prev }) => {
     if (seenIds.has(prev.id)) return
-    const urlSub = subFromUrl(prev.url)
-    if (!urlSub) return
     const liveSubs = new Set(liveBySub.keys())
-    if (!liveSubs.has(urlSub)) return
-    const existing = out.find((x) => x.sub === urlSub)
+    if (!liveSubs.has(prevSub)) return
+    const existing = out.find((x) => x.sub === prevSub)
     if (existing) {
       existing.posts.push(prev)
     } else {
-      out.push({ sub: urlSub, posts: [prev] })
+      out.push({ sub: prevSub, posts: [prev] })
     }
     seenIds.add(prev.id)
   })

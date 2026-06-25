@@ -4,7 +4,6 @@ export type RedditPost = {
   url: string
   score: number
   numComments: number
-  subreddits: string[]
   author: string
   created: number
 }

@@ -15,7 +15,6 @@ function makePost(over: Partial<RedditPost>): RedditPost {
     url: 'https://www.reddit.com/r/x/comments/x/t',
     score: 100,
     numComments: 10,
-    subreddits: ['x'],
     author: 'u',
     created: NOW,
     ...over,
@@ -113,7 +112,7 @@ describe('createRedditState', () => {
         schemaVersion: CACHE_SCHEMA_VERSION,
         data: {
           popular: [makePost({ id: '1' })],
-          funny: [makePost({ id: '2', subreddits: ['funny'] })],
+          funny: [makePost({ id: '2' })],
         },
         fetchedAt: Date.now(),
         error: '',

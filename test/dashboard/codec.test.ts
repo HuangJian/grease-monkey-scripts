@@ -63,7 +63,6 @@ describe('codec round-trip: reddit', () => {
           url: 'https://www.reddit.com/r/javascript/comments/abc',
           score: 100,
           numComments: 25,
-          subreddits: ['javascript'],
           author: 'bob',
           created: 1700000000000,
         },
@@ -77,7 +76,7 @@ describe('codec round-trip: reddit', () => {
     expect(result.javascript[0].author).toBe('bob')
   })
 
-  test('strips domain from URLs', () => {
+  test('drops url from storage and computes on expand', () => {
     const data = {
       test: [
         {
@@ -86,7 +85,6 @@ describe('codec round-trip: reddit', () => {
           url: 'https://www.reddit.com/r/test/comments/x',
           score: 1,
           numComments: 0,
-          subreddits: ['test'],
           author: '',
           created: 0,
         },
@@ -94,7 +92,9 @@ describe('codec round-trip: reddit', () => {
     }
     const compressed = compressForStorage('reddit', { data, fetchedAt: Date.now(), error: '' })
     const groups = compressed.data as Record<string, Record<string, unknown>[]>
-    expect(groups.test[0].u).toBe('/r/test/comments/x')
+    expect(groups.test[0].u).toBeUndefined()
+    const result = roundTrip('reddit', data)
+    expect(result.test[0].url).toBe('https://www.reddit.com/comments/x/')
   })
 })
 

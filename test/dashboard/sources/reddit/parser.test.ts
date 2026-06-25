@@ -99,7 +99,7 @@ describe('parseRedditListing', () => {
       },
     }
     const [post] = parseRedditListing(json, 10)
-    expect(post.subreddits).toEqual(['sub'])
+    expect(post.id).toBe('x')
   })
   test('parses created_utc to milliseconds', () => {
     const json = loadFixture()

@@ -112,7 +112,6 @@ describe('createRedditSource.render uses ctx.runtime when runtimeRef is null', (
           url: 'https://www.reddit.com/r/aww/comments/a1/t',
           score: 100,
           numComments: 5,
-          subreddits: ['aww'],
           author: 'u',
           created: Date.now(),
         },

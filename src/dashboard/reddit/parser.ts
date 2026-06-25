@@ -54,7 +54,6 @@ export function parseRedditListing(json: unknown, maxItems: number): RedditPost[
       url: `https://www.reddit.com${permalink}`,
       score: Math.max(0, Math.floor(score)),
       numComments: Math.max(0, Math.floor(numComments)),
-      subreddits: [normalizedSub],
       author: authorText,
       created,
     })

@@ -103,7 +103,6 @@ describe('cross-tab broadcast', () => {
             url: 'https://www.reddit.com/r/popular/comments/remote1/x',
             score: 1234,
             numComments: 56,
-            subreddits: ['popular'],
             author: 'u',
             created: Date.now(),
           },

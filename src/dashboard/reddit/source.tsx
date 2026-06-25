@@ -86,10 +86,10 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
         'partial=',
         fetchResult.partialErrors,
       )
-      const prevById = new Map<string, RedditPost>()
+      const prevById = new Map<string, { sub: string; post: RedditPost }>()
       if (_prevData) {
-        for (const posts of Object.values(_prevData)) {
-          for (const p of posts) prevById.set(p.id, p)
+        for (const [sub, posts] of Object.entries(_prevData)) {
+          for (const p of posts) prevById.set(p.id, { sub, post: p })
         }
       }
       const merged = mergeSubPosts(fetchResult.posts, prevById)

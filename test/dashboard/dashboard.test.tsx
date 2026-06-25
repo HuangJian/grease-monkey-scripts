@@ -140,7 +140,6 @@ describe('createDashboard', () => {
             url: 'https://www.reddit.com/r/popular/comments/r1/x',
             score: 999,
             numComments: 42,
-            subreddits: ['popular'],
             author: 'u',
             created: Date.now(),
           },

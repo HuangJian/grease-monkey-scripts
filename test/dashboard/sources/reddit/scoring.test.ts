@@ -14,8 +14,8 @@ const DEFAULT_COUNT_OPTS: RedditCountOptions = {
 
 const NOW = Date.now()
 
-function post(over: Partial<RedditPost>): RedditPost {
-  const sub = over.subreddits?.[0] ?? 'x'
+function post(over: Partial<RedditPost> & { sub?: string }): RedditPost {
+  const sub = over.sub ?? 'x'
   const id = over.id ?? 'x'
   return {
     id,
@@ -23,15 +23,16 @@ function post(over: Partial<RedditPost>): RedditPost {
     url: `https://www.reddit.com/r/${sub}/comments/${id}/t`,
     score: 0,
     numComments: 0,
-    subreddits: [sub],
     author: 'a',
     created: NOW,
     ...over,
   }
 }
 
-function toMap(items: RedditPost[]): Map<string, RedditPost> {
-  return new Map(items.map((p) => [p.id, p]))
+function toMap(
+  items: Array<RedditPost & { sub?: string }>,
+): Map<string, { sub: string; post: RedditPost }> {
+  return new Map(items.map((p) => [p.id, { sub: p.sub ?? 'x', post: p }]))
 }
 
 describe('computeRedditDecayedScore', () => {
@@ -68,13 +69,13 @@ describe('computeRedditDecayedScore', () => {
 
 describe('mergeSubPosts', () => {
   test('passes through live posts untouched when history is empty', () => {
-    const live = [{ sub: 'aww', posts: [post({ id: '1', score: 100, subreddits: ['aww'] })] }]
+    const live = [{ sub: 'aww', posts: [post({ id: '1', score: 100, sub: 'aww' })] }]
     const result = mergeSubPosts(live, new Map())
     expect(result[0]!.sub).toBe('aww')
     expect(result[0]!.posts[0]!.id).toBe('1')
     expect(result[0]!.posts[0]!.score).toBe(100)
   })
-  test('merges prev post with live: takes max score, min created, preserves live subreddits', () => {
+  test('merges prev post with live: takes max score, min created', () => {
     const live = [
       {
         sub: 'aww',
@@ -84,7 +85,7 @@ describe('mergeSubPosts', () => {
             score: 100,
             numComments: 5,
             author: 'alice',
-            subreddits: ['aww'],
+            sub: 'aww',
             created: NOW,
           }),
         ],
@@ -96,7 +97,7 @@ describe('mergeSubPosts', () => {
         score: 150,
         numComments: 8,
         author: 'bob',
-        subreddits: ['aww', 'funny'],
+        sub: 'aww',
         created: NOW - 86_400_000,
       }),
     ]
@@ -104,18 +105,15 @@ describe('mergeSubPosts', () => {
     const merged = result[0]!.posts[0]!
     expect(merged.score).toBe(150)
     expect(merged.numComments).toBe(8)
-    expect(merged.subreddits).toEqual(['aww'])
     expect(merged.created).toBe(NOW - 86_400_000)
     expect(merged.author).toBe('alice')
   })
   test('prev-only post appears only in matching sub', () => {
     const live: Array<{ sub: string; posts: RedditPost[] }> = [
-      { sub: 'aww', posts: [post({ id: 'a1', score: 100, subreddits: ['aww'] })] },
-      { sub: 'funny', posts: [post({ id: 'f1', score: 100, subreddits: ['funny'] })] },
+      { sub: 'aww', posts: [post({ id: 'a1', score: 100, sub: 'aww' })] },
+      { sub: 'funny', posts: [post({ id: 'f1', score: 100, sub: 'funny' })] },
     ]
-    const prevPosts = [
-      post({ id: 'h1', score: 200, subreddits: ['aww', 'funny'], created: NOW - 1000 }),
-    ]
+    const prevPosts = [post({ id: 'h1', score: 200, sub: 'aww', created: NOW - 1000 })]
     const result = mergeSubPosts(live, toMap(prevPosts))
     const subs = result.map((r) => r.sub).sort()
     expect(subs).toEqual(['aww', 'funny'])
@@ -125,7 +123,7 @@ describe('mergeSubPosts', () => {
   })
   test('prev post with subs not in live config is dropped', () => {
     const live: Array<{ sub: string; posts: RedditPost[] }> = []
-    const prevPosts = [post({ id: 'h1', subreddits: ['orphan'], created: NOW - 1000 })]
+    const prevPosts = [post({ id: 'h1', sub: 'orphan', created: NOW - 1000 })]
     const result = mergeSubPosts(live, toMap(prevPosts))
     expect(result).toEqual([])
   })
@@ -139,15 +137,15 @@ describe('mergeSubPosts', () => {
       {
         sub: 'aww',
         posts: [
-          post({ id: 'a1', score: 100, subreddits: ['aww'] }),
-          post({ id: 'p1', score: 200, subreddits: ['funny'] }),
+          post({ id: 'a1', score: 100, sub: 'aww' }),
+          post({ id: 'p1', score: 200, sub: 'funny' }),
         ],
       },
       {
         sub: 'funny',
         posts: [
-          post({ id: 'f1', score: 100, subreddits: ['funny'] }),
-          post({ id: 'p1', score: 200, subreddits: ['funny'] }),
+          post({ id: 'f1', score: 100, sub: 'funny' }),
+          post({ id: 'p1', score: 200, sub: 'funny' }),
         ],
       },
     ]
@@ -163,19 +161,19 @@ describe('mergeSubPosts', () => {
     const prevPost = post({
       id: 'p1',
       score: 200,
-      subreddits: ['funny', 'aww'],
+      sub: 'funny',
       created: NOW - 1000,
     })
     const live: Array<{ sub: string; posts: RedditPost[] }> = [
       {
         sub: 'aww',
-        posts: [post({ id: 'a1', score: 100, subreddits: ['aww'] })],
+        posts: [post({ id: 'a1', score: 100, sub: 'aww' })],
       },
       {
         sub: 'funny',
         posts: [
-          post({ id: 'f1', score: 100, subreddits: ['funny'] }),
-          post({ id: 'p1', score: 150, subreddits: ['funny'] }),
+          post({ id: 'f1', score: 100, sub: 'funny' }),
+          post({ id: 'p1', score: 150, sub: 'funny' }),
         ],
       },
     ]

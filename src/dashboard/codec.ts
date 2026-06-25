@@ -82,7 +82,6 @@ function compressReddit(v: Record<string, unknown>): Record<string, unknown> {
   return {
     id: v.id,
     t: v.title,
-    u: stripDomain('reddit', String(v.url ?? '')),
     s: v.score ?? v.s,
     r: v.numComments ?? v.r,
     a: v.author,
@@ -92,13 +91,13 @@ function compressReddit(v: Record<string, unknown>): Record<string, unknown> {
 
 function expandReddit(v: Record<string, unknown>): Record<string, unknown> {
   if (v.title !== undefined) return v
+  const url = v.u ? expandUrl('reddit', String(v.u)) : `https://www.reddit.com/comments/${v.id}/`
   return {
     id: v.id,
     title: v.t,
-    url: expandUrl('reddit', String(v.u ?? '')),
+    url,
     score: v.s ?? 0,
     numComments: v.r ?? 0,
-    subreddits: (v.subreddits as string[]) ?? [],
     author: v.a ?? '',
     created: expandTimestamp(v.c as number | undefined) ?? 0,
   }
