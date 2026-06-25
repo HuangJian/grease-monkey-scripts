@@ -71,7 +71,9 @@ async function loadFreshEntries(runtime: Runtime, fallback: NovelEntry[]): Promi
     const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
     const entries = (stored?.novels as { entries?: NovelEntry[] } | undefined)?.entries
     if (Array.isArray(entries) && entries.length > 0) return entries
-  } catch {}
+  } catch (e) {
+    console.debug('[gm-dashboard] novels loadFreshEntries error', e)
+  }
   return fallback
 }
 
@@ -88,21 +90,25 @@ async function persistFetchedTitles(
   entries: NovelEntry[],
   books: NovelBook[],
 ): Promise<void> {
-  const bookByUrl = new Map(books.map((b) => [b.url, b]))
-  let changed = false
-  const updated = entries.map((e) => {
-    if (e.alias) return e
-    const book = bookByUrl.get(e.url)
-    if (!book?.title || book.title === entryHostname(e.url)) return e
-    changed = true
-    return { url: e.url, alias: book.title }
-  })
-  if (!changed) return
-  const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
-  await runtime.setValue(CONFIG_KEY, {
-    ...(stored ?? {}),
-    novels: { ...((stored?.novels as Record<string, unknown>) ?? {}), entries: updated },
-  })
+  try {
+    const bookByUrl = new Map(books.map((b) => [b.url, b]))
+    let changed = false
+    const updated = entries.map((e) => {
+      if (e.alias) return e
+      const book = bookByUrl.get(e.url)
+      if (!book?.title || book.title === entryHostname(e.url)) return e
+      changed = true
+      return { url: e.url, alias: book.title }
+    })
+    if (!changed) return
+    const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
+    await runtime.setValue(CONFIG_KEY, {
+      ...(stored ?? {}),
+      novels: { ...((stored?.novels as Record<string, unknown>) ?? {}), entries: updated },
+    })
+  } catch (e) {
+    console.debug('[gm-dashboard] novels persistFetchedTitles error', e)
+  }
 }
 
 async function loadCachedTitleMap(runtime: Runtime): Promise<Map<string, string>> {

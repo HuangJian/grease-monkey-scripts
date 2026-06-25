@@ -76,7 +76,6 @@ export function XitBody({
     if (root && runtime) {
       setPendingLineIndex(lineIndex ?? null)
       showEditorDialog(
-        document,
         root,
         <a href="https://xit.jotaen.net/" target="_blank" rel="noopener">
           [x]it! 语法规范

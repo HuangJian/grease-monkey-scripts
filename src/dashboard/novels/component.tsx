@@ -172,6 +172,7 @@ function ChapterItem({ chapter, onMarkSeen }: { chapter: NovelChapter; onMarkSee
         rel="noopener noreferrer"
         onClick={(e) => {
           e.preventDefault()
+          // window.open bypasses sudugu.org v7.js ad script that intercepts <a> click events
           window.open(href, '_blank')
           onMarkSeen()
         }}

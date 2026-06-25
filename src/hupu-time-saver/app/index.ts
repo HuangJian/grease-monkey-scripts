@@ -41,7 +41,7 @@ export async function createHupuApp(runtime: Runtime): Promise<HupuApp> {
   function persist(): void {
     void runtime.setValue(STORAGE_KEY, authorTagMap)
     try {
-      localStorage.setItem(HUPU_AUTHOR_TAGS_LS_KEY, JSON.stringify(authorTagMap))
+      runtime.localStorage.setItem(HUPU_AUTHOR_TAGS_LS_KEY, JSON.stringify(authorTagMap))
     } catch {
       /* localStorage may be unavailable */
     }
@@ -104,10 +104,10 @@ export async function createHupuApp(runtime: Runtime): Promise<HupuApp> {
     loadAuthorMapFromOtherPages(threadData.tid, threadData.currentPage, threadData.pageCount)
 
     const scanMedia = () => processMedia(runtime.document.body)
-    if (document.readyState === 'complete') {
+    if (runtime.document.readyState === 'complete') {
       scanMedia()
     } else {
-      window.addEventListener('load', scanMedia, { once: true })
+      runtime.document.defaultView?.addEventListener('load', scanMedia, { once: true })
     }
   }
 

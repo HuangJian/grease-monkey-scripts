@@ -72,7 +72,9 @@ export function XueqiuComponent({
     const id = scrollTargetRef.current
     if (!id) return
     scrollTargetRef.current = null
-    const el = document.querySelector(`li[data-item-id="${CSS.escape(id)}"] .gm-sp-expandable-row`)
+    const el = runtime?.document.querySelector(
+      `li[data-item-id="${CSS.escape(id)}"] .gm-sp-expandable-row`,
+    )
     el?.scrollIntoView({ block: 'start', behavior: 'smooth' })
   })
 

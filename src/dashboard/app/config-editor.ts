@@ -10,7 +10,7 @@ export function editConfig(runtime: Runtime, config: Config): void {
   try {
     input = runtime.prompt(`粘贴 JSON 覆盖配置（参考示例）：\n${defaultConfigExample()}`, '')
   } catch {
-    alert('当前页面禁用了 prompt，无法编辑配置。')
+    runtime.alert('当前页面禁用了 prompt，无法编辑配置。')
     return
   }
   if (input === null) return
@@ -20,19 +20,15 @@ export function editConfig(runtime: Runtime, config: Config): void {
   try {
     parsed = JSON.parse(trimmed)
   } catch (e) {
-    alert('配置 JSON 解析失败：' + (e instanceof Error ? e.message : String(e)))
+    runtime.alert('配置 JSON 解析失败：' + (e instanceof Error ? e.message : String(e)))
     return
   }
   const merged = deepMerge(config, parsed)
   const validation = validateConfig(merged)
   if (!validation.ok) {
-    alert('配置校验失败：' + validation.error)
+    runtime.alert('配置校验失败：' + validation.error)
     return
   }
   void runtime.setValue(CONFIG_KEY, merged)
-  alert('配置已保存，刷新页面后生效。')
-}
-
-function alert(message: string): void {
-  window.alert(message)
+  runtime.alert('配置已保存，刷新页面后生效。')
 }

@@ -45,7 +45,9 @@ async function fetchWithCache<TConfig, TData>(
     let data: TData | null = null
     try {
       data = await runtime.getValue<TData | null>(cacheKey, null as TData | null)
-    } catch {}
+    } catch (err) {
+      console.debug('[gm-dashboard] misc cache read error', err)
+    }
     return { config, data, error }
   }
 }
@@ -64,15 +66,11 @@ async function fetchWithCacheNoConfig<TData>(
     let data: TData | null = null
     try {
       data = await runtime.getValue<TData | null>(cacheKey, null as TData | null)
-    } catch {}
+    } catch (err) {
+      console.debug('[gm-dashboard] misc cache read error', err)
+    }
     return { config: null, data, error }
   }
-}
-
-let miscOptions: MiscOptions = { ...DEFAULT_MISC_OPTIONS }
-
-async function loadMiscOptions(runtime: Runtime): Promise<void> {
-  miscOptions = await loadFreshMiscOptions(runtime, DEFAULT_MISC_OPTIONS)
 }
 
 function countQuota(data: MiscData | null, threshold: number): number {
@@ -105,7 +103,13 @@ function countQuota(data: MiscData | null, threshold: number): number {
 }
 
 export function createMiscSource(runtime: Runtime): Source<MiscData> {
-  void loadMiscOptions(runtime)
+  let miscOptions: MiscOptions = { ...DEFAULT_MISC_OPTIONS }
+
+  async function loadMiscOptions(): Promise<void> {
+    miscOptions = await loadFreshMiscOptions(runtime, DEFAULT_MISC_OPTIONS)
+  }
+
+  void loadMiscOptions()
   return {
     id: 'misc',
     title: 'Misc',
@@ -171,7 +175,7 @@ export function createMiscSource(runtime: Runtime): Source<MiscData> {
     },
     async fetch(_runtime, _prevData) {
       const r = runtime
-      await loadMiscOptions(r)
+      await loadMiscOptions()
       const [codex, antigravity, openrouter, trae] = await Promise.all([
         fetchWithCache(loadCodexConfig, fetchCodexUsage, r, CACHE_KEY_CODEX),
         fetchWithCache(loadAntigravityConfig, fetchAntigravityQuota, r, CACHE_KEY_ANTIGRAVITY),

@@ -50,7 +50,7 @@ function toNewsItem(item: ApiItem): XueqiuNewsItem {
 
 function injectInterceptor(runtime: Runtime): void {
   if ((unsafeWindow as Window & { __xqInjected?: boolean }).__xqInjected) return
-  runtime.addElement(document.documentElement, 'script', {
+  runtime.addElement(runtime.document.documentElement, 'script', {
     textContent: `
     (function() {
       var hotItems = [], hotCount = 0
@@ -110,8 +110,8 @@ function humanLikeClick(el: HTMLElement): void {
   el.click()
 }
 
-function clickTab(text: string): boolean {
-  const links = document.querySelectorAll('a')
+function clickTab(doc: Document, text: string): boolean {
+  const links = doc.querySelectorAll('a')
   let found = false
   links.forEach((link) => {
     if (link.textContent?.trim() === text && !link.classList.contains('active')) {
@@ -122,29 +122,29 @@ function clickTab(text: string): boolean {
   return found
 }
 
-function doScroll(): void {
-  const main = document.querySelector('.home__main')
+function doScroll(doc: Document, win: Window): void {
+  const main = doc.querySelector('.home__main')
   if (main) {
     const fraction = 0.4 + Math.random() * 0.5
     main.scrollBy(0, Math.round(main.clientHeight * fraction))
   } else {
-    window.scrollBy(0, Math.round(window.innerHeight * (0.4 + Math.random() * 0.5)))
+    win.scrollBy(0, Math.round(win.innerHeight * (0.4 + Math.random() * 0.5)))
   }
 }
 
-function backScroll(): void {
+function backScroll(doc: Document): void {
   if (Math.random() < 0.15) {
-    const main = document.querySelector('.home__main')
+    const main = doc.querySelector('.home__main')
     if (main) {
       main.scrollBy(0, -Math.round(main.clientHeight * (0.05 + Math.random() * 0.15)))
     }
   }
 }
 
-function clickLoadMore(): void {
+function clickLoadMore(doc: Document): void {
   const btn =
-    document.querySelector<HTMLElement>('.home-timeline > a') ??
-    document.querySelector<HTMLElement>('.status-list > a')
+    doc.querySelector<HTMLElement>('.home-timeline > a') ??
+    doc.querySelector<HTMLElement>('.status-list > a')
   if (!btn || btn.textContent?.trim() !== '加载更多') {
     throw new Error('xueqiu: 未找到「加载更多」按钮')
   }
@@ -180,25 +180,30 @@ export function shouldEarlyExit(
 
 // ---- Fetch logic for one source ----
 
-async function fetchSource(mode: 'news' | 'hot', knownIds: Set<number>): Promise<XueqiuNewsItem[]> {
+async function fetchSource(
+  doc: Document,
+  win: Window,
+  mode: 'news' | 'hot',
+  knownIds: Set<number>,
+): Promise<XueqiuNewsItem[]> {
   const tabText = mode === 'news' ? '7x24' : '热门'
   const maxRounds = 30
 
   resetCaptured(mode)
 
-  clickTab('资讯')
+  clickTab(doc, '资讯')
   await waitJitter(1500, 0.3)
-  clickTab(tabText)
+  clickTab(doc, tabText)
   await waitJitter(5000, 0.4)
 
   const all: XueqiuNewsItem[] = []
 
   for (let round = 1; round <= maxRounds; round++) {
-    doScroll()
-    backScroll()
+    doScroll(doc, win)
+    backScroll(doc)
     await waitJitter(4000, 0.4)
 
-    clickLoadMore()
+    clickLoadMore(doc)
     await waitJitter(4000, 0.4)
 
     const captured = readCaptured()
@@ -243,11 +248,13 @@ export async function fetchXueqiu(
   runtime: Runtime,
   _options: XueqiuSourceOptions,
 ): Promise<XueqiuRenderData> {
-  const host = location.hostname
+  const host = runtime.location.hostname
   if (host !== 'xueqiu.com' && host !== 'www.xueqiu.com') {
     throw new Error('请访问 xueqiu.com 首页刷新数据')
   }
 
+  const doc = runtime.document
+  const win = doc.defaultView!
   injectInterceptor(runtime)
 
   const cached = await loadCache<XueqiuRenderData>(runtime, 'xueqiu-news')
@@ -258,8 +265,8 @@ export async function fetchXueqiu(
     cached.data.hotPosts.forEach((item) => hotKnownIds.add(item.id))
   }
 
-  const news = await fetchSource('news', newsKnownIds)
-  const hotPosts = await fetchSource('hot', hotKnownIds)
+  const news = await fetchSource(doc, win, 'news', newsKnownIds)
+  const hotPosts = await fetchSource(doc, win, 'hot', hotKnownIds)
 
   return { news, hotPosts }
 }

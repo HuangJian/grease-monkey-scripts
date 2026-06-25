@@ -8,7 +8,7 @@ import { h } from 'preact'
 import type { VNode } from 'preact'
 
 type EditorDialogProps = {
-  document: Document
+  doc: Document
   root: ShadowRoot
   title: string | VNode
   onClose: () => void
@@ -18,7 +18,7 @@ type EditorDialogProps = {
   ) => SourceEditorResult | Promise<SourceEditorResult>
 }
 
-function EditorDialog({ document, root, title, onClose, renderEditor }: EditorDialogProps) {
+function EditorDialog({ doc, root, title, onClose, renderEditor }: EditorDialogProps) {
   const bodyRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const resultRef = useRef<SourceEditorResult | null>(null)
@@ -27,9 +27,9 @@ function EditorDialog({ document, root, title, onClose, renderEditor }: EditorDi
     const onKeydown = (e: KeyboardEvent) => {
       handleEscapeKey(e, root, onClose)
     }
-    document.addEventListener('keydown', onKeydown, { capture: true })
-    return () => document.removeEventListener('keydown', onKeydown, { capture: true })
-  }, [document, root, onClose])
+    doc.addEventListener('keydown', onKeydown, { capture: true })
+    return () => doc.removeEventListener('keydown', onKeydown, { capture: true })
+  }, [doc, root, onClose])
 
   useLayoutEffect(() => {
     const body = bodyRef.current
@@ -85,16 +85,15 @@ function EditorDialog({ document, root, title, onClose, renderEditor }: EditorDi
 }
 
 export function showEditorDialog(
-  document: Document,
   root: ShadowRoot,
   title: string | VNode,
-  _runtime: Runtime,
+  runtime: Runtime,
   renderEditor: (
     container: HTMLElement,
     close: () => void,
   ) => SourceEditorResult | Promise<SourceEditorResult>,
 ): () => void {
-  const container = document.createElement('div')
+  const container = runtime.document.createElement('div')
   root.appendChild(container)
   const close = () => {
     render(null, container)
@@ -102,7 +101,7 @@ export function showEditorDialog(
   }
   render(
     <EditorDialog
-      document={document}
+      doc={runtime.document}
       root={root}
       title={title}
       onClose={close}
@@ -134,7 +133,6 @@ export function createEditHandler({
     const storedSettings =
       (stored?.sourceSettings as Record<string, SourceSettings> | undefined) ?? {}
     showEditorDialog(
-      document,
       root,
       source.dialogTitle ?? `\u7F16\u8F91 - ${source.title}`,
       runtime,

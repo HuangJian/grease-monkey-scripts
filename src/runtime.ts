@@ -29,6 +29,8 @@ export type Runtime = {
   DOMParser: typeof DOMParser
   MutationObserver: typeof MutationObserver
   prompt(message?: string, defaultValue?: string): string | null
+  alert(message?: string): void
+  localStorage: Storage
   getValue<T>(key: string, defaultValue: T): Promise<T>
   setValue(key: string, value: unknown): Promise<void> | void
   deleteValue(key: string): Promise<void> | void
@@ -85,6 +87,8 @@ export function createBrowserRuntime(): Runtime {
     DOMParser,
     MutationObserver,
     prompt: window.prompt.bind(window),
+    alert: window.alert.bind(window),
+    localStorage,
     getValue: (key, defaultValue) => GM.getValue(key, defaultValue),
     setValue: (key, value) => GM.setValue(key, value),
     deleteValue: (key) => GM.deleteValue(key),

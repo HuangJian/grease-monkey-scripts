@@ -32,16 +32,16 @@ export async function buildExportData(runtime: Runtime): Promise<ExportData> {
   return result
 }
 
-export function downloadJson(data: ExportData, filename: string): void {
+export function downloadJson(runtime: Runtime, data: ExportData, filename: string): void {
   const json = JSON.stringify(data, null, 2)
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
+  const a = runtime.document.createElement('a')
   a.href = url
   a.download = filename
-  document.body.appendChild(a)
+  runtime.document.body.appendChild(a)
   a.click()
-  document.body.removeChild(a)
+  runtime.document.body.removeChild(a)
   URL.revokeObjectURL(url)
 }
 

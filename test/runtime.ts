@@ -66,6 +66,30 @@ if (
   }
 }
 
+function createMockStorage(): Storage {
+  const map = new Map<string, string>()
+  return {
+    get length() {
+      return map.size
+    },
+    key(i: number) {
+      return [...map.keys()][i] ?? null
+    },
+    getItem(k: string) {
+      return map.get(k) ?? null
+    },
+    setItem(k: string, v: string) {
+      map.set(k, String(v))
+    },
+    removeItem(k: string) {
+      map.delete(k)
+    },
+    clear() {
+      map.clear()
+    },
+  }
+}
+
 export function createRuntime(dom?: Window): TestRuntime {
   const doc = (dom?.document ?? globalThis.document) as Runtime['document']
   const loc = (dom?.location ?? globalThis.location) as Runtime['location']
@@ -92,6 +116,8 @@ export function createRuntime(dom?: Window): TestRuntime {
       return lastRequest
     },
     prompt: () => '洞察者',
+    alert: () => {},
+    localStorage: dom?.localStorage ?? createMockStorage(),
     getValue: async <T>(key: string, defaultValue: T) =>
       key in stores ? (stores[key] as T) : defaultValue,
     setValue: (key, value) => {

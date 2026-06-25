@@ -28,18 +28,18 @@ export function createWeatherSource(options: WeatherSourceOptions): Source<Weath
     headerState,
     async fetch(runtime, _prevData) {
       const cities = await loadFreshWeatherCities(runtime, options.cities)
-      const result = await fetchWeatherAll(runtime, cities)
+      let result = await fetchWeatherAll(runtime, cities)
       const prev = (await loadCache<WeatherData>(runtime, 'weather'))?.data
       if (prev) {
         const prevByLabel = new Map(prev.entries.map((e) => [e.cityLabel, e]))
-        result.entries
-          .filter((entry) => entry.status === 'error')
-          .forEach((entry) => {
+        result = {
+          ...result,
+          entries: result.entries.map((entry) => {
+            if (entry.status !== 'error') return entry
             const prevEntry = prevByLabel.get(entry.cityLabel)
-            if (prevEntry?.status === 'ok') {
-              Object.assign(entry, prevEntry)
-            }
-          })
+            return prevEntry?.status === 'ok' ? { ...prevEntry } : entry
+          }),
+        }
       }
       return result
     },

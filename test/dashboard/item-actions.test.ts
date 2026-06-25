@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import {
   createItemHandlers,
   createGroupedItemHandlers,
-  type ItemState,
+  type ItemHandlerState,
 } from '../../src/dashboard/item-actions'
 
 type TestItem = { id: string; replies?: number }
 
-interface MockState<T extends { id: string }> extends ItemState<T> {
+interface MockState<T extends { id: string }> extends ItemHandlerState<T> {
   isHidden(id: T['id']): boolean
   getReadReplies(id: T['id']): number | undefined
 }
@@ -49,7 +49,7 @@ describe('createItemHandlers', () => {
     visibleItems = [...items]
     forceUpdateCallCount = 0
     handlers = createItemHandlers<TestItem>({
-      state: state as ItemState<TestItem>,
+      state: state as ItemHandlerState<TestItem>,
       forceUpdate: () => {
         forceUpdateCallCount++
       },

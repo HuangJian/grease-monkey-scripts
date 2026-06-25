@@ -33,7 +33,7 @@ export async function createRedditApp(runtime: Runtime): Promise<RedditApp> {
   function persist(): void {
     void runtime.setValue(STORAGE_KEY, authorTagMap)
     try {
-      localStorage.setItem(REDDIT_AUTHOR_TAGS_LS_KEY, JSON.stringify(authorTagMap))
+      runtime.localStorage.setItem(REDDIT_AUTHOR_TAGS_LS_KEY, JSON.stringify(authorTagMap))
     } catch {
       /* localStorage may be unavailable */
     }

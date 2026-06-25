@@ -1,6 +1,6 @@
 import type { Runtime } from '../runtime'
 
-export type ItemState<T extends { id: string | number }> = {
+export type ItemHandlerState<T extends { id: string | number }> = {
   markHidden(id: T['id']): void
   markRead(id: T['id'], ts?: number, replies?: number): void
   saveToStorage(runtime: Runtime): Promise<void>
@@ -10,7 +10,7 @@ export type ItemState<T extends { id: string | number }> = {
 }
 
 export function createItemHandlers<T extends { id: string | number }>(opts: {
-  state: ItemState<T>
+  state: ItemHandlerState<T>
   runtime?: Runtime
   forceUpdate: () => void
   getVisible: () => T[]
@@ -67,7 +67,7 @@ export function createGroupedItemHandlers<
   T extends { id: string | number },
   G extends string = string,
 >(opts: {
-  state: ItemState<T>
+  state: ItemHandlerState<T>
   runtime?: Runtime
   forceUpdate: () => void
   getSubForItem: (item: T) => G | null

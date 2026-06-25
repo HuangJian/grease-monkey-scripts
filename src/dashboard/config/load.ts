@@ -21,6 +21,8 @@ export async function loadConfigSection<T>(
     if (isPlainObject(section)) {
       return coerce(section as Record<string, unknown>)
     }
-  } catch {}
+  } catch (e) {
+    console.debug('[gm-dashboard] loadConfigSection error', e)
+  }
   return fallback
 }

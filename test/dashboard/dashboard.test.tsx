@@ -397,8 +397,8 @@ describe('createDashboard', () => {
 
   test('editConfig reports parse error without overwriting config', () => {
     const alerts: string[] = []
-    const originalAlert = window.alert
-    window.alert = (msg?: string) => {
+    const originalAlert = runtime.alert
+    runtime.alert = (msg?: string) => {
       alerts.push(msg ?? '')
     }
     runtime.prompt = () => 'not-json{'
@@ -407,13 +407,13 @@ describe('createDashboard', () => {
     dashboard.editConfig()
     expect(alerts.some((m) => m.includes('解析失败'))).toBe(true)
     expect(runtime.stores['dashboard:v2:config']).toBeUndefined()
-    window.alert = originalAlert
+    runtime.alert = originalAlert
   })
 
   test('editConfig reports validation error without overwriting config', () => {
     const alerts: string[] = []
-    const originalAlert = window.alert
-    window.alert = (msg?: string) => {
+    const originalAlert = runtime.alert
+    runtime.alert = (msg?: string) => {
       alerts.push(msg ?? '')
     }
     runtime.prompt = () => JSON.stringify({ hostAllowlist: 'bad' })
@@ -422,13 +422,13 @@ describe('createDashboard', () => {
     dashboard.editConfig()
     expect(alerts.some((m) => m.includes('配置校验失败'))).toBe(true)
     expect(runtime.stores['dashboard:v2:config']).toBeUndefined()
-    window.alert = originalAlert
+    runtime.alert = originalAlert
   })
 
   test('editConfig catches prompt exception and falls back to alert', () => {
     const alerts: string[] = []
-    const originalAlert = window.alert
-    window.alert = (msg?: string) => {
+    const originalAlert = runtime.alert
+    runtime.alert = (msg?: string) => {
       alerts.push(msg ?? '')
     }
     runtime.prompt = ((msg?: string) => {
@@ -440,7 +440,7 @@ describe('createDashboard', () => {
     dashboard.editConfig()
     expect(alerts.some((m) => m.includes('禁用了 prompt'))).toBe(true)
     expect(runtime.stores['dashboard:v2:config']).toBeUndefined()
-    window.alert = originalAlert
+    runtime.alert = originalAlert
   })
 })
 

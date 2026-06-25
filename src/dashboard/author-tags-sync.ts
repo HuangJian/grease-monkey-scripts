@@ -15,7 +15,7 @@ export async function syncAuthorTags(opts: SyncAuthorTagsOpts): Promise<AuthorTa
   try {
     const host = runtime.location.hostname
     if (isDomain(host)) {
-      const raw = localStorage.getItem(lsKey)
+      const raw = runtime.localStorage.getItem(lsKey)
       if (raw) {
         const map = parseAuthorTagMap(JSON.parse(raw))
         await runtime.setValue(gmKey, map)

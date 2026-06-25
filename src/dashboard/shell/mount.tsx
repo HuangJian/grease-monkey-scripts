@@ -63,7 +63,7 @@ function OverlayMount({ host, handleRef, root, runtime, onClose }: OverlayMountP
 
   const handleExport = (): void => {
     void buildExportData(runtime).then((data) => {
-      downloadJson(data, formatExportFilename())
+      downloadJson(runtime, data, formatExportFilename())
     })
   }
 
@@ -77,16 +77,16 @@ function OverlayMount({ host, handleRef, root, runtime, onClose }: OverlayMountP
         .then((raw) => {
           const validation = validateImportData(raw)
           if (!validation.ok) {
-            window.alert(validation.error)
+            runtime.alert(validation.error)
             return
           }
           return applyImportData(runtime, raw as Record<string, unknown>)
         })
         .then(() => {
-          window.alert('导入成功，刷新页面后生效。')
+          runtime.alert('导入成功，刷新页面后生效。')
         })
         .catch((e: Error) => {
-          window.alert('导入失败：' + (e.message ?? String(e)))
+          runtime.alert('导入失败：' + (e.message ?? String(e)))
         })
       input.value = ''
     }

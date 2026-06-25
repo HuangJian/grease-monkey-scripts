@@ -13,7 +13,7 @@ describe('syncAuthorTags', () => {
 
   test('loads from localStorage when on matching domain', async () => {
     const tagData = { alice: { tech: { url: '/t/1', score: 5 } } }
-    localStorage.setItem('gm:reddit:author-tags', JSON.stringify(tagData))
+    runtime.localStorage.setItem('gm:reddit:author-tags', JSON.stringify(tagData))
 
     const result = await syncAuthorTags({
       runtime,
@@ -27,7 +27,7 @@ describe('syncAuthorTags', () => {
 
   test('writes localStorage data to GM storage when on matching domain', async () => {
     const tagData = { alice: { tech: { url: '/t/1', score: 5 } } }
-    localStorage.setItem('gm:reddit:author-tags', JSON.stringify(tagData))
+    runtime.localStorage.setItem('gm:reddit:author-tags', JSON.stringify(tagData))
 
     await syncAuthorTags({
       runtime,
@@ -87,7 +87,7 @@ describe('syncAuthorTags', () => {
   })
 
   test('returns empty map on error', async () => {
-    localStorage.setItem('gm:reddit:author-tags', 'not valid json{{{')
+    runtime.localStorage.setItem('gm:reddit:author-tags', 'not valid json{{{')
 
     const result = await syncAuthorTags({
       runtime,
@@ -138,7 +138,7 @@ describe('syncAuthorTags', () => {
   test('skips localStorage when not on matching domain', async () => {
     const dom = createHappyDom('', 'https://www.v2ex.com')
     runtime = createRuntime(dom)
-    localStorage.setItem('gm:reddit:author-tags', JSON.stringify({ should: 'not load' }))
+    runtime.localStorage.setItem('gm:reddit:author-tags', JSON.stringify({ should: 'not load' }))
     runtime.stores['reddit_author_tags'] = { from: { gm: { url: '/t/1', score: 1 } } }
 
     const result = await syncAuthorTags({
