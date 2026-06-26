@@ -130,19 +130,6 @@ export function XueqiuComponent({
     forceUpdate((n) => n + 1)
   }
 
-  function handleBulkHide(hoveredItem: XueqiuNewsItem) {
-    const hoveredId = String(hoveredItem.id)
-    const idx = items.findIndex((it) => String(it.id) === hoveredId)
-    if (idx < 0) return
-    items.slice(0, idx + 1).forEach((it) => {
-      const id = String(it.id)
-      state.markHidden(id)
-      void state.removeFromCache(runtime, id)
-    })
-    void state.saveToStorage(runtime)
-    forceUpdate((n) => n + 1)
-  }
-
   function renderItem(item: XueqiuNewsItem) {
     const id = String(item.id)
     const read = state.isRead(id)
@@ -165,11 +152,7 @@ export function XueqiuComponent({
             </span>
           )}
         </span>
-        <ItemActions
-          onHide={() => handleHide(id)}
-          onBulkRead={() => handleBulkRead(item)}
-          onBulkHide={() => handleBulkHide(item)}
-        />
+        <ItemActions onBulkRead={() => handleBulkRead(item)} onHide={() => handleHide(id)} />
         {expanded && (
           <div class="gm-sp-expandable-body">
             <div

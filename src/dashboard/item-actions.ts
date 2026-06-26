@@ -18,7 +18,6 @@ export function createItemHandlers<T extends { id: string | number }>(opts: {
 }): {
   handleHide: (id: T['id']) => void
   handleBulkRead: (hovered: T) => void
-  handleBulkHide: (hovered: T) => void
 } {
   const { state, runtime, forceUpdate, getVisible, repliesOf } = opts
 
@@ -44,19 +43,7 @@ export function createItemHandlers<T extends { id: string | number }>(opts: {
     forceUpdate()
   }
 
-  function handleBulkHide(hovered: T) {
-    const visible = getVisible()
-    const idx = visible.findIndex((it) => it.id === hovered.id)
-    if (idx < 0) return
-    visible.slice(0, idx + 1).forEach((it) => {
-      state.markHidden(it.id)
-      void state.removeFromCache(runtime, it.id)
-    })
-    void state.saveToStorage(runtime)
-    forceUpdate()
-  }
-
-  return { handleHide, handleBulkRead, handleBulkHide }
+  return { handleHide, handleBulkRead }
 }
 
 export function createGroupedItemHandlers<
@@ -72,7 +59,6 @@ export function createGroupedItemHandlers<
 }): {
   handleHide: (id: T['id']) => void
   handleBulkRead: (hovered: T) => void
-  handleBulkHide: (hovered: T) => void
 } {
   const { state, runtime, forceUpdate, getSubForItem, getVisibleInSub, repliesOf } = opts
 
@@ -100,19 +86,5 @@ export function createGroupedItemHandlers<
     forceUpdate()
   }
 
-  function handleBulkHide(hovered: T) {
-    const sub = getSubForItem(hovered)
-    if (sub === null) return
-    const posts = getVisibleInSub(sub)
-    const idx = posts.findIndex((p) => p.id === hovered.id)
-    if (idx < 0) return
-    posts.slice(0, idx + 1).forEach((p) => {
-      state.markHidden(p.id)
-      void state.removeFromCache(runtime, p.id)
-    })
-    void state.saveToStorage(runtime)
-    forceUpdate()
-  }
-
-  return { handleHide, handleBulkRead, handleBulkHide }
+  return { handleHide, handleBulkRead }
 }

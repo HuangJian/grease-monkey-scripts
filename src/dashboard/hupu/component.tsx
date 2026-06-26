@@ -58,7 +58,7 @@ export function HupuComponent({
     return entry ? entry[0] : null
   }
 
-  const { handleHide, handleBulkRead, handleBulkHide } = createGroupedItemHandlers<
+  const { handleHide, handleBulkRead } = createGroupedItemHandlers<
     { id: string; replies: number },
     string
   >({
@@ -126,9 +126,8 @@ export function HupuComponent({
                     </span>
                     <span class={`gm-sp-section-author${ac}`}>{authorText}</span>
                     <ItemActions
-                      onHide={() => handleHide(post.id)}
                       onBulkRead={() => handleBulkRead(post)}
-                      onBulkHide={() => handleBulkHide(post)}
+                      onHide={() => handleHide(post.id)}
                     />
                   </li>
                 )

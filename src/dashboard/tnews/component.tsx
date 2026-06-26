@@ -76,7 +76,7 @@ export function TnewsComponent({
 
   const visible = items.filter((it) => !state.isHidden(it.id))
 
-  const { handleHide, handleBulkRead, handleBulkHide } = createItemHandlers<TnewsItem>({
+  const { handleHide, handleBulkRead } = createItemHandlers<TnewsItem>({
     state,
     runtime,
     forceUpdate: () => forceUpdate((n) => n + 1),
@@ -120,9 +120,8 @@ export function TnewsComponent({
                 </span>
               </span>
               <ItemActions
-                onHide={() => handleHide(item.id)}
                 onBulkRead={() => handleBulkRead(item)}
-                onBulkHide={() => handleBulkHide(item)}
+                onHide={() => handleHide(item.id)}
               />
               {expanded && (
                 <div

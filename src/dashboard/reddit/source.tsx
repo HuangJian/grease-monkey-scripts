@@ -35,9 +35,15 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
 
   /**
    * 清理缓存中过期的帖子数据。
-   * 每次 fetch 后调用，删除 created 时间早于 retentionMs 的条目。
+   * 每次 fetch 后调用，删除 created 时间早于 retentionMs 的条目，
+   * 并同步清理对应 state（readAt/hiddenAt/readReplies），避免孤儿 state。
+   *
    * 注意：state.ttlMs = retentionMs + 1天，状态比数据多保留 1 天，
    * 防止 fetch 失败时 pruneExpiredCache 未执行导致状态早于数据消失。
+   *
+   * 存量孤儿 state：此修复前可能已产生了孤儿 state（cache 数据被 prune
+   * 但 state 仍在 ttlMs 内未被清理）。这些存量孤儿 state 会在自身 ttlMs
+   * 到期后自然清除，不会被读到（因为对应 cache 数据已不存在），影响不大。
    */
   async function pruneExpiredCache(runtime: Runtime): Promise<void> {
     const cached = await loadCache<RedditRenderData>(runtime, 'reddit')
@@ -45,12 +51,20 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
     const now = Date.now()
     const pruned: RedditRenderData = {}
     let changed = false
+    const removedIds: string[] = []
     for (const [sub, posts] of Object.entries(cached.data)) {
       const kept = posts.filter((p) => now - p.created < retentionMs)
-      if (kept.length !== posts.length) changed = true
+      if (kept.length !== posts.length) {
+        changed = true
+        posts.filter((p) => now - p.created >= retentionMs).forEach((p) => removedIds.push(p.id))
+      }
       if (kept.length > 0) pruned[sub] = kept
     }
     if (!changed) return
+    if (removedIds.length > 0) {
+      state.removeEntries(removedIds)
+      await state.saveToStorage(runtime)
+    }
     await saveCache(runtime, 'reddit', {
       data: pruned,
       fetchedAt: cached.fetchedAt,

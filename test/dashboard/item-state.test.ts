@@ -88,6 +88,47 @@ describe('createItemState (string IDs)', () => {
     })
   })
 
+  describe('removeEntries', () => {
+    test('removes read, hidden, and replies for given ids', () => {
+      state.markRead('1', Date.now(), 10)
+      state.markHidden('2', Date.now())
+      state.markRead('3', Date.now(), 30)
+      state.markHidden('3', Date.now())
+      state.removeEntries(['1', '3'])
+      expect(state.isRead('1')).toBe(false)
+      expect(state.getReadReplies('1')).toBeUndefined()
+      expect(state.isRead('3')).toBe(false)
+      expect(state.isHidden('3')).toBe(false)
+      expect(state.getReadReplies('3')).toBeUndefined()
+    })
+    test('does not affect entries not in the list', () => {
+      state.markRead('1', Date.now(), 10)
+      state.markHidden('2', Date.now())
+      state.removeEntries(['99'])
+      expect(state.isRead('1')).toBe(true)
+      expect(state.getReadReplies('1')).toBe(10)
+      expect(state.isHidden('2')).toBe(true)
+    })
+    test('empty array is a no-op', () => {
+      state.markRead('1')
+      state.markHidden('2')
+      state.removeEntries([])
+      expect(state.isRead('1')).toBe(true)
+      expect(state.isHidden('2')).toBe(true)
+    })
+    test('persisted after saveToStorage', async () => {
+      state.markRead('1', Date.now(), 10)
+      state.markHidden('2', Date.now())
+      state.removeEntries(['1'])
+      await state.saveToStorage(runtime)
+      const restored = createItemState<string>({ storageKey: STATE_KEY('test'), ttlMs: TTL_MS })
+      await restored.loadFromStorage(runtime)
+      expect(restored.isRead('1')).toBe(false)
+      expect(restored.getReadReplies('1')).toBeUndefined()
+      expect(restored.isHidden('2')).toBe(true)
+    })
+  })
+
   describe('loadFromStorage / saveToStorage', () => {
     test('round-trip preserves read and hidden markers', async () => {
       state.markRead('1')

@@ -53,7 +53,7 @@ export function V2exComponent({
     forceUpdate((n) => n + 1)
   }
 
-  const { handleHide, handleBulkRead, handleBulkHide } = createItemHandlers<V2exTopic>({
+  const { handleHide, handleBulkRead } = createItemHandlers<V2exTopic>({
     state,
     runtime,
     forceUpdate: () => forceUpdate((n) => n + 1),
@@ -103,9 +103,8 @@ export function V2exComponent({
                 <span class={ac.trim() || undefined}>@{escapeHtml(username)}</span>
               </span>
               <ItemActions
-                onHide={() => handleHide(topic.id)}
                 onBulkRead={() => handleBulkRead(topic)}
-                onBulkHide={() => handleBulkHide(topic)}
+                onHide={() => handleHide(topic.id)}
               />
             </li>
           )

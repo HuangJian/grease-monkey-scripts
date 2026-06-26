@@ -164,16 +164,30 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
 
   /**
    * 清理缓存中过期的雪球数据。
-   * 每次 fetch 后调用，删除 created_at 时间早于 retentionMs 的条目。
+   * 每次 fetch 后调用，删除 created_at 时间早于 retentionMs 的条目，
+   * 并同步清理对应 state（readAt/hiddenAt/readReplies），避免孤儿 state。
+   *
    * 注意：state.ttlMs = retentionMs + 1天，状态比数据多保留 1 天，
    * 防止 fetch 失败时 pruneExpiredCache 未执行导致状态早于数据消失。
+   * prune 在 saveToStorage 之前执行，清理 state 后会随后被持久化。
+   *
+   * 存量孤儿 state：此修复前可能已产生了孤儿 state（cache 数据被 prune
+   * 但 state 仍在 ttlMs 内未被清理）。这些存量孤儿 state 会在自身 ttlMs
+   * 到期后自然清除，不会被读到（因为对应 cache 数据已不存在），影响不大。
    */
   async function pruneExpiredCache(runtime: Runtime): Promise<void> {
     const cached = await loadCache<XueqiuRenderData>(runtime, MAIN_SOURCE_ID)
     if (!cached?.data) return
     const now = Date.now()
+    const removedIds: string[] = []
     const prune = (items: XueqiuNewsItem[]) =>
-      items.filter((it) => now - it.created_at < retentionMs)
+      items.filter((it) => {
+        if (now - it.created_at >= retentionMs) {
+          removedIds.push(String(it.id))
+          return false
+        }
+        return true
+      })
     const pruned: XueqiuRenderData = {
       news: prune(cached.data.news),
       hotPosts: prune(cached.data.hotPosts),
@@ -183,6 +197,9 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
       pruned.hotPosts.length === cached.data.hotPosts.length
     )
       return
+    if (removedIds.length > 0) {
+      state.removeEntries(removedIds)
+    }
     await saveCache(runtime, MAIN_SOURCE_ID, {
       data: pruned,
       fetchedAt: cached.fetchedAt,

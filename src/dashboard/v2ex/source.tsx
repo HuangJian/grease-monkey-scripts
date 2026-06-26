@@ -34,19 +34,27 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
 
   /**
    * 清理缓存中过期的主题数据。
-   * 每次 fetch 后调用，删除 created 时间早于 retentionMs 的条目。
+   * 每次 fetch 后调用，删除 created 时间早于 retentionMs 的条目，
+   * 并同步清理对应 state（readAt/hiddenAt/readReplies），避免孤儿 state。
+   *
    * 注意：state.ttlMs = retentionMs + 1天，状态比数据多保留 1 天，
    * 防止 fetch 失败时 pruneExpiredCache 未执行导致状态早于数据消失。
+   *
+   * 存量孤儿 state：此修复前可能已产生了孤儿 state（cache 数据被 prune
+   * 但 state 仍在 ttlMs 内未被清理）。这些存量孤儿 state 会在自身 ttlMs
+   * 到期后自然清除，不会被读到（因为对应 cache 数据已不存在），影响不大。
    */
   async function pruneExpiredCache(runtime: Runtime): Promise<void> {
     const cached = await loadCache<V2exTopic[]>(runtime, 'v2ex')
     if (!cached?.data || !Array.isArray(cached.data)) return
     const now = Date.now()
-    const pruned = cached.data.filter((t) => {
-      if (t.created === 0) return true // 无 created 的条目保留
-      return now - t.created < retentionMs
-    })
+    const pruned = cached.data.filter((t) => now - t.created < retentionMs)
     if (pruned.length === cached.data.length) return
+    const removedIds = cached.data.filter((t) => now - t.created >= retentionMs).map((t) => t.id)
+    if (removedIds.length > 0) {
+      state.removeEntries(removedIds)
+      await state.saveToStorage(runtime)
+    }
     await saveCache(runtime, 'v2ex', {
       data: pruned,
       fetchedAt: cached.fetchedAt,

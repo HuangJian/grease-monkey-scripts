@@ -258,12 +258,6 @@
   border-color: var(--gm-sp-color-info);
 }
 
-.gm-sp-item-bulk-btn-danger:hover {
-  color: var(--gm-sp-color-danger-hover);
-  background: var(--gm-sp-color-stale-bg);
-  border-color: var(--gm-sp-color-danger-border-hover);
-}
-
 .gm-sp-item-read {
   opacity: 0.55;
 }

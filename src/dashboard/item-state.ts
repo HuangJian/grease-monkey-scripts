@@ -19,6 +19,7 @@ export type ItemState<T extends string | number = string> = {
   markRead(id: T, ts?: number, replies?: number): void
   markHidden(id: T, ts?: number): void
   filterVisible<U extends { id: T }>(items: ReadonlyArray<U>): U[]
+  removeEntries(ids: ReadonlyArray<T>): void
   loadFromStorage(runtime: Runtime): Promise<void>
   saveToStorage(runtime: Runtime): Promise<void>
   clear(): void
@@ -72,6 +73,14 @@ export function createItemState<T extends string | number = string>(
     },
     filterVisible(items) {
       return items.filter((it) => !hiddenAt.has(serializeId(it.id)))
+    },
+    removeEntries(ids) {
+      for (const id of ids) {
+        const key = serializeId(id)
+        readAt.delete(key)
+        readReplies.delete(key)
+        hiddenAt.delete(key)
+      }
     },
     async loadFromStorage(runtime) {
       const now = Date.now()

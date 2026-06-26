@@ -109,22 +109,6 @@ describe('createItemHandlers', () => {
       expect(state.isRead('3')).toBe(true)
     })
   })
-
-  describe('handleBulkHide', () => {
-    test('marks all visible items up to and including hovered as hidden', () => {
-      handlers.handleBulkHide(items[1]!)
-      expect(state.isHidden('1')).toBe(true)
-      expect(state.isHidden('2')).toBe(true)
-      expect(state.isHidden('3')).toBe(false)
-      expect(forceUpdateCallCount).toBe(1)
-    })
-
-    test('no-op when hovered item not in visible list', () => {
-      const hiddenItem = { id: '99' }
-      handlers.handleBulkHide(hiddenItem)
-      expect(forceUpdateCallCount).toBe(0)
-    })
-  })
 })
 
 describe('createGroupedItemHandlers', () => {
@@ -201,24 +185,6 @@ describe('createGroupedItemHandlers', () => {
       })
       handlers.handleBulkRead({ id: 'x', replies: 1 })
       expect(forceUpdateCallCount).toBe(0)
-    })
-  })
-
-  describe('handleBulkHide', () => {
-    test('marks items in the same group up to hovered', () => {
-      const handlers = createGroupedItemHandlers<TestItem, string>({
-        state,
-        runtime: createRuntime(),
-        forceUpdate: () => {
-          forceUpdateCallCount++
-        },
-        getSubForItem: findGroupForItem,
-        getVisibleInSub,
-      })
-      handlers.handleBulkHide(grouped.a[0]!)
-      expect(state.isHidden('a1')).toBe(true)
-      expect(state.isHidden('a2')).toBe(false)
-      expect(state.isHidden('b1')).toBe(false)
     })
   })
 })
