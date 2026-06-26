@@ -20,6 +20,7 @@ import {
   type XueqiuNewsItem,
   type XueqiuRenderData,
   type XueqiuSourceOptions,
+  type ViewMode,
 } from './types'
 
 export type XueqiuHandle = {
@@ -35,7 +36,10 @@ const HOT_SOURCE_ID = 'xueqiu-hot'
 export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle {
   const retentionMs = options.retentionDays * 24 * 60 * 60 * 1000
   const state: XueqiuState = createXueqiuState({ retentionMs })
-  const mainHeaderState: { dateFilter: DateFilter } = { dateFilter: '全' }
+  const mainHeaderState: { dateFilter: DateFilter; viewMode: ViewMode } = {
+    dateFilter: '全',
+    viewMode: 'list',
+  }
   const hotHeaderState: { dateFilter: DateFilter } = { dateFilter: '全' }
 
   const mainSource: Source<XueqiuRenderData> = {
@@ -55,6 +59,30 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
           mainHeaderState.dateFilter = f
           props.onHeaderChange()
         }}
+        trailing={
+          <span class="gm-sp-date-filter gm-sp-view-toggle">
+            <button
+              type="button"
+              class={`gm-sp-date-filter-btn${mainHeaderState.viewMode === 'list' ? ' gm-sp-date-filter-btn-active' : ''}`}
+              onClick={() => {
+                mainHeaderState.viewMode = 'list'
+                props.onHeaderChange()
+              }}
+            >
+              列表
+            </button>
+            <button
+              type="button"
+              class={`gm-sp-date-filter-btn${mainHeaderState.viewMode === 'summary' ? ' gm-sp-date-filter-btn-active' : ''}`}
+              onClick={() => {
+                mainHeaderState.viewMode = 'summary'
+                props.onHeaderChange()
+              }}
+            >
+              AI摘要
+            </button>
+          </span>
+        }
       />
     ),
     async fetch(runtime) {
@@ -81,6 +109,12 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
         state={state}
         mode="news"
         dateFilter={mainHeaderState.dateFilter}
+        viewMode={mainHeaderState.viewMode}
+        retentionMs={retentionMs}
+        onViewModeChange={(m) => {
+          mainHeaderState.viewMode = m
+          props.onHeaderChange()
+        }}
       />
     ),
     createEditor(settings: SourceSettings) {

@@ -4,7 +4,13 @@ import { createEditorFactory } from '../editor-helpers/createEditorFactory'
 import { saveConfigSection, saveSourceSettings } from '../editor-helpers'
 import { SourceSettingsFields } from '../editor-ui'
 import type { SourceEditorContext, SourceEditorResult, SourceSettings } from '../types'
-import type { XueqiuSourceOptions } from './types'
+import {
+  DEFAULT_AI_API_URL,
+  DEFAULT_AI_MODEL,
+  DEFAULT_AI_SYSTEM_PROMPT,
+  type XueqiuSourceOptions,
+} from './types'
+import { loadAiConfig, saveAiConfig } from './ai/config'
 import type { Runtime } from '../../runtime'
 
 function coerceXueqiuOptions(
@@ -45,8 +51,24 @@ function XueqiuEditorForm({ fresh, sourceId, settings, ctx, handleRef }: XueqiuE
   const [tabTitle, setTabTitle] = useState(settings.tabTitle)
   const [priority, setPriority] = useState(settings.priority)
   const [badgeType, setBadgeType] = useState(settings.badgeType)
+  const [aiModel, setAiModel] = useState(DEFAULT_AI_MODEL)
+  const [aiApiUrl, setAiApiUrl] = useState(DEFAULT_AI_API_URL)
+  const [aiSystemPrompt, setAiSystemPrompt] = useState(DEFAULT_AI_SYSTEM_PROMPT)
   const ttlRef = useRef<HTMLInputElement>(null)
   const retentionRef = useRef<HTMLInputElement>(null)
+  const aiModelRef = useRef<HTMLInputElement>(null)
+  const aiApiUrlRef = useRef<HTMLInputElement>(null)
+  const aiSystemPromptRef = useRef<HTMLTextAreaElement>(null)
+
+  useLayoutEffect(() => {
+    loadAiConfig(ctx.runtime).then((cfg) => {
+      if (cfg) {
+        setAiModel(cfg.model)
+        setAiApiUrl(cfg.apiUrl)
+        setAiSystemPrompt(cfg.systemPrompt)
+      }
+    })
+  }, [ctx.runtime])
 
   useLayoutEffect(() => {
     handleRef.current = {
@@ -76,6 +98,19 @@ function XueqiuEditorForm({ fresh, sourceId, settings, ctx, handleRef }: XueqiuE
           validate: validateConfig,
           onError: (msg) => setError(msg),
           onSuccess: () => {
+            // Save AI config (model + apiUrl + systemPrompt; apiKey preserved)
+            const modelVal = aiModelRef.current?.value?.trim() || DEFAULT_AI_MODEL
+            const apiUrlVal = aiApiUrlRef.current?.value?.trim() || DEFAULT_AI_API_URL
+            const systemPromptVal =
+              aiSystemPromptRef.current?.value?.trim() || DEFAULT_AI_SYSTEM_PROMPT
+            void loadAiConfig(ctx.runtime).then((existing) => {
+              saveAiConfig(ctx.runtime, {
+                apiKey: existing?.apiKey ?? '',
+                model: modelVal,
+                apiUrl: apiUrlVal,
+                systemPrompt: systemPromptVal,
+              })
+            })
             void saveSourceSettings(ctx.runtime, sourceId, { tabTitle, priority, badgeType })
             ctx.refresh?.()
             ctx.close()
@@ -86,7 +121,19 @@ function XueqiuEditorForm({ fresh, sourceId, settings, ctx, handleRef }: XueqiuE
         ctx.close()
       },
     }
-  }, [ttl, retentionDays, tabTitle, priority, badgeType])
+  }, [
+    ttl,
+    retentionDays,
+    tabTitle,
+    priority,
+    badgeType,
+    aiModel,
+    aiApiUrl,
+    aiSystemPrompt,
+    ctx.runtime,
+  ])
+
+  const apiUrlNonDefault = aiApiUrl !== DEFAULT_AI_API_URL
 
   return (
     <div class="gm-sp-editor">
@@ -98,7 +145,7 @@ function XueqiuEditorForm({ fresh, sourceId, settings, ctx, handleRef }: XueqiuE
         badgeType={badgeType}
         onBadgeTypeChange={setBadgeType}
       />
-      <div class="gm-sp-editor-form">
+      <div class="gm-sp-editor-form gm-sp-editor-form-no-border">
         <label class="gm-sp-editor-row">
           <span>TTL（分钟）</span>
           <input
@@ -124,6 +171,44 @@ function XueqiuEditorForm({ fresh, sourceId, settings, ctx, handleRef }: XueqiuE
             onInput={(e) => setRetentionDays(Number((e.target as HTMLInputElement).value))}
           />
         </label>
+      </div>
+      <div class="gm-sp-editor-form gm-sp-editor-form-no-border">
+        <label class="gm-sp-editor-row gm-sp-editor-row-full">
+          <span>模型</span>
+          <input
+            ref={aiModelRef}
+            type="text"
+            class="gm-sp-input"
+            value={aiModel}
+            onInput={(e) => setAiModel((e.target as HTMLInputElement).value)}
+          />
+        </label>
+        <label class="gm-sp-editor-row gm-sp-editor-row-full">
+          <span>API URL</span>
+          <input
+            ref={aiApiUrlRef}
+            type="text"
+            class="gm-sp-input"
+            value={aiApiUrl}
+            onInput={(e) => setAiApiUrl((e.target as HTMLInputElement).value)}
+          />
+        </label>
+        {apiUrlNonDefault && (
+          <div class="gm-sp-editor-hint">
+            ⚠️ 非 OpenRouter 地址需在脚本 metadata 中添加对应的 @connect 声明
+          </div>
+        )}
+        <label class="gm-sp-editor-row gm-sp-editor-row-full">
+          <span>System Prompt</span>
+          <textarea
+            ref={aiSystemPromptRef}
+            class="gm-sp-input gm-sp-ai-prompt-textarea"
+            value={aiSystemPrompt}
+            rows={8}
+            onInput={(e) => setAiSystemPrompt((e.target as HTMLTextAreaElement).value)}
+          />
+        </label>
+        <div class="gm-sp-editor-hint">API Key 通过点击 AI 摘要视图中的「配置」按钮设置</div>
       </div>
       <div class="gm-sp-editor-error" hidden={!error}>
         {error}

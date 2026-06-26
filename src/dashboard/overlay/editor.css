@@ -121,6 +121,49 @@
   max-width: 80px;
 }
 
+.gm-sp-editor-form-no-border {
+  border-top: none;
+  padding-top: 0;
+}
+
+.gm-sp-editor-row-full {
+  grid-column: 1 / -1;
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
+.gm-sp-editor-row-full > span {
+  font-size: 12px;
+  color: var(--gm-sp-color-text-muted);
+}
+
+.gm-sp-ai-prompt-textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  font-family: monospace;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.gm-sp-editor-section-title {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--gm-sp-color-text-muted);
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--gm-sp-color-border);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.gm-sp-editor-hint {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: var(--gm-sp-color-text-muted);
+  line-height: 1.4;
+}
+
 .gm-sp-editor-actions {
   display: flex;
   gap: 10px;

@@ -1,10 +1,14 @@
-import { useLayoutEffect, useRef, useState } from 'preact/hooks'
+import { useLayoutEffect, useRef, useState, useEffect } from 'preact/hooks'
 import { ItemActions } from '../card/primitives'
 import type { DateFilter } from '../date-filter'
 import { applyDateFilter } from '../shared-utils'
 import type { SourceComponentProps } from '../types'
 import type { XueqiuState } from './state'
-import type { XueqiuRenderData, XueqiuNewsItem } from './types'
+import type { XueqiuRenderData, XueqiuNewsItem, ViewMode } from './types'
+import { SummaryView } from './ai/summary-view'
+import { loadAiConfig, ensureApiKey } from './ai/config'
+import { loadSummaries, saveSummary, summarize, buildSummaryEntry } from './ai/summarize'
+import type { SummaryEntry, XueqiuAiConfig } from './types'
 
 function escapeText(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -55,6 +59,9 @@ export type XueqiuComponentProps = SourceComponentProps<XueqiuRenderData> & {
   state: XueqiuState
   mode: 'news' | 'hot'
   dateFilter: DateFilter
+  viewMode?: ViewMode
+  retentionMs?: number
+  onViewModeChange?: (mode: ViewMode) => void
 }
 
 export function XueqiuComponent({
@@ -63,10 +70,25 @@ export function XueqiuComponent({
   state,
   mode,
   dateFilter,
+  viewMode = 'list',
+  retentionMs = 7 * 24 * 60 * 60 * 1000,
+  onViewModeChange,
   onNotify: notify,
 }: XueqiuComponentProps) {
   const [, forceUpdate] = useState(0)
   const scrollTargetRef = useRef<string | null>(null)
+
+  // AI summary state
+  const [summaries, setSummaries] = useState<SummaryEntry[]>([])
+  const [activeSummaryId, setActiveSummaryId] = useState<string | null>(null)
+  const [aiConfig, setAiConfig] = useState<XueqiuAiConfig | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
+  const [elapsedSec, setElapsedSec] = useState(0)
+  const [filterUnread, setFilterUnread] = useState(true)
+  const aiInitRef = useRef(false)
+  const genStartRef = useRef(0)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useLayoutEffect(() => {
     const id = scrollTargetRef.current
@@ -89,6 +111,134 @@ export function XueqiuComponent({
           return !state.isRead(id) || state.isExpanded(id)
         })
       : dateFiltered
+
+  // Build newsMap from all date-filtered items (not just unread)
+  const newsMap = new Map<number, XueqiuNewsItem>()
+  for (const item of dateFiltered) newsMap.set(item.id, item)
+
+  // When no active summary exists (unconfigured / error / empty), force filter off
+  // so newsCount shows the full set and the checkbox appears unchecked.
+  const activeSummary = summaries.find((s) => s.id === activeSummaryId) ?? null
+  const effectiveFilterUnread = activeSummary ? filterUnread : false
+
+  // Items sent to LLM: optionally filter to unread only
+  const summaryItems = effectiveFilterUnread
+    ? dateFiltered.filter((it) => !state.isRead(String(it.id)))
+    : dateFiltered
+
+  // Initialize AI summary state when switching to summary view (no auto-generate)
+  useLayoutEffect(() => {
+    if (viewMode !== 'summary' || mode !== 'news') {
+      aiInitRef.current = false
+      return
+    }
+    if (aiInitRef.current) return
+    aiInitRef.current = true
+    void initAiSummary()
+  }, [viewMode, mode])
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+    }
+  }, [])
+
+  async function initAiSummary() {
+    const config = await loadAiConfig(runtime)
+    setAiConfig(config)
+
+    if (!config?.apiKey) {
+      setAiError(null)
+      return
+    }
+
+    // Load history for the dropdown — no cache-hit matching
+    const all = await loadSummaries(runtime, retentionMs)
+    setSummaries(all)
+  }
+
+  function startTimer() {
+    genStartRef.current = Date.now()
+    setElapsedSec(0)
+    if (timerRef.current) clearInterval(timerRef.current)
+    timerRef.current = setInterval(() => {
+      setElapsedSec(Math.floor((Date.now() - genStartRef.current) / 1000))
+    }, 1000)
+  }
+
+  function stopTimer() {
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+  }
+
+  async function generateSummary(config: XueqiuAiConfig) {
+    startTimer()
+    setAiLoading(true)
+    setAiError(null)
+    try {
+      const result = await summarize(runtime, summaryItems, config)
+      const entry = buildSummaryEntry(result)
+      await saveSummary(runtime, entry)
+      const all = await loadSummaries(runtime, retentionMs)
+      setSummaries(all)
+      setActiveSummaryId(entry.id)
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : String(e))
+    } finally {
+      stopTimer()
+      setAiLoading(false)
+    }
+  }
+
+  function handleRefresh() {
+    if (!aiConfig?.apiKey) {
+      void handleConfigure()
+      return
+    }
+    void generateSummary(aiConfig)
+  }
+
+  async function handleConfigure() {
+    const config = await ensureApiKey(runtime, aiConfig)
+    setAiConfig(config)
+    if (config?.apiKey) {
+      await generateSummary(config)
+    }
+  }
+
+  function handleTopicRead(itemIds: number[]) {
+    const now = Date.now()
+    for (const id of itemIds) {
+      state.markRead(String(id), now)
+    }
+    void state.saveToStorage(runtime)
+    notify?.()
+    forceUpdate((n) => n + 1)
+  }
+
+  function handleSummaryRead() {
+    if (!activeSummary) return
+    const allIds = new Set<number>()
+    for (const t of activeSummary.topics) for (const id of t.items) allIds.add(id)
+    handleTopicRead([...allIds])
+  }
+
+  function handleBulkReadAll() {
+    const now = Date.now()
+    dateFiltered.forEach((it) => {
+      const id = String(it.id)
+      if (!state.isRead(id)) state.markRead(id, now)
+    })
+    void state.saveToStorage(runtime)
+    notify?.()
+    forceUpdate((n) => n + 1)
+  }
 
   function handleItemClick(item: XueqiuNewsItem) {
     const id = String(item.id)
@@ -171,6 +321,34 @@ export function XueqiuComponent({
           </div>
         )}
       </li>
+    )
+  }
+
+  // AI summary view
+  if (viewMode === 'summary' && mode === 'news') {
+    return (
+      <div class="gm-sp-xueqiu">
+        <SummaryView
+          summaries={summaries}
+          activeSummaryId={activeSummaryId}
+          newsMap={newsMap}
+          loading={aiLoading}
+          error={aiError}
+          unconfigured={!aiConfig?.apiKey && !aiLoading}
+          isRead={(id) => state.isRead(id)}
+          onSelectSummary={setActiveSummaryId}
+          onRefresh={handleRefresh}
+          onTopicRead={handleTopicRead}
+          onSummaryRead={handleSummaryRead}
+          onBulkRead={handleBulkReadAll}
+          onConfigure={handleConfigure}
+          onBack={() => onViewModeChange?.('list')}
+          newsCount={summaryItems.length}
+          elapsedSec={elapsedSec}
+          filterUnread={effectiveFilterUnread}
+          onToggleFilterUnread={() => setFilterUnread((v) => !v)}
+        />
+      </div>
     )
   }
 
