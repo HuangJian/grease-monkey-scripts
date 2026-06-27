@@ -47,6 +47,8 @@ export type Runtime = {
   addElement(parentNode: Element, tagName: string, attributes: Record<string, string>): HTMLElement
   requestIdleCallback(cb: () => void, options?: { timeout: number }): void
   registerMenuCommand(name: string, fn: () => void): number
+  /** Page-context fetch (bypasses WAF). Returns parsed JSON. Throws on non-2xx. */
+  pageFetch(url: string): Promise<unknown>
 }
 
 declare const GM: {
@@ -82,6 +84,8 @@ declare function GM_addValueChangeListener(
 
 declare function GM_registerMenuCommand(name: string, fn: () => void): number
 
+declare const unsafeWindow: Window
+
 export function createBrowserRuntime(): Runtime {
   return {
     document,
@@ -113,5 +117,19 @@ export function createBrowserRuntime(): Runtime {
     },
     registerMenuCommand: (name, fn) => GM_registerMenuCommand(name, fn),
     addElement: (parentNode, tagName, attributes) => GM_addElement(parentNode, tagName, attributes),
+    pageFetch: async (url) => {
+      const res = await unsafeWindow.fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { Accept: 'application/json, text/plain, */*' },
+      })
+      if (!res.ok) {
+        const body = await res.text()
+        throw new Error(
+          `pageFetch HTTP ${res.status} for ${url}\n  body[:300]: ${body.slice(0, 300)}`,
+        )
+      }
+      return res.json()
+    },
   }
 }

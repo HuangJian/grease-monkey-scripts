@@ -167,6 +167,16 @@ export function createRuntime(dom?: Window): TestRuntime {
       return id
     },
     addElement: (_parentNode, _tagName, _attributes) => document.createElement(_tagName),
+    pageFetch: async (url) => {
+      const r = responses.get(url)
+      if (!r) throw new Error(`pageFetch: no queued response for ${url}`)
+      if (r.status !== 200) {
+        throw new Error(
+          `pageFetch HTTP ${r.status} for ${url}\n  body[:300]: ${r.text.slice(0, 300)}`,
+        )
+      }
+      return JSON.parse(r.text)
+    },
     queueResponse(url, text, status, responseHeaders) {
       responses.set(url, { text, status: status ?? 200, responseHeaders: responseHeaders ?? '' })
     },

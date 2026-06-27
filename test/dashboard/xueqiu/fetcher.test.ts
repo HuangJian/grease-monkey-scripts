@@ -145,6 +145,209 @@ describe('xueqiu cache merge', () => {
   })
 })
 
+// ---- Raw API item factory (matches real API field shapes) ----
+
+function makeApiItem(
+  id: number,
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> & { id: number } {
+  return { id, ...overrides }
+}
+
+describe('xueqiu fetchXueqiu (direct API)', () => {
+  test('fetches news (cursor) and hot (page-based) from API', async () => {
+    const runtime = createRuntime()
+
+    // NEWS: single page, no next_max_id → stops after round 1
+    runtime.queueResponse(
+      'https://xueqiu.com/statuses/livenews/list.json',
+      JSON.stringify({
+        items: [
+          makeApiItem(101, {
+            text: 'News 1',
+            created_at: 1000,
+            target: '/status/101',
+            status_id: 101,
+            reply_count: 1,
+            share_count: 2,
+            view_count: 10,
+            sub_type: 0,
+          }),
+          makeApiItem(102, {
+            text: 'News 2',
+            created_at: 2000,
+            target: '/status/102',
+            status_id: 102,
+            reply_count: 3,
+            share_count: 4,
+            view_count: 20,
+            sub_type: 0,
+          }),
+        ],
+        next_max_id: null,
+      }),
+    )
+
+    // HOT: single page, has_next_page=false → stops after round 1
+    runtime.queueResponse(
+      'https://xueqiu.com/statuses/hot/listV3.json?page=1',
+      JSON.stringify({
+        list: [
+          makeApiItem(201, {
+            title: 'Hot 1',
+            text: '<p>Hot 1</p>',
+            created_at: 1000,
+            target: '/status/201',
+            reply_count: 5,
+            like_count: 10,
+            view_count: 100,
+            description: 'desc',
+            fav_count: 10,
+            retweet_count: 1,
+            type: 1,
+          }),
+          makeApiItem(202, {
+            title: 'Hot 2',
+            text: '<p>Hot 2</p>',
+            created_at: 2000,
+            target: '/status/202',
+            reply_count: 6,
+            like_count: 20,
+            view_count: 200,
+            description: 'desc2',
+            fav_count: 20,
+            retweet_count: 2,
+            type: 1,
+          }),
+        ],
+        has_next_page: false,
+      }),
+    )
+
+    const { fetchXueqiu } = await import('../../../src/dashboard/xueqiu/fetcher')
+    const result = await fetchXueqiu(runtime, { ttlMinutes: 60, retentionDays: 7 })
+
+    // NEWS: items lack title/description/like_count → toNewsItem uses ?? fallbacks
+    expect(result.news).toHaveLength(2)
+    expect(result.news[0]?.id).toBe(101)
+    expect(result.news[0]?.title).toBe('')
+    expect(result.news[0]?.text).toBe('News 1')
+    expect(result.news[0]?.like_count).toBe(0)
+    expect(result.news[0]?.share_count).toBe(2)
+
+    // HOT: items have title, like_count, etc.
+    expect(result.hotPosts).toHaveLength(2)
+    expect(result.hotPosts[0]?.id).toBe(201)
+    expect(result.hotPosts[0]?.title).toBe('Hot 1')
+    expect(result.hotPosts[0]?.like_count).toBe(10)
+  })
+
+  test('throws on first-round NEWS failure', async () => {
+    const runtime = createRuntime()
+    // No response queued for NEWS → onerror → reject
+
+    const { fetchXueqiu } = await import('../../../src/dashboard/xueqiu/fetcher')
+    await expect(fetchXueqiu(runtime, { ttlMinutes: 60, retentionDays: 7 })).rejects.toThrow()
+  })
+
+  test('skips already-known items from cache', async () => {
+    const runtime = createRuntime()
+    const { saveCache } = await import('../../../src/dashboard/cache')
+
+    // Pre-populate cache with item 101
+    await saveCache(runtime, 'xueqiu-news', {
+      data: { news: [makeItem(101)], hotPosts: [] },
+      fetchedAt: Date.now(),
+      error: '',
+    })
+
+    // NEWS returns 101 (known) + 102 (new), no next_max_id
+    runtime.queueResponse(
+      'https://xueqiu.com/statuses/livenews/list.json',
+      JSON.stringify({
+        items: [
+          makeApiItem(101, {
+            text: 'Known',
+            created_at: 1000,
+            target: '/s/101',
+            status_id: 101,
+            reply_count: 0,
+            share_count: 0,
+            view_count: 0,
+            sub_type: 0,
+          }),
+          makeApiItem(102, {
+            text: 'New',
+            created_at: 2000,
+            target: '/s/102',
+            status_id: 102,
+            reply_count: 0,
+            share_count: 0,
+            view_count: 0,
+            sub_type: 0,
+          }),
+        ],
+        next_max_id: null,
+      }),
+    )
+
+    // HOT returns empty
+    runtime.queueResponse(
+      'https://xueqiu.com/statuses/hot/listV3.json?page=1',
+      JSON.stringify({ list: [], has_next_page: false }),
+    )
+
+    const { fetchXueqiu } = await import('../../../src/dashboard/xueqiu/fetcher')
+    const result = await fetchXueqiu(runtime, { ttlMinutes: 60, retentionDays: 7 })
+
+    // Only the new item 102 should be returned
+    expect(result.news).toHaveLength(1)
+    expect(result.news[0]?.id).toBe(102)
+    expect(result.hotPosts).toHaveLength(0)
+  })
+
+  test('toNewsItem uses fallback fields when direct fields are absent', async () => {
+    const runtime = createRuntime()
+
+    // HOT item with only fallback fields (like_count→fav_count, share_count→retweet_count, sub_type→type)
+    runtime.queueResponse(
+      'https://xueqiu.com/statuses/hot/listV3.json?page=1',
+      JSON.stringify({
+        list: [
+          makeApiItem(301, {
+            title: 'Fallback',
+            text: 'text',
+            created_at: 1000,
+            target: '/s/301',
+            reply_count: 1,
+            view_count: 10,
+            description: 'd',
+            fav_count: 42,
+            retweet_count: 7,
+            type: 3,
+          }),
+        ],
+        has_next_page: false,
+      }),
+    )
+
+    // NEWS returns empty so fetchXueqiu doesn't fail on NEWS
+    runtime.queueResponse(
+      'https://xueqiu.com/statuses/livenews/list.json',
+      JSON.stringify({ items: [], next_max_id: null }),
+    )
+
+    const { fetchXueqiu } = await import('../../../src/dashboard/xueqiu/fetcher')
+    const result = await fetchXueqiu(runtime, { ttlMinutes: 60, retentionDays: 7 })
+
+    expect(result.hotPosts).toHaveLength(1)
+    const item = result.hotPosts[0]!
+    expect(item.like_count).toBe(42) // from fav_count
+    expect(item.share_count).toBe(7) // from retweet_count
+    expect(item.sub_type).toBe(3) // from type
+  })
+})
+
 describe('xueqiu hotPosts persistence', () => {
   test('hotSource.fetch must not persist anything to cache', async () => {
     const runtime = createRuntime()

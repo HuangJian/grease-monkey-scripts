@@ -1,30 +1,29 @@
 /**
  * Xueqiu data fetcher.
  *
- * Fetches hot posts and news from xueqiu.com by intercepting XHR responses
- * via injected script. Requires page to be on xueqiu.com domain.
+ * Fetches hot posts and 7x24 news from xueqiu.com via direct API calls.
  *
- * Test script: scripts/fetchers/xueqiu-test.user.js
- *   Install as Tampermonkey userscript and run on xueqiu.com to verify fetching.
+ * - HOT (/statuses/hot/listV3.json): WAF-protected, uses page-context fetch
+ *   (runtime.pageFetch) with page-based pagination (page=1,2,3…).
+ * - NEWS (/statuses/livenews/list.json): no WAF, uses GM_xmlhttpRequest
+ *   (runtime.request) with cursor-based pagination (max_id from next_max_id).
+ *
+ * Test script: scripts/fetchers/xueqiu-api-test.user.js
  */
 import { loadCache } from '../cache'
 import type { Runtime } from '../../runtime'
 import type { XueqiuRenderData, XueqiuNewsItem, XueqiuSourceOptions } from './types'
 
-declare var unsafeWindow: Window
-
-// ---- API item shape (from intercepted XHR) ----
+// ---- API types ----
 
 type ApiItem = Record<string, unknown> & { id: number }
 
-type CapturedSource = {
-  items: ApiItem[]
-  count: number
-}
-
-type CapturedData = {
-  hot: CapturedSource
-  news: CapturedSource
+type ApiResponse = {
+  list?: ApiItem[]
+  items?: ApiItem[]
+  has_next_page?: boolean
+  next_max_id?: number | null
+  next_id?: number | null
 }
 
 // ---- API item to XueqiuNewsItem mapping ----
@@ -46,115 +45,52 @@ function toNewsItem(item: ApiItem): XueqiuNewsItem {
   }
 }
 
-// ---- XHR interceptor injection ----
+// ---- Constants ----
 
-function injectInterceptor(runtime: Runtime): void {
-  if ((unsafeWindow as Window & { __xqInjected?: boolean }).__xqInjected) return
-  runtime.addElement(runtime.document.documentElement, 'script', {
-    textContent: `
-    (function() {
-      var hotItems = [], hotCount = 0
-      var newsItems = [], newsCount = 0
-      var origOpen = XMLHttpRequest.prototype.open
-      XMLHttpRequest.prototype.open = function(method, url) {
-        var u = typeof url === 'string' ? url : (url ? url.toString() : '')
-        var self = this
-        if (u.indexOf('/statuses/hot/listV3.json') !== -1) {
-          self.addEventListener('load', function() {
-            hotCount++
-            try {
-              var d = JSON.parse(self.responseText), items = d.list || []
-              for (var i = 0; i < items.length; i++) hotItems.push(items[i])
-            } catch(e) {}
-          })
-        }
-        if (u.indexOf('/statuses/livenews/list.json') !== -1) {
-          self.addEventListener('load', function() {
-            newsCount++
-            try {
-              var d = JSON.parse(self.responseText), items = d.list || d.items || []
-              for (var i = 0; i < items.length; i++) newsItems.push(items[i])
-            } catch(e) {}
-          })
-        }
-        return origOpen.apply(this, arguments)
-      }
-      window.__xqCaptured = function() {
-        return { hot: { items: hotItems, count: hotCount }, news: { items: newsItems, count: newsCount } }
-      }
-      window.__xqResetCaptured = function(mode) {
-        if (mode === 'hot' || !mode) { hotItems = []; hotCount = 0 }
-        if (mode === 'news' || !mode) { newsItems = []; newsCount = 0 }
-      }
-    })();
-  `,
-  })
-  ;(unsafeWindow as Window & { __xqInjected?: boolean }).__xqInjected = true
-}
+const API_BASE = 'https://xueqiu.com'
+const HOT_URL = `${API_BASE}/statuses/hot/listV3.json`
+const NEWS_URL = `${API_BASE}/statuses/livenews/list.json`
+const MAX_ROUNDS = 30
+const REQUEST_DELAY_MS = 3000
+const REQUEST_DELAY_VARIANCE = 0.4
 
-function readCaptured(): CapturedData | null {
-  const w = unsafeWindow as Window & { __xqCaptured?: () => CapturedData }
-  return w.__xqCaptured?.() ?? null
-}
+// ---- Fetch helpers ----
 
-function resetCaptured(mode: 'news' | 'hot'): void {
-  const w = unsafeWindow as Window & { __xqResetCaptured?: (mode: string) => void }
-  w.__xqResetCaptured?.(mode)
-}
-
-// ---- DOM interaction helpers ----
-
-function humanLikeClick(el: HTMLElement): void {
-  el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
-  el.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }))
-  el.click()
-}
-
-function clickTab(doc: Document, text: string): boolean {
-  const links = doc.querySelectorAll('a')
-  let found = false
-  links.forEach((link) => {
-    if (link.textContent?.trim() === text && !link.classList.contains('active')) {
-      humanLikeClick(link)
-      found = true
-    }
-  })
-  return found
-}
-
-function doScroll(doc: Document, win: Window): void {
-  const main = doc.querySelector('.home__main')
-  if (main) {
-    const fraction = 0.4 + Math.random() * 0.5
-    main.scrollBy(0, Math.round(main.clientHeight * fraction))
-  } else {
-    win.scrollBy(0, Math.round(win.innerHeight * (0.4 + Math.random() * 0.5)))
-  }
-}
-
-function backScroll(doc: Document): void {
-  if (Math.random() < 0.15) {
-    const main = doc.querySelector('.home__main')
-    if (main) {
-      main.scrollBy(0, -Math.round(main.clientHeight * (0.05 + Math.random() * 0.15)))
-    }
-  }
-}
-
-function clickLoadMore(doc: Document): void {
-  const btn =
-    doc.querySelector<HTMLElement>('.home-timeline > a') ??
-    doc.querySelector<HTMLElement>('.status-list > a')
-  if (!btn || btn.textContent?.trim() !== '加载更多') {
-    throw new Error('xueqiu: 未找到「加载更多」按钮')
-  }
-  btn.click()
-}
-
-function waitJitter(baseMs: number, variance = 0.4): Promise<void> {
+function waitJitter(baseMs: number, variance = REQUEST_DELAY_VARIANCE): Promise<void> {
   const ms = baseMs * (1 - variance + Math.random() * variance * 2)
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
+
+/** GM_xmlhttpRequest wrapper — for NEWS endpoint (no WAF). */
+function gmFetchJson(runtime: Runtime, url: string): Promise<ApiResponse> {
+  return new Promise((resolve, reject) => {
+    runtime.request({
+      method: 'GET',
+      url,
+      timeout: 15000,
+      onload: (res) => {
+        if (res.status !== 200) {
+          reject(new Error(`HTTP ${res.status} for ${url}`))
+          return
+        }
+        try {
+          resolve(JSON.parse(res.responseText) as ApiResponse)
+        } catch (e) {
+          reject(new Error(`JSON parse failed for ${url}: ${(e as Error).message}`))
+        }
+      },
+      onerror: () => reject(new Error(`Network error for ${url}`)),
+      ontimeout: () => reject(new Error(`Timeout for ${url}`)),
+    })
+  })
+}
+
+/** Page-context fetch — for HOT endpoint (WAF-protected). */
+async function pageFetchJson(runtime: Runtime, url: string): Promise<ApiResponse> {
+  return (await runtime.pageFetch(url)) as ApiResponse
+}
+
+// ---- Dedup ----
 
 function dedupById(items: XueqiuNewsItem[]): XueqiuNewsItem[] {
   const seen = new Set<number>()
@@ -181,42 +117,38 @@ export function shouldEarlyExit(
 // ---- Fetch logic for one source ----
 
 async function fetchSource(
-  doc: Document,
-  win: Window,
+  runtime: Runtime,
   mode: 'news' | 'hot',
   knownIds: Set<number>,
 ): Promise<XueqiuNewsItem[]> {
-  const tabText = mode === 'news' ? '7x24' : '热门'
-  const maxRounds = 30
-
-  resetCaptured(mode)
-
-  clickTab(doc, '资讯')
-  await waitJitter(1500, 0.3)
-  clickTab(doc, tabText)
-  await waitJitter(5000, 0.4)
-
+  const fetchFn = mode === 'hot' ? pageFetchJson : gmFetchJson
   const all: XueqiuNewsItem[] = []
+  let nextMaxId: number | null = null
 
-  for (let round = 1; round <= maxRounds; round++) {
-    doScroll(doc, win)
-    backScroll(doc)
-    await waitJitter(4000, 0.4)
-
-    clickLoadMore(doc)
-    await waitJitter(4000, 0.4)
-
-    const captured = readCaptured()
-    const source = mode === 'news' ? captured?.news : captured?.hot
-    const batch = source?.items ?? []
-    const reqCount = source?.count ?? 0
-
-    // First round: verify the API actually fired
-    if (round === 1 && reqCount === 0) {
-      throw new Error(`xueqiu: ${tabText} 数据获取失败，API 无响应，请确认页面已加载完成`)
+  for (let round = 1; round <= MAX_ROUNDS; round++) {
+    // Build URL per pagination mode
+    let url: string
+    if (mode === 'hot') {
+      url = `${HOT_URL}?page=${round}`
+    } else {
+      url = NEWS_URL
+      if (nextMaxId) url += `?max_id=${nextMaxId}`
     }
 
-    // Convert raw API items and filter out already-known IDs
+    // Fetch — first round failure is fatal, subsequent rounds just stop
+    let data: ApiResponse
+    try {
+      data = await fetchFn(runtime, url)
+    } catch (e) {
+      if (round === 1) throw e
+      console.warn(`[gm-xueqiu] ${mode} round ${round} failed: ${(e as Error).message}`)
+      break
+    }
+
+    const batch = data.list || data.items || []
+    if (batch.length === 0) break
+
+    // Convert and filter out already-known IDs
     const asNewsItems = batch.map(toNewsItem)
     const newItems: XueqiuNewsItem[] = []
     const seen = new Set<number>()
@@ -232,11 +164,19 @@ async function fetchSource(
     if (newItems.length === 0) break
 
     all.push(...newItems)
-
-    // Add new IDs to known set so subsequent rounds also skip them
     newItems.forEach((item) => knownIds.add(item.id))
 
     if (shouldEarlyExit(mode, asNewsItems, knownIds)) break
+
+    // Update pagination cursor
+    if (mode === 'news') {
+      nextMaxId = data.next_max_id ?? data.next_id ?? null
+      if (!nextMaxId) break
+    } else if (data.has_next_page === false) {
+      break
+    }
+
+    await waitJitter(REQUEST_DELAY_MS)
   }
 
   return dedupById(all)
@@ -248,10 +188,6 @@ export async function fetchXueqiu(
   runtime: Runtime,
   _options: XueqiuSourceOptions,
 ): Promise<XueqiuRenderData> {
-  const doc = runtime.document
-  const win = doc.defaultView!
-  injectInterceptor(runtime)
-
   const cached = await loadCache<XueqiuRenderData>(runtime, 'xueqiu-news')
   const newsKnownIds = new Set<number>()
   const hotKnownIds = new Set<number>()
@@ -260,8 +196,8 @@ export async function fetchXueqiu(
     cached.data.hotPosts.forEach((item) => hotKnownIds.add(item.id))
   }
 
-  const news = await fetchSource(doc, win, 'news', newsKnownIds)
-  const hotPosts = await fetchSource(doc, win, 'hot', hotKnownIds)
+  const news = await fetchSource(runtime, 'news', newsKnownIds)
+  const hotPosts = await fetchSource(runtime, 'hot', hotKnownIds)
 
   return { news, hotPosts }
 }
