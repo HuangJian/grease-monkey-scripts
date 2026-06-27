@@ -724,13 +724,12 @@ describe('createWeatherSource.render', () => {
     const dayLabelEls = within(container).getAllByText(/^\+\d$/)
     expect(dayLabelEls).toHaveLength(3)
     expect(dayLabelEls.map((e) => e.textContent)).toEqual(['+1', '+2', '+3'])
-    const dayPrecipEls = dayLabelEls.map(
-      (el) =>
-        within(el.closest('.gm-sp-weather-day') as HTMLElement).getByText(
-          /^(?:--|[\d.]+mm [\u4e00-\u9fa5])$/,
-        ).textContent,
-    )
-    expect(dayPrecipEls).toEqual(['--', '1.2mm 小', '3.5mm 小'])
+    const dayPrecipEls = dayLabelEls.map((el) => {
+      const day = el.closest('.gm-sp-weather-day') as HTMLElement
+      const precip = within(day).queryByText(/^(?:[\d.]+mm [\u4e00-\u9fa5])$/)
+      return precip?.textContent ?? null
+    })
+    expect(dayPrecipEls).toEqual([null, '1.2mm 小', '3.5mm 小'])
   })
 
   test('clicking city tab in header switches body to that city', () => {

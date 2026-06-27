@@ -190,7 +190,7 @@ function CityBlock({ data }: { data: WeatherCityData }) {
           {(() => {
             if (data.current.precipitation == null) return ''
             const label = precipLabel(data.current.precipitation, 'hour')
-            return label ? `${data.current.precipitation.toFixed(1)}mm ${label}` : ''
+            return label ? `${data.current.precipitation.toFixed(1)}mm ${label}雨` : ''
           })()}
         </span>
         <span
@@ -239,13 +239,13 @@ function CityBlock({ data }: { data: WeatherCityData }) {
               <span>
                 {Math.round(min)}° / {Math.round(max)}°
               </span>
-              <span class="gm-sp-weather-day-precip">
-                {(() => {
-                  if (precip == null || precip <= 0) return '--'
-                  const label = precipLabel(precip, 'day')
-                  return label ? `${precip.toFixed(1)}mm ${label}` : '--'
-                })()}
-              </span>
+              {(() => {
+                if (precip == null || precip <= 0) return null
+                const label = precipLabel(precip, 'day')
+                return label ? (
+                  <span class="gm-sp-weather-day-precip">{`${precip.toFixed(1)}mm ${label}`}</span>
+                ) : null
+              })()}
             </div>
           )
         })}

@@ -272,7 +272,7 @@ describe('renderTabsCard', () => {
       caches: new Map(),
       activeTabId: 'v2ex',
     })
-    expect(within(container).queryByRole('button', { name: '⚙' })).toBeNull()
+    expect(container.querySelector('button[data-action="edit"]')).toBeNull()
     render(
       <TabsCard
         group={group}
@@ -288,7 +288,7 @@ describe('renderTabsCard', () => {
       />,
       { container },
     )
-    expect(within(container).getByRole('button', { name: '⚙' })).not.toBeNull()
+    expect(container.querySelector('button[data-action="edit"]')).not.toBeNull()
   })
 
   test('shows error from the active tab cache', () => {
@@ -332,7 +332,7 @@ describe('renderTabsCard', () => {
       activeTabId: 'novels',
     })
     expect(within(container).queryByText('editor')).toBeNull()
-    ;(within(container).getByRole('button', { name: '⚙' }) as HTMLButtonElement).click()
+    ;(container.querySelector('button[data-action="edit"]') as HTMLButtonElement).click()
     await new Promise((r) => setTimeout(r, 0))
     expect(within(root as unknown as HTMLElement).getByText('保存')).not.toBeNull()
     expect(within(root as unknown as HTMLElement).getByText('editor')).not.toBeNull()

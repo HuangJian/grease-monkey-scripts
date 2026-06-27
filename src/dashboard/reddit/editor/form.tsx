@@ -138,6 +138,7 @@ export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEdit
                 advancedRefs.current[i] = el
               }}
               type="number"
+              class="gm-sp-input"
               min={f.min}
               max={f.max}
               value={advanced[f.prop]}

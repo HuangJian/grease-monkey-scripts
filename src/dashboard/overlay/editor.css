@@ -300,12 +300,10 @@
   grid-template-columns: 1fr 1fr;
   gap: 8px 16px;
   padding-bottom: 12px;
-  margin-bottom: 14px;
-  border-bottom: 1px solid var(--gm-sp-color-border);
 }
 
 .gm-sp-editor-source-settings .gm-sp-editor-row {
-  grid-template-columns: minmax(80px, 1fr) 1fr;
+  grid-template-columns: auto 1fr;
 }
 
 .gm-sp-editor-source-settings .gm-sp-editor-row:first-child {

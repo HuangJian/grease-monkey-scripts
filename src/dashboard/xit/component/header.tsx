@@ -12,6 +12,7 @@ import {
 import { parseQuery } from '../query'
 import type { XitData, XitLine, NamedFilterStore, NamedFilter } from '../types'
 import { FilterForm, type FilterFormMode } from './filter-form'
+import { EditIcon, DeleteIcon, SaveIcon } from '../../card/icons'
 
 export type XitHeaderState = {
   lines: XitLine[]
@@ -183,7 +184,7 @@ export function XitHeaderControls({
             }
           }}
         >
-          +
+          <SaveIcon />
         </button>
       </div>
 
@@ -226,7 +227,7 @@ export function XitHeaderControls({
                           onHeaderChange()
                         }}
                       >
-                        ✏
+                        <EditIcon />
                       </span>
                       <span
                         class="gm-sp-xit-saved-filter-delete"
@@ -235,7 +236,7 @@ export function XitHeaderControls({
                           onFilterDelete(f.id)
                         }}
                       >
-                        ×
+                        <DeleteIcon />
                       </span>
                     </span>
                   </button>

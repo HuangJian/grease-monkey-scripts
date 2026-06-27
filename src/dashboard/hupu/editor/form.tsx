@@ -139,6 +139,7 @@ export function HupuEditorForm({ fresh, settings, ctx, handleRef }: HupuEditorFo
                 advancedRefs.current[i] = el
               }}
               type="number"
+              class="gm-sp-input"
               min={f.min}
               max={f.max}
               value={advanced[f.prop]}

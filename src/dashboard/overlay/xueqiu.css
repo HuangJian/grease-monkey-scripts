@@ -82,7 +82,7 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--gm-sp-color-bg-card);
+  background: var(--gm-sp-color-bg);
   margin: -8px -12px 6px;
 }
 
@@ -91,7 +91,7 @@
   align-items: center;
   gap: 4px;
   flex-wrap: wrap;
-  padding: 8px 12px 4px;
+  padding: 0 12px 4px;
   border-bottom: 1px solid var(--gm-sp-color-border);
 }
 

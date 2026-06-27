@@ -248,11 +248,6 @@ export async function fetchXueqiu(
   runtime: Runtime,
   _options: XueqiuSourceOptions,
 ): Promise<XueqiuRenderData> {
-  const host = runtime.location.hostname
-  if (host !== 'xueqiu.com' && host !== 'www.xueqiu.com') {
-    throw new Error('请访问 xueqiu.com 首页刷新数据')
-  }
-
   const doc = runtime.document
   const win = doc.defaultView!
   injectInterceptor(runtime)

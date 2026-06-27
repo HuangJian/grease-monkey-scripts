@@ -41,6 +41,7 @@ export function SourceSettingsFields({
       <label class="gm-sp-editor-row">
         <span>Badge 显示</span>
         <select
+          class="gm-sp-input"
           value={badgeType}
           onChange={(e) => onBadgeTypeChange((e.target as HTMLSelectElement).value as BadgeType)}
         >

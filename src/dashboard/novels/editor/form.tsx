@@ -161,6 +161,7 @@ export function NovelsEditorForm({
         <label class="gm-sp-editor-row">
           <span>Badge 显示</span>
           <select
+            class="gm-sp-input"
             value={badgeType}
             onChange={(e) => setBadgeType((e.target as HTMLSelectElement).value as BadgeType)}
           >
@@ -237,6 +238,7 @@ export function NovelsEditorForm({
                 advancedRefs.current[i] = el
               }}
               type="number"
+              class="gm-sp-input"
               min={f.min}
               value={advanced[f.prop]}
               onInput={(e) =>

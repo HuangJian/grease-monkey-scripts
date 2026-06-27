@@ -44,6 +44,16 @@
   min-width: 0;
 }
 
+.gm-sp-xit-header-row > .gm-sp-btn-icon {
+  flex: 0 0 auto;
+  height: 28px;
+  aspect-ratio: 1;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .gm-sp-xit-clear-btn {
   position: absolute;
   right: 4px;
@@ -161,22 +171,24 @@
 .gm-sp-xit-saved-filter-edit,
 .gm-sp-xit-saved-filter-delete {
   cursor: pointer;
-  font-size: 11px;
   line-height: 1;
   padding: 1px;
   border-radius: 2px;
   opacity: 0.7;
+  display: inline-flex;
+  align-items: center;
+}
+
+.gm-sp-xit-saved-filter-edit svg,
+.gm-sp-xit-saved-filter-delete svg {
+  width: 12px;
+  height: 12px;
 }
 
 .gm-sp-xit-saved-filter-star:hover,
 .gm-sp-xit-saved-filter-edit:hover,
 .gm-sp-xit-saved-filter-delete:hover {
   opacity: 1;
-}
-
-.gm-sp-xit-saved-filter-edit {
-  display: inline-block;
-  transform: rotate(120deg);
 }
 
 .gm-sp-xit-saved-filter-star-default {

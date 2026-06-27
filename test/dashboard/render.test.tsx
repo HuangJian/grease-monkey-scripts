@@ -195,7 +195,7 @@ describe('renderCard', () => {
       onRefresh: () => Promise.resolve(),
       onRevert: () => {},
     })
-    expect(within(container).queryByRole('button', { name: '⚙' })).toBeNull()
+    expect(container.querySelector('button[data-action="edit"]')).toBeNull()
   })
 
   test('shows edit button and opens dialog when source has createEditor', async () => {
@@ -223,9 +223,9 @@ describe('renderCard', () => {
       onRefresh: () => Promise.resolve(),
       onRevert: () => {},
     })
-    expect(within(container).getByRole('button', { name: '⚙' })).not.toBeNull()
+    expect(container.querySelector('button[data-action="edit"]')).not.toBeNull()
     expect(within(container).getByText('real-data')).not.toBeNull()
-    ;(within(container).getByRole('button', { name: '⚙' }) as HTMLButtonElement).click()
+    ;(container.querySelector('button[data-action="edit"]') as HTMLButtonElement).click()
     await new Promise((r) => setTimeout(r, 0))
     expect(within(root as unknown as HTMLElement).getByText('保存')).not.toBeNull()
     expect(within(root as unknown as HTMLElement).getByText('editor-body')).not.toBeNull()

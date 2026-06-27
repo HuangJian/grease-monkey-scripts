@@ -11,23 +11,32 @@ export async function refreshSource(runtime: Runtime, source: Source<unknown>): 
     return
   }
   console.debug('[gm-dashboard] refreshSource lock-acquired sourceId=', source.id)
-  const oldCache = await loadCache<unknown>(runtime, source.id)
-  let next: Omit<CachedSource<unknown>, 'schemaVersion'> | null = null
   try {
-    const data = await source.fetch(runtime, oldCache?.data)
-    next = { data, fetchedAt: Date.now(), error: '' }
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e)
-    console.debug('[gm-dashboard] refreshSource fetch-threw sourceId=', source.id, 'msg=', message)
-    next = {
-      data: oldCache?.data,
-      fetchedAt: oldCache?.fetchedAt ?? Date.now(),
-      error: message,
+    const oldCache = await loadCache<unknown>(runtime, source.id)
+    let next: Omit<CachedSource<unknown>, 'schemaVersion'> | null = null
+    try {
+      const data = await source.fetch(runtime, oldCache?.data)
+      next = { data, fetchedAt: Date.now(), error: '' }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      console.debug(
+        '[gm-dashboard] refreshSource fetch-threw sourceId=',
+        source.id,
+        'msg=',
+        message,
+      )
+      next = {
+        data: oldCache?.data,
+        fetchedAt: oldCache?.fetchedAt ?? Date.now(),
+        error: message,
+      }
     }
+    if (next) {
+      await saveCache(runtime, source.id, next)
+    }
+  } finally {
+    await releaseLock(runtime, source.id)
   }
-  if (!next) return
-  await saveCache(runtime, source.id, next)
-  await releaseLock(runtime, source.id)
 }
 
 export async function runOpportunisticRefresh(

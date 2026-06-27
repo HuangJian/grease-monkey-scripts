@@ -47,13 +47,31 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     }
   }
 
-  async function refreshAndRerender(source: Source<unknown>): Promise<void> {
-    await refreshSource(runtime, source)
-    const group = reg.groupForSource.get(source.id)
-    if (!group || !handle) return
-    const deps = getRendererDeps()
-    if (!deps) return
-    await renderGroupById(group.id, reg.groupById, reg.groupForSource, deps)
+  // Track in-flight refreshes so that a user-triggered refresh waits for an
+  // already-running opportunistic refresh instead of silently failing the
+  // lock check and returning immediately (button stops spinning, no data).
+  const inflightRefreshes = new Map<string, Promise<void>>()
+
+  function refreshAndRerender(source: Source<unknown>): Promise<void> {
+    const existing = inflightRefreshes.get(source.id)
+    if (existing) {
+      console.debug('[gm-dashboard] refreshAndRerender in-flight sourceId=', source.id)
+      return existing
+    }
+    const promise = (async () => {
+      try {
+        await refreshSource(runtime, source)
+        const group = reg.groupForSource.get(source.id)
+        if (!group || !handle) return
+        const deps = getRendererDeps()
+        if (!deps) return
+        await renderGroupById(group.id, reg.groupById, reg.groupForSource, deps)
+      } finally {
+        inflightRefreshes.delete(source.id)
+      }
+    })()
+    inflightRefreshes.set(source.id, promise)
+    return promise
   }
 
   async function doRefreshSource(sourceId: string): Promise<void> {

@@ -43,6 +43,7 @@
   background: var(--gm-sp-aqi-color, var(--gm-sp-color-text-soft));
   white-space: nowrap;
   line-height: 1.4;
+  margin-left: auto;
 }
 
 .gm-sp-weather-chip {

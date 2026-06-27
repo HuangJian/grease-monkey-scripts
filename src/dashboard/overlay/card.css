@@ -62,17 +62,37 @@
 
 .gm-sp-refresh,
 .gm-sp-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 2px 7px;
-  font-size: 12px;
+  line-height: 1;
 }
 
-.gm-sp-refresh-icon {
-  display: inline-block;
+.gm-sp-card-actions .gm-sp-refresh,
+.gm-sp-card-actions .gm-sp-edit {
+  background: transparent;
+  border: 1px solid var(--gm-sp-color-border);
+  border-radius: var(--gm-sp-radius-sm);
+  cursor: pointer;
+  color: var(--gm-sp-color-text-muted);
 }
 
-.gm-sp-refresh-loading .gm-sp-refresh-icon {
-  display: inline-block;
+.gm-sp-card-actions .gm-sp-refresh:hover,
+.gm-sp-card-actions .gm-sp-edit:hover {
+  border-color: var(--gm-sp-color-border-strong);
+  color: var(--gm-sp-color-text);
+}
+
+.gm-sp-refresh svg,
+.gm-sp-edit svg {
+  width: 14px;
+  height: 14px;
+}
+
+.gm-sp-refresh-loading svg {
   animation: gm-sp-refresh-spin 0.9s linear infinite;
+  transform-origin: center;
 }
 
 @keyframes gm-sp-refresh-spin {
@@ -363,6 +383,23 @@
   background: rgba(0, 0, 0, 0.04);
 }
 
+.gm-sp-tab-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.gm-sp-tab-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.gm-sp-tab > span:first-child {
+  display: inline-flex;
+  align-items: center;
+}
+
 .gm-sp-tab-active {
   color: var(--gm-sp-color-text);
   background: var(--gm-sp-color-bg);
@@ -372,14 +409,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 5px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 4px;
   border-radius: var(--gm-sp-radius-8);
   background: var(--gm-sp-color-border);
   color: var(--gm-sp-color-text-muted);
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 9px;
+  font-weight: 400;
   line-height: 1;
 }
 

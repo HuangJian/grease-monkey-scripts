@@ -22,16 +22,16 @@ export function precipLabel(mm: number | null | undefined, period: 'hour' | 'day
 }
 
 /**
- * Human-readable wind speed label (single character).
+ * Human-readable wind speed label (e.g. 「微风」).
  * Returns null when speed is absent.
  */
 export function windLabel(kmh: number | null | undefined): string | null {
   if (kmh == null || !Number.isFinite(kmh)) return null
-  if (kmh < 6) return '静'
-  if (kmh < 12) return '微'
-  if (kmh < 20) return '和'
-  if (kmh < 29) return '清'
-  if (kmh < 39) return '强'
-  if (kmh < 50) return '劲'
-  return '大'
+  if (kmh < 6) return '静风'
+  if (kmh < 12) return '微风'
+  if (kmh < 20) return '和风'
+  if (kmh < 29) return '清风'
+  if (kmh < 39) return '强风'
+  if (kmh < 50) return '劲风'
+  return '大风'
 }

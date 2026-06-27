@@ -2,6 +2,7 @@ import { useRef } from 'preact/hooks'
 import type { ComponentChildren } from 'preact'
 import type { CachedSource } from '../types'
 import { VERY_STALE_MULTIPLIER } from '../types'
+import { RefreshIcon, ConfigIcon } from './icons'
 
 export function formatRelativeTime(fetchedAt: number | null, now: number): string {
   if (fetchedAt == null) return '\u4ECE\u672A\u66F4\u65B0'
@@ -83,20 +84,19 @@ export function RefreshButton({ onRefresh }: RefreshButtonProps) {
 
   return (
     <button type="button" class="gm-sp-refresh" onClick={handleClick} ref={btnRef}>
-      <span class="gm-sp-refresh-icon">{'\u21BB'}</span>
+      <RefreshIcon />
     </button>
   )
 }
 
 export type ConfigButtonProps = {
-  icon?: string
   onClick: () => void
 }
 
-export function ConfigButton({ icon = '\u2699', onClick }: ConfigButtonProps) {
+export function ConfigButton({ onClick }: ConfigButtonProps) {
   return (
     <button type="button" class="gm-sp-edit" onClick={onClick} data-action="edit">
-      {icon}
+      <ConfigIcon />
     </button>
   )
 }

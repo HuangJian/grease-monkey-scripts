@@ -85,7 +85,12 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
         }
       />
     ),
-    async fetch(runtime) {
+    async fetch(runtime, prevData) {
+      const host = runtime.location.hostname
+      if (host !== 'xueqiu.com' && !host.endsWith('.xueqiu.com')) {
+        if (prevData) return prevData
+        throw new Error('请访问 xueqiu.com 首页刷新数据')
+      }
       await state.loadFromStorage(runtime)
       const fresh = await fetchXueqiu(runtime, options)
       await saveXueqiuCache(runtime, fresh)
