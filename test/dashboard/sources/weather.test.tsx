@@ -411,15 +411,7 @@ describe('createWeatherSource.render', () => {
     data: unknown,
   ) {
     const Comp = source.RenderComponent
-    render(
-      <Comp
-        data={data}
-        root={undefined as any}
-        runtime={undefined as any}
-        onHeaderChange={() => {}}
-      />,
-      { container },
-    )
+    render(<Comp data={data} root={undefined as any} runtime={undefined as any} />, { container })
   }
 
   function buildData() {
@@ -771,7 +763,7 @@ describe('createWeatherSource.render', () => {
       render(
         <div>
           <HeaderComp
-            data={data}
+            data={data as any}
             cached={null}
             now={0}
             ttlMs={60000}
@@ -779,14 +771,8 @@ describe('createWeatherSource.render', () => {
             root={undefined as any}
             onRefresh={async () => {}}
             onEdit={() => {}}
-            onHeaderChange={() => rerender()}
           />
-          <BodyComp
-            data={data}
-            root={undefined as any}
-            runtime={createRuntime()}
-            onHeaderChange={() => rerender()}
-          />
+          <BodyComp data={data as any} root={undefined as any} runtime={createRuntime()} />
         </div>,
         { container },
       )

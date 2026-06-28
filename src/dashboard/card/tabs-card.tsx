@@ -1,4 +1,3 @@
-import { useState } from 'preact/hooks'
 import type { Runtime } from '../../runtime'
 import type { CardGroup } from '../card-group'
 import type { CachedSource, SourceSettings } from '../types'
@@ -33,7 +32,6 @@ export function TabsCard({
   onRefresh: onRefreshCallback,
   onEdit: onEditCallback,
 }: TabsCardProps) {
-  const [, setHeaderVersion] = useState(0)
   const activeTab = group.tabs.find((t) => t.id === activeTabId) ?? group.tabs[0]!
   const activeCached = caches.get(activeTab.id) ?? null
   const activeData = (activeCached?.data ?? null) as unknown
@@ -49,7 +47,7 @@ export function TabsCard({
   const tabItems: TabsItem[] = group.tabs.map((tab) => {
     const cached = caches.get(tab.id) ?? null
     const data = cached?.data ?? null
-    const labelInfo = tab.getTabLabel ? tab.getTabLabel(data as never) : { label: tab.title }
+    const labelInfo = tab.getTabLabel ? tab.getTabLabel(data) : { label: tab.title }
     const settings = getSourceSettings(sourceSettings, tab.id)
     const displayLabel = settings.tabTitle || labelInfo.label
     const displayBadge = settings.badgeType === 'none' ? null : labelInfo.badge
@@ -71,10 +69,6 @@ export function TabsCard({
     root,
     onRefresh: () => onRefreshCallback(activeTab.id),
     onEdit,
-    onHeaderChange: () => {
-      console.debug('[gm-tabs-card] onHeaderChange triggered for', activeTab.id)
-      setHeaderVersion((n) => n + 1)
-    },
   }
 
   const headerContent = HeaderComp ? <HeaderComp {...headerProps} /> : null
@@ -108,13 +102,7 @@ export function TabsCard({
         data-tab-id={tab.id}
         hidden={!isActive}
       >
-        <Comp
-          data={data as never}
-          root={root}
-          runtime={runtime}
-          onNotify={() => onTabChange(tab.id)}
-          onHeaderChange={() => setHeaderVersion((n) => n + 1)}
-        />
+        <Comp data={data} root={root} runtime={runtime} onNotify={() => onTabChange(tab.id)} />
       </div>
     )
   })

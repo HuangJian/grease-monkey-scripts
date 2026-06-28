@@ -37,22 +37,23 @@
   --gm-sp-color-status-text: #92400e;
   --gm-sp-color-source-v2ex: #047857;
   --gm-sp-color-traffic-red: #ff5f57;
-  --gm-sp-color-weather-chip: #4b5563;
+  --gm-sp-color-text-secondary: #4b5563;
   --gm-sp-color-weather-source-failed: #cbd5e1;
   --gm-sp-color-weather-badge-bg: #f1f5f9;
   --gm-sp-color-weather-badge-text: #94a3b8;
   --gm-sp-color-stock-up: #e53935;
   --gm-sp-color-stock-down: #43a047;
 
+  --gm-sp-radius-xs: 3px;
   --gm-sp-radius-sm: 4px;
   --gm-sp-radius-md: 6px;
   --gm-sp-radius-lg: 10px;
   --gm-sp-radius-xl: 12px;
   --gm-sp-radius-pill: 999px;
-  --gm-sp-radius-xs: 3px;
-  --gm-sp-radius-2: 2px;
-  --gm-sp-radius-5: 5px;
-  --gm-sp-radius-8: 8px;
+
+  --gm-sp-color-overlay-backdrop: rgba(15, 23, 42, 0.55);
+  --gm-sp-color-editor-backdrop: rgba(15, 23, 42, 0.45);
+  --gm-sp-color-hover-overlay: rgba(0, 0, 0, 0.04);
 
   --gm-sp-text-xs: 10px;
   --gm-sp-text-sm: 11px;

@@ -1,7 +1,10 @@
+import { useMemo } from 'preact/hooks'
 import type { SourceComponentProps } from '../../types'
+import { useHeaderState, type HeaderStateStore } from '../../header-state'
 import { showEditorDialog } from '../../shell/editor'
-import { createXitEditor, setPendingLineIndex } from '../editor'
+import { createXitEditor } from '../editor'
 import { parseQuery, filterItems } from '../query'
+import { parseXitText } from '../parser'
 import { getDueDateStatus } from '../render/due-date'
 import { XitList } from '../render/list'
 import type { XitData, XitLine, XitItem } from '../types'
@@ -32,13 +35,13 @@ export function computePinnedLines(displayLines: XitLine[]): XitLine[] {
 }
 
 export function XitBody({
-  data: _data,
+  data,
   root,
   runtime,
-  headerState,
-}: SourceComponentProps<XitData> & { headerState: XitHeaderState }) {
-  const hs = headerState
-  const lines = hs.lines
+  headerStore,
+}: SourceComponentProps<XitData> & { headerStore: HeaderStateStore<XitHeaderState> }) {
+  const hs = useHeaderState(headerStore)
+  const lines = useMemo(() => parseXitText(data?.text ?? ''), [data?.text])
   const query = hs.query
   const queryError = hs.queryError
 
@@ -74,7 +77,6 @@ export function XitBody({
 
   function openEditor(lineIndex?: number) {
     if (root && runtime) {
-      setPendingLineIndex(lineIndex ?? null)
       showEditorDialog(
         root,
         <a href="https://xit.jotaen.net/" target="_blank" rel="noopener">
@@ -82,7 +84,7 @@ export function XitBody({
         </a>,
         runtime,
         async (dialogBody, dialogClose) => {
-          const editor = createXitEditor()
+          const editor = createXitEditor(lineIndex ?? null)
           return editor(dialogBody, {
             runtime,
             onRevert: () => {},

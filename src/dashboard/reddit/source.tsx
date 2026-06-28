@@ -2,6 +2,7 @@ import { REDDIT_AUTHOR_TAGS_KEY, REDDIT_AUTHOR_TAGS_LS_KEY } from '../../shared/
 import type { AuthorTagMap } from '../../shared/author-labels'
 import type { Runtime } from '../../runtime'
 import type { Source, SourceHeaderProps, SourceSettings } from '../types'
+import { createHeaderState, useHeaderState } from '../header-state'
 import { loadCache, saveCache } from '../cache'
 import { loadConfigSection } from '../config'
 import { syncAuthorTags } from '../author-tags-sync'
@@ -22,7 +23,7 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
   const state = createRedditState({ retentionMs })
   const expandCollapse = createExpandCollapse()
   let authorTagMap: AuthorTagMap = {}
-  const headerState: { dateFilter: DateFilter } = { dateFilter: '全' }
+  const headerStore = createHeaderState<{ dateFilter: DateFilter }>({ dateFilter: '全' })
 
   async function loadAuthorTags(runtime: Runtime): Promise<void> {
     authorTagMap = await syncAuthorTags({
@@ -78,16 +79,15 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 3,
-    headerState,
-    RenderHeader: (props: SourceHeaderProps<RedditRenderData>) => (
-      <DateFilterGroup
-        value={headerState.dateFilter}
-        onChange={(f) => {
-          headerState.dateFilter = f
-          props.onHeaderChange()
-        }}
-      />
-    ),
+    RenderHeader: (_props: SourceHeaderProps<RedditRenderData>) => {
+      const hs = useHeaderState(headerStore)
+      return (
+        <DateFilterGroup
+          value={hs.dateFilter}
+          onChange={(f) => headerStore.set((s) => ({ ...s, dateFilter: f }))}
+        />
+      )
+    },
     async fetch(runtime, _prevData) {
       const fresh = await loadFreshRedditOptions(runtime, options)
       console.debug('[gm-dashboard] reddit.fetch start subs=', fresh.subreddits)
@@ -117,15 +117,18 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
       await pruneExpiredCache(runtime)
       return visible
     },
-    RenderComponent: (props) => (
-      <RedditComponent
-        {...props}
-        state={state}
-        expandCollapse={expandCollapse}
-        authorTagMap={authorTagMap}
-        dateFilter={headerState.dateFilter}
-      />
-    ),
+    RenderComponent: (props) => {
+      const hs = useHeaderState(headerStore)
+      return (
+        <RedditComponent
+          {...props}
+          state={state}
+          expandCollapse={expandCollapse}
+          authorTagMap={authorTagMap}
+          dateFilter={hs.dateFilter}
+        />
+      )
+    },
     async loadState(runtime) {
       await state.loadFromStorage(runtime)
       await loadAuthorTags(runtime)

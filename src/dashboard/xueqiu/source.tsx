@@ -7,6 +7,7 @@ import type {
   SourceSettings,
   TabLabel,
 } from '../types'
+import { createHeaderState, useHeaderState, type HeaderStateStore } from '../header-state'
 import { loadCache, saveCache } from '../cache'
 import type { DateFilter } from '../date-filter'
 import { DateFilterGroup } from '../date-filter'
@@ -36,11 +37,11 @@ const HOT_SOURCE_ID = 'xueqiu-hot'
 export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle {
   const retentionMs = options.retentionDays * 24 * 60 * 60 * 1000
   const state: XueqiuState = createXueqiuState({ retentionMs })
-  const mainHeaderState: { dateFilter: DateFilter; viewMode: ViewMode } = {
+  const mainHeaderStore = createHeaderState<{ dateFilter: DateFilter; viewMode: ViewMode }>({
     dateFilter: '全',
     viewMode: 'list',
-  }
-  const hotHeaderState: { dateFilter: DateFilter } = { dateFilter: '全' }
+  })
+  const hotHeaderStore = createHeaderState<{ dateFilter: DateFilter }>({ dateFilter: '全' })
 
   const mainSource: Source<XueqiuRenderData> = {
     id: MAIN_SOURCE_ID,
@@ -48,43 +49,36 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 4,
-    headerState: mainHeaderState,
     getTabLabel(data) {
       return xueqiuNewsTabLabel(data, state)
     },
-    RenderHeader: (props: SourceHeaderProps<XueqiuRenderData>) => (
-      <DateFilterGroup
-        value={mainHeaderState.dateFilter}
-        onChange={(f) => {
-          mainHeaderState.dateFilter = f
-          props.onHeaderChange()
-        }}
-        trailing={
-          <span class="gm-sp-date-filter gm-sp-view-toggle">
-            <button
-              type="button"
-              class={`gm-sp-date-filter-btn${mainHeaderState.viewMode === 'list' ? ' gm-sp-date-filter-btn-active' : ''}`}
-              onClick={() => {
-                mainHeaderState.viewMode = 'list'
-                props.onHeaderChange()
-              }}
-            >
-              列表
-            </button>
-            <button
-              type="button"
-              class={`gm-sp-date-filter-btn${mainHeaderState.viewMode === 'summary' ? ' gm-sp-date-filter-btn-active' : ''}`}
-              onClick={() => {
-                mainHeaderState.viewMode = 'summary'
-                props.onHeaderChange()
-              }}
-            >
-              AI摘要
-            </button>
-          </span>
-        }
-      />
-    ),
+    RenderHeader: (_props: SourceHeaderProps<XueqiuRenderData>) => {
+      const hs = useHeaderState(mainHeaderStore)
+      return (
+        <DateFilterGroup
+          value={hs.dateFilter}
+          onChange={(f) => mainHeaderStore.set((s) => ({ ...s, dateFilter: f }))}
+          trailing={
+            <span class="gm-sp-date-filter gm-sp-view-toggle">
+              <button
+                type="button"
+                class={`gm-sp-date-filter-btn${hs.viewMode === 'list' ? ' gm-sp-date-filter-btn-active' : ''}`}
+                onClick={() => mainHeaderStore.set((s) => ({ ...s, viewMode: 'list' }))}
+              >
+                列表
+              </button>
+              <button
+                type="button"
+                class={`gm-sp-date-filter-btn${hs.viewMode === 'summary' ? ' gm-sp-date-filter-btn-active' : ''}`}
+                onClick={() => mainHeaderStore.set((s) => ({ ...s, viewMode: 'summary' }))}
+              >
+                AI摘要
+              </button>
+            </span>
+          }
+        />
+      )
+    },
     async fetch(runtime, prevData) {
       const host = runtime.location.hostname
       if (host !== 'xueqiu.com' && !host.endsWith('.xueqiu.com')) {
@@ -108,20 +102,20 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
     async loadState(runtime) {
       await state.loadFromStorage(runtime)
     },
-    RenderComponent: (props) => (
-      <XueqiuComponent
-        {...props}
-        state={state}
-        mode="news"
-        dateFilter={mainHeaderState.dateFilter}
-        viewMode={mainHeaderState.viewMode}
-        retentionMs={retentionMs}
-        onViewModeChange={(m) => {
-          mainHeaderState.viewMode = m
-          props.onHeaderChange()
-        }}
-      />
-    ),
+    RenderComponent: (props) => {
+      const hs = useHeaderState(mainHeaderStore)
+      return (
+        <XueqiuComponent
+          {...props}
+          state={state}
+          mode="news"
+          dateFilter={hs.dateFilter}
+          viewMode={hs.viewMode}
+          retentionMs={retentionMs}
+          onViewModeChange={(m) => mainHeaderStore.set((s) => ({ ...s, viewMode: m }))}
+        />
+      )
+    },
     createEditor(settings: SourceSettings) {
       return createXueqiuEditor(options, MAIN_SOURCE_ID, settings)
     },
@@ -133,19 +127,18 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 5,
-    headerState: hotHeaderState,
     getTabLabel() {
       return { label: '雪球热议' }
     },
-    RenderHeader: (props: SourceHeaderProps<XueqiuRenderData>) => (
-      <DateFilterGroup
-        value={hotHeaderState.dateFilter}
-        onChange={(f) => {
-          hotHeaderState.dateFilter = f
-          props.onHeaderChange()
-        }}
-      />
-    ),
+    RenderHeader: (_props: SourceHeaderProps<XueqiuRenderData>) => {
+      const hs = useHeaderState(hotHeaderStore)
+      return (
+        <DateFilterGroup
+          value={hs.dateFilter}
+          onChange={(f) => hotHeaderStore.set((s) => ({ ...s, dateFilter: f }))}
+        />
+      )
+    },
     async fetch(runtime) {
       // HotPosts are persisted only under MAIN_SOURCE_ID to avoid duplication.
       // This source returns empty data — RenderComponent loads from shared cache.
@@ -160,45 +153,11 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
       await state.loadFromStorage(runtime)
     },
     RenderComponent: (props: SourceComponentProps<XueqiuRenderData>) => (
-      <HotRankedView {...props} />
+      <HotRankedView {...props} state={state} hotHeaderStore={hotHeaderStore} />
     ),
     createEditor(settings: SourceSettings) {
       return createXueqiuEditor(options, HOT_SOURCE_ID, settings)
     },
-  }
-
-  function HotRankedView({
-    root,
-    runtime,
-    onNotify,
-    onHeaderChange,
-  }: SourceComponentProps<XueqiuRenderData>) {
-    const [data, setData] = useState<XueqiuRenderData | null>(null)
-
-    useLayoutEffect(() => {
-      loadCache<XueqiuRenderData>(runtime, MAIN_SOURCE_ID).then((cached) => {
-        if (!cached?.data) {
-          setData({ news: [], hotPosts: [] })
-          return
-        }
-        const filtered = cached.data.hotPosts.filter((it) => !state.isHidden(String(it.id)))
-        const ranked = rankHotPosts(filtered, Date.now(), DEFAULT_RANKING_OPTIONS)
-        setData({ news: [], hotPosts: ranked })
-      })
-    }, [runtime])
-
-    return (
-      <XueqiuComponent
-        data={data}
-        root={root}
-        runtime={runtime}
-        onHeaderChange={onHeaderChange}
-        state={state}
-        mode="hot"
-        dateFilter={hotHeaderState.dateFilter}
-        onNotify={onNotify}
-      />
-    )
   }
 
   /**
@@ -254,6 +213,44 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
       await state.loadFromStorage(runtime)
     },
   }
+}
+
+function HotRankedView({
+  root,
+  runtime,
+  onNotify,
+  state,
+  hotHeaderStore,
+}: SourceComponentProps<XueqiuRenderData> & {
+  state: XueqiuState
+  hotHeaderStore: HeaderStateStore<{ dateFilter: DateFilter }>
+}) {
+  const [data, setData] = useState<XueqiuRenderData | null>(null)
+  const hs = useHeaderState(hotHeaderStore)
+
+  useLayoutEffect(() => {
+    loadCache<XueqiuRenderData>(runtime, MAIN_SOURCE_ID).then((cached) => {
+      if (!cached?.data) {
+        setData({ news: [], hotPosts: [] })
+        return
+      }
+      const filtered = cached.data.hotPosts.filter((it) => !state.isHidden(String(it.id)))
+      const ranked = rankHotPosts(filtered, Date.now(), DEFAULT_RANKING_OPTIONS)
+      setData({ news: [], hotPosts: ranked })
+    })
+  }, [runtime])
+
+  return (
+    <XueqiuComponent
+      data={data}
+      root={root}
+      runtime={runtime}
+      state={state}
+      mode="hot"
+      dateFilter={hs.dateFilter}
+      onNotify={onNotify}
+    />
+  )
 }
 
 async function saveXueqiuCache(runtime: Runtime, data: XueqiuRenderData): Promise<void> {

@@ -23,7 +23,6 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 1,
-    headerState: {},
     RenderComponent: (props) => <TnewsComponent {...props} state={state} now={Date.now()} />,
     getTabLabel(data) {
       return tnewsTabLabel(data, state)

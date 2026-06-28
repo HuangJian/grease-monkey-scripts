@@ -70,29 +70,29 @@ function OverlayMount({ host, handleRef, root, runtime, onClose }: OverlayMountP
   }
 
   const handleImport = (): void => {
-    const input = fileInputRef.current
-    if (!input) return
-    input.onchange = () => {
-      const file = input.files?.[0]
-      if (!file) return
-      void readImportFile(file)
-        .then((raw) => {
-          const validation = validateImportData(raw)
-          if (!validation.ok) {
-            runtime.alert(validation.error)
-            return
-          }
-          return applyImportData(runtime, raw as Record<string, unknown>)
-        })
-        .then(() => {
-          runtime.alert('导入成功，刷新页面后生效。')
-        })
-        .catch((e: Error) => {
-          runtime.alert('导入失败：' + (e.message ?? String(e)))
-        })
-      input.value = ''
-    }
-    input.click()
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = (e: Event): void => {
+    const input = e.target as HTMLInputElement
+    const file = input.files?.[0]
+    if (!file) return
+    void readImportFile(file)
+      .then((raw) => {
+        const validation = validateImportData(raw)
+        if (!validation.ok) {
+          runtime.alert(validation.error)
+          return
+        }
+        return applyImportData(runtime, raw as Record<string, unknown>)
+      })
+      .then(() => {
+        runtime.alert('导入成功，刷新页面后生效。')
+      })
+      .catch((err: Error) => {
+        runtime.alert('导入失败：' + (err.message ?? String(err)))
+      })
+    input.value = ''
   }
 
   const handleSave = (): void => {
@@ -203,7 +203,13 @@ function OverlayMount({ host, handleRef, root, runtime, onClose }: OverlayMountP
               </button>
             </div>
           </div>
-          <input type="file" accept=".json" ref={fileInputRef} style="display:none" />
+          <input
+            type="file"
+            accept=".json"
+            ref={fileInputRef}
+            style="display:none"
+            onChange={handleFileChange}
+          />
           <div class="gm-sp-cards">
             <div class="gm-sp-cards-main" ref={mainCardsRef}></div>
             <div class="gm-sp-cards-side" ref={sideCardsRef}></div>

@@ -38,13 +38,15 @@ async function fetchWithCache<TConfig, TData>(
   }
   try {
     const data = await fetchData(runtime, config)
-    Promise.resolve(runtime.setValue(cacheKey, data)).catch(() => {})
+    Promise.resolve(runtime.setValue(cacheKey, data)).catch(() => {
+      console.warn('[gm-dashboard] misc cache write failed', cacheKey)
+    })
     return { config, data, error: null }
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e)
     let data: TData | null = null
     try {
-      data = await runtime.getValue<TData | null>(cacheKey, null as TData | null)
+      data = await runtime.getValue<TData | null>(cacheKey, null)
     } catch (err) {
       console.debug('[gm-dashboard] misc cache read error', err)
     }
@@ -59,13 +61,15 @@ async function fetchWithCacheNoConfig<TData>(
 ): Promise<{ config: null; data: TData | null; error: string | null }> {
   try {
     const data = await fetchData(runtime)
-    Promise.resolve(runtime.setValue(cacheKey, data)).catch(() => {})
+    Promise.resolve(runtime.setValue(cacheKey, data)).catch(() => {
+      console.warn('[gm-dashboard] misc cache write failed', cacheKey)
+    })
     return { config: null, data, error: null }
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e)
     let data: TData | null = null
     try {
-      data = await runtime.getValue<TData | null>(cacheKey, null as TData | null)
+      data = await runtime.getValue<TData | null>(cacheKey, null)
     } catch (err) {
       console.debug('[gm-dashboard] misc cache read error', err)
     }
@@ -118,7 +122,6 @@ export function createMiscSource(runtime: Runtime): Source<MiscData> {
     },
     groupId: 'browse',
     order: 10,
-    headerState: {},
     getTabLabel(data: MiscData | null): TabLabel {
       const badge =
         miscOptions.badgeType === 'none' || !data
@@ -187,9 +190,6 @@ export function createMiscSource(runtime: Runtime): Source<MiscData> {
     },
     createEditor(settings: SourceSettings) {
       return createMiscEditor(miscOptions, settings)
-    },
-    async loadState(_runtime) {
-      /* misc is stateless */
     },
   }
 }

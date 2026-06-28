@@ -1,4 +1,3 @@
-import { useState } from 'preact/hooks'
 import type { ComponentChildren } from 'preact'
 import type { Runtime } from '../../runtime'
 import type { CachedSource, Source } from '../types'
@@ -45,7 +44,6 @@ export function RenderCard<T>({
   const Comp = source.RenderComponent
   const HeaderComp = source.RenderHeader
   const data = (cached?.data ?? null) as T | null
-  const [, setHeaderVersion] = useState(0)
 
   const onEdit = createEditHandler({
     source: source as Source<unknown>,
@@ -64,7 +62,6 @@ export function RenderCard<T>({
     root,
     onRefresh,
     onEdit,
-    onHeaderChange: () => setHeaderVersion((n) => n + 1),
   }
 
   const header: ComponentChildren = HeaderComp ? (
@@ -95,12 +92,7 @@ export function RenderCard<T>({
 
   return (
     <Card header={header} error={cached?.error ?? ''}>
-      <Comp
-        data={data}
-        root={root}
-        runtime={runtime}
-        onHeaderChange={() => setHeaderVersion((n) => n + 1)}
-      />
+      <Comp data={data} root={root} runtime={runtime} />
     </Card>
   )
 }

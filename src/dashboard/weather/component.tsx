@@ -127,7 +127,54 @@ export function WeatherPanels({
   )
 }
 
-function CityBlock({ data }: { data: WeatherCityData }) {
+function currentPrecipText(data: WeatherCityData): string {
+  if (data.current.precipitation == null) return ''
+  const label = precipLabel(data.current.precipitation, 'hour')
+  return label ? `${data.current.precipitation.toFixed(1)}mm ${label}雨` : ''
+}
+
+function hourlyPrecipText(amt: number | null | undefined): string {
+  if (amt == null || amt <= 0) return '--'
+  const label = precipLabel(amt, 'hour')
+  return label ? `${amt.toFixed(1)}mm ${label}` : '--'
+}
+
+function dailyPrecipText(precip: number | null | undefined): string | null {
+  if (precip == null || precip <= 0) return null
+  const label = precipLabel(precip, 'day')
+  return label ? `${precip.toFixed(1)}mm ${label}` : null
+}
+
+function WeatherSource({ data }: { data: WeatherCityData }) {
+  if (!data.cmaUrl) return null
+  if (data.cmaFailed) {
+    return (
+      <>
+        <span class="gm-sp-weather-source-badge">📌</span>
+        <a
+          class="gm-sp-weather-source-inline gm-sp-weather-source-failed"
+          href={data.cmaUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          气象局
+        </a>
+      </>
+    )
+  }
+  return (
+    <a
+      class="gm-sp-weather-source-inline"
+      href={data.cmaUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      气象局
+    </a>
+  )
+}
+
+function WeatherSummary({ data }: { data: WeatherCityData }) {
   const rangeText =
     data.daily.time.length > 0
       ? `${Math.round(data.daily.temperature_2m_min[0]!)}°~${Math.round(data.daily.temperature_2m_max[0]!)}°`
@@ -143,114 +190,98 @@ function CityBlock({ data }: { data: WeatherCityData }) {
   const windDesc = windLabel(data.current.wind_speed_10m)
   const aq = data.current.air_quality
   const level = aqiLevel(aq?.us_aqi ?? null)
-
-  const indices = remainingHours(data.hourly, data.current.time, data.current.source === 'cma')
-  const dailyCount = Math.min(4, data.daily.time.length)
-
-  const sourceEl =
-    data.cmaUrl && !data.cmaFailed ? (
-      <a
-        class="gm-sp-weather-source-inline"
-        href={data.cmaUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        气象局
-      </a>
-    ) : data.cmaUrl ? (
-      <>
-        <span class="gm-sp-weather-source-badge">📌</span>
-        <a
-          class="gm-sp-weather-source-inline gm-sp-weather-source-failed"
-          href={data.cmaUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          气象局
-        </a>
-      </>
-    ) : null
+  const precip = currentPrecipText(data)
 
   return (
-    <div>
-      <div class="gm-sp-weather-summary">
-        {rangeText && <span class="gm-sp-weather-range">{rangeText}</span>}
-        <span class="gm-sp-weather-chip">🌡️ {Math.round(data.current.apparent_temperature)}°</span>
-        {humidity && <span class="gm-sp-weather-chip">{humidity}</span>}
-        <span class="gm-sp-weather-chip gm-sp-weather-wind">
-          <span class="gm-sp-weather-wind-arrow" style={`--gm-sp-wind-rot: ${windRot}`}>
-            {arrow}
-          </span>{' '}
-          {windDesc ? `${windSpeed} ${windDesc}` : windSpeed}
-        </span>
-        <span class="gm-sp-weather-chip gm-sp-weather-precip">
-          <span class="gm-sp-weather-precip-icon">
-            {data.daily.weather_code[0] != null ? weatherCodeIcon(data.daily.weather_code[0]!) : ''}
-          </span>{' '}
-          {(() => {
-            if (data.current.precipitation == null) return ''
-            const label = precipLabel(data.current.precipitation, 'hour')
-            return label ? `${data.current.precipitation.toFixed(1)}mm ${label}雨` : ''
-          })()}
-        </span>
-        <span
-          class="gm-sp-weather-aqi"
-          data-level={level.label}
-          style={`--gm-sp-aqi-color: ${level.color}`}
-        >
-          {aq ? `${aq.us_aqi} ${level.label}` : '--'}
-        </span>
-      </div>
+    <div class="gm-sp-weather-summary">
+      {rangeText && <span class="gm-sp-weather-range">{rangeText}</span>}
+      <span class="gm-sp-weather-chip">🌡️ {Math.round(data.current.apparent_temperature)}°</span>
+      {humidity && <span class="gm-sp-weather-chip">{humidity}</span>}
+      <span class="gm-sp-weather-chip gm-sp-weather-wind">
+        <span class="gm-sp-weather-wind-arrow" style={`--gm-sp-wind-rot: ${windRot}`}>
+          {arrow}
+        </span>{' '}
+        {windDesc ? `${windSpeed} ${windDesc}` : windSpeed}
+      </span>
+      <span class="gm-sp-weather-chip gm-sp-weather-precip">
+        <span class="gm-sp-weather-precip-icon">
+          {data.daily.weather_code[0] != null ? weatherCodeIcon(data.daily.weather_code[0]!) : ''}
+        </span>{' '}
+        {precip}
+      </span>
+      <span
+        class="gm-sp-weather-aqi"
+        data-level={level.label}
+        style={`--gm-sp-aqi-color: ${level.color}`}
+      >
+        {aq ? `${aq.us_aqi} ${level.label}` : '--'}
+      </span>
+    </div>
+  )
+}
+
+function WeatherHourly({ data }: { data: WeatherCityData }) {
+  const indices = remainingHours(data.hourly, data.current.time, data.current.source === 'cma')
+
+  if (indices.length === 0) {
+    return (
       <div class="gm-sp-weather-hourly">
-        {indices.length === 0 ? (
-          <div class="gm-sp-weather-hourly-empty">无小时数据</div>
-        ) : (
-          indices.map((i) => (
-            <div class="gm-sp-weather-hour">
-              <span class="gm-sp-weather-hour-time">{formatHourLabel(data.hourly.time[i]!)}</span>
-              <span class="gm-sp-weather-hour-icon">
-                {weatherCodeIcon(data.hourly.weather_code[i]!)}
-              </span>
-              <span class="gm-sp-weather-hour-temp">
-                {Math.round(data.hourly.temperature_2m[i]!)}°
-              </span>
-              <span class="gm-sp-weather-hour-precip">
-                {(() => {
-                  const amt = data.hourly.precipitation_amount?.[i]
-                  if (amt == null || amt <= 0) return '--'
-                  const label = precipLabel(amt, 'hour')
-                  return label ? `${amt.toFixed(1)}mm ${label}` : '--'
-                })()}
-              </span>
-            </div>
-          ))
-        )}
+        <div class="gm-sp-weather-hourly-empty">无小时数据</div>
       </div>
-      <div class="gm-sp-weather-daily">
-        {Array.from({ length: dailyCount - 1 }, (_, j) => j + 1).map((j) => {
-          const max = data.daily.temperature_2m_max[j]!
-          const min = data.daily.temperature_2m_min[j]!
-          const code = data.daily.weather_code[j]!
-          const precip = data.daily.precipitation_sum?.[j]
-          return (
-            <div class="gm-sp-weather-day">
-              <span class="gm-sp-weather-day-label">+{j}</span>
-              <span class="gm-sp-weather-day-icon">{weatherCodeIcon(code)}</span>
-              <span>
-                {Math.round(min)}° / {Math.round(max)}°
-              </span>
-              {(() => {
-                if (precip == null || precip <= 0) return null
-                const label = precipLabel(precip, 'day')
-                return label ? (
-                  <span class="gm-sp-weather-day-precip">{`${precip.toFixed(1)}mm ${label}`}</span>
-                ) : null
-              })()}
-            </div>
-          )
-        })}
-        {sourceEl}
-      </div>
+    )
+  }
+
+  return (
+    <div class="gm-sp-weather-hourly">
+      {indices.map((i) => (
+        <div class="gm-sp-weather-hour">
+          <span class="gm-sp-weather-hour-time">{formatHourLabel(data.hourly.time[i]!)}</span>
+          <span class="gm-sp-weather-hour-icon">
+            {weatherCodeIcon(data.hourly.weather_code[i]!)}
+          </span>
+          <span class="gm-sp-weather-hour-temp">{Math.round(data.hourly.temperature_2m[i]!)}°</span>
+          <span class="gm-sp-weather-hour-precip">
+            {hourlyPrecipText(data.hourly.precipitation_amount?.[i])}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function WeatherDaily({ data }: { data: WeatherCityData }) {
+  const dailyCount = Math.min(4, data.daily.time.length)
+
+  return (
+    <div class="gm-sp-weather-daily">
+      {Array.from({ length: dailyCount - 1 }, (_, j) => j + 1).map((j) => {
+        const max = data.daily.temperature_2m_max[j]!
+        const min = data.daily.temperature_2m_min[j]!
+        const code = data.daily.weather_code[j]!
+        const precip = data.daily.precipitation_sum?.[j]
+        const precipText = dailyPrecipText(precip)
+        return (
+          <div class="gm-sp-weather-day">
+            <span class="gm-sp-weather-day-label">+{j}</span>
+            <span class="gm-sp-weather-day-icon">{weatherCodeIcon(code)}</span>
+            <span>
+              {Math.round(min)}° / {Math.round(max)}°
+            </span>
+            {precipText && <span class="gm-sp-weather-day-precip">{precipText}</span>}
+          </div>
+        )
+      })}
+      <WeatherSource data={data} />
+    </div>
+  )
+}
+
+function CityBlock({ data }: { data: WeatherCityData }) {
+  return (
+    <div>
+      <WeatherSummary data={data} />
+      <WeatherHourly data={data} />
+      <WeatherDaily data={data} />
     </div>
   )
 }

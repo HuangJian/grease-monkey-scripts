@@ -28,6 +28,7 @@ export function Tabs({ items, activeId, onActive }: TabsProps) {
         const showBadge = item.badge != null && item.badge !== 0 && item.badge !== ''
         return (
           <button
+            key={item.id}
             type="button"
             class={`gm-sp-tab${active ? ' gm-sp-tab-active' : ''}`}
             role="tab"

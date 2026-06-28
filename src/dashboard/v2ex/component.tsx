@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks'
+import { useReducer } from 'preact/hooks'
 import type { AuthorTagMap } from '../../shared/author-labels'
 import { authorClass, buildAuthorTagHtml, getTotalScore } from '../../shared/author-labels'
 import { escapeHtml, escapeUrl } from '../../utils'
@@ -39,7 +39,7 @@ export function V2exComponent({
   authorTagMap,
   dateFilter,
 }: V2exComponentProps) {
-  const [, forceUpdate] = useState(0)
+  const [, forceRender] = useReducer<number, void>((n) => n + 1, 0)
 
   const dateFiltered = applyDateFilter(data ?? [], dateFilter, (t) => t.created)
   const visible =
@@ -50,13 +50,13 @@ export function V2exComponent({
   function handleMarkRead(topic: V2exTopic) {
     state.markRead(topic.id, Date.now(), topic.replies)
     void state.saveToStorage(runtime)
-    forceUpdate((n) => n + 1)
+    forceRender()
   }
 
   const { handleHide, handleBulkRead } = createItemHandlers<V2exTopic>({
     state,
     runtime,
-    forceUpdate: () => forceUpdate((n) => n + 1),
+    forceUpdate: () => forceRender(),
     getVisible: () => visible,
     repliesOf: (t) => t.replies,
   })

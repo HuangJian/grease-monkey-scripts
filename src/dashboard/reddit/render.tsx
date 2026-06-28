@@ -22,7 +22,6 @@ export function renderReddit(
       data={data}
       root={undefined as any}
       runtime={runtime}
-      onHeaderChange={() => {}}
       state={state}
       expandCollapse={expandCollapse}
       authorTagMap={authorTagMap}

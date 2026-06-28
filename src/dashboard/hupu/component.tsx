@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks'
+import { useReducer } from 'preact/hooks'
 import type { AuthorTagMap } from '../../shared/author-labels'
 import { authorClass, buildAuthorTagHtml, getTotalScore } from '../../shared/author-labels'
 import { escapeHtml, escapeUrl } from '../../utils'
@@ -26,7 +26,7 @@ export function HupuComponent({
   authorTagMap,
   dateFilter,
 }: HupuComponentProps) {
-  const [, forceUpdate] = useState(0)
+  const [, forceRender] = useReducer<number, void>((n) => n + 1, 0)
 
   const dateFiltered = applyGroupedDateFilter(data ?? {}, dateFilter, (t) => t.created)
   const filtered: HupuRenderData =
@@ -50,7 +50,7 @@ export function HupuComponent({
   function handleMarkRead(postId: string, replies: number) {
     state.markRead(postId, Date.now(), replies)
     void state.saveToStorage(runtime)
-    forceUpdate((n) => n + 1)
+    forceRender()
   }
 
   function findBoardForPost(post: { id: string }): string | null {
@@ -64,7 +64,7 @@ export function HupuComponent({
   >({
     state,
     runtime,
-    forceUpdate: () => forceUpdate((n) => n + 1),
+    forceUpdate: () => forceRender(),
     getSubForItem: findBoardForPost,
     getVisibleInSub: (board) => state.filterVisible(filtered[board] ?? []),
     repliesOf: (p) => p.replies,
@@ -72,7 +72,7 @@ export function HupuComponent({
 
   function handleToggleBoard(board: string) {
     expandCollapse.toggleCategory(board, totalPosts)
-    forceUpdate((n) => n + 1)
+    forceRender()
   }
 
   return (

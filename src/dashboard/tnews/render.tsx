@@ -17,7 +17,6 @@ export function renderTnews(
       data={items}
       root={undefined as any}
       runtime={runtime}
-      onHeaderChange={() => {}}
       state={state}
       now={now}
     />,

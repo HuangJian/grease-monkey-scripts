@@ -177,6 +177,7 @@ export function createRuntime(dom?: Window): TestRuntime {
       }
       return JSON.parse(r.text)
     },
+    openTab: () => {},
     queueResponse(url, text, status, responseHeaders) {
       responses.set(url, { text, status: status ?? 200, responseHeaders: responseHeaders ?? '' })
     },

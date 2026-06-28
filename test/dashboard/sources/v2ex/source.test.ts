@@ -58,7 +58,6 @@ describe('createV2exSource', () => {
         data,
         root: undefined as any,
         runtime: createRuntime(),
-        onHeaderChange: () => {},
       }),
       { container },
     )

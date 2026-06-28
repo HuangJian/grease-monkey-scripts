@@ -6,12 +6,6 @@ import { renderXitPreview } from './render'
 import { DEFAULT_XIT_TEXT } from './source'
 import type { XitData } from './types'
 
-let pendingLineIndex: number | null = null
-
-export function setPendingLineIndex(index: number | null): void {
-  pendingLineIndex = index
-}
-
 type XitEditorFormProps = {
   initialText: string
   targetLine: number | null
@@ -116,12 +110,10 @@ function XitEditorForm({ initialText, targetLine, ctx, handleRef }: XitEditorFor
   )
 }
 
-export function createXitEditor(): SourceEditor {
+export function createXitEditor(targetLine: number | null = null): SourceEditor {
   return async (container, ctx): Promise<SourceEditorResult> => {
     const cached = await loadCache<XitData>(ctx.runtime, 'xit')
     const currentText = cached?.data?.text ?? DEFAULT_XIT_TEXT
-    const targetLine = pendingLineIndex
-    pendingLineIndex = null
 
     container.classList.add('gm-sp-xit-editor-dual')
 

@@ -7,7 +7,6 @@ function source(id: string, overrides: Partial<Source<unknown>> = {}): Source<un
     id,
     title: id,
     ttlMs: 60_000,
-    headerState: {},
     fetch: () => Promise.resolve(null),
     RenderComponent: () => null,
     ...overrides,

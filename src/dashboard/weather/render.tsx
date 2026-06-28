@@ -9,7 +9,6 @@ export function renderWeather(container: HTMLElement, data: WeatherData | null):
       data={data}
       root={undefined as any}
       runtime={undefined as any}
-      onHeaderChange={() => {}}
       activeIndex={0}
     />,
     container,

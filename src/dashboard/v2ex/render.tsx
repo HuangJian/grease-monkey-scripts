@@ -18,7 +18,6 @@ export function renderV2ex(
       data={data}
       root={undefined as any}
       runtime={runtime}
-      onHeaderChange={() => {}}
       state={state}
       authorTagMap={authorTagMap}
       dateFilter="全"

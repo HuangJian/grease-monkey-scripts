@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks'
+import { useReducer } from 'preact/hooks'
 import type { AuthorTagMap } from '../../shared/author-labels'
 import { authorClass, buildAuthorTagHtml, getTotalScore } from '../../shared/author-labels'
 import { escapeHtml, escapeUrl } from '../../utils'
@@ -26,7 +26,7 @@ export function RedditComponent({
   authorTagMap,
   dateFilter,
 }: RedditComponentProps) {
-  const [, forceUpdate] = useState(0)
+  const [, forceRender] = useReducer<number, void>((n) => n + 1, 0)
 
   const dateFiltered = applyGroupedDateFilter(data ?? {}, dateFilter, (t) => t.created)
   const filtered: RedditRenderData =
@@ -50,7 +50,7 @@ export function RedditComponent({
   function handleMarkRead(postId: string, numComments: number) {
     state.markRead(postId, Date.now(), numComments)
     void state.saveToStorage(runtime)
-    forceUpdate((n) => n + 1)
+    forceRender()
   }
 
   function findSubForPost(post: { id: string }): string | null {
@@ -64,7 +64,7 @@ export function RedditComponent({
   >({
     state,
     runtime,
-    forceUpdate: () => forceUpdate((n) => n + 1),
+    forceUpdate: () => forceRender(),
     getSubForItem: findSubForPost,
     getVisibleInSub: (sub) => state.filterVisible(filtered[sub] ?? []),
     repliesOf: (p) => p.numComments,
@@ -72,7 +72,7 @@ export function RedditComponent({
 
   function handleToggleSub(sub: string) {
     expandCollapse.toggleCategory(sub, totalPosts)
-    forceUpdate((n) => n + 1)
+    forceRender()
   }
 
   return (

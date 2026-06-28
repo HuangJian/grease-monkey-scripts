@@ -49,6 +49,8 @@ export type Runtime = {
   registerMenuCommand(name: string, fn: () => void): number
   /** Page-context fetch (bypasses WAF). Returns parsed JSON. Throws on non-2xx. */
   pageFetch(url: string): Promise<unknown>
+  /** Open a URL in a new tab. */
+  openTab(url: string): void
 }
 
 declare const GM: {
@@ -131,5 +133,6 @@ export function createBrowserRuntime(): Runtime {
       }
       return res.json()
     },
+    openTab: (url) => window.open(url, '_blank'),
   }
 }

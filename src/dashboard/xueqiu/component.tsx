@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, useEffect } from 'preact/hooks'
+import { useLayoutEffect, useRef, useState, useEffect, useReducer } from 'preact/hooks'
 import { ItemActions } from '../card/primitives'
 import type { DateFilter } from '../date-filter'
 import { applyDateFilter } from '../shared-utils'
@@ -75,7 +75,7 @@ export function XueqiuComponent({
   onViewModeChange,
   onNotify: notify,
 }: XueqiuComponentProps) {
-  const [, forceUpdate] = useState(0)
+  const [, forceRender] = useReducer<number, void>((n) => n + 1, 0)
   const scrollTargetRef = useRef<string | null>(null)
 
   // AI summary state
@@ -219,7 +219,7 @@ export function XueqiuComponent({
     }
     void state.saveToStorage(runtime)
     notify?.()
-    forceUpdate((n) => n + 1)
+    forceRender()
   }
 
   function handleSummaryRead() {
@@ -237,7 +237,7 @@ export function XueqiuComponent({
     })
     void state.saveToStorage(runtime)
     notify?.()
-    forceUpdate((n) => n + 1)
+    forceRender()
   }
 
   function handleItemClick(item: XueqiuNewsItem) {
@@ -255,14 +255,14 @@ export function XueqiuComponent({
     }
     void state.saveToStorage(runtime)
     notify?.()
-    forceUpdate((n) => n + 1)
+    forceRender()
   }
 
   function handleHide(id: string) {
     state.markHidden(id)
     void state.saveToStorage(runtime)
     void state.removeFromCache(runtime, id)
-    forceUpdate((n) => n + 1)
+    forceRender()
   }
 
   function handleBulkRead(hoveredItem: XueqiuNewsItem) {
@@ -277,7 +277,7 @@ export function XueqiuComponent({
       }
     })
     void state.saveToStorage(runtime)
-    forceUpdate((n) => n + 1)
+    forceRender()
   }
 
   function renderItem(item: XueqiuNewsItem) {

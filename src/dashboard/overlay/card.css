@@ -322,12 +322,12 @@
 }
 
 .gm-sp-date-filter-btn-active {
-  background: var(--gm-sp-color-primary, var(--gm-sp-color-primary));
+  background: var(--gm-sp-color-primary);
   color: var(--gm-sp-color-bg);
 }
 
 .gm-sp-date-filter-btn-active:hover {
-  background: var(--gm-sp-color-primary-hover, var(--gm-sp-color-primary-hover));
+  background: var(--gm-sp-color-primary-hover);
 }
 
 .gm-sp-v2ex-source {
@@ -380,7 +380,7 @@
 
 .gm-sp-tab:hover {
   color: var(--gm-sp-color-text);
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--gm-sp-color-hover-overlay);
 }
 
 .gm-sp-tab-icon {
@@ -412,7 +412,7 @@
   min-width: 14px;
   height: 14px;
   padding: 0 4px;
-  border-radius: var(--gm-sp-radius-8);
+  border-radius: var(--gm-sp-radius-md);
   background: var(--gm-sp-color-border);
   color: var(--gm-sp-color-text-muted);
   font-size: 9px;

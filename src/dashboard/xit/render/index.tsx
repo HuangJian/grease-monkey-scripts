@@ -1,44 +1,28 @@
 import { render } from 'preact'
 import { XitBody } from '../component/body'
 import type { XitData } from '../types'
-import { parseXitText } from '../parser'
+import { createHeaderState } from '../../header-state'
+import type { XitHeaderState } from '../component/header'
 
 export { renderXitPreview } from './preview'
 export { XitList } from './list'
 
-function getTagCounts(lines: import('../types').XitLine[]): Map<string, number> {
-  const counts = new Map<string, number>()
-  lines
-    .filter((line) => line.type === 'item')
-    .forEach((line) => {
-      line.tags.forEach((tag) => {
-        counts.set(tag.name, (counts.get(tag.name) ?? 0) + 1)
-      })
-    })
-  return counts
-}
-
 export function renderXit(container: HTMLElement, data: XitData | null): void {
   render(null, container)
-  const text = data?.text ?? ''
-  const lines = parseXitText(text)
-  const headerState = {
-    lines,
-    tagCounts: getTagCounts(lines),
+  const headerStore = createHeaderState<XitHeaderState>({
     query: '',
     queryError: null,
     filterStore: null,
     showFilters: false,
     saveForm: null,
     editFilter: null,
-  }
+  })
   render(
     <XitBody
       data={data}
       root={undefined as any}
       runtime={undefined as any}
-      onHeaderChange={() => {}}
-      headerState={headerState}
+      headerStore={headerStore}
     />,
     container,
   )

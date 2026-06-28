@@ -4,6 +4,7 @@ import type { Runtime } from '../../runtime'
 import { loadConfigSection } from '../config'
 import { syncAuthorTags } from '../author-tags-sync'
 import type { Source, SourceHeaderProps, SourceSettings } from '../types'
+import { createHeaderState, useHeaderState } from '../header-state'
 import { loadCache, saveCache } from '../cache'
 import type { DateFilter } from '../date-filter'
 import { DateFilterGroup } from '../date-filter'
@@ -22,7 +23,7 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
   const state = createHupuState({ retentionMs })
   const expandCollapse = createExpandCollapse()
   let authorTagMap: AuthorTagMap = {}
-  const headerState: { dateFilter: DateFilter } = { dateFilter: '全' }
+  const headerStore = createHeaderState<{ dateFilter: DateFilter }>({ dateFilter: '全' })
 
   async function loadAuthorTags(runtime: Runtime): Promise<void> {
     authorTagMap = await syncAuthorTags({
@@ -78,16 +79,15 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 4,
-    headerState,
-    RenderHeader: (props: SourceHeaderProps<HupuRenderData>) => (
-      <DateFilterGroup
-        value={headerState.dateFilter}
-        onChange={(f) => {
-          headerState.dateFilter = f
-          props.onHeaderChange()
-        }}
-      />
-    ),
+    RenderHeader: (_props: SourceHeaderProps<HupuRenderData>) => {
+      const hs = useHeaderState(headerStore)
+      return (
+        <DateFilterGroup
+          value={hs.dateFilter}
+          onChange={(f) => headerStore.set((s) => ({ ...s, dateFilter: f }))}
+        />
+      )
+    },
     async fetch(runtime, _prevData) {
       const fresh = await loadFreshHupuOptions(runtime, options)
       console.debug('[gm-dashboard] hupu.fetch start boards=', fresh.boards)
@@ -117,15 +117,18 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
       await pruneExpiredCache(runtime)
       return visible
     },
-    RenderComponent: (props) => (
-      <HupuComponent
-        {...props}
-        state={state}
-        expandCollapse={expandCollapse}
-        authorTagMap={authorTagMap}
-        dateFilter={headerState.dateFilter}
-      />
-    ),
+    RenderComponent: (props) => {
+      const hs = useHeaderState(headerStore)
+      return (
+        <HupuComponent
+          {...props}
+          state={state}
+          expandCollapse={expandCollapse}
+          authorTagMap={authorTagMap}
+          dateFilter={hs.dateFilter}
+        />
+      )
+    },
     async loadState(runtime) {
       await state.loadFromStorage(runtime)
       await loadAuthorTags(runtime)

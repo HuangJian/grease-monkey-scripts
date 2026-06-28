@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'preact/hooks'
+import { useLayoutEffect, useRef, useReducer } from 'preact/hooks'
 import { escapeHtml } from '../../utils'
 import { formatRelativeTime, ItemActions } from '../card/primitives'
 import { createItemHandlers } from '../item-actions'
@@ -41,7 +41,7 @@ export function TnewsComponent({
   now,
   onNotify: notify,
 }: TnewsComponentProps) {
-  const [, forceUpdate] = useState(0)
+  const [, forceRender] = useReducer<number, void>((n) => n + 1, 0)
   const scrollTargetRef = useRef<string | null>(null)
 
   useLayoutEffect(() => {
@@ -71,7 +71,7 @@ export function TnewsComponent({
     }
     void state.saveToStorage(runtime)
     notify?.()
-    forceUpdate((n) => n + 1)
+    forceRender()
   }
 
   const visible = items.filter((it) => !state.isHidden(it.id))
@@ -79,7 +79,7 @@ export function TnewsComponent({
   const { handleHide, handleBulkRead } = createItemHandlers<TnewsItem>({
     state,
     runtime,
-    forceUpdate: () => forceUpdate((n) => n + 1),
+    forceUpdate: () => forceRender(),
     getVisible: () => visible,
     repliesOf: () => undefined,
   })

@@ -1,4 +1,4 @@
-import { escapeHtml } from '../../../utils'
+import type { VNode } from 'preact'
 import type { XitItem, XitLine } from '../types'
 import { getDueDateStatus, formatDueDateDisplay } from './due-date'
 
@@ -17,61 +17,128 @@ function getCheckboxChar(status: string): string {
   }
 }
 
-function renderDescriptionHtml(line: XitItem): string {
-  let desc = line.description
+type DescriptionToken =
+  | { type: 'text'; value: string }
+  | { type: 'link'; text: string; href: string }
+  | { type: 'tag'; text: string }
+  | { type: 'dueDate'; icon: string; display: string; dueClass: string }
 
-  const tokens: string[] = []
-  const T = '\uFFFD'
-  function token(html: string): string {
-    const i = tokens.length
-    tokens.push(html)
-    return `${T}${i}${T}`
+type RawMatch = { start: number; end: number; token: DescriptionToken }
+
+const LINK_RE = /\[([^\]]+)\]\(([^)]+)\)/g
+const TAG_RE = /(?<=\s|^)#([\w\d\u4e00-\u9fa5_-]+)(?:=([^\s#]+|"[^"]*"|'[^']*'))?/g
+const DUE_RE =
+  /->\s*(everyday|sunday|monday|tuesday|wednesday|thursday|friday|saturday|\d{4}(?:-\d{2}-\d{2}|-\d{2}|-Q[1-4]|-W\d{1,2})?)/g
+
+function parseDescriptionTokens(line: XitItem): DescriptionToken[] {
+  const desc = line.description
+  const isCompleted = line.status === 'checked' || line.status === 'obsolete'
+  const matches: RawMatch[] = []
+
+  for (const m of desc.matchAll(LINK_RE)) {
+    if (m.index === undefined) continue
+    matches.push({
+      start: m.index,
+      end: m.index + m[0].length,
+      token: { type: 'link', text: m[1]!, href: m[2]! },
+    })
   }
 
-  desc = desc.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, text, href) =>
-    token(
-      `<a class="gm-sp-xit-link" href="${escapeHtml(href)}" target="_blank" rel="noopener">${escapeHtml(text)}</a>`,
-    ),
-  )
+  for (const m of desc.matchAll(TAG_RE)) {
+    if (m.index === undefined) continue
+    matches.push({
+      start: m.index,
+      end: m.index + m[0].length,
+      token: { type: 'tag', text: m[0] },
+    })
+  }
 
-  desc = desc.replace(
-    /(?<=\s|^)#([\w\d\u4e00-\u9fa5_-]+)(?:=([^\s#]+|"[^"]*"|'[^']*'))?/g,
-    (match) => token(`<span class="gm-sp-xit-tag">${escapeHtml(match)}</span>`),
-  )
+  for (const m of desc.matchAll(DUE_RE)) {
+    if (m.index === undefined) continue
+    const dateStr = m[1]!
+    let icon = ''
+    let display = ''
+    let dueClass: string
 
-  desc = desc.replace(
-    /->\s*(everyday|sunday|monday|tuesday|wednesday|thursday|friday|saturday|\d{4}(?:-\d{2}-\d{2}|-\d{2}|-Q[1-4]|-W\d{1,2})?)/g,
-    (_match, dateStr) => {
-      if (dateStr === 'everyday') {
-        const icon = line.status !== 'checked' && line.status !== 'obsolete' ? '\u23F0' : ''
-        return token(`<span class="gm-sp-xit-duedate gm-sp-xit-due-today">${icon}</span>`)
-      }
+    if (dateStr === 'everyday') {
+      if (!isCompleted) icon = '\u23F0'
+      dueClass = 'gm-sp-xit-due-today'
+    } else {
       const status = getDueDateStatus(dateStr)
-      const display = formatDueDateDisplay(dateStr)
-      const isCompleted = line.status === 'checked' || line.status === 'obsolete'
-      let icon = ''
+      display = formatDueDateDisplay(dateStr)
       if (!isCompleted) {
-        if (status === 'overdue') icon = '⚠\uFE0F'
+        if (status === 'overdue') icon = '\u26A0\uFE0F'
         else if (status === 'today') icon = '\u23F0'
         else if (status === 'tomorrow') icon = '\u23F3'
       }
-      const dueClass = isCompleted ? 'gm-sp-xit-due-completed' : `gm-sp-xit-due-${status}`
-      return token(
-        `<span class="gm-sp-xit-duedate ${dueClass}">${icon}${escapeHtml(display)}</span>`,
-      )
-    },
-  )
+      dueClass = isCompleted ? 'gm-sp-xit-due-completed' : `gm-sp-xit-due-${status}`
+    }
 
-  desc = escapeHtml(desc).replace(new RegExp(`${T}(\\d+)${T}`, 'g'), (_m, i) => tokens[Number(i)]!)
-
-  desc = desc.replace(/\n/g, '<br><span class="gm-sp-xit-indent">&nbsp;&nbsp;&nbsp;&nbsp;</span>')
-
-  const priorityClass = line.priority > 0 ? ` gm-sp-xit-prio-${line.priority}` : ''
-  if (line.priority > 0) {
-    desc = `<span class="gm-sp-xit-priority${priorityClass}">${escapeHtml(line.priorityText)}</span> ${desc}`
+    matches.push({
+      start: m.index,
+      end: m.index + m[0].length,
+      token: { type: 'dueDate', icon, display, dueClass },
+    })
   }
 
-  return desc
+  // Sort by position; drop overlapping matches (first match wins).
+  matches.sort((a, b) => a.start - b.start)
+  const tokens: DescriptionToken[] = []
+  let pos = 0
+  for (const match of matches) {
+    if (match.start < pos) continue
+    if (match.start > pos) {
+      tokens.push({ type: 'text', value: desc.slice(pos, match.start) })
+    }
+    tokens.push(match.token)
+    pos = match.end
+  }
+  if (pos < desc.length) {
+    tokens.push({ type: 'text', value: desc.slice(pos) })
+  }
+  return tokens
+}
+
+function renderDescription(line: XitItem): (VNode | string)[] {
+  const tokens = parseDescriptionTokens(line)
+  const elements: (VNode | string)[] = []
+
+  for (const token of tokens) {
+    if (token.type === 'text') {
+      const parts = token.value.split('\n')
+      parts.forEach((part, j) => {
+        if (j > 0) {
+          elements.push(<br />)
+          elements.push(<span class="gm-sp-xit-indent">&nbsp;&nbsp;&nbsp;&nbsp;</span>)
+        }
+        if (part) elements.push(part)
+      })
+    } else if (token.type === 'link') {
+      elements.push(
+        <a class="gm-sp-xit-link" href={token.href} target="_blank" rel="noopener">
+          {token.text}
+        </a>,
+      )
+    } else if (token.type === 'tag') {
+      elements.push(<span class="gm-sp-xit-tag">{token.text}</span>)
+    } else {
+      elements.push(
+        <span class={`gm-sp-xit-duedate ${token.dueClass}`}>
+          {token.icon}
+          {token.display}
+        </span>,
+      )
+    }
+  }
+
+  if (line.priority > 0) {
+    elements.unshift(
+      <span class={`gm-sp-xit-priority gm-sp-xit-prio-${line.priority}`}>{line.priorityText}</span>,
+      ' ',
+    )
+  }
+
+  return elements
 }
 
 type XitItemProps = {
@@ -95,10 +162,7 @@ function XitItem({ line }: XitItemProps) {
       <span class="gm-sp-xit-checkbox" data-status={line.status}>
         {checkboxChar}
       </span>
-      <div
-        class={`gm-sp-xit-content${boldClass}`}
-        dangerouslySetInnerHTML={{ __html: renderDescriptionHtml(line) }}
-      />
+      <div class={`gm-sp-xit-content${boldClass}`}>{renderDescription(line)}</div>
     </div>
   )
 }
@@ -114,7 +178,7 @@ export function XitList({ lines }: XitListProps) {
         if (line.type === 'heading') {
           return (
             <div class="gm-sp-xit-heading" key={line.lineIndex}>
-              {escapeHtml(line.text)}
+              {line.text}
             </div>
           )
         }
@@ -124,7 +188,7 @@ export function XitList({ lines }: XitListProps) {
         if (line.type === 'comment') {
           return (
             <div class="gm-sp-xit-comment" key={line.lineIndex}>
-              {escapeHtml(line.text)}
+              {line.text}
             </div>
           )
         }

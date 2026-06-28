@@ -4,7 +4,6 @@ import type { Source, SourceEditorResult, SourceSettings } from '../types'
 import { CONFIG_KEY, getSourceSettings } from '../types'
 import { handleEscapeKey } from '../shortcut'
 import { render } from 'preact'
-import { h } from 'preact'
 import type { VNode } from 'preact'
 
 type EditorDialogProps = {

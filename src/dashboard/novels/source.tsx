@@ -18,13 +18,11 @@ export function createNovelsSource(
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 2,
-    headerState: {},
-    RenderComponent: ({ data, root, onHeaderChange }) => (
+    RenderComponent: ({ data, root }) => (
       <NovelsComponent
         data={data}
         root={root}
         runtime={runtime}
-        onHeaderChange={onHeaderChange}
         onMarkSeen={(bookUrl) => {
           void markSeen(runtime, bookUrl, data)
         }}
@@ -55,9 +53,6 @@ export function createNovelsSource(
         },
         settings,
       )
-    },
-    async loadState(_runtime) {
-      /* novels state is embedded in cache data; no separate state to load */
     },
   }
 }

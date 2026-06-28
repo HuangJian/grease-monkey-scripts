@@ -118,7 +118,6 @@ export type SourceComponentProps<T> = {
   root: ShadowRoot
   runtime: Runtime
   onNotify?: () => void
-  onHeaderChange: () => void
 }
 
 export type SourceHeaderProps<T> = {
@@ -130,7 +129,6 @@ export type SourceHeaderProps<T> = {
   root: ShadowRoot
   onRefresh: () => Promise<void>
   onEdit?: () => void
-  onHeaderChange: () => void
 }
 
 export type Source<T> = {
@@ -140,12 +138,11 @@ export type Source<T> = {
   readonly placement?: 'main' | 'side'
   readonly groupId?: string
   readonly order?: number
-  readonly getTabLabel?: (data: any) => TabLabel
+  readonly getTabLabel?: (data: T | null) => TabLabel
   readonly dialogTitle?: string | VNode
   readonly hideHeaderActions?: boolean
-  readonly RenderHeader?: ComponentType<SourceHeaderProps<any>>
-  readonly RenderComponent: ComponentType<SourceComponentProps<any>>
-  headerState: Record<string, unknown>
+  readonly RenderHeader?: ComponentType<SourceHeaderProps<T>>
+  readonly RenderComponent: ComponentType<SourceComponentProps<T>>
   fetch(runtime: Runtime, prevData?: T): Promise<T>
   loadState?(runtime: Runtime): Promise<void>
   createEditor?: (settings: SourceSettings) => SourceEditor

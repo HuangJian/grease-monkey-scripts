@@ -9,12 +9,11 @@ import { CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/dashboard/typ
 import type { CardOptions } from '../../src/dashboard/card/card'
 import { createRuntime } from '../runtime'
 
-function stubSource(): Source<{ msg: string }> {
+function stubSource(): Source<unknown> {
   return {
     id: 'stub',
     title: 'Stub Source',
     ttlMs: 60_000,
-    headerState: {},
     fetch: () => Promise.resolve({ msg: 'hi' }),
     RenderComponent: ({ data }) => <span>{(data as { msg: string } | null)?.msg ?? ''}</span>,
   }
@@ -201,11 +200,10 @@ describe('renderCard', () => {
   test('shows edit button and opens dialog when source has createEditor', async () => {
     const root = document.createElement('div') as unknown as ShadowRoot
     document.body.appendChild(root as unknown as HTMLElement)
-    const source: Source<{ msg: string }> = {
+    const source: Source<unknown> = {
       id: 'edit',
       title: 'E',
       ttlMs: 60_000,
-      headerState: {},
       fetch: () => Promise.resolve({ msg: 'x' }),
       RenderComponent: ({ data }) => <span>{(data as { msg: string } | null)?.msg ?? ''}</span>,
       createEditor: () => (c) => {

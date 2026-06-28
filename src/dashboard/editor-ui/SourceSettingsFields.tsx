@@ -5,7 +5,7 @@ export type SourceSettingsFieldsProps = {
   onTabTitleChange: (val: string) => void
   priority: number
   onPriorityChange: (val: number) => void
-  badgeType: string
+  badgeType: BadgeType
   onBadgeTypeChange: (val: BadgeType) => void
 }
 

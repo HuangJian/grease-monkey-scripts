@@ -2,8 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { cleanup, within } from '@testing-library/preact'
 import { renderNovels } from '../../../src/dashboard/novels/render'
 import type { NovelBook, NovelData } from '../../../src/dashboard/novels/types'
-// oxlint-disable-next-line no-unassigned-import
-import '../../runtime'
+import { createRuntime } from '../../runtime'
 
 function chapter(url: string, title: string, postedAt: number = 0) {
   return { url, title, postedAt }
@@ -39,6 +38,7 @@ afterEach(() => {
 
 function ctx() {
   return {
+    runtime: createRuntime(),
     onMarkSeen: (url: string) => {
       markedSeen.push(url)
     },

@@ -2,6 +2,7 @@ import type { Runtime } from '../../runtime'
 import { loadConfigSection } from '../config'
 import { loadCache } from '../cache'
 import type { Source, SourceHeaderProps, SourceSettings } from '../types'
+import { createHeaderState, useHeaderState } from '../header-state'
 import { WeatherComponent, WeatherHeader } from './component'
 import { createWeatherEditor } from './editor'
 import { fetchWeatherAll } from './api'
@@ -18,14 +19,13 @@ async function loadFreshWeatherCities(
 }
 
 export function createWeatherSource(options: WeatherSourceOptions): Source<WeatherData> {
-  const headerState: { activeCityIndex: number } = { activeCityIndex: 0 }
+  const headerStore = createHeaderState({ activeCityIndex: 0 })
 
   const source: Source<WeatherData> = {
     id: 'weather',
     title: '\u5929\u6C14',
     ttlMs: options.ttlMinutes * 60_000,
     placement: 'side',
-    headerState,
     async fetch(runtime, _prevData) {
       const cities = await loadFreshWeatherCities(runtime, options.cities)
       let result = await fetchWeatherAll(runtime, cities)
@@ -43,30 +43,29 @@ export function createWeatherSource(options: WeatherSourceOptions): Source<Weath
       }
       return result
     },
-    RenderHeader: (props: SourceHeaderProps<WeatherData>) => (
-      <WeatherHeader
-        data={props.data}
-        activeIndex={headerState.activeCityIndex}
-        onTabChange={(i: number) => {
-          console.debug('[gm-weather] header tab click:', i, 'prev:', headerState.activeCityIndex)
-          headerState.activeCityIndex = i
-          console.debug('[gm-weather] calling onHeaderChange')
-          props.onHeaderChange()
-        }}
-      />
-    ),
+    RenderHeader: (props: SourceHeaderProps<WeatherData>) => {
+      const hs = useHeaderState(headerStore)
+      return (
+        <WeatherHeader
+          data={props.data}
+          activeIndex={hs.activeCityIndex}
+          onTabChange={(i: number) => {
+            console.debug('[gm-weather] header tab click:', i, 'prev:', hs.activeCityIndex)
+            headerStore.set((s) => ({ ...s, activeCityIndex: i }))
+          }}
+        />
+      )
+    },
     RenderComponent: (props) => {
-      console.debug('[gm-weather] body render, activeIndex:', headerState.activeCityIndex)
-      return <WeatherComponent {...props} activeIndex={headerState.activeCityIndex} />
+      const hs = useHeaderState(headerStore)
+      console.debug('[gm-weather] body render, activeIndex:', hs.activeCityIndex)
+      return <WeatherComponent {...props} activeIndex={hs.activeCityIndex} />
     },
     createEditor(_settings: SourceSettings) {
       return createWeatherEditor({
         cities: options.cities,
         ttlMinutes: options.ttlMinutes,
       })
-    },
-    async loadState(_runtime) {
-      /* weather is stateless */
     },
   }
   return source

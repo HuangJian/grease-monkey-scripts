@@ -31,6 +31,8 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
   const activeTabByGroup = new Map<string, string>()
   let handle: OverlayHandle | null = null
   let cleanupDashboard: (() => void) | null = null
+  let refreshIntervalId: ReturnType<typeof setInterval> | null = null
+  let visibilityHandler: (() => void) | null = null
 
   function getRendererDeps(): GroupRendererDeps | null {
     if (!handle) return null
@@ -104,10 +106,28 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
       await renderAllGroups(reg.cardGroups, reg.groupForSource, reg.groupById, deps)
     }
     void doRunOpportunisticRefresh()
+
+    // Background refresh runs only while the overlay is open — no point
+    // consuming resources when nobody is looking at the dashboard.
+    visibilityHandler = () => {
+      if (runtime.document.visibilityState === 'visible') {
+        void doRunOpportunisticRefresh()
+      }
+    }
+    runtime.document.addEventListener('visibilitychange', visibilityHandler)
+    refreshIntervalId = setInterval(() => void doRunOpportunisticRefresh(), 60_000)
   }
 
   function close(): void {
     if (!handle) return
+    if (refreshIntervalId !== null) {
+      clearInterval(refreshIntervalId)
+      refreshIntervalId = null
+    }
+    if (visibilityHandler) {
+      runtime.document.removeEventListener('visibilitychange', visibilityHandler)
+      visibilityHandler = null
+    }
     cleanupDashboard?.()
     cleanupDashboard = null
     handle.unmount()
@@ -144,12 +164,6 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
         },
         { timeout: 5000 },
       )
-      setInterval(() => void doRunOpportunisticRefresh(), 60_000)
-      runtime.document.addEventListener('visibilitychange', () => {
-        if (runtime.document.visibilityState === 'visible') {
-          void doRunOpportunisticRefresh()
-        }
-      })
       bootstrapSync(runtime, reg.sources)
     },
     open,
@@ -162,29 +176,9 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
   return dashboard
 }
 
-const ORPHANED_KEYS = [
-  'gm:reddit:topics-history',
-  'gm:hupu:topics-history',
-  'gm:v2ex:topics-history',
-  CACHE_KEY('xueqiu-hot'),
-]
-
-async function deleteOrphanedKeys(runtime: Runtime): Promise<void> {
-  await Promise.all(
-    ORPHANED_KEYS.map(async (key) => {
-      const val = await runtime.getValue<unknown>(key, null)
-      if (val !== null && val !== undefined) {
-        console.debug('[gm-dashboard] deleting orphaned key', key)
-        await runtime.deleteValue(key)
-      }
-    }),
-  )
-}
-
 export async function startDashboard(runtime: Runtime): Promise<void> {
   console.debug('[gm-dashboard] script loaded (debug build)')
   const config = await loadConfig(runtime)
-  await deleteOrphanedKeys(runtime)
   const dashboard = createDashboard(runtime, { config })
   dashboard.start()
 }

@@ -54,6 +54,9 @@ export async function renderGroup(
       h(TabsCard, {
         group,
         caches,
+        // "now" is captured at render time for freshness display — this is
+        // intentional, not a purity violation. The value only affects relative
+        // time labels ("5 minutes ago") and is not used for data fetching.
         now: Date.now(),
         runtime: deps.runtime,
         root,
@@ -83,6 +86,7 @@ export async function renderGroup(
         source,
         cached,
         ttlMs: source.ttlMs,
+        // "now" is captured at render time for freshness display — see above.
         now: Date.now(),
         runtime: deps.runtime,
         root,

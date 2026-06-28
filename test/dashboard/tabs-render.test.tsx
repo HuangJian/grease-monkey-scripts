@@ -29,7 +29,6 @@ function makeSource(opts: {
     id: opts.id,
     title: opts.title,
     ttlMs: 60_000,
-    headerState: {},
     fetch: () => Promise.resolve(null as never),
     RenderComponent: (props: { data: unknown }) => {
       const ref = useRef<HTMLDivElement>(null)

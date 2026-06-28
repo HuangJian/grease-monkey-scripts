@@ -1,12 +1,12 @@
 import type { Runtime } from '../../runtime'
 import type { Source, SourceHeaderProps, SourceSettings } from '../types'
+import { createHeaderState, type HeaderStateStore } from '../header-state'
 import { loadCache, saveCache } from '../cache'
 import { XitHeaderControls, type XitHeaderState } from './component/header'
 import { XitBody } from './component/body'
 import { createXitEditor } from './editor'
-import { parseXitText } from './parser'
 import { resetRecurringTasks } from './recurring-reset'
-import type { XitData } from './types'
+import type { XitData, XitLine } from './types'
 
 export const DEFAULT_XIT_TEXT = `xit (xit 语法规范):
 [ ] ! 欢迎使用 Antigravity xit -> 2026-06-12 #help
@@ -22,7 +22,7 @@ export const DEFAULT_XIT_TEXT = `xit (xit 语法规范):
     这是任务描述的第二行。
     这是第三行。`
 
-function getTagCounts(lines: import('./types').XitLine[]): Map<string, number> {
+export function getTagCounts(lines: XitLine[]): Map<string, number> {
   const counts = new Map<string, number>()
   lines
     .filter((line) => line.type === 'item')
@@ -40,23 +40,20 @@ export function createXitSource(
 ): Source<XitData> {
   const placement = options?.placement ?? 'main'
 
-  const headerState: XitHeaderState = {
-    lines: [],
-    tagCounts: new Map(),
+  const headerStore: HeaderStateStore<XitHeaderState> = createHeaderState<XitHeaderState>({
     query: '',
     queryError: null,
     filterStore: null,
     showFilters: false,
     saveForm: null,
     editFilter: null,
-  }
+  })
 
   const source: Source<XitData> = {
     id: 'xit',
     title: 'xit',
     ttlMs: 24 * 3600 * 1000,
     placement,
-    headerState,
     hideHeaderActions: true,
     dialogTitle: (
       <a href="https://xit.jotaen.net/" target="_blank" rel="noopener">
@@ -64,26 +61,10 @@ export function createXitSource(
       </a>
     ),
     RenderHeader: (props: SourceHeaderProps<XitData>) => (
-      <XitHeaderControls
-        {...props}
-        headerState={headerState}
-        onHeaderChange={props.onHeaderChange}
-      />
+      <XitHeaderControls {...props} headerStore={headerStore} />
     ),
-    RenderComponent: ({ data, root, runtime: r, onHeaderChange }) => {
-      const text = data?.text ?? ''
-      const lines = parseXitText(text)
-      headerState.lines = lines
-      headerState.tagCounts = getTagCounts(lines)
-      return (
-        <XitBody
-          data={data}
-          root={root}
-          runtime={r}
-          onHeaderChange={onHeaderChange}
-          headerState={headerState}
-        />
-      )
+    RenderComponent: ({ data, root, runtime: r }) => {
+      return <XitBody data={data} root={root} runtime={r} headerStore={headerStore} />
     },
     async fetch(runtimeArg, prevData) {
       const text = prevData?.text ?? DEFAULT_XIT_TEXT

@@ -1,6 +1,9 @@
-import { useEffect, useRef } from 'preact/hooks'
+import { useEffect, useMemo, useRef } from 'preact/hooks'
 import { escapeHtml } from '../../../utils'
 import type { SourceHeaderProps } from '../../types'
+import { useHeaderState, type HeaderStateStore } from '../../header-state'
+import { parseXitText } from '../parser'
+import { getTagCounts } from '../source'
 import {
   loadFilters,
   getDefaultFilter,
@@ -10,13 +13,11 @@ import {
   updateFilter,
 } from '../filters'
 import { parseQuery } from '../query'
-import type { XitData, XitLine, NamedFilterStore, NamedFilter } from '../types'
+import type { XitData, NamedFilterStore, NamedFilter } from '../types'
 import { FilterForm, type FilterFormMode } from './filter-form'
 import { EditIcon, DeleteIcon, SaveIcon } from '../../card/icons'
 
 export type XitHeaderState = {
-  lines: XitLine[]
-  tagCounts: Map<string, number>
   query: string
   queryError: string | null
   filterStore: NamedFilterStore | null
@@ -26,53 +27,55 @@ export type XitHeaderState = {
 }
 
 export function XitHeaderControls({
-  data: _data,
+  data,
   runtime,
-  headerState,
-  onHeaderChange,
+  headerStore,
   onEdit: _onEdit,
 }: SourceHeaderProps<XitData> & {
-  headerState: XitHeaderState
-  onHeaderChange?: () => void
+  headerStore: HeaderStateStore<XitHeaderState>
 }) {
   const searchRef = useRef<HTMLInputElement>(null)
   const rootRef = useRef<HTMLDivElement>(null)
-  const hs = headerState
+  const hs = useHeaderState(headerStore)
+
+  const lines = useMemo(() => parseXitText(data?.text ?? ''), [data?.text])
+  const tagCounts = useMemo(() => getTagCounts(lines), [lines])
 
   useEffect(() => {
+    let cancelled = false
     loadFilters(runtime).then((store) => {
-      hs.filterStore = store
+      if (cancelled) return
       const defaultFilter = getDefaultFilter(store)
-      if (defaultFilter && !hs.query && searchRef.current) {
-        hs.query = defaultFilter.query
+      headerStore.set((s) => ({
+        ...s,
+        filterStore: store,
+        query: defaultFilter && !s.query ? defaultFilter.query : s.query,
+      }))
+      if (defaultFilter && !headerStore.get().query && searchRef.current) {
         searchRef.current.value = defaultFilter.query
       }
-      onHeaderChange()
     })
-  }, [])
+    return () => {
+      cancelled = true
+    }
+  }, [runtime, headerStore])
 
   function onSearchInput(value: string) {
-    hs.query = value
     const result = parseQuery(value)
-    hs.queryError = result.ok ? null : result.error
-    onHeaderChange()
+    headerStore.set((s) => ({ ...s, query: value, queryError: result.ok ? null : result.error }))
   }
 
   function onClear() {
-    hs.query = ''
-    hs.queryError = null
+    headerStore.set((s) => ({ ...s, query: '', queryError: null }))
     if (searchRef.current) searchRef.current.value = ''
     searchRef.current?.focus()
-    onHeaderChange()
   }
 
   function onSaveFilter(name: string, q: string) {
     if (!runtime || !name || !q) return
     addFilter(runtime, name, q).then(() => {
-      hs.saveForm = null
       loadFilters(runtime).then((store) => {
-        hs.filterStore = store
-        onHeaderChange()
+        headerStore.set((s) => ({ ...s, saveForm: null, filterStore: store }))
       })
     })
   }
@@ -81,8 +84,7 @@ export function XitHeaderControls({
     if (!runtime) return
     setDefaultFilter(runtime, filterId).then(() => {
       loadFilters(runtime).then((store) => {
-        hs.filterStore = store
-        onHeaderChange()
+        headerStore.set((s) => ({ ...s, filterStore: store }))
       })
     })
   }
@@ -90,10 +92,8 @@ export function XitHeaderControls({
   function onFilterEdit(filter: NamedFilter, newName: string, newQuery: string) {
     if (!runtime || !newName || !newQuery) return
     updateFilter(runtime, filter.id, { name: newName, query: newQuery }).then(() => {
-      hs.editFilter = null
       loadFilters(runtime).then((store) => {
-        hs.filterStore = store
-        onHeaderChange()
+        headerStore.set((s) => ({ ...s, editFilter: null, filterStore: store }))
       })
     })
   }
@@ -102,18 +102,20 @@ export function XitHeaderControls({
     if (!runtime) return
     deleteFilter(runtime, filterId).then(() => {
       loadFilters(runtime).then((store) => {
-        hs.filterStore = store
-        onHeaderChange()
+        headerStore.set((s) => ({ ...s, filterStore: store }))
       })
     })
   }
 
   function onFilterClick(filter: NamedFilter) {
-    hs.query = filter.query
-    hs.queryError = null
+    const result = parseQuery(filter.query)
+    headerStore.set((s) => ({
+      ...s,
+      query: filter.query,
+      queryError: result.ok ? null : result.error,
+    }))
     if (searchRef.current) searchRef.current.value = filter.query
     searchRef.current?.focus()
-    onHeaderChange()
   }
 
   function onTagClick(tag: string) {
@@ -124,26 +126,21 @@ export function XitHeaderControls({
     } else {
       newQuery = hs.query ? `${hs.query} ${tagQuery}` : tagQuery
     }
-    hs.query = newQuery
-    if (searchRef.current) searchRef.current.value = newQuery
     const result = parseQuery(newQuery)
-    hs.queryError = result.ok ? null : result.error
-    onHeaderChange()
+    headerStore.set((s) => ({ ...s, query: newQuery, queryError: result.ok ? null : result.error }))
+    if (searchRef.current) searchRef.current.value = newQuery
   }
 
   function handleBlur(e: FocusEvent) {
     const target = e.relatedTarget as Node | null
     if (!rootRef.current?.contains(target) && !rootRef.current?.parentElement?.contains(target)) {
-      hs.showFilters = false
-      hs.saveForm = null
-      hs.editFilter = null
-      onHeaderChange()
+      headerStore.set((s) => ({ ...s, showFilters: false, saveForm: null, editFilter: null }))
     }
   }
 
   const filterName = hs.filterStore?.filters.find((f) => f.query === hs.query)?.name ?? null
   const displaySavedFilters = hs.filterStore?.filters ?? []
-  const sortedTags = Array.from(hs.tagCounts.entries()).sort((a, b) => b[1] - a[1])
+  const sortedTags = Array.from(tagCounts.entries()).sort((a, b) => b[1] - a[1])
 
   return (
     <>
@@ -162,8 +159,7 @@ export function XitHeaderControls({
             defaultValue={hs.query}
             onInput={(e) => onSearchInput((e.target as HTMLInputElement).value)}
             onFocus={() => {
-              hs.showFilters = true
-              onHeaderChange()
+              headerStore.set((s) => ({ ...s, showFilters: true }))
             }}
             onBlur={handleBlur}
           />
@@ -179,8 +175,10 @@ export function XitHeaderControls({
           aria-label="save filter"
           onClick={() => {
             if (hs.query) {
-              hs.saveForm = { type: 'save', name: '', query: hs.query }
-              onHeaderChange()
+              headerStore.set((s) => ({
+                ...s,
+                saveForm: { type: 'save', name: '', query: hs.query },
+              }))
             }
           }}
         >
@@ -203,6 +201,7 @@ export function XitHeaderControls({
                 const starChar = f.isDefault ? '\u2605' : '\u2606'
                 return (
                   <button
+                    key={f.id}
                     type="button"
                     class={`gm-sp-xit-saved-filter${isActive ? ' gm-sp-xit-saved-filter-active' : ''}`}
                     data-filter-id={f.id}
@@ -223,8 +222,7 @@ export function XitHeaderControls({
                         class="gm-sp-xit-saved-filter-edit"
                         onClick={(e) => {
                           e.stopPropagation()
-                          hs.editFilter = f
-                          onHeaderChange()
+                          headerStore.set((s) => ({ ...s, editFilter: f }))
                         }}
                       >
                         <EditIcon />
@@ -251,6 +249,7 @@ export function XitHeaderControls({
                 const isActive = hs.query.includes(`#${name}`)
                 return (
                   <button
+                    key={name}
                     type="button"
                     class={`gm-sp-xit-tag-chip${isActive ? ' gm-sp-xit-tag-chip-active' : ''}`}
                     data-tag={name}
@@ -268,8 +267,7 @@ export function XitHeaderControls({
               mode={hs.saveForm}
               onSave={(name, q) => onSaveFilter(name, q)}
               onCancel={() => {
-                hs.saveForm = null
-                onHeaderChange()
+                headerStore.set((s) => ({ ...s, saveForm: null }))
               }}
             />
           )}
@@ -279,8 +277,7 @@ export function XitHeaderControls({
               mode={{ type: 'edit', filter: hs.editFilter }}
               onSave={(name, q) => onFilterEdit(hs.editFilter!, name, q)}
               onCancel={() => {
-                hs.editFilter = null
-                onHeaderChange()
+                headerStore.set((s) => ({ ...s, editFilter: null }))
               }}
             />
           )}

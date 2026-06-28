@@ -1,6 +1,7 @@
 import type { Runtime } from '../../runtime'
 import type { AuthorTagMap } from '../../shared/author-labels'
 import type { Source, SourceHeaderProps, SourceSettings } from '../types'
+import { createHeaderState, useHeaderState } from '../header-state'
 import { V2EX_AUTHOR_TAGS_KEY, V2EX_AUTHOR_TAGS_LS_KEY } from '../../shared/author-labels'
 import { syncAuthorTags } from '../author-tags-sync'
 import type { DateFilter } from '../date-filter'
@@ -16,7 +17,7 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
   const retentionMs = options.retentionDays * 24 * 60 * 60 * 1000
   const state = createV2exState({ retentionMs })
   let authorTagMap: AuthorTagMap = {}
-  const headerState: { dateFilter: DateFilter } = { dateFilter: '全' }
+  const headerStore = createHeaderState<{ dateFilter: DateFilter }>({ dateFilter: '全' })
 
   function isV2exDomain(hostname: string): boolean {
     return hostname === 'v2ex.com' || hostname.endsWith('.v2ex.com')
@@ -68,24 +69,26 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
     ttlMs: options.ttlMinutes * 60_000,
     groupId: 'browse',
     order: 0,
-    headerState,
-    RenderHeader: (props: SourceHeaderProps<V2exTopic[]>) => (
-      <DateFilterGroup
-        value={headerState.dateFilter}
-        onChange={(f) => {
-          headerState.dateFilter = f
-          props.onHeaderChange()
-        }}
-      />
-    ),
-    RenderComponent: (props) => (
-      <V2exComponent
-        {...props}
-        state={state}
-        authorTagMap={authorTagMap}
-        dateFilter={headerState.dateFilter}
-      />
-    ),
+    RenderHeader: (_props: SourceHeaderProps<V2exTopic[]>) => {
+      const hs = useHeaderState(headerStore)
+      return (
+        <DateFilterGroup
+          value={hs.dateFilter}
+          onChange={(f) => headerStore.set((s) => ({ ...s, dateFilter: f }))}
+        />
+      )
+    },
+    RenderComponent: (props) => {
+      const hs = useHeaderState(headerStore)
+      return (
+        <V2exComponent
+          {...props}
+          state={state}
+          authorTagMap={authorTagMap}
+          dateFilter={hs.dateFilter}
+        />
+      )
+    },
     async fetch(runtime, _prevData) {
       await state.loadFromStorage(runtime)
       await loadAuthorTags(runtime)

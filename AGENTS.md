@@ -170,7 +170,7 @@ dist/
 Key constraints:
 
 - Keep `index.user.ts` thin: metadata block + call into testable modules.
-- Keep direct access to `window`, `document`, `GM.*`, `GM_xmlhttpRequest`, `prompt`, and `location` inside the runtime adapter (`src/runtime.ts`). Business logic receives a `Runtime` object.
+- Keep direct access to `window`, `document`, `GM.*`, `GM_xmlhttpRequest`, `prompt`, `location`, and `window.open` inside the runtime adapter (`src/runtime.ts`). Business logic receives a `Runtime` object. When adding new browser-API access, extend `Runtime` and the test mock rather than calling globals directly.
 - Types used by a single script live in that script's `types.ts`. Shared types (`Runtime`, `RequestDetails`) live in `src/runtime.ts`.
 - Simple scripts that don't need subdirectories can stay flat (`index.user.ts` + `index.ts` + `types.ts`).
 
@@ -231,6 +231,10 @@ All UI code uses Preact components and hooks. Avoid imperative DOM construction 
 - **Event delegation.** Use `onClick` on parent elements with `e.target === e.currentTarget` for backdrop/overlay click handling.
 - **`data-action` attributes for test selectors.** Add `data-action="add"`, `data-action="add-feed"` etc. on buttons so tests can find them without coupling to class names.
 - **Keep class names stable.** Preserve existing CSS class names and structure — tests and styles depend on them.
+- **No `dangerouslySetInnerHTML` in Preact trees.** Parse structured content into typed token arrays, render as JSX children. Only use `dangerouslySetInnerHTML` outside Preact trees when augmenting native site DOM.
+- **Shared header/component state uses `HeaderStateStore`.** Create via `createHeaderState()`, subscribe via `useHeaderState()`, mutate via `store.set()`. Never use mutable plain objects + change callbacks.
+- **Read latest state via `store.get()` in async callbacks.** Do not capture `hs` (the `useHeaderState` return value) inside `useEffect` closures — it may be stale by the time the callback fires.
+- **Extract IIFEs in JSX to named helper functions.** Replace `{(() => { ... })()}` with a function call or precomputed variable.
 
 #### CSS
 
@@ -272,6 +276,9 @@ All UI code uses Preact components and hooks. Avoid imperative DOM construction 
 - **Duplicate keyboard handling** — centralize in `shortcut.ts`.
 - **Single-use abstractions** — prefer inline types and direct logic when a helper, wrapper, map, or named type is used only once.
 - **Wrapper functions that simply call another function.**
+- **Module-level mutable state for cross-function data passing** — pass as parameters instead (e.g. `createEditor(targetLine)`, not `setTargetLine(x)` + module variable).
+- **Unguarded `setInterval` / `addEventListener` without cleanup** — store IDs, remove in `close()` / `unmount()` / `useEffect` cleanup.
+- **`Source<any>` or `as never` type casts** — `Source<T>` is generic; use proper type parameters.
 
 ### Site Investigation
 

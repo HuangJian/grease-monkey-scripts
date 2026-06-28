@@ -124,7 +124,6 @@ describe('createRedditSource.render uses ctx.runtime when runtimeRef is null', (
         data,
         root: undefined as any,
         runtime,
-        onHeaderChange: () => {},
       }),
       { container },
     )
