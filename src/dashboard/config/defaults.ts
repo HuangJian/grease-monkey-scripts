@@ -38,8 +38,6 @@ export const DEFAULT_CONFIG: Config = {
     maxLatestWindow: Number.POSITIVE_INFINITY,
   },
   tnews: {
-    feeds: ['https://rsshub.app/telegram/channel/tnews365'],
-    mirrors: ['rsshub.rssforever.com'],
     ttlMinutes: 30,
   },
   xueqiu: {

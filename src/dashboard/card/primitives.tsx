@@ -1,4 +1,4 @@
-import { useRef } from 'preact/hooks'
+import { useRef, useState, useEffect } from 'preact/hooks'
 import type { ComponentChildren } from 'preact'
 import type { CachedSource } from '../types'
 import { VERY_STALE_MULTIPLIER } from '../types'
@@ -31,8 +31,18 @@ export type RefreshTimeProps = {
 }
 
 export function RefreshTime({ cached, now, ttlMs }: RefreshTimeProps) {
-  const isStale = cached != null && now - cached.fetchedAt > ttlMs * VERY_STALE_MULTIPLIER
-  const timeAgo = cached ? formatRelativeTime(cached.fetchedAt, now) : null
+  // Self-ticking clock so relative-time labels ("5 分钟前") stay fresh
+  // without waiting for a tab switch or data refresh to re-render.
+  const [tick, setTick] = useState(now)
+  useEffect(() => {
+    setTick(now)
+  }, [now])
+  useEffect(() => {
+    const id = setInterval(() => setTick(Date.now()), 30_000)
+    return () => clearInterval(id)
+  }, [])
+  const isStale = cached != null && tick - cached.fetchedAt > ttlMs * VERY_STALE_MULTIPLIER
+  const timeAgo = cached ? formatRelativeTime(cached.fetchedAt, tick) : null
 
   return (
     <span class="gm-sp-refresh-time">

@@ -7,14 +7,10 @@ export type TnewsItem = {
 }
 
 export type TnewsConfig = {
-  feeds: string[]
-  mirrors: string[]
   ttlMinutes: number
 }
 
 export type TnewsSourceOptions = {
-  feeds: string[]
-  mirrors: string[]
   ttlMinutes: number
 }
 

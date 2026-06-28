@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createTnewsSource } from '../../../../src/dashboard/tnews/source'
 import { validateConfig } from '../../../../src/dashboard/config'
+import { TNEWS_FEED_URL } from '../../../../src/dashboard/tnews/constants'
 import type { RequestDetails } from '../../../../src/runtime'
 import { createRuntime, XmlDOMParser, type TestRuntime } from '../../../runtime'
 
@@ -17,8 +18,6 @@ function makeRuntime(handler: (d: RequestDetails) => void): TestRuntime {
 }
 
 const DEFAULT_OPTS = {
-  feeds: ['https://rsshub.app/telegram/channel/tnews365'],
-  mirrors: [],
   ttlMinutes: 30,
 }
 
@@ -35,22 +34,7 @@ describe('createTnewsSource metadata', () => {
 })
 
 describe('createTnewsSource.fetch', () => {
-  test('uses feeds/mirrors from CONFIG_KEY when present, not closure options', async () => {
-    const fixture = loadFixture()
-    const fetched: string[] = []
-    const runtime = makeRuntime((d) => {
-      fetched.push(d.url)
-      d.onload({ responseText: fixture, status: 200, responseHeaders: '' })
-    })
-    runtime.stores['dashboard:v2:config'] = {
-      tnews: { feeds: ['https://custom.example/feed'], mirrors: [] },
-    }
-    const { source } = createTnewsSource(DEFAULT_OPTS)
-    await source.fetch(runtime, undefined)
-    expect(fetched).toEqual(['https://custom.example/feed'])
-  })
-
-  test('falls back to closure options when CONFIG_KEY has no tnews', async () => {
+  test('fetches from hardcoded TNEWS_FEED_URL', async () => {
     const fixture = loadFixture()
     const fetched: string[] = []
     const runtime = makeRuntime((d) => {
@@ -59,7 +43,7 @@ describe('createTnewsSource.fetch', () => {
     })
     const { source } = createTnewsSource(DEFAULT_OPTS)
     await source.fetch(runtime, undefined)
-    expect(fetched).toEqual(['https://rsshub.app/telegram/channel/tnews365'])
+    expect(fetched).toEqual([TNEWS_FEED_URL])
   })
 
   test('merges prevData with newly fetched items (link-based union)', async () => {
@@ -105,7 +89,7 @@ describe('createTnewsSource.fetch', () => {
     expect(state).toBeDefined()
   })
 
-  test('filters items older than 72h', async () => {
+  test('filters items older than retention window', async () => {
     const oldXml = `<?xml version="1.0"?><rss version="2.0"><channel>
       <item><title>old</title><link>https://t.me/x/1</link>
       <pubDate>${new Date(Date.now() - 73 * 3600 * 1000).toUTCString()}</pubDate>
@@ -118,15 +102,12 @@ describe('createTnewsSource.fetch', () => {
     </channel></rss>`
     const runtime = makeRuntime((d) => {
       d.onload({
-        responseText: d.url.includes('x/') ? oldXml : recentXml,
+        responseText: d.url.includes('tnews365') ? recentXml : oldXml,
         status: 200,
         responseHeaders: '',
       })
     })
-    const { source } = createTnewsSource({
-      ...DEFAULT_OPTS,
-      feeds: ['https://a.test/old-feed', 'https://b.test/new-feed'],
-    })
+    const { source } = createTnewsSource(DEFAULT_OPTS)
     const result = (await source.fetch(
       runtime,
       undefined,
@@ -143,9 +124,6 @@ describe('createTnewsSource.fetch', () => {
     })
     const { source } = createTnewsSource(DEFAULT_OPTS)
     await source.fetch(runtime, undefined)
-    // The old saveTnewsCache bug wrote to 'dashboard:v2:dashboard:v2:tnews'
-    // (double-prefix). fetch should NOT write any cache key directly —
-    // refreshSource saves the returned data to 'dashboard:v2:tnews'.
     expect(runtime.stores['dashboard:v2:dashboard:v2:tnews']).toBeUndefined()
   })
 })
@@ -167,40 +145,17 @@ describe('validateConfig.tnews', () => {
   test('accepts default config', () => {
     expect(
       validateConfig({
-        tnews: {
-          feeds: ['https://rsshub.app/x'],
-          mirrors: [],
-          ttlMinutes: 30,
-        },
+        tnews: { ttlMinutes: 30 },
       }),
     ).toEqual({ ok: true })
   })
   test('rejects non-object tnews', () => {
     expect(validateConfig({ tnews: 'no' }).ok).toBe(false)
   })
-  test('rejects empty feeds', () => {
-    expect(validateConfig({ tnews: { feeds: [], mirrors: [], ttlMinutes: 30 } }).ok).toBe(false)
-  })
-  test('rejects invalid feed URL', () => {
-    expect(
-      validateConfig({ tnews: { feeds: ['not a url'], mirrors: [], ttlMinutes: 30 } }).ok,
-    ).toBe(false)
-  })
-  test('rejects invalid mirror hostname', () => {
-    expect(
-      validateConfig({
-        tnews: {
-          feeds: ['https://x.com'],
-          mirrors: ['bad host!'],
-          ttlMinutes: 30,
-        },
-      }).ok,
-    ).toBe(false)
-  })
   test('rejects ttlMinutes <= 0', () => {
     expect(
       validateConfig({
-        tnews: { feeds: ['https://x.com'], mirrors: [], ttlMinutes: 0 },
+        tnews: { ttlMinutes: 0 },
       }).ok,
     ).toBe(false)
   })

@@ -3,7 +3,7 @@ import type { Runtime } from '../../runtime'
 import type { Source, SourceSettings, TabLabel } from '../types'
 import { RETENTION_MS } from './constants'
 import { TnewsComponent } from './component'
-import { createTnewsEditor, loadFreshTnewsOptions } from './editor'
+import { createTnewsEditor } from './editor'
 import { fetchTnews } from './fetcher'
 import { filterByRetention, mergeByLink, sortByPubDateDesc } from './parser'
 import { createTnewsState, type TnewsState } from './state'
@@ -28,9 +28,8 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
       return tnewsTabLabel(data, state)
     },
     async fetch(runtime, prevData) {
-      const fresh = await loadFreshTnewsOptions(runtime, options)
       await state.loadFromStorage(runtime)
-      const result = await fetchTnews(runtime, fresh)
+      const result = await fetchTnews(runtime)
       console.debug(
         '[gm-tnews] fetchTnews items=',
         result.items.length,

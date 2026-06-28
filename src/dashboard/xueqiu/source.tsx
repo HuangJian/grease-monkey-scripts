@@ -38,10 +38,10 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
   const retentionMs = options.retentionDays * 24 * 60 * 60 * 1000
   const state: XueqiuState = createXueqiuState({ retentionMs })
   const mainHeaderStore = createHeaderState<{ dateFilter: DateFilter; viewMode: ViewMode }>({
-    dateFilter: '全',
+    dateFilter: '今',
     viewMode: 'list',
   })
-  const hotHeaderStore = createHeaderState<{ dateFilter: DateFilter }>({ dateFilter: '全' })
+  const hotHeaderStore = createHeaderState<{ dateFilter: DateFilter }>({ dateFilter: '今' })
 
   const mainSource: Source<XueqiuRenderData> = {
     id: MAIN_SOURCE_ID,
@@ -57,7 +57,7 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
       return (
         <DateFilterGroup
           value={hs.dateFilter}
-          onChange={(f) => mainHeaderStore.set((s) => ({ ...s, dateFilter: f }))}
+          onChange={(f) => mainHeaderStore.set((s) => ({ ...s, dateFilter: f, viewMode: 'list' }))}
           trailing={
             <span class="gm-sp-date-filter gm-sp-view-toggle">
               <button

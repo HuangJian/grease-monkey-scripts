@@ -166,6 +166,7 @@ export type SummaryViewProps = {
   elapsedSec: number
   filterUnread: boolean
   onToggleFilterUnread: () => void
+  isBrowsingHistory: boolean
 }
 
 export function SummaryView({
@@ -187,10 +188,12 @@ export function SummaryView({
   elapsedSec,
   filterUnread,
   onToggleFilterUnread,
+  isBrowsingHistory,
 }: SummaryViewProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
-  const active = summaries.find((s) => s.id === activeSummaryId) ?? summaries[0] ?? null
+  // Don't auto-select the most recent summary — null means "browse mode"
+  const active = activeSummaryId ? (summaries.find((s) => s.id === activeSummaryId) ?? null) : null
 
   // Timing stats for display
   const avgSec = avgElapsedSec(summaries)
@@ -272,24 +275,12 @@ export function SummaryView({
     )
   }
 
-  // No summaries and not loading
-  if (!active) {
-    return (
-      <div class="gm-sp-ai-summary">
-        <div class="gm-sp-empty gm-sp-ai-status">
-          <p>暂无 AI 摘要</p>
-          <div class="gm-sp-ai-status-actions">
-            <button type="button" class="gm-sp-btn gm-sp-btn-icon" onClick={onRefresh}>
-              生成摘要（{newsCount}条）
-            </button>
-            <button type="button" class="gm-sp-btn gm-sp-btn-icon" onClick={onBack}>
-              回到列表
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // Hide bulk-read / filter-unread / generate ONLY when reading a past summary
+  // (isBrowsingHistory && active). In browse mode (no selection) and freshly-
+  // generated mode, all controls are visible.
+  const showBulkRead = !!active && !isBrowsingHistory
+  const showFilterUnread = !isBrowsingHistory || !active
+  const showGenerateButton = !isBrowsingHistory || !active
 
   return (
     <div class="gm-sp-ai-summary">
@@ -299,9 +290,10 @@ export function SummaryView({
           {summaries.length > 0 && (
             <select
               class="gm-sp-input gm-sp-ai-history-select"
-              value={active.id}
+              value={activeSummaryId ?? ''}
               onChange={(e) => onSelectSummary((e.target as HTMLSelectElement).value)}
             >
+              <option value="">== 为列表视图的新闻生成摘要 → ==</option>
               {summaries.map((s) => (
                 <option key={s.id} value={s.id}>
                   {formatTime(s.generatedAt)} · {s.topics.length}主题 · {s.newsCount}条
@@ -309,39 +301,47 @@ export function SummaryView({
               ))}
             </select>
           )}
-          <button
-            type="button"
-            class="gm-sp-btn gm-sp-btn-icon"
-            onClick={onSummaryRead}
-            title="标记摘要中所有新闻为已读"
-          >
-            本摘要已读
-          </button>
-          <button
-            type="button"
-            class="gm-sp-btn gm-sp-btn-icon"
-            onClick={onBulkRead}
-            title="标记当前列表所有新闻为已读"
-          >
-            本批已读
-          </button>
-          <label class="gm-sp-ai-filter-unread" title="勾选后仅将未读新闻发送给 LLM">
-            <input type="checkbox" checked={filterUnread} onChange={onToggleFilterUnread} />
-            过滤已读
-          </label>
-          <button
-            type="button"
-            class={`gm-sp-btn gm-sp-btn-icon gm-sp-ai-refresh-btn${active ? ' gm-sp-ai-refresh-btn-done' : ''}`}
-            onClick={onRefresh}
-            disabled={loading}
-            title="调用 LLM 生成/刷新摘要"
-          >
-            {loading
-              ? `⏳ ${elapsedSec}s`
-              : active
-                ? `重新生成摘要（${newsCount}条）`
-                : `生成摘要（${newsCount}条）`}
-          </button>
+          {active && (
+            <button
+              type="button"
+              class="gm-sp-btn gm-sp-btn-icon"
+              onClick={onSummaryRead}
+              title="标记摘要中所有新闻为已读"
+            >
+              本摘要已读
+            </button>
+          )}
+          {showBulkRead && (
+            <button
+              type="button"
+              class="gm-sp-btn gm-sp-btn-icon"
+              onClick={onBulkRead}
+              title="标记当前列表所有新闻为已读"
+            >
+              本批已读
+            </button>
+          )}
+          {showFilterUnread && (
+            <label class="gm-sp-ai-filter-unread" title="勾选后仅将未读新闻发送给 LLM">
+              <input type="checkbox" checked={filterUnread} onChange={onToggleFilterUnread} />
+              过滤已读
+            </label>
+          )}
+          {showGenerateButton && (
+            <button
+              type="button"
+              class={`gm-sp-btn gm-sp-btn-icon gm-sp-ai-refresh-btn${active ? ' gm-sp-ai-refresh-btn-done' : ''}`}
+              onClick={onRefresh}
+              disabled={loading}
+              title="调用 LLM 生成/刷新摘要"
+            >
+              {loading
+                ? `⏳ ${elapsedSec}s`
+                : active
+                  ? `重新生成摘要（${newsCount}条）`
+                  : `生成摘要（${newsCount}条）`}
+            </button>
+          )}
         </div>
 
         {/* Loading overlay while refreshing with summary */}
@@ -351,25 +351,31 @@ export function SummaryView({
       {/* Error banner (has summary) */}
       {error && <div class="gm-sp-error-box gm-sp-ai-error-banner">上次刷新失败: {error}</div>}
 
-      {/* Topic cards — sorted by importance */}
-      {[...active.topics]
-        .sort(
-          (a, b) => (IMPORTANCE_ORDER[a.importance] ?? 2) - (IMPORTANCE_ORDER[b.importance] ?? 2),
-        )
-        .map((topic, idx) => {
-          const key = `${active.id}-${idx}`
-          return (
-            <TopicCard
-              key={key}
-              topic={topic}
-              newsMap={newsMap}
-              isRead={isRead}
-              collapsed={collapsed.has(key)}
-              onToggleCollapse={() => toggleCollapse(key)}
-              onTopicRead={() => onTopicRead(topic.items)}
-            />
+      {/* Topic cards or placeholder */}
+      {active ? (
+        [...active.topics]
+          .sort(
+            (a, b) => (IMPORTANCE_ORDER[a.importance] ?? 2) - (IMPORTANCE_ORDER[b.importance] ?? 2),
           )
-        })}
+          .map((topic, idx) => {
+            const key = `${active.id}-${idx}`
+            return (
+              <TopicCard
+                key={key}
+                topic={topic}
+                newsMap={newsMap}
+                isRead={isRead}
+                collapsed={collapsed.has(key)}
+                onToggleCollapse={() => toggleCollapse(key)}
+                onTopicRead={() => onTopicRead(topic.items)}
+              />
+            )
+          })
+      ) : (
+        <div class="gm-sp-empty gm-sp-ai-status">
+          <p>{summaries.length > 0 ? '选择往期摘要或生成新摘要' : '暂无 AI 摘要'}</p>
+        </div>
+      )}
     </div>
   )
 }

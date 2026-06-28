@@ -214,31 +214,15 @@ describe('validateConfig', () => {
   describe('tnews', () => {
     test('accepts valid tnews config', () => {
       const result = validateConfig({
-        tnews: {
-          feeds: ['https://rsshub.app/telegram/channel/tnews365'],
-          mirrors: ['rsshub.rssforever.com'],
-          ttlMinutes: 30,
-        },
+        tnews: { ttlMinutes: 30 },
       })
       expect(result).toEqual({ ok: true })
     })
 
-    test('rejects empty feeds', () => {
-      const result = validateConfig({ tnews: { feeds: [] } })
+    test('rejects ttlMinutes <= 0', () => {
+      const result = validateConfig({ tnews: { ttlMinutes: 0 } })
       expect(result.ok).toBe(false)
-      if (!result.ok) expect(result.error).toBe('tnews.feeds 必须是非空数组')
-    })
-
-    test('rejects invalid feed URL', () => {
-      const result = validateConfig({ tnews: { feeds: ['not-a-url'] } })
-      expect(result.ok).toBe(false)
-      if (!result.ok) expect(result.error).toContain('必须是有效 URL')
-    })
-
-    test('rejects invalid mirror hostname', () => {
-      const result = validateConfig({ tnews: { mirrors: ['invalid host!'] } })
-      expect(result.ok).toBe(false)
-      if (!result.ok) expect(result.error).toContain('必须是合法 hostname')
+      if (!result.ok) expect(result.error).toContain('ttlMinutes')
     })
   })
 

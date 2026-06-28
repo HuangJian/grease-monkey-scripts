@@ -98,13 +98,14 @@ export function HupuComponent({
                 const badge = sourceBadge(post.created)
                 const author = post.author
                 const authorTags = author ? authorTagMap[author] : undefined
+                const hasTags = !!authorTags && Object.keys(authorTags).length > 0
                 const ac = authorClass(authorTags ? getTotalScore(authorTags) : 0)
                 const titleSuffix = buildAuthorTagHtml(authorTags, escapeHtml)
                 const authorText = author ? `@${escapeHtml(author)}` : ''
                 const replyCount = formatReplyCount(post.replies, state.getReadReplies(post.id))
                 return (
                   <li
-                    class={`gm-sp-list-item gm-sp-list-item-flex${state.isRead(post.id) ? ' gm-sp-item-read' : ''}`}
+                    class={`gm-sp-list-item gm-sp-list-item-flex${hasTags ? ' gm-sp-item-tagged' : ''}${ac}${state.isRead(post.id) ? ' gm-sp-item-read' : ''}`}
                     data-post-id={post.id}
                   >
                     <span class="gm-sp-section-source" title={badge.title}>

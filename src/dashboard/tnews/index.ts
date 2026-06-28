@@ -14,5 +14,5 @@ export {
 } from './parser'
 export { fetchTnews } from './fetcher'
 export { renderTnews } from './render'
-export { createTnewsEditor, loadFreshTnewsOptions } from './editor'
+export { createTnewsEditor } from './editor'
 export { createTnewsState } from './state'

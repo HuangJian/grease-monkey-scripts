@@ -50,7 +50,7 @@ describe('createV2exSource', () => {
         member: { username: 'alice' },
         node: { title: 'node-a' },
         sources: [],
-        created: 0,
+        created: Date.now(),
       },
     ]
     render(

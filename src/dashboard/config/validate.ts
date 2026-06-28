@@ -170,35 +170,6 @@ export function validateConfig(value: unknown): ConfigValidation {
     if (!isPlainObject(t)) {
       return { ok: false, error: 'tnews 必须是对象' }
     }
-    if ('feeds' in t) {
-      const list = t['feeds']
-      if (!Array.isArray(list) || list.length === 0) {
-        return { ok: false, error: 'tnews.feeds 必须是非空数组' }
-      }
-      for (let i = 0; i < list.length; i++) {
-        const u = list[i]
-        if (typeof u !== 'string' || !u.trim()) {
-          return { ok: false, error: `tnews.feeds[${i}] 必须是非空字符串` }
-        }
-        try {
-          void new URL(u)
-        } catch {
-          return { ok: false, error: `tnews.feeds[${i}] 必须是有效 URL` }
-        }
-      }
-    }
-    if ('mirrors' in t) {
-      const list = t['mirrors']
-      if (!Array.isArray(list)) {
-        return { ok: false, error: 'tnews.mirrors 必须是数组' }
-      }
-      for (let i = 0; i < list.length; i++) {
-        const m = list[i]
-        if (typeof m !== 'string' || !/^[a-z0-9.-]+$/i.test(m)) {
-          return { ok: false, error: `tnews.mirrors[${i}] 必须是合法 hostname` }
-        }
-      }
-    }
     const numFields: Array<[string, number, number]> = [['ttlMinutes', 1, Number.POSITIVE_INFINITY]]
     for (const [name, min, max] of numFields) {
       if (name in t) {

@@ -33,7 +33,6 @@
 // @connect      old.reddit.com
 // @connect      bbs.hupu.com
 // @connect      xueqiu.com
-// @connect      rsshub.app
 // @connect      rsshub.rssforever.com
 // @connect      oauth2.googleapis.com
 // @connect      cloudcode-pa.googleapis.com
@@ -41,10 +40,6 @@
 // @connect      api-sg-central.trae.ai
 // @connect      chatgpt.com
 // ==/UserScript==
-// tnews 镜像 fallback：仅对 rsshub.app 域名生效。
-// 如需使用其它公共/私有 RSSHub 镜像，请同时：
-//   1. 在上方 @connect 区添加对应 hostname
-//   2. 在「编辑仪表盘配置」中把镜像 hostname 加到 tnews.mirrors 数组
 
 import { startDashboard } from './app'
 import { createBrowserRuntime } from '../runtime'

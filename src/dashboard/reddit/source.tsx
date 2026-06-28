@@ -23,7 +23,7 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
   const state = createRedditState({ retentionMs })
   const expandCollapse = createExpandCollapse()
   let authorTagMap: AuthorTagMap = {}
-  const headerStore = createHeaderState<{ dateFilter: DateFilter }>({ dateFilter: '全' })
+  const headerStore = createHeaderState<{ dateFilter: DateFilter }>({ dateFilter: '今' })
 
   async function loadAuthorTags(runtime: Runtime): Promise<void> {
     authorTagMap = await syncAuthorTags({

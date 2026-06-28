@@ -76,12 +76,13 @@ export function V2exComponent({
           const badge = sourceBadge(topic)
           const username = topic.member.username
           const authorTags = username ? authorTagMap[username] : undefined
+          const hasTags = !!authorTags && Object.keys(authorTags).length > 0
           const ac = authorClass(authorTags ? getTotalScore(authorTags) : 0)
           const titleSuffix = buildAuthorTagHtml(authorTags, escapeHtml)
           const replyCount = formatReplyCount(topic.replies, state.getReadReplies(topic.id))
           return (
             <li
-              class={`gm-sp-list-item gm-sp-list-item-flex${state.isRead(topic.id) ? ' gm-sp-item-read' : ''}`}
+              class={`gm-sp-list-item gm-sp-list-item-flex${hasTags ? ' gm-sp-item-tagged' : ''}${ac}${state.isRead(topic.id) ? ' gm-sp-item-read' : ''}`}
               data-topic-id={topic.id}
             >
               <span class="gm-sp-v2ex-source" title={badge?.title}>

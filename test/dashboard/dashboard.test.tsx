@@ -31,10 +31,10 @@ describe('createDashboard', () => {
     document.documentElement.innerHTML = ''
   })
 
-  test('start() registers two menu commands', () => {
+  test('start() registers the open-dashboard menu command', () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
-    expect(runtime.menuCommands.map((c) => c.name)).toEqual(['打开仪表盘', '编辑仪表盘配置'])
+    expect(runtime.menuCommands.map((c) => c.name)).toEqual(['打开仪表盘'])
   })
 
   test('open() mounts shadow root with header and cards', async () => {
@@ -390,72 +390,6 @@ describe('createDashboard', () => {
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
     )
     expect(document.getElementById('gm-dashboard')).toBeNull()
-  })
-
-  test('editConfig merges and persists user override', () => {
-    const originalAlert = window.alert
-    window.alert = () => {}
-    runtime.prompt = () =>
-      JSON.stringify({
-        weather: { cities: [{ latitude: 31.2, longitude: 121.5, cityLabel: '上海' }] },
-      })
-    const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
-    dashboard.start()
-    dashboard.editConfig()
-    window.alert = originalAlert
-    const stored = runtime.stores['dashboard:v2:config'] as {
-      weather: { cities: { cityLabel: string; latitude: number }[]; ttlMinutes: number }
-    }
-    expect(stored.weather.cities[0].cityLabel).toBe('上海')
-    expect(stored.weather.cities[0].latitude).toBe(31.2)
-  })
-
-  test('editConfig reports parse error without overwriting config', () => {
-    const alerts: string[] = []
-    const originalAlert = runtime.alert
-    runtime.alert = (msg?: string) => {
-      alerts.push(msg ?? '')
-    }
-    runtime.prompt = () => 'not-json{'
-    const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
-    dashboard.start()
-    dashboard.editConfig()
-    expect(alerts.some((m) => m.includes('解析失败'))).toBe(true)
-    expect(runtime.stores['dashboard:v2:config']).toBeUndefined()
-    runtime.alert = originalAlert
-  })
-
-  test('editConfig reports validation error without overwriting config', () => {
-    const alerts: string[] = []
-    const originalAlert = runtime.alert
-    runtime.alert = (msg?: string) => {
-      alerts.push(msg ?? '')
-    }
-    runtime.prompt = () => JSON.stringify({ hostAllowlist: 'bad' })
-    const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
-    dashboard.start()
-    dashboard.editConfig()
-    expect(alerts.some((m) => m.includes('配置校验失败'))).toBe(true)
-    expect(runtime.stores['dashboard:v2:config']).toBeUndefined()
-    runtime.alert = originalAlert
-  })
-
-  test('editConfig catches prompt exception and falls back to alert', () => {
-    const alerts: string[] = []
-    const originalAlert = runtime.alert
-    runtime.alert = (msg?: string) => {
-      alerts.push(msg ?? '')
-    }
-    runtime.prompt = ((msg?: string) => {
-      if (msg?.startsWith('粘贴 JSON')) throw new Error('blocked by site')
-      return null
-    }) as typeof runtime.prompt
-    const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
-    dashboard.start()
-    dashboard.editConfig()
-    expect(alerts.some((m) => m.includes('禁用了 prompt'))).toBe(true)
-    expect(runtime.stores['dashboard:v2:config']).toBeUndefined()
-    runtime.alert = originalAlert
   })
 })
 

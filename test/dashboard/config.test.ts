@@ -195,45 +195,10 @@ describe('validateConfig.tnews', () => {
   test('rejects non-object tnews', () => {
     expect(validateConfig({ tnews: 'no' }).ok).toBe(false)
   })
-  test('rejects empty feeds', () => {
-    expect(validateConfig({ tnews: { feeds: [], mirrors: [], ttlMinutes: 30 } }).ok).toBe(false)
-  })
-  test('rejects invalid feed URL', () => {
-    expect(
-      validateConfig({
-        tnews: { feeds: ['not a url'], mirrors: [], ttlMinutes: 30 },
-      }).ok,
-    ).toBe(false)
-  })
-  test('rejects blank feed entry', () => {
-    expect(
-      validateConfig({
-        tnews: { feeds: ['  '], mirrors: [], ttlMinutes: 30 },
-      }).ok,
-    ).toBe(false)
-  })
-  test('rejects invalid mirror hostname', () => {
-    expect(
-      validateConfig({
-        tnews: {
-          feeds: ['https://x.com'],
-          mirrors: ['bad host!'],
-          ttlMinutes: 30,
-        },
-      }).ok,
-    ).toBe(false)
-  })
-  test('rejects non-array mirrors', () => {
-    expect(
-      validateConfig({
-        tnews: { feeds: ['https://x.com'], mirrors: 'nope', ttlMinutes: 30 },
-      }).ok,
-    ).toBe(false)
-  })
   test('rejects ttlMinutes = 0', () => {
     expect(
       validateConfig({
-        tnews: { feeds: ['https://x.com'], mirrors: [], ttlMinutes: 0 },
+        tnews: { ttlMinutes: 0 },
       }).ok,
     ).toBe(false)
   })

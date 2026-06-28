@@ -1,5 +1,4 @@
 export { DEFAULT_CONFIG } from './defaults'
 export { isPlainObject, deepMerge } from './merge'
 export { loadConfig, loadConfigSection } from './load'
-export { defaultConfigExample } from './example'
 export { validateConfig, type ConfigValidation } from './validate'

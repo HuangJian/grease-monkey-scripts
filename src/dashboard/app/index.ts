@@ -4,7 +4,6 @@ import { loadConfig } from '../config'
 import { createSourceRegistry, findSource } from './source-registry'
 import { renderAllGroups, renderGroupById, type GroupRendererDeps } from './group-renderer'
 import { refreshSource, runOpportunisticRefresh } from './refresh'
-import { editConfig } from './config-editor'
 import { mountDashboard } from './lifecycle'
 import { bootstrapShortcut } from './shortcut-bootstrap'
 import { bootstrapSync } from './sync-bootstrap'
@@ -23,7 +22,6 @@ export type Dashboard = {
   toggle: () => void
   refreshSource: (sourceId: string) => Promise<void>
   runOpportunisticRefresh: () => Promise<void>
-  editConfig: () => void
 }
 
 export function createDashboard(runtime: Runtime, options: DashboardOptions): Dashboard {
@@ -144,7 +142,6 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
       runtime.registerMenuCommand('打开仪表盘', () => {
         void dashboard.open()
       })
-      runtime.registerMenuCommand('编辑仪表盘配置', () => dashboard.editConfig())
       reg.sources.forEach((source) => {
         runtime.addValueChangeListener(CACHE_KEY(source.id), (_key, _oldValue, _newValue) => {
           if (!handle) return
@@ -171,7 +168,6 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     toggle,
     refreshSource: doRefreshSource,
     runOpportunisticRefresh: doRunOpportunisticRefresh,
-    editConfig: () => editConfig(runtime, options.config),
   }
   return dashboard
 }

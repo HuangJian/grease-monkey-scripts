@@ -17,7 +17,7 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
   const retentionMs = options.retentionDays * 24 * 60 * 60 * 1000
   const state = createV2exState({ retentionMs })
   let authorTagMap: AuthorTagMap = {}
-  const headerStore = createHeaderState<{ dateFilter: DateFilter }>({ dateFilter: '全' })
+  const headerStore = createHeaderState<{ dateFilter: DateFilter }>({ dateFilter: '今' })
 
   function isV2exDomain(hostname: string): boolean {
     return hostname === 'v2ex.com' || hostname.endsWith('.v2ex.com')

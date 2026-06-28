@@ -16,8 +16,7 @@
   color: var(--gm-sp-color-primary);
 }
 
-.gm-sp-tne-feeds,
-.gm-sp-tne-mirrors {
+.gm-sp-tne-feeds {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;

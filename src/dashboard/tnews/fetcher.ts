@@ -1,15 +1,9 @@
 import type { Runtime } from '../../runtime'
-import { RSSHUB_HOST, USER_AGENT } from './constants'
+import { TNEWS_FEED_URL, USER_AGENT } from './constants'
 import { parseRssItems } from './parser'
-import type { TnewsFetchResult, TnewsItem, TnewsSourceOptions } from './types'
+import type { TnewsFetchResult, TnewsItem } from './types'
 
 type FeedOutcome = { items: TnewsItem[]; error: string | null }
-
-function withMirror(url: string, mirror: string): string {
-  const u = new URL(url)
-  u.hostname = mirror
-  return u.toString()
-}
 
 function fetchOnce(runtime: Runtime, url: string): Promise<string> {
   return new Promise<string>((resolve, reject) => {
@@ -35,61 +29,27 @@ function fetchOnce(runtime: Runtime, url: string): Promise<string> {
   })
 }
 
-function buildCandidates(url: string, mirrors: ReadonlyArray<string>): string[] {
-  const out: string[] = [url]
+async function fetchOneFeed(runtime: Runtime, url: string): Promise<FeedOutcome> {
   try {
-    const parsed = new URL(url)
-    if (parsed.hostname === RSSHUB_HOST) {
-      mirrors.forEach((mirror) => {
-        const mirrored = withMirror(url, mirror)
-        if (!out.includes(mirrored)) out.push(mirrored)
-      })
-    }
-  } catch {
-    /* ignore */
-  }
-  return out
-}
-
-async function fetchOneFeed(
-  runtime: Runtime,
-  url: string,
-  mirrors: ReadonlyArray<string>,
-): Promise<FeedOutcome> {
-  const candidates = buildCandidates(url, mirrors)
-  let lastError: Error | null = null
-  for (const candidate of candidates) {
-    try {
-      const text = await fetchOnce(runtime, candidate)
-      const items = parseRssItems(text, new runtime.DOMParser())
-      console.debug('[gm-tnews] feed try url=', candidate, 'outcome=ok count=', items.length)
-      return { items, error: null }
-    } catch (e) {
-      lastError = e instanceof Error ? e : new Error(String(e))
-      console.debug('[gm-tnews] feed try url=', candidate, 'outcome=fail err=', lastError.message)
-    }
-  }
-  return {
-    items: [],
-    error: lastError ? lastError.message : 'unknown',
+    const text = await fetchOnce(runtime, url)
+    const items = parseRssItems(text, new runtime.DOMParser())
+    console.debug('[gm-tnews] feed url=', url, 'count=', items.length)
+    return { items, error: null }
+  } catch (e) {
+    const err = e instanceof Error ? e : new Error(String(e))
+    console.debug('[gm-tnews] feed url=', url, 'fail err=', err.message)
+    return { items: [], error: err.message }
   }
 }
 
-export async function fetchTnews(
-  runtime: Runtime,
-  options: Pick<TnewsSourceOptions, 'feeds' | 'mirrors'>,
-): Promise<TnewsFetchResult> {
-  if (options.feeds.length === 0) {
-    throw new Error('tnews: no feeds configured')
-  }
-  const settled = await Promise.all(
-    options.feeds.map((feed) => fetchOneFeed(runtime, feed, options.mirrors)),
-  )
+export async function fetchTnews(runtime: Runtime): Promise<TnewsFetchResult> {
+  const feeds = [TNEWS_FEED_URL]
+  const settled = await Promise.all(feeds.map((feed) => fetchOneFeed(runtime, feed)))
   const errors: string[] = []
   const allItems: TnewsItem[] = []
   settled.forEach((outcome, i) => {
     if (outcome.error) {
-      const feedLabel = options.feeds[i] ?? '<unknown>'
+      const feedLabel = feeds[i] ?? '<unknown>'
       errors.push(`${feedLabel}: ${outcome.error}`)
     }
     outcome.items.forEach((it) => allItems.push(it))

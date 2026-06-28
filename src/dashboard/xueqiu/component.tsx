@@ -86,6 +86,7 @@ export function XueqiuComponent({
   const [aiError, setAiError] = useState<string | null>(null)
   const [elapsedSec, setElapsedSec] = useState(0)
   const [filterUnread, setFilterUnread] = useState(true)
+  const [isBrowsingHistory, setIsBrowsingHistory] = useState(true)
   const aiInitRef = useRef(false)
   const genStartRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -116,15 +117,14 @@ export function XueqiuComponent({
   const newsMap = new Map<number, XueqiuNewsItem>()
   for (const item of dateFiltered) newsMap.set(item.id, item)
 
-  // When no active summary exists (unconfigured / error / empty), force filter off
-  // so newsCount shows the full set and the checkbox appears unchecked.
-  const activeSummary = summaries.find((s) => s.id === activeSummaryId) ?? null
-  const effectiveFilterUnread = activeSummary ? filterUnread : false
-
   // Items sent to LLM: optionally filter to unread only
-  const summaryItems = effectiveFilterUnread
+  const summaryItems = filterUnread
     ? dateFiltered.filter((it) => !state.isRead(String(it.id)))
     : dateFiltered
+
+  const activeSummary = activeSummaryId
+    ? (summaries.find((s) => s.id === activeSummaryId) ?? null)
+    : null
 
   // Initialize AI summary state when switching to summary view (no auto-generate)
   useLayoutEffect(() => {
@@ -159,6 +159,7 @@ export function XueqiuComponent({
     // Load history for the dropdown — no cache-hit matching
     const all = await loadSummaries(runtime, retentionMs)
     setSummaries(all)
+    setIsBrowsingHistory(true)
   }
 
   function startTimer() {
@@ -188,6 +189,7 @@ export function XueqiuComponent({
       const all = await loadSummaries(runtime, retentionMs)
       setSummaries(all)
       setActiveSummaryId(entry.id)
+      setIsBrowsingHistory(false)
     } catch (e) {
       setAiError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -336,7 +338,10 @@ export function XueqiuComponent({
           error={aiError}
           unconfigured={!aiConfig?.apiKey && !aiLoading}
           isRead={(id) => state.isRead(id)}
-          onSelectSummary={setActiveSummaryId}
+          onSelectSummary={(id) => {
+            setActiveSummaryId(id || null)
+            setIsBrowsingHistory(true)
+          }}
           onRefresh={handleRefresh}
           onTopicRead={handleTopicRead}
           onSummaryRead={handleSummaryRead}
@@ -345,8 +350,9 @@ export function XueqiuComponent({
           onBack={() => onViewModeChange?.('list')}
           newsCount={summaryItems.length}
           elapsedSec={elapsedSec}
-          filterUnread={effectiveFilterUnread}
+          filterUnread={filterUnread}
           onToggleFilterUnread={() => setFilterUnread((v) => !v)}
+          isBrowsingHistory={isBrowsingHistory}
         />
       </div>
     )

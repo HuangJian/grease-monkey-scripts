@@ -221,6 +221,18 @@
   line-height: 1.4;
 }
 
+.gm-sp-list-item.gm-sp-item-tagged {
+  box-shadow: inset 3px 0 0 var(--gm-sp-color-text-muted);
+}
+
+.gm-sp-list-item.gm-sp-item-tagged.gm-sp-author-pos {
+  box-shadow: inset 3px 0 0 var(--gm-sp-color-success);
+}
+
+.gm-sp-list-item.gm-sp-item-tagged.gm-sp-author-neg {
+  box-shadow: inset 3px 0 0 var(--gm-sp-color-danger);
+}
+
 .gm-sp-item-actions {
   display: none;
   position: absolute;
