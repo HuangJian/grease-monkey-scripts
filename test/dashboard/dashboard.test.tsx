@@ -371,6 +371,35 @@ describe('createDashboard', () => {
     expect(fetchCount).toBeGreaterThan(countAfterFirst)
   })
 
+  test('bugfix: non-xueqiu tab does not steal xueqiu refresh (SkipRefreshError)', async () => {
+    // Simulate: computer wakes from sleep, a non-xueqiu tab (v2ex.com) tries
+    // to refresh xueqiu-news. Previously it either returned prevData (marking
+    // stale data as "fresh") or wrote an error message to cache. Now it
+    // throws SkipRefreshError so refreshSource skips the cache update entirely.
+    const oldData = { news: [{ id: 1 }], hotPosts: [] }
+    const oldFetchedAt = 1_000_000
+    runtime.stores[CACHE_KEY('xueqiu-news')] = {
+      schemaVersion: CACHE_SCHEMA_VERSION,
+      data: oldData,
+      fetchedAt: oldFetchedAt,
+      error: '',
+    } as CachedSource<unknown>
+
+    // beforeEach sets location to v2ex.com — non-xueqiu host
+    const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
+    dashboard.start()
+    await dashboard.refreshSource('xueqiu-news')
+
+    // Cache must be completely unchanged
+    const stored = runtime.stores[CACHE_KEY('xueqiu-news')] as CachedSource<unknown>
+    expect(stored.fetchedAt).toBe(oldFetchedAt)
+    expect(stored.error).toBe('')
+    expect(stored.data).toEqual(oldData)
+
+    // Lock must be released so the xueqiu tab can acquire it
+    expect(runtime.stores['dashboard:v2:lock:xueqiu-news']).toBeNull()
+  })
+
   test('double-Shift opens the overlay', async () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()

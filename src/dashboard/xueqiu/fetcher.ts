@@ -53,6 +53,7 @@ const NEWS_URL = `${API_BASE}/statuses/livenews/list.json`
 const MAX_ROUNDS = 30
 const REQUEST_DELAY_MS = 3000
 const REQUEST_DELAY_VARIANCE = 0.4
+const PAGE_FETCH_TIMEOUT_MS = 20_000
 
 // ---- Fetch helpers ----
 
@@ -85,9 +86,19 @@ function gmFetchJson(runtime: Runtime, url: string): Promise<ApiResponse> {
   })
 }
 
-/** Page-context fetch — for HOT endpoint (WAF-protected). */
+/** Page-context fetch — for HOT endpoint (WAF-protected).
+ *  Includes a timeout guard: after wake-from-sleep the underlying fetch
+ *  can hang indefinitely (no browser-level timeout), which blocks the
+ *  inflightRefreshes entry and makes the refresh button unresponsive. */
 async function pageFetchJson(runtime: Runtime, url: string): Promise<ApiResponse> {
-  return (await runtime.pageFetch(url)) as ApiResponse
+  const fetchPromise = runtime.pageFetch(url) as Promise<ApiResponse>
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(
+      () => reject(new Error(`pageFetch timeout (${PAGE_FETCH_TIMEOUT_MS}ms) for ${url}`)),
+      PAGE_FETCH_TIMEOUT_MS,
+    )
+  })
+  return Promise.race([fetchPromise, timeoutPromise])
 }
 
 // ---- Dedup ----

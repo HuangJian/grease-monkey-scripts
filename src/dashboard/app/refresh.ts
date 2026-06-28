@@ -2,6 +2,7 @@ import type { Runtime } from '../../runtime'
 import type { Source, CachedSource } from '../types'
 import { isStale, loadCache, saveCache } from '../cache'
 import { releaseLock, tryAcquireLock } from '../lock'
+import { SkipRefreshError } from '../errors'
 
 export async function refreshSource(runtime: Runtime, source: Source<unknown>): Promise<void> {
   console.debug('[gm-dashboard] refreshSource enter sourceId=', source.id)
@@ -18,6 +19,14 @@ export async function refreshSource(runtime: Runtime, source: Source<unknown>): 
       const data = await source.fetch(runtime, oldCache?.data)
       next = { data, fetchedAt: Date.now(), error: '' }
     } catch (e) {
+      if (e instanceof SkipRefreshError) {
+        // Source cannot fetch on this host (e.g. xueqiu on github.com).
+        // Skip cache update entirely — don't steal the refresh, don't
+        // overwrite fetchedAt, don't write an error. Just release the
+        // lock so a tab on the correct host can acquire it.
+        console.debug('[gm-dashboard] refreshSource skip sourceId=', source.id, 'msg=', e.message)
+        return
+      }
       const message = e instanceof Error ? e.message : String(e)
       console.debug(
         '[gm-dashboard] refreshSource fetch-threw sourceId=',

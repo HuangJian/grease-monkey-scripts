@@ -7,6 +7,7 @@ import type {
   SourceSettings,
   TabLabel,
 } from '../types'
+import { SkipRefreshError } from '../errors'
 import { createHeaderState, useHeaderState, type HeaderStateStore } from '../header-state'
 import { loadCache, saveCache } from '../cache'
 import type { DateFilter } from '../date-filter'
@@ -79,11 +80,15 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
         />
       )
     },
-    async fetch(runtime, prevData) {
+    async fetch(runtime, _prevData) {
       const host = runtime.location.hostname
       if (host !== 'xueqiu.com' && !host.endsWith('.xueqiu.com')) {
-        if (prevData) return prevData
-        throw new Error('请访问 xueqiu.com 首页刷新数据')
+        // Throw SkipRefreshError so refreshSource skips the cache update
+        // entirely. Previously, returning prevData silently marked the data
+        // as "fresh" (fetchedAt = now), preventing the xueqiu tab from
+        // refreshing. Throwing a regular Error wrote the message to cache
+        // even when valid data existed. SkipRefreshError avoids both.
+        throw new SkipRefreshError('请访问 xueqiu.com 首页刷新数据')
       }
       await state.loadFromStorage(runtime)
       const fresh = await fetchXueqiu(runtime, options)

@@ -404,3 +404,29 @@ describe('xueqiu hotPosts persistence', () => {
     expect(hotCache?.data?.hotPosts ?? []).toHaveLength(0)
   })
 })
+
+describe('xueqiu source host check', () => {
+  test('bugfix: mainSource.fetch throws SkipRefreshError on non-xueqiu host even with prevData', async () => {
+    const originalHref = globalThis.location.href
+    globalThis.location.href = 'https://github.com/'
+    try {
+      const runtime = createRuntime()
+      const { createXueqiuSources } = await import('../../../src/dashboard/xueqiu/source')
+      const { SkipRefreshError } = await import('../../../src/dashboard/errors')
+      const { mainSource } = createXueqiuSources({ ttlMinutes: 60, retentionDays: 7 })
+
+      const prevData: XueqiuRenderData = {
+        news: [makeItem(1)],
+        hotPosts: [makeItem(100)],
+      }
+
+      // Previously, prevData was returned silently (no error), which caused
+      // refreshSource to mark the data as "fresh" (fetchedAt = now) without
+      // actually fetching. This prevented the xueqiu tab from refreshing.
+      // Now it throws SkipRefreshError so refreshSource skips the cache update.
+      await expect(mainSource.fetch(runtime, prevData)).rejects.toBeInstanceOf(SkipRefreshError)
+    } finally {
+      globalThis.location.href = originalHref
+    }
+  })
+})
