@@ -8,11 +8,14 @@ export const STATE_KEY = (sourceId: string): string => `${KEY_PREFIX}:state:${so
 export const LOCK_KEY = (sourceId: string): string => `${KEY_PREFIX}:lock:${sourceId}`
 export const CONFIG_KEY = `${KEY_PREFIX}:config`
 
-export const LOCK_TTL_MS = 90_000
+export const LOCK_TTL_MS = 180_000
 export const LOCK_VERIFY_DELAY_MS = 50
 
 export const VERY_STALE_MULTIPLIER = 3
 export const CACHE_SCHEMA_VERSION = 2
+
+/** Consecutive-failure backoff delays (1m, 2m, 5m, 10m cap). */
+export const BACKOFF_DELAYS_MS = [60_000, 120_000, 300_000, 600_000] as const
 
 export type Lock = { owner: string; expiresAt: number }
 
@@ -21,6 +24,12 @@ export type CachedSource<T> = {
   data: T | null
   fetchedAt: number
   error: string
+  /** Timestamp of the last fetch attempt (set on failure; on success fetchedAt suffices). */
+  attemptedAt?: number
+  /** Earliest time an automatic refresh should retry after consecutive failures. */
+  nextRetryAt?: number
+  /** Number of consecutive fetch failures (reset on success). */
+  failureCount?: number
 }
 
 import type { WeatherCity } from './weather/types'

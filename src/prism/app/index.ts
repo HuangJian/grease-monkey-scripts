@@ -24,13 +24,39 @@ export type Dashboard = {
   runOpportunisticRefresh: () => Promise<void>
 }
 
+const FOREGROUND_REFRESH_INTERVAL_MS = 60_000
+const BACKGROUND_REFRESH_BASE_MS = 300_000
+const BACKGROUND_REFRESH_JITTER_MS = 60_000
+
 export function createDashboard(runtime: Runtime, options: DashboardOptions): Dashboard {
   const reg = createSourceRegistry(options.config, runtime)
   const activeTabByGroup = new Map<string, string>()
   let handle: OverlayHandle | null = null
   let cleanupDashboard: (() => void) | null = null
   let refreshIntervalId: ReturnType<typeof setInterval> | null = null
+  let backgroundTimerId: ReturnType<typeof setTimeout> | null = null
   let visibilityHandler: (() => void) | null = null
+
+  /** One-shot background timer with per-arm jitter, re-armed after each fire. */
+  function scheduleBackgroundRefresh(): void {
+    if (backgroundTimerId !== null) clearTimeout(backgroundTimerId)
+    const delay = BACKGROUND_REFRESH_BASE_MS + Math.random() * BACKGROUND_REFRESH_JITTER_MS
+    backgroundTimerId = setTimeout(() => {
+      backgroundTimerId = null
+      // Skip if the panel is open — the foreground interval handles refresh.
+      if (!handle) {
+        void doRunOpportunisticRefresh()
+        scheduleBackgroundRefresh()
+      }
+    }, delay)
+  }
+
+  function clearBackgroundRefresh(): void {
+    if (backgroundTimerId !== null) {
+      clearTimeout(backgroundTimerId)
+      backgroundTimerId = null
+    }
+  }
 
   function getRendererDeps(): GroupRendererDeps | null {
     if (!handle) return null
@@ -105,15 +131,18 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     }
     void doRunOpportunisticRefresh()
 
-    // Background refresh runs only while the overlay is open — no point
-    // consuming resources when nobody is looking at the dashboard.
+    // Switch from background jitter timer to foreground 60s interval.
+    clearBackgroundRefresh()
     visibilityHandler = () => {
       if (runtime.document.visibilityState === 'visible') {
         void doRunOpportunisticRefresh()
       }
     }
     runtime.document.addEventListener('visibilitychange', visibilityHandler)
-    refreshIntervalId = setInterval(() => void doRunOpportunisticRefresh(), 60_000)
+    refreshIntervalId = setInterval(
+      () => void doRunOpportunisticRefresh(),
+      FOREGROUND_REFRESH_INTERVAL_MS,
+    )
   }
 
   function close(): void {
@@ -130,6 +159,8 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     cleanupDashboard = null
     handle.unmount()
     handle = null
+    // Resume background jitter refresh now that the panel is closed.
+    scheduleBackgroundRefresh()
   }
 
   function toggle(): void {
@@ -161,6 +192,8 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
         },
         { timeout: 5000 },
       )
+      // Start background refresh for when the panel is not open.
+      scheduleBackgroundRefresh()
       bootstrapSync(runtime, reg.sources)
     },
     open,

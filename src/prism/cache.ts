@@ -42,3 +42,10 @@ export function isVeryStale(
   if (!cached) return false
   return now - cached.fetchedAt > ttlMs * VERY_STALE_MULTIPLIER
 }
+
+/** Returns true when the cache has a `nextRetryAt` that hasn't elapsed yet. */
+export function isInBackoff(cached: CachedSource<unknown> | null, now: number): boolean {
+  if (!cached) return false
+  if (typeof cached.nextRetryAt !== 'number') return false
+  return now < cached.nextRetryAt
+}

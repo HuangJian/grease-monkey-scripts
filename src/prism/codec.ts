@@ -309,6 +309,9 @@ export function compressForStorage<T>(
     fetchedAt: cached.fetchedAt,
     data: compressData(sourceId, cached.data),
     error: cached.error,
+    attemptedAt: cached.attemptedAt,
+    nextRetryAt: cached.nextRetryAt,
+    failureCount: cached.failureCount,
   }
 }
 

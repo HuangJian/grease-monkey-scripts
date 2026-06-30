@@ -13,7 +13,7 @@ import {
   CACHE_SCHEMA_VERSION,
   type CachedSource,
 } from '../../src/prism/types'
-import { isStale, isVeryStale, loadCache, saveCache } from '../../src/prism/cache'
+import { isInBackoff, isStale, isVeryStale, loadCache, saveCache } from '../../src/prism/cache'
 import { createRuntime } from '../runtime'
 
 describe('isPlainObject', () => {
@@ -185,6 +185,31 @@ describe('staleness', () => {
   })
   test('isVeryStale: just under 3x TTL does not trigger', () => {
     expect(isVeryStale(v(1_000_000 - 179_000), ttlMs, 1_000_000)).toBe(false)
+  })
+})
+
+describe('isInBackoff', () => {
+  const v = (fetchedAt: number, nextRetryAt?: number): CachedSource<unknown> => ({
+    schemaVersion: CACHE_SCHEMA_VERSION,
+    data: null,
+    error: '',
+    fetchedAt,
+    nextRetryAt,
+  })
+  test('null cache is not in backoff', () => {
+    expect(isInBackoff(null, 1_000_000)).toBe(false)
+  })
+  test('cache without nextRetryAt is not in backoff', () => {
+    expect(isInBackoff(v(1_000_000, undefined), 1_000_000)).toBe(false)
+  })
+  test('cache with future nextRetryAt is in backoff', () => {
+    expect(isInBackoff(v(1_000_000, 1_100_000), 1_000_000)).toBe(true)
+  })
+  test('cache with past nextRetryAt is not in backoff', () => {
+    expect(isInBackoff(v(1_000_000, 999_000), 1_000_000)).toBe(false)
+  })
+  test('cache with nextRetryAt exactly now is not in backoff', () => {
+    expect(isInBackoff(v(1_000_000, 1_000_000), 1_000_000)).toBe(false)
   })
 })
 

@@ -1,17 +1,24 @@
 import type { Runtime } from '../../runtime'
 import type { Source, CachedSource } from '../types'
-import { isStale, loadCache, saveCache } from '../cache'
+import { BACKOFF_DELAYS_MS } from '../types'
+import { isInBackoff, isStale, loadCache, saveCache } from '../cache'
 import { releaseLock, tryAcquireLock } from '../lock'
 import { SkipRefreshError } from '../errors'
 
+/** Returns the backoff delay for the given consecutive failure count (1-based). */
+export function computeBackoffMs(failureCount: number): number {
+  if (failureCount <= 0) return 0
+  const idx = Math.min(failureCount - 1, BACKOFF_DELAYS_MS.length - 1)
+  return BACKOFF_DELAYS_MS[idx]!
+}
+
 export async function refreshSource(runtime: Runtime, source: Source<unknown>): Promise<void> {
   console.debug('[gm-dashboard] refreshSource enter sourceId=', source.id)
-  const acquired = await tryAcquireLock(runtime, source.id)
-  if (!acquired) {
+  const token = await tryAcquireLock(runtime, source.id)
+  if (!token) {
     console.debug('[gm-dashboard] refreshSource lock-not-acquired sourceId=', source.id)
     return
   }
-  console.debug('[gm-dashboard] refreshSource lock-acquired sourceId=', source.id)
   try {
     const oldCache = await loadCache<unknown>(runtime, source.id)
     let next: Omit<CachedSource<unknown>, 'schemaVersion'> | null = null
@@ -34,17 +41,21 @@ export async function refreshSource(runtime: Runtime, source: Source<unknown>): 
         'msg=',
         message,
       )
+      const failureCount = (oldCache?.failureCount ?? 0) + 1
       next = {
         data: oldCache?.data,
         fetchedAt: oldCache?.fetchedAt ?? Date.now(),
         error: message,
+        attemptedAt: Date.now(),
+        failureCount,
+        nextRetryAt: Date.now() + computeBackoffMs(failureCount),
       }
     }
     if (next) {
       await saveCache(runtime, source.id, next)
     }
   } finally {
-    await releaseLock(runtime, source.id)
+    await releaseLock(runtime, source.id, token)
   }
 }
 
@@ -58,7 +69,17 @@ export async function runOpportunisticRefresh(
     await Promise.all(
       sources.map(async (source) => {
         const cached = await loadCache<unknown>(runtime, source.id)
-        return isStale(cached, source.ttlMs, now) ? source : null
+        if (!isStale(cached, source.ttlMs, now)) return null
+        if (isInBackoff(cached, now)) {
+          console.debug(
+            '[gm-dashboard] runOpportunisticRefresh backoff-skip sourceId=',
+            source.id,
+            'nextRetryAt=',
+            cached!.nextRetryAt,
+          )
+          return null
+        }
+        return source
       }),
     )
   ).filter((s): s is Source<unknown> => s !== null)

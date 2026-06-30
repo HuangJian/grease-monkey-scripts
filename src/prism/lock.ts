@@ -15,11 +15,17 @@ export type AcquireLockOptions = {
   newId?: () => string
 }
 
+/**
+ * Attempts to acquire a cross-tab refresh lock for `sourceId`.
+ *
+ * @returns The lock owner token on success, or `null` if another tab holds
+ *          an active lock.
+ */
 export async function tryAcquireLock(
   runtime: Runtime,
   sourceId: string,
   options: AcquireLockOptions = {},
-): Promise<boolean> {
+): Promise<string | null> {
   const ttlMs = options.ttlMs ?? LOCK_TTL_MS
   const verifyDelayMs = options.verifyDelayMs ?? LOCK_VERIFY_DELAY_MS
   const now = options.now ?? Date.now
@@ -28,7 +34,17 @@ export async function tryAcquireLock(
   const key = LOCK_KEY(sourceId)
   const ts = now()
   const existing = await runtime.getValue<Lock | null>(key, null)
-  if (existing && existing.expiresAt > ts) return false
+  if (existing && existing.expiresAt > ts) {
+    console.debug(
+      '[gm-dashboard] tryAcquireLock not-acquired sourceId=',
+      sourceId,
+      'owner=',
+      existing.owner,
+      'expiresAt=',
+      existing.expiresAt,
+    )
+    return null
+  }
 
   const me: Lock = { owner: newId(), expiresAt: ts + ttlMs }
   await runtime.setValue(key, me)
@@ -36,9 +52,49 @@ export async function tryAcquireLock(
     await new Promise<void>((r) => setTimeout(r, verifyDelayMs))
   }
   const after = await runtime.getValue<Lock>(key, me)
-  return after.owner === me.owner
+  if (after.owner !== me.owner) {
+    console.debug(
+      '[gm-dashboard] tryAcquireLock not-acquired sourceId=',
+      sourceId,
+      'owner=',
+      after.owner,
+    )
+    return null
+  }
+  console.debug(
+    '[gm-dashboard] tryAcquireLock acquired sourceId=',
+    sourceId,
+    'owner=',
+    me.owner,
+    'expiresAt=',
+    me.expiresAt,
+  )
+  return me.owner
 }
 
-export async function releaseLock(runtime: Runtime, sourceId: string): Promise<void> {
-  await runtime.setValue(LOCK_KEY(sourceId), null)
+/**
+ * Releases a refresh lock, but only if the current storage owner matches
+ * `token`. This prevents a tab whose lock has expired (and been taken over
+ * by another tab) from clobbering the new owner's lock on cleanup.
+ */
+export async function releaseLock(
+  runtime: Runtime,
+  sourceId: string,
+  token: string,
+): Promise<void> {
+  const key = LOCK_KEY(sourceId)
+  const current = await runtime.getValue<Lock | null>(key, null)
+  if (current && current.owner !== token) {
+    console.debug(
+      '[gm-dashboard] releaseLock skip (owner mismatch) sourceId=',
+      sourceId,
+      'token=',
+      token,
+      'currentOwner=',
+      current.owner,
+    )
+    return
+  }
+  console.debug('[gm-dashboard] releaseLock released sourceId=', sourceId, 'owner=', token)
+  await runtime.setValue(key, null)
 }
