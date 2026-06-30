@@ -5,11 +5,12 @@
   "scripts": {
     "test": "bun run scripts/test-silent.ts",
     "test:verbose": "bun test",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit --incremental",
     "build": "bun run scripts/build-userscript.ts",
     "lint": "oxlint .",
-    "format": "oxfmt .",
-    "check": "bun run typecheck && bun run lint && bun run format && bun run test && bun run build"
+    "format": "oxfmt . --disable-nested-config -c ./.oxfmtrc.json",
+    "format:check": "oxfmt --check . --disable-nested-config -c ./.oxfmtrc.json",
+    "check": "bun run scripts/check.ts"
   },
   "dependencies": {
     "preact": "^10.29.2"

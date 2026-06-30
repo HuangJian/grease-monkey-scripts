@@ -9,7 +9,8 @@
     "lib": ["ES2022", "DOM"],
     "types": ["bun-types"],
     "noEmit": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "incremental": true
   },
   "include": ["src", "test", "scripts"]
 }

@@ -4,3 +4,4 @@ dist/
 tmp/
 output/
 .DS_Store
+*.tsbuildinfo
