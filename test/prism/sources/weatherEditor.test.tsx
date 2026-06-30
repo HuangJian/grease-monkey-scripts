@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { cleanup, within } from '@testing-library/preact'
+import { cleanup, waitFor, within } from '@testing-library/preact'
 import type { WeatherCity } from '../../../src/prism/weather/types'
 import { createWeatherEditor } from '../../../src/prism/weather/editor'
 import { CONFIG_KEY } from '../../../src/prism/types'
@@ -94,22 +94,24 @@ describe('createWeatherEditor', () => {
       { latitude: 31.2, longitude: 121.5, cityLabel: 'SH', cmaStationId: '' },
     ])
     void result.save?.()
-    await new Promise<void>((r) => setTimeout(r, 0))
-    const stored = runtime.stores[CONFIG_KEY] as {
-      weather: { cities: { cityLabel: string; latitude: number }[]; ttlMinutes: number }
-    }
-    expect(stored.weather.cities).toHaveLength(2)
-    expect(stored.weather.cities[1].cityLabel).toBe('SH')
-    expect(stored.weather.ttlMinutes).toBe(60)
+    await waitFor(() => {
+      const stored = runtime.stores[CONFIG_KEY] as {
+        weather: { cities: { cityLabel: string; latitude: number }[]; ttlMinutes: number }
+      }
+      expect(stored.weather.cities).toHaveLength(2)
+      expect(stored.weather.cities[1].cityLabel).toBe('SH')
+      expect(stored.weather.ttlMinutes).toBe(60)
+    })
   })
 
   test('save with empty list shows error and does not persist', async () => {
     const { result } = await mount(runtime, container, [])
     void result.save?.()
-    await new Promise<void>((r) => setTimeout(r, 0))
+    await waitFor(() => {
+      const errorEl = within(container).getByText('至少保留一个城市') as HTMLDivElement
+      expect(errorEl.hidden).toBe(false)
+    })
     expect(runtime.stores[CONFIG_KEY]).toBeUndefined()
-    const errorEl = within(container).getByText('至少保留一个城市') as HTMLDivElement
-    expect(errorEl.hidden).toBe(false)
   })
 
   test('shows empty-state hint when no cities are configured', async () => {

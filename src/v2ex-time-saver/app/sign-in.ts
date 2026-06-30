@@ -1,7 +1,8 @@
 import type { Runtime } from '../../runtime'
+import { SELECTORS } from './selectors'
 
 export function checkAndDoSignIn(runtime: Runtime): void {
-  const linkEl = runtime.document.querySelector("a[href='/mission/daily']")
+  const linkEl = runtime.document.querySelector(SELECTORS.signInLink)
   if (!linkEl) return
 
   const missionUrl = `${runtime.location.origin}/mission/daily`

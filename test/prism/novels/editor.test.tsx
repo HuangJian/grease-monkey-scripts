@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { cleanup, within } from '@testing-library/preact'
+import { cleanup, waitFor, within } from '@testing-library/preact'
 import { createNovelsEditor } from '../../../src/prism/novels/editor/form'
 import { CONFIG_KEY, DEFAULT_SOURCE_SETTINGS } from '../../../src/prism/types'
 import { createRuntime, type TestRuntime } from '../../runtime'
@@ -92,16 +92,18 @@ describe('createNovelsEditor', () => {
     urlInput.value = 'https://www.sudugu.org/12/'
     aliasInput.value = '龙藏'
     addBtn.click()
-    await new Promise((r) => setTimeout(r, 0))
-    expect(within(root).queryAllByText('龙藏').length).toBe(1)
+    await waitFor(() => {
+      expect(within(root).queryAllByText('龙藏').length).toBe(1)
+    })
     expect(within(root).getByText('龙藏').textContent).toBe('龙藏')
   })
 
   test('rejects empty URL', async () => {
     await mountEditor([])
     ;(within(root).getByRole('button', { name: '添加书库' }) as HTMLButtonElement).click()
-    await new Promise((r) => setTimeout(r, 0))
-    expect(within(root).getByText('请输入书库 URL')).not.toBeNull()
+    await waitFor(() => {
+      expect(within(root).getByText('请输入书库 URL')).not.toBeNull()
+    })
   })
 
   test('rejects duplicate URL', async () => {
@@ -112,8 +114,9 @@ describe('createNovelsEditor', () => {
     const addBtn = within(root).getByRole('button', { name: '添加书库' }) as HTMLButtonElement
     urlInput.value = 'https://www.sudugu.org/166/'
     addBtn.click()
-    await new Promise((r) => setTimeout(r, 0))
-    expect(within(root).getByText(/已在列表中/)).not.toBeNull()
+    await waitFor(() => {
+      expect(within(root).getByText(/已在列表中/)).not.toBeNull()
+    })
   })
 
   test('rejects invalid URL', async () => {
@@ -124,8 +127,9 @@ describe('createNovelsEditor', () => {
     const addBtn = within(root).getByRole('button', { name: '添加书库' }) as HTMLButtonElement
     urlInput.value = 'not-a-url'
     addBtn.click()
-    await new Promise((r) => setTimeout(r, 0))
-    expect(within(root).getByText(/无效/)).not.toBeNull()
+    await waitFor(() => {
+      expect(within(root).getByText(/无效/)).not.toBeNull()
+    })
   })
 
   test('removes an entry when the × button is clicked', async () => {
@@ -136,8 +140,9 @@ describe('createNovelsEditor', () => {
     expect(within(root).getAllByRole('button', { name: 'remove' }).length).toBe(2)
     const removeBtns = within(root).getAllByRole('button', { name: 'remove' })
     removeBtns[0]!.click()
-    await new Promise((r) => setTimeout(r, 0))
-    expect(within(root).getAllByRole('button', { name: 'remove' }).length).toBe(1)
+    await waitFor(() => {
+      expect(within(root).getAllByRole('button', { name: 'remove' }).length).toBe(1)
+    })
     expect(within(root).getAllByText('https://www.sudugu.org/12/').length).toBeGreaterThanOrEqual(1)
   })
 
@@ -150,13 +155,14 @@ describe('createNovelsEditor', () => {
   test('save persists novels config to CONFIG_KEY', async () => {
     const result = await mountEditor([{ url: 'https://www.sudugu.org/166/' }])
     void result.save?.()
-    await new Promise((r) => setTimeout(r, 0))
-    const stored = runtime.stores[CONFIG_KEY] as
-      | { novels: { entries: NovelEntry[]; ttlMinutes: number } }
-      | undefined
-    expect(stored).toBeTruthy()
-    expect(stored?.novels.entries).toEqual([{ url: 'https://www.sudugu.org/166/' }])
-    expect(stored?.novels.ttlMinutes).toBe(60)
+    await waitFor(() => {
+      const stored = runtime.stores[CONFIG_KEY] as
+        | { novels: { entries: NovelEntry[]; ttlMinutes: number } }
+        | undefined
+      expect(stored).toBeTruthy()
+      expect(stored?.novels.entries).toEqual([{ url: 'https://www.sudugu.org/166/' }])
+      expect(stored?.novels.ttlMinutes).toBe(60)
+    })
   })
 
   test('save rejects invalid TTL', async () => {
@@ -165,16 +171,18 @@ describe('createNovelsEditor', () => {
     const inputs = within(advanced).queryAllByRole('spinbutton')
     ;(inputs[0] as HTMLInputElement).value = '0'
     void result.save?.()
-    await new Promise((r) => setTimeout(r, 0))
-    expect(within(root).getByText('TTL 必须是 ≥1 的整数')).not.toBeNull()
+    await waitFor(() => {
+      expect(within(root).getByText('TTL 必须是 ≥1 的整数')).not.toBeNull()
+    })
   })
 
   test('allows saving an entry with unknown host', async () => {
     const result = await mountEditor([{ url: 'https://other.example/x/' }])
     void result.save?.()
-    await new Promise((r) => setTimeout(r, 0))
-    const stored = runtime.stores[CONFIG_KEY] as { novels: { entries: NovelEntry[] } } | undefined
-    expect(stored?.novels.entries).toEqual([{ url: 'https://other.example/x/' }])
+    await waitFor(() => {
+      const stored = runtime.stores[CONFIG_KEY] as { novels: { entries: NovelEntry[] } } | undefined
+      expect(stored?.novels.entries).toEqual([{ url: 'https://other.example/x/' }])
+    })
   })
 
   test('save merges with existing weather config instead of overwriting it', async () => {
@@ -187,14 +195,15 @@ describe('createNovelsEditor', () => {
     runtime.stores[CONFIG_KEY] = preexisting
     const result = await mountEditor([{ url: 'https://www.sudugu.org/166/' }])
     void result.save?.()
-    await new Promise((r) => setTimeout(r, 0))
-    const stored = runtime.stores[CONFIG_KEY] as Record<string, unknown> | undefined
-    expect(stored?.weather).toEqual(preexisting.weather)
-    expect(stored?.novels).toBeTruthy()
-    if (stored) {
-      expect((stored.novels as { entries: NovelEntry[] }).entries).toEqual([
-        { url: 'https://www.sudugu.org/166/' },
-      ])
-    }
+    await waitFor(() => {
+      const stored = runtime.stores[CONFIG_KEY] as Record<string, unknown> | undefined
+      expect(stored?.weather).toEqual(preexisting.weather)
+      expect(stored?.novels).toBeTruthy()
+      if (stored) {
+        expect((stored.novels as { entries: NovelEntry[] }).entries).toEqual([
+          { url: 'https://www.sudugu.org/166/' },
+        ])
+      }
+    })
   })
 })

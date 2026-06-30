@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { cleanup, within } from '@testing-library/preact'
+import { cleanup, waitFor, within } from '@testing-library/preact'
 import { createTnewsEditor } from '../../../../src/prism/tnews/editor'
 import type { TnewsSourceOptions } from '../../../../src/prism/tnews/types'
 import { DEFAULT_SOURCE_SETTINGS } from '../../../../src/prism/types'
@@ -43,9 +43,10 @@ describe('createTnewsEditor', () => {
     const ttl = within(root).getByLabelText('TTL（分钟）') as HTMLInputElement
     ttl.value = '45'
     void result.save?.()
-    await new Promise((r) => setTimeout(r, 100))
-    const cfg = runtime.stores['dashboard:v2:config'] as { tnews: TnewsSourceOptions } | undefined
-    expect(cfg?.tnews.ttlMinutes).toBe(45)
+    await waitFor(() => {
+      const cfg = runtime.stores['dashboard:v2:config'] as { tnews: TnewsSourceOptions } | undefined
+      expect(cfg?.tnews.ttlMinutes).toBe(45)
+    })
   })
 
   test('loads existing ttl from CONFIG_KEY on open', async () => {

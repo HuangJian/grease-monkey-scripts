@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { waitFor } from '@testing-library/preact'
 import { createV2exEditor } from '../../../../src/prism/v2ex/editor'
 import type { V2exSourceOptions } from '../../../../src/prism/v2ex/types'
 import { CONFIG_KEY, DEFAULT_SOURCE_SETTINGS } from '../../../../src/prism/types'
@@ -69,21 +70,23 @@ describe('createV2exEditor', () => {
     }
     const { result } = await mount(runtime, container)
     void result.save?.()
-    await new Promise<void>((r) => setTimeout(r, 0))
-    const stored = runtime.stores[CONFIG_KEY] as Record<string, unknown>
-    expect(stored['weather']).toBeDefined()
-    expect(stored['novels']).toBeDefined()
-    expect(stored['reddit']).toBeDefined()
-    expect((stored['weather'] as { cities: unknown[] }).cities).toHaveLength(1)
-    expect((stored['reddit'] as { subreddits: string[] }).subreddits).toEqual(['popular', 'aww'])
-    expect((stored['v2ex'] as { todayMinReplies: number }).todayMinReplies).toBe(10)
+    await waitFor(() => {
+      const stored = runtime.stores[CONFIG_KEY] as Record<string, unknown>
+      expect(stored['weather']).toBeDefined()
+      expect(stored['novels']).toBeDefined()
+      expect(stored['reddit']).toBeDefined()
+      expect((stored['weather'] as { cities: unknown[] }).cities).toHaveLength(1)
+      expect((stored['reddit'] as { subreddits: string[] }).subreddits).toEqual(['popular', 'aww'])
+      expect((stored['v2ex'] as { todayMinReplies: number }).todayMinReplies).toBe(10)
+    })
   })
 
   test('save with no existing config creates fresh entry', async () => {
     const { result } = await mount(runtime, container)
     void result.save?.()
-    await new Promise<void>((r) => setTimeout(r, 0))
-    const stored = runtime.stores[CONFIG_KEY] as { v2ex: { todayMinReplies: number } }
-    expect(stored.v2ex.todayMinReplies).toBe(10)
+    await waitFor(() => {
+      const stored = runtime.stores[CONFIG_KEY] as { v2ex: { todayMinReplies: number } }
+      expect(stored.v2ex.todayMinReplies).toBe(10)
+    })
   })
 })

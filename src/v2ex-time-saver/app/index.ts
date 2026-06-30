@@ -18,6 +18,7 @@ import { getCommentElementsFromHtmlString } from './comment-helpers'
 import { enhanceThreadPage } from './thread-page'
 import { createMultiPageLoader } from './multi-page-comments'
 import { loadAuthorTagMap, persistAuthorTags } from './author-tags'
+import { SELECTORS } from './selectors'
 import type { V2exApp } from '../types'
 
 export type { V2exApp }
@@ -91,9 +92,7 @@ export async function createV2exApp(runtime: Runtime): Promise<V2exApp> {
 
     checkAndDoSignIn(runtime)
 
-    const allPageNumbers = Array.from(
-      runtime.document.querySelectorAll('.page_current, .page_normal'),
-    )
+    const allPageNumbers = Array.from(runtime.document.querySelectorAll(SELECTORS.pageNumbers))
       .map((it) => parseInt(it.textContent || '', 10))
       .filter((it) => isReadingTopic && !isNaN(it) && it >= 1 && it <= 10)
       .filter((x, i, a) => a.indexOf(x) === i)
@@ -107,7 +106,7 @@ export async function createV2exApp(runtime: Runtime): Promise<V2exApp> {
       return
     }
 
-    const currentPageEl = runtime.document.querySelector('.page_current')
+    const currentPageEl = runtime.document.querySelector(SELECTORS.currentPage)
     const currentPageNum = currentPageEl
       ? parseInt(currentPageEl.textContent || '', 10)
       : parseInt(new URL(runtime.location.href).searchParams.get('p') || '1', 10) || 1

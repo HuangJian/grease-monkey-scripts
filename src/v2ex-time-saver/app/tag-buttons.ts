@@ -1,6 +1,7 @@
 import type { Runtime } from '../../runtime'
 import { buildTagPanel, type TagPanelCallbacks, type QuickLabels } from '../../shared/tag-panel'
 import type { AuthorTagMap } from '../../shared/author-labels'
+import { SELECTORS } from './selectors'
 
 export function ensureTagBtn(
   runtime: Runtime,
@@ -33,9 +34,9 @@ export function addTagPanel(
   callbacks: TagPanelCallbacks,
   quickLabels: QuickLabels,
 ): void {
-  const topicAuthorId = runtime.document.querySelector('.header .avatar')?.getAttribute('alt')
+  const topicAuthorId = runtime.document.querySelector(SELECTORS.topicAuthor)?.getAttribute('alt')
   if (topicAuthorId) {
-    const topicButtons = runtime.document.querySelector('.topic_buttons')
+    const topicButtons = runtime.document.querySelector(SELECTORS.topicButtons)
     if (topicButtons) {
       ensureTagBtn(
         runtime,
@@ -50,12 +51,12 @@ export function addTagPanel(
     }
   }
 
-  runtime.document.querySelectorAll('.cell').forEach((cell) => {
-    const authorLink = cell.querySelector('strong > a[href]')
+  runtime.document.querySelectorAll(SELECTORS.allCells).forEach((cell) => {
+    const authorLink = cell.querySelector(SELECTORS.authorLink)
     if (!authorLink) return
     const id = authorLink.getAttribute('href')?.split('/')[2]
     if (!id) return
-    const commentNumber = cell.querySelector('span.no')?.textContent?.trim()
+    const commentNumber = cell.querySelector(SELECTORS.commentNumberSpan)?.textContent?.trim()
     if (!commentNumber) return
     ensureTagBtn(runtime, authorTagMap, cell, id, commentNumber, authorLink, callbacks, quickLabels)
   })

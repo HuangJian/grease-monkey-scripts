@@ -1,5 +1,6 @@
 import type { Runtime } from '../../runtime'
 import { findCommentCells, getCommentNumber } from './comment-helpers'
+import { SELECTORS } from './selectors'
 import {
   createCollapseExpandButtons,
   createReferenceDialog,
@@ -11,15 +12,12 @@ export { getCommentNumber, getCommentElementsFromHtmlString } from './comment-he
 
 export function getCommentAuthorName(comment: Element): string {
   return (
-    comment
-      .querySelector(":scope > table strong a.dark[href^='/member/']")
-      ?.getAttribute('href')
-      ?.split('/')[2] || ''
+    comment.querySelector(SELECTORS.authorLinkInTable)?.getAttribute('href')?.split('/')[2] || ''
   )
 }
 
 export function getOwnReplyContent(comment: Element): Element | null {
-  return comment.querySelector(':scope > table .reply_content')
+  return comment.querySelector(SELECTORS.replyContent)
 }
 
 export function getLastCommentByAuthorBeforeNumber(
@@ -37,7 +35,7 @@ export function getLastCommentByAuthorBeforeNumber(
 }
 
 export function getCommentHearts(comment: Element): number {
-  return Array.from(comment.querySelectorAll('[alt="❤️"]'))
+  return Array.from(comment.querySelectorAll(SELECTORS.heartIcon))
     .map((it) => parseInt(it.nextSibling?.textContent || '0', 10))
     .reduce((prev, curr) => prev + curr, 0)
 }
@@ -49,7 +47,7 @@ export function getTextUntilNextMemberMention(mention: Element): string {
   while (node) {
     if (node.nodeType === 1) {
       const element = node as Element
-      if (element.matches("a[href^='/member/']")) {
+      if (element.matches(SELECTORS.memberMention)) {
         break
       }
       text += element.textContent || ''
@@ -87,7 +85,7 @@ export function getMentionedComments(
 
   const seenComments = new Set<Element>()
   const mentionedComments: Element[] = []
-  const mentions = replyContent.querySelectorAll("a[href^='/member/']")
+  const mentions = replyContent.querySelectorAll(SELECTORS.memberMention)
 
   mentions.forEach((mention) => {
     const mentionedPeopleName =
@@ -155,7 +153,7 @@ export function embedDiscussions(runtime: Runtime): void {
     const [primaryComment, ...secondaryComments] = sortedByHearts
 
     primaryComment
-      .querySelector(':scope > table')
+      .querySelector(SELECTORS.cellTable)
       ?.insertAdjacentElement('afterend', currentComment)
     currentComment.setAttribute('data-is-embedded', 'true')
 
@@ -176,8 +174,8 @@ function addReferenceHint(runtime: Runtime, referencedComment: Element, comment:
 }
 
 export function addCollapseExpandButtons(runtime: Runtime): void {
-  runtime.document.querySelectorAll('.cell[id] > .cell[id]').forEach((embedded) => {
-    const discussionCount = 1 + embedded.querySelectorAll('.cell[id]').length
+  runtime.document.querySelectorAll(SELECTORS.embeddedCell).forEach((embedded) => {
+    const discussionCount = 1 + embedded.querySelectorAll(SELECTORS.cellsWithId).length
     const [collapseBtn, expandBtn] = createCollapseExpandButtons(
       runtime,
       discussionCount,
@@ -190,6 +188,6 @@ export function addCollapseExpandButtons(runtime: Runtime): void {
 
 function toggleDiscussionVisibility(evt: Event): void {
   const clickedButton = (evt.target as Element | null)?.closest('button')
-  const comment = clickedButton?.closest('.cell[id]')
-  comment?.classList.toggle('discussions-collapsed')
+  const comment = clickedButton?.closest(SELECTORS.cellsWithId)
+  comment?.classList.toggle(SELECTORS.collapsedClass)
 }

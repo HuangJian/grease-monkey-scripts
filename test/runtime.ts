@@ -46,6 +46,7 @@ export type TestRuntime = Runtime & {
   listeners: Map<string, ValueChangeListener[]>
   menuCommands: MenuCommand[]
   responses: Map<string, { text: string; status: number; responseHeaders: string }>
+  injectedStyles: string[]
   lastRequest: {
     url: string
     method: string
@@ -101,6 +102,7 @@ export function createRuntime(dom?: Window): TestRuntime {
   const menuCommands: MenuCommand[] = []
   const responses: Map<string, { text: string; status: number; responseHeaders: string }> =
     new Map()
+  const injectedStyles: string[] = []
   let lastRequest: TestRuntime['lastRequest'] = null
   let nextId = 1
   const runtime: TestRuntime = {
@@ -112,6 +114,7 @@ export function createRuntime(dom?: Window): TestRuntime {
     listeners,
     menuCommands,
     responses,
+    injectedStyles,
     get lastRequest() {
       return lastRequest
     },
@@ -145,7 +148,9 @@ export function createRuntime(dom?: Window): TestRuntime {
         details.onerror?.()
       }
     },
-    addStyle: () => {},
+    addStyle: (css: string) => {
+      injectedStyles.push(css)
+    },
     addEventListener: (target, type, listener, options) => {
       const et = target as EventTarget
       if (et && typeof et.addEventListener === 'function') {
@@ -197,4 +202,52 @@ export function createRuntime(dom?: Window): TestRuntime {
     },
   }
   return runtime
+}
+
+/**
+ * Builder for TestRuntime with chained configuration.
+ * Reduces boilerplate when setting up stores, responses, and DOM.
+ *
+ * @example
+ * const runtime = new TestRuntimeBuilder()
+ *   .withDom(dom)
+ *   .withStore(STORAGE_KEY, { alice: { 低质: { url: 't/1', score: -1 } } })
+ *   .withResponse('https://api.example.com/data', '{"ok":true}')
+ *   .build()
+ */
+export class TestRuntimeBuilder {
+  #dom?: Window
+  #stores: Record<string, unknown> = {}
+  #responses: Array<{
+    url: string
+    text: string
+    status?: number
+    responseHeaders?: string
+  }> = []
+
+  withDom(dom: Window): this {
+    this.#dom = dom
+    return this
+  }
+
+  withStore(key: string, value: unknown): this {
+    this.#stores[key] = value
+    return this
+  }
+
+  withResponse(url: string, text: string, status?: number, responseHeaders?: string): this {
+    this.#responses.push({ url, text, status, responseHeaders })
+    return this
+  }
+
+  build(): TestRuntime {
+    const runtime = createRuntime(this.#dom)
+    for (const [key, value] of Object.entries(this.#stores)) {
+      runtime.stores[key] = value
+    }
+    for (const r of this.#responses) {
+      runtime.queueResponse(r.url, r.text, r.status, r.responseHeaders)
+    }
+    return runtime
+  }
 }

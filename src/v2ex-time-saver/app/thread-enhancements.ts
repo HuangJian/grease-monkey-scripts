@@ -4,6 +4,7 @@ import { getTotalScore, tagColor } from '../../shared/author-labels'
 import { escapeHtml } from '../../utils'
 
 import { findCommentCells, findFirstCommentCell } from './comment-helpers'
+import { SELECTORS } from './selectors'
 
 const SCORE_CLASS_MIN = -3
 const SCORE_CLASS_MAX = 3
@@ -29,8 +30,8 @@ export function scrollToComment(number: string, runtime: Runtime): void {
     runtime.document.defaultView?.scrollTo(0, 0)
     return
   }
-  for (const cell of runtime.document.querySelectorAll('.cell[id]')) {
-    const no = cell.querySelector('span.no')?.textContent?.trim()
+  for (const cell of runtime.document.querySelectorAll(SELECTORS.cellsWithId)) {
+    const no = cell.querySelector(SELECTORS.commentNumberSpan)?.textContent?.trim()
     if (no === number) {
       cell.scrollIntoView({ behavior: 'smooth', block: 'center' })
       break
@@ -40,8 +41,8 @@ export function scrollToComment(number: string, runtime: Runtime): void {
 
 export function highlightCommentsAndTopics(runtime: Runtime, authorTagMap: AuthorTagMap): void {
   const origin = runtime.location.origin
-  runtime.document.querySelectorAll('.cell').forEach((cell) => {
-    const authorLink = cell.querySelector('strong > a[href]')
+  runtime.document.querySelectorAll(SELECTORS.allCells).forEach((cell) => {
+    const authorLink = cell.querySelector(SELECTORS.authorLink)
     if (!authorLink) return
     const id = authorLink.getAttribute('href')?.split('/')[2]
     if (!id) return
@@ -81,7 +82,7 @@ export function reorderCommentsByHearts(runtime: Runtime): void {
   console.debug('[v2ex] reorderCommentsByHearts', { commentCount: comments.length })
 
   comments.forEach((comment) => {
-    const hearts = Array.from(comment.querySelectorAll('[alt="❤️"]'))
+    const hearts = Array.from(comment.querySelectorAll(SELECTORS.heartIcon))
       .map((it) => parseInt(it.nextSibling?.textContent || '0', 10))
       .reduce((prev, curr) => prev + curr, 0)
     comment.setAttribute(heartsFlagKey, String(hearts))
@@ -105,6 +106,6 @@ export function reorderCommentsByHearts(runtime: Runtime): void {
 
 export function addTargetToTopicLinks(runtime: Runtime): void {
   runtime.document
-    .querySelectorAll('.topic-link, .item_hot_topic_title > a')
+    .querySelectorAll(SELECTORS.topicLinks)
     .forEach((it) => it.setAttribute('target', '_blank'))
 }

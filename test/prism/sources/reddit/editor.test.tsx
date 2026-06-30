@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { cleanup, within } from '@testing-library/preact'
+import { cleanup, waitFor, within } from '@testing-library/preact'
 import { createRedditEditor } from '../../../../src/prism/reddit/editor/form'
 import { CONFIG_KEY, DEFAULT_SOURCE_SETTINGS } from '../../../../src/prism/types'
 import type { RedditSourceOptions } from '../../../../src/prism/reddit/types'
@@ -109,13 +109,14 @@ describe('createRedditEditor', () => {
     }
     const { result } = await mount(runtime, container)
     void result.save?.()
-    await new Promise<void>((r) => setTimeout(r, 0))
-    const stored = runtime.stores[CONFIG_KEY] as Record<string, unknown>
-    expect(stored['weather']).toBeDefined()
-    expect(stored['novels']).toBeDefined()
-    const reddit = stored['reddit'] as { subreddits: string[]; ttlMinutes: number }
-    expect(reddit.subreddits).toEqual(['popular'])
-    expect(reddit.ttlMinutes).toBe(30)
+    await waitFor(() => {
+      const stored = runtime.stores[CONFIG_KEY] as Record<string, unknown>
+      expect(stored['weather']).toBeDefined()
+      expect(stored['novels']).toBeDefined()
+      const reddit = stored['reddit'] as { subreddits: string[]; ttlMinutes: number }
+      expect(reddit.subreddits).toEqual(['popular'])
+      expect(reddit.ttlMinutes).toBe(30)
+    })
   })
 
   test('save rejects when subreddits list is empty', async () => {
@@ -165,9 +166,10 @@ describe('createRedditEditor', () => {
     const halfLife = inputs(container)[4] as HTMLInputElement
     halfLife.value = '5'
     void result.save?.()
-    await new Promise<void>((r) => setTimeout(r, 0))
-    const stored = runtime.stores[CONFIG_KEY] as Record<string, { ageHalfLifeDays: number }>
-    expect(stored['reddit']!.ageHalfLifeDays).toBe(5)
+    await waitFor(() => {
+      const stored = runtime.stores[CONFIG_KEY] as Record<string, { ageHalfLifeDays: number }>
+      expect(stored['reddit']!.ageHalfLifeDays).toBe(5)
+    })
   })
 
   test('rejects ageHalfLifeDays out of range', async () => {

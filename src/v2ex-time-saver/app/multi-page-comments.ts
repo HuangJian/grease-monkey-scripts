@@ -6,6 +6,7 @@ import {
   findFirstCommentCell,
   getCommentElementsFromHtmlString,
 } from './comment-helpers'
+import { SELECTORS } from './selectors'
 import type { TagPanelCallbacks, QuickLabels } from '../../shared/tag-panel'
 import { enhanceThreadPage } from './thread-page'
 
@@ -48,7 +49,7 @@ export function createMultiPageLoader(
 
     commentBox.prepend(fragment)
     commentBox.prepend(countsElement)
-    Array.from(runtime.document.querySelectorAll('.ps_container'))
+    Array.from(runtime.document.querySelectorAll(SELECTORS.paginationContainer))
       .filter((it, idx) => idx > 0)
       .forEach((it) => it.remove())
     console.debug('[gm-v2ex-time-saver] all pages merged, calling enhanceThreadPage')

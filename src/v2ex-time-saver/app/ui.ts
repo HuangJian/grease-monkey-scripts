@@ -1,5 +1,6 @@
 import type { Runtime } from '../../runtime'
 import { getCommentNumber } from './comment-helpers'
+import { SELECTORS } from './selectors'
 
 export const collapseIconSvg = `
   <button class="gm collapse" title="折叠讨论">
@@ -57,12 +58,12 @@ export function createReferenceHint(
 }
 
 export function getOrCreateReferenceHintContainer(runtime: Runtime, host: Element): HTMLElement {
-  const existing = host.querySelector(':scope > .gm-reference-hints')
+  const existing = host.querySelector(SELECTORS.referenceHints)
   if (existing) {
     return existing as HTMLElement
   }
 
-  const table = host.querySelector(':scope > table')
+  const table = host.querySelector(SELECTORS.cellTable)
   if (table) {
     table.insertAdjacentHTML('afterend', '<div class="gm-reference-hints"></div>')
     return table.nextElementSibling as HTMLElement

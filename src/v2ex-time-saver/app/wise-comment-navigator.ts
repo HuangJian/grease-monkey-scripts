@@ -1,15 +1,16 @@
 import type { Runtime } from '../../runtime'
 import type { AuthorTagMap } from '../../shared/author-labels'
 import { getTotalScore } from '../../shared/author-labels'
+import { SELECTORS } from './selectors'
 
 const MIN_COMMENTS = 30
 
 function collectWiseComments(runtime: Runtime, authorTagMap: AuthorTagMap): Element[] {
-  const allComments = Array.from(runtime.document.querySelectorAll('#Main .cell[id]'))
+  const allComments = Array.from(runtime.document.querySelectorAll(SELECTORS.mainCells))
   if (allComments.length < MIN_COMMENTS) return []
 
   return allComments.filter((cell) => {
-    const authorLink = cell.querySelector('strong > a[href]')
+    const authorLink = cell.querySelector(SELECTORS.authorLink)
     if (!authorLink) return false
     const id = authorLink.getAttribute('href')?.split('/')[2]
     if (!id) return false
