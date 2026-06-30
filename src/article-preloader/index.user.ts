@@ -9,6 +9,7 @@
 // @match        https://www.sudugu.org/*
 // @match        https://www.tongrenxsw.com/book/*
 // @grant        GM_xmlhttpRequest
+// @noframes
 // ==/UserScript==
 
 import { startArticlePreloader } from './app'

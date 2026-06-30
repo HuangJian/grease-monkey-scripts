@@ -1,6 +1,7 @@
 import type { Runtime } from '../../runtime'
 import type { AuthorTagMap } from '../../shared/author-labels'
 import { getTotalScore, tagColor } from '../../shared/author-labels'
+import { escapeHtml } from '../../utils'
 import { findAuthorLinks, getAuthorName, isAuthorHeader } from './author-utils'
 
 export function applyHighlights(runtime: Runtime, authorTagMap: AuthorTagMap): void {
@@ -18,7 +19,7 @@ export function applyHighlights(runtime: Runtime, authorTagMap: AuthorTagMap): v
       const tagUrl = new URL(record.url, runtime.location.origin).href
       authorLink.insertAdjacentHTML(
         'afterend',
-        `<a class="gm-author-tag" href="${tagUrl}" target="_blank">${tagName}</a>`,
+        `<a class="gm-author-tag" href="${escapeHtml(tagUrl)}" target="_blank">${escapeHtml(tagName)}</a>`,
       )
       const tagEl = authorLink.nextElementSibling as HTMLElement
       tagEl.style.color = tagColor(record.score)

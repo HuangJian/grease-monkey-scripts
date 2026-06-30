@@ -37,6 +37,7 @@
 // @connect      openrouter.ai
 // @connect      api-sg-central.trae.ai
 // @connect      chatgpt.com
+// @noframes
 // ==/UserScript==
 
 import { startDashboard } from './app'

@@ -1,6 +1,7 @@
 import type { Runtime } from '../../runtime'
 import type { AuthorTagMap } from '../../shared/author-labels'
 import { getTotalScore, tagColor } from '../../shared/author-labels'
+import { escapeHtml } from '../../utils'
 
 import { findCommentCells, findFirstCommentCell } from './comment-helpers'
 
@@ -60,7 +61,7 @@ export function highlightCommentsAndTopics(runtime: Runtime, authorTagMap: Autho
       const targetAttr = isSamePage ? '' : ' target="_blank"'
       authorLink.insertAdjacentHTML(
         'beforeend',
-        `<a class="gm-author-tag" href="${fullUrl}" style="color:${tagColor(tag.score)}"${targetAttr}>${tagName}</a>`,
+        `<a class="gm-author-tag" href="${escapeHtml(fullUrl)}" style="color:${tagColor(tag.score)}"${targetAttr}>${escapeHtml(tagName)}</a>`,
       )
       const tagLink = authorLink.lastElementChild as HTMLElement
       if (isSamePage) {

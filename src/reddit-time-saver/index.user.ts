@@ -10,6 +10,7 @@
 // @grant        GM_addStyle
 // @grant        GM.setValue
 // @grant        GM.getValue
+// @noframes
 // ==/UserScript==
 import { startRedditTimeSaver } from './app'
 import { createBrowserRuntime } from '../runtime'

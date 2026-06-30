@@ -22,7 +22,7 @@ export function buildTagPanel(
     'beforeend',
     `<div class="gm-tag-panel">
       <div class="gm-tag-panel-header">
-        <span class="gm-tag-panel-title">${authorId}</span>
+        <span class="gm-tag-panel-title">${escapeHtml(authorId)}</span>
         <button class="gm-tag-panel-close">✕</button>
       </div>
       <div class="gm-tag-list"></div>

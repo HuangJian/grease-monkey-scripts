@@ -11,6 +11,7 @@
 // @grant        GM_addStyle
 // @grant        GM.setValue
 // @grant        GM.getValue
+// @noframes
 // ==/UserScript==
 import { startV2exTimeSaver } from './app'
 import { createBrowserRuntime } from '../runtime'

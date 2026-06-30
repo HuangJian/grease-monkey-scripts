@@ -9,6 +9,7 @@
 // @connect       zdic.net
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
+// @noframes
 // ==/UserScript==
 import { startHanziDictionary } from './app'
 import { createBrowserRuntime } from '../runtime'

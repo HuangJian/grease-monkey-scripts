@@ -10,6 +10,7 @@
 // @grant        GM_addStyle
 // @grant        GM.setValue
 // @grant        GM.getValue
+// @noframes
 // ==/UserScript==
 import { createHupuApp } from './app'
 import { createBrowserRuntime } from '../runtime'
