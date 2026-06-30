@@ -14,6 +14,7 @@ const CWD = resolve(import.meta.dir, '..')
 const BIN = resolve(CWD, 'node_modules/.bin')
 const ENV = { ...process.env, PATH: `${BIN}:${process.env.PATH ?? ''}` }
 
+/** Extensions oxfmt can format-check (broader than oxlint). */
 const CHECKABLE_EXTS = new Set([
   '.ts',
   '.tsx',
@@ -28,6 +29,10 @@ const CHECKABLE_EXTS = new Set([
   '.yaml',
   '.yml',
 ])
+
+/** Extensions oxlint can lint (JS/TS only). oxlint exits 1 when passed
+ *  only non-JS/TS files (e.g. a lone package.json change). */
+const LINTABLE_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'])
 
 /**
  * Get files changed vs HEAD (staged + unstaged) plus untracked files,
@@ -120,15 +125,16 @@ async function main() {
     { name: 'typecheck', cmd: 'tsc', args: ['--noEmit', '--incremental'] },
   ]
 
+  const lintableFiles = changedFiles.filter((f) => LINTABLE_EXTS.has(extname(f)))
+  if (lintableFiles.length > 0) {
+    parallelSteps.push({ name: 'lint', cmd: 'oxlint', args: lintableFiles })
+  }
   if (changedFiles.length > 0) {
-    parallelSteps.push(
-      { name: 'lint', cmd: 'oxlint', args: changedFiles },
-      {
-        name: 'format',
-        cmd: 'oxfmt',
-        args: ['--check', ...changedFiles, '--disable-nested-config', '-c', './.oxfmtrc.json'],
-      },
-    )
+    parallelSteps.push({
+      name: 'format',
+      cmd: 'oxfmt',
+      args: ['--check', ...changedFiles, '--disable-nested-config', '-c', './.oxfmtrc.json'],
+    })
   }
 
   parallelSteps.push({
@@ -139,7 +145,10 @@ async function main() {
   })
 
   const stepNames = parallelSteps.map((s) => s.name).join(' · ')
-  const skipNote = changedFiles.length === 0 ? ' (lint/format skipped: no changed files)' : ''
+  const skipped: string[] = []
+  if (lintableFiles.length === 0) skipped.push('lint')
+  if (changedFiles.length === 0) skipped.push('format')
+  const skipNote = skipped.length > 0 ? ` (skipped: ${skipped.join(', ')})` : ''
   console.log(`Running ${stepNames} in parallel…${skipNote}\n`)
 
   const results: Result[] = []

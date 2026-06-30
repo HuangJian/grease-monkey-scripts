@@ -1,3 +1,4 @@
+import { render } from 'preact'
 import type { Runtime } from '../../runtime'
 import { mountOverlay, type OverlayHandle } from '../shell/mount'
 import type { CardGroup } from '../card-group'
@@ -24,16 +25,21 @@ export function mountDashboard(deps: MountDeps): {
   const onCloseClick = () => deps.dashboard.close()
   newHandle.closeBtn.addEventListener('click', onCloseClick)
   newHandle.backdrop.addEventListener('click', onBackdropClick)
+  const cardElements: HTMLElement[] = []
   deps.cardGroups.forEach((group) => {
     const container = group.placement === 'side' ? newHandle.sideCards : newHandle.mainCards
     const card = deps.runtime.document.createElement('div')
     card.className = 'gm-sp-card'
     card.dataset['source'] = isTabsGroup(group) ? group.id : group.tabs[0]!.id
     container.appendChild(card)
+    cardElements.push(card)
   })
   return {
     handle: newHandle,
     cleanup: () => {
+      // Unmount card Preact trees so useEffect cleanups (intervals,
+      // event listeners) fire before the overlay DOM is torn down.
+      cardElements.forEach((card) => render(null, card))
       newHandle.closeBtn.removeEventListener('click', onCloseClick)
       newHandle.backdrop.removeEventListener('click', onBackdropClick)
     },

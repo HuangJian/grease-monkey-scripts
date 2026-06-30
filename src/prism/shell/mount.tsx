@@ -59,7 +59,10 @@ function OverlayMount({ host, handleRef, root, runtime, onClose }: OverlayMountP
       closeBtn: closeBtnRef.current!,
       mainCards: mainCardsRef.current!,
       sideCards: sideCardsRef.current!,
-      unmount: () => host.remove(),
+      unmount: () => {
+        render(null, root)
+        host.remove()
+      },
     }
   }, [])
 

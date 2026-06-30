@@ -98,6 +98,7 @@ function seedFreshCaches(runtime: TestRuntime): void {
 
 const BACKGROUND_MIN = 300_000
 const BACKGROUND_MAX = 360_000
+const FOREGROUND_REFRESH_MS = 60_000
 
 // ── Tests ──
 
@@ -139,10 +140,11 @@ describe('dashboard refresh scheduling', () => {
 
     // Background timer should be cleared.
     expect(mock.activeTimeouts(BACKGROUND_MIN).length).toBe(0)
-    // Foreground 60s interval should be active.
-    const intervals = mock.activeIntervals()
-    expect(intervals.length).toBe(1)
-    expect(intervals[0]!.delay).toBe(60_000)
+    // Foreground 60s interval should be active.  Component-level
+    // useEffects (e.g. RefreshTime self-ticking clock) may also create
+    // intervals — filter to the dashboard's own refresh interval.
+    const fgIntervals = mock.activeIntervals().filter((t) => t.delay === FOREGROUND_REFRESH_MS)
+    expect(fgIntervals.length).toBe(1)
 
     dashboard.close()
   })
@@ -151,11 +153,15 @@ describe('dashboard refresh scheduling', () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
     await dashboard.open()
-    expect(mock.activeIntervals().length).toBe(1)
+    // Only check the dashboard's foreground interval (see note above
+    // about component-level intervals from preact 10.29.3+).
+    expect(mock.activeIntervals().filter((t) => t.delay === FOREGROUND_REFRESH_MS).length).toBe(1)
 
     dashboard.close()
 
-    // Foreground interval cleared.
+    // All intervals cleared — both the foreground refresh interval and
+    // component-level timers (e.g. RefreshTime self-ticking clock) whose
+    // useEffect cleanups fire via render(null, card) during close().
     expect(mock.activeIntervals().length).toBe(0)
     // Background timer re-scheduled.
     const bgTimers = mock.activeTimeouts(BACKGROUND_MIN)
