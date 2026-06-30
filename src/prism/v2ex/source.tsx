@@ -17,7 +17,10 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
   const retentionMs = options.retentionDays * 24 * 60 * 60 * 1000
   const state = createV2exState({ retentionMs })
   let authorTagMap: AuthorTagMap = {}
-  const headerStore = createHeaderState<{ dateFilter: DateFilter }>({ dateFilter: '今' })
+  const headerStore = createHeaderState<{ dateFilter: DateFilter; filterUnread: boolean }>({
+    dateFilter: '今',
+    filterUnread: false,
+  })
 
   function isV2exDomain(hostname: string): boolean {
     return hostname === 'v2ex.com' || hostname.endsWith('.v2ex.com')
@@ -75,6 +78,10 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
         <DateFilterGroup
           value={hs.dateFilter}
           onChange={(f) => headerStore.set((s) => ({ ...s, dateFilter: f }))}
+          filterUnread={hs.filterUnread}
+          onToggleFilterUnread={() =>
+            headerStore.set((s) => ({ ...s, filterUnread: !s.filterUnread }))
+          }
         />
       )
     },
@@ -86,6 +93,7 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
           state={state}
           authorTagMap={authorTagMap}
           dateFilter={hs.dateFilter}
+          filterUnread={hs.filterUnread}
         />
       )
     },

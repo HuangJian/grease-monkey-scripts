@@ -12,6 +12,7 @@ import { createHeaderState, useHeaderState, type HeaderStateStore } from '../hea
 import { loadCache, saveCache } from '../cache'
 import type { DateFilter } from '../date-filter'
 import { DateFilterGroup } from '../date-filter'
+import { ListIcon, SparklesIcon } from '../card/icons'
 import { XueqiuComponent } from './component'
 import { createXueqiuEditor } from './editor'
 import { fetchXueqiu } from './fetcher'
@@ -38,11 +39,19 @@ const HOT_SOURCE_ID = 'xueqiu-hot'
 export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle {
   const retentionMs = options.retentionDays * 24 * 60 * 60 * 1000
   const state: XueqiuState = createXueqiuState({ retentionMs })
-  const mainHeaderStore = createHeaderState<{ dateFilter: DateFilter; viewMode: ViewMode }>({
+  const mainHeaderStore = createHeaderState<{
+    dateFilter: DateFilter
+    viewMode: ViewMode
+    filterUnread: boolean
+  }>({
     dateFilter: '今',
     viewMode: 'list',
+    filterUnread: false,
   })
-  const hotHeaderStore = createHeaderState<{ dateFilter: DateFilter }>({ dateFilter: '今' })
+  const hotHeaderStore = createHeaderState<{ dateFilter: DateFilter; filterUnread: boolean }>({
+    dateFilter: '今',
+    filterUnread: false,
+  })
 
   const mainSource: Source<XueqiuRenderData> = {
     id: MAIN_SOURCE_ID,
@@ -59,21 +68,27 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
         <DateFilterGroup
           value={hs.dateFilter}
           onChange={(f) => mainHeaderStore.set((s) => ({ ...s, dateFilter: f, viewMode: 'list' }))}
+          filterUnread={hs.filterUnread}
+          onToggleFilterUnread={() =>
+            mainHeaderStore.set((s) => ({ ...s, filterUnread: !s.filterUnread }))
+          }
           trailing={
             <span class="gm-sp-date-filter gm-sp-view-toggle">
               <button
                 type="button"
                 class={`gm-sp-date-filter-btn${hs.viewMode === 'list' ? ' gm-sp-date-filter-btn-active' : ''}`}
                 onClick={() => mainHeaderStore.set((s) => ({ ...s, viewMode: 'list' }))}
+                title="列表"
               >
-                列表
+                <ListIcon />
               </button>
               <button
                 type="button"
                 class={`gm-sp-date-filter-btn${hs.viewMode === 'summary' ? ' gm-sp-date-filter-btn-active' : ''}`}
                 onClick={() => mainHeaderStore.set((s) => ({ ...s, viewMode: 'summary' }))}
+                title="AI 摘要"
               >
-                AI摘要
+                <SparklesIcon />
               </button>
             </span>
           }
@@ -115,6 +130,7 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
           state={state}
           mode="news"
           dateFilter={hs.dateFilter}
+          filterUnread={hs.filterUnread}
           viewMode={hs.viewMode}
           retentionMs={retentionMs}
           onViewModeChange={(m) => mainHeaderStore.set((s) => ({ ...s, viewMode: m }))}
@@ -141,6 +157,10 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
         <DateFilterGroup
           value={hs.dateFilter}
           onChange={(f) => hotHeaderStore.set((s) => ({ ...s, dateFilter: f }))}
+          filterUnread={hs.filterUnread}
+          onToggleFilterUnread={() =>
+            hotHeaderStore.set((s) => ({ ...s, filterUnread: !s.filterUnread }))
+          }
         />
       )
     },
@@ -228,7 +248,7 @@ function HotRankedView({
   hotHeaderStore,
 }: SourceComponentProps<XueqiuRenderData> & {
   state: XueqiuState
-  hotHeaderStore: HeaderStateStore<{ dateFilter: DateFilter }>
+  hotHeaderStore: HeaderStateStore<{ dateFilter: DateFilter; filterUnread: boolean }>
 }) {
   const [data, setData] = useState<XueqiuRenderData | null>(null)
   const hs = useHeaderState(hotHeaderStore)
@@ -253,6 +273,7 @@ function HotRankedView({
       state={state}
       mode="hot"
       dateFilter={hs.dateFilter}
+      filterUnread={hs.filterUnread}
       onNotify={onNotify}
     />
   )

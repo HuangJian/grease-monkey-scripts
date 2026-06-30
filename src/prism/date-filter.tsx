@@ -1,6 +1,6 @@
 import type { ComponentChildren } from 'preact'
 
-export const DATE_OPTIONS = ['全', '今', '昨', '前', '早', '未'] as const
+export const DATE_OPTIONS = ['全', '今', '昨', '前', '早'] as const
 
 export type DateFilter = (typeof DATE_OPTIONS)[number]
 
@@ -29,10 +29,18 @@ export function dateFilterBounds(
 export type DateFilterGroupProps = {
   value: DateFilter
   onChange: (filter: DateFilter) => void
+  filterUnread?: boolean
+  onToggleFilterUnread?: () => void
   trailing?: ComponentChildren
 }
 
-export function DateFilterGroup({ value, onChange, trailing }: DateFilterGroupProps) {
+export function DateFilterGroup({
+  value,
+  onChange,
+  filterUnread,
+  onToggleFilterUnread,
+  trailing,
+}: DateFilterGroupProps) {
   return (
     <div class="gm-sp-date-filter">
       {DATE_OPTIONS.map((opt) => (
@@ -45,6 +53,11 @@ export function DateFilterGroup({ value, onChange, trailing }: DateFilterGroupPr
           {opt}
         </button>
       ))}
+      {filterUnread !== undefined && onToggleFilterUnread && (
+        <label class="gm-sp-date-filter-unread" title="勾选后滤去已读">
+          <input type="checkbox" checked={filterUnread} onChange={onToggleFilterUnread} />未
+        </label>
+      )}
       {trailing}
     </div>
   )

@@ -43,6 +43,7 @@ function SaveDialog({ root, runtime, onClose }: SaveDialogProps) {
   const [allKeys, setAllKeys] = useState<KeyEntry[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState<DateFilter>('全')
+  const [filterUnread, setFilterUnread] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -129,7 +130,7 @@ function SaveDialog({ root, runtime, onClose }: SaveDialogProps) {
       }
 
       const readStates = new Map<string, ReadState | null>()
-      if (filter === '未') {
+      if (filterUnread) {
         const stateKeys = new Set<string>()
         for (const key of selectedKeys) {
           const stateKey = stateKeyForCache(key)
@@ -141,7 +142,7 @@ function SaveDialog({ root, runtime, onClose }: SaveDialogProps) {
         }
       }
 
-      const data = buildSaveData(selectedKeys, values, filter, readStates)
+      const data = buildSaveData(selectedKeys, values, filter, filterUnread, readStates)
       downloadJson(runtime, data, formatSaveFilename())
       onClose()
     } catch (e) {
@@ -186,7 +187,12 @@ function SaveDialog({ root, runtime, onClose }: SaveDialogProps) {
                 <span class="gm-sp-save-filter-label">
                   {'\u65E5\u671F\u7B5B\u9009\uFF08\u4EC5\u7F13\u5B58\u6570\u636E\uFF09'}
                 </span>
-                <DateFilterGroup value={filter} onChange={setFilter} />
+                <DateFilterGroup
+                  value={filter}
+                  onChange={setFilter}
+                  filterUnread={filterUnread}
+                  onToggleFilterUnread={() => setFilterUnread((v) => !v)}
+                />
               </div>
               <div class="gm-sp-save-columns">
                 {CATEGORY_ORDER.map((category) => {

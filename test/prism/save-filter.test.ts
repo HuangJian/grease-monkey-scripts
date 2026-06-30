@@ -149,6 +149,7 @@ describe('buildSaveData', () => {
       ['dashboard:v2:state:v2ex', 'v2ex_author_tags'],
       values,
       '今',
+      false,
       new Map<string, ReadState | null>(),
     )
 
@@ -186,6 +187,7 @@ describe('buildSaveData', () => {
       ['dashboard:v2:v2ex'],
       values,
       '今',
+      false,
       new Map<string, ReadState | null>(),
     )
 
@@ -194,7 +196,7 @@ describe('buildSaveData', () => {
     expect(saved.data![0]!.id).toBe(1)
   })
 
-  test('filters v2ex cache by unread (未)', () => {
+  test('filters v2ex cache by unread (filterUnread)', () => {
     const topics: V2exTopic[] = [
       {
         id: 1,
@@ -221,14 +223,14 @@ describe('buildSaveData', () => {
     const values = new Map<string, unknown>([['dashboard:v2:v2ex', cached(topics)]])
     const readStates = new Map<string, ReadState | null>([['dashboard:v2:state:v2ex', readState]])
 
-    const result = buildSaveData(['dashboard:v2:v2ex'], values, '未', readStates)
+    const result = buildSaveData(['dashboard:v2:v2ex'], values, '全', true, readStates)
 
     const saved = result['dashboard:v2:v2ex'] as CachedSource<V2exTopic[]>
     expect(saved.data).toHaveLength(1)
     expect(saved.data![0]!.id).toBe(2)
   })
 
-  test('v2ex 未 with null read state includes all items', () => {
+  test('v2ex filterUnread with null read state includes all items', () => {
     const topics: V2exTopic[] = [
       {
         id: 1,
@@ -256,7 +258,8 @@ describe('buildSaveData', () => {
     const result = buildSaveData(
       ['dashboard:v2:v2ex'],
       values,
-      '未',
+      '全',
+      true,
       new Map<string, ReadState | null>(),
     )
 
@@ -294,6 +297,7 @@ describe('buildSaveData', () => {
       ['dashboard:v2:reddit'],
       values,
       '今',
+      false,
       new Map<string, ReadState | null>(),
     )
 
@@ -302,7 +306,7 @@ describe('buildSaveData', () => {
     expect(saved.data!['sub1']![0]!.id).toBe('a')
   })
 
-  test('filters reddit cache by unread (未), drops empty groups', () => {
+  test('filters reddit cache by unread (filterUnread), drops empty groups', () => {
     const redditData: Record<string, RedditPost[]> = {
       sub1: [
         {
@@ -331,7 +335,7 @@ describe('buildSaveData', () => {
     const values = new Map<string, unknown>([['dashboard:v2:reddit', cached(redditData)]])
     const readStates = new Map<string, ReadState | null>([['dashboard:v2:state:reddit', readState]])
 
-    const result = buildSaveData(['dashboard:v2:reddit'], values, '未', readStates)
+    const result = buildSaveData(['dashboard:v2:reddit'], values, '全', true, readStates)
 
     const saved = result['dashboard:v2:reddit'] as CachedSource<Record<string, RedditPost[]>>
     expect(Object.keys(saved.data!)).toEqual(['sub2'])
@@ -361,6 +365,7 @@ describe('buildSaveData', () => {
       ['dashboard:v2:tnews'],
       values,
       '今',
+      false,
       new Map<string, ReadState | null>(),
     )
 
@@ -410,6 +415,7 @@ describe('buildSaveData', () => {
       ['dashboard:v2:xueqiu-news', 'dashboard:v2:xueqiu-hot'],
       values,
       '今',
+      false,
       new Map<string, ReadState | null>(),
     )
 
@@ -418,7 +424,7 @@ describe('buildSaveData', () => {
     expect(saved.data!.news![0]!.id).toBe(1)
   })
 
-  test('filters xueqiu cache by unread (未) with String(id) lookup', () => {
+  test('filters xueqiu cache by unread (filterUnread) with String(id) lookup', () => {
     const xueqiuData: XueqiuRenderData = {
       news: [
         {
@@ -459,7 +465,8 @@ describe('buildSaveData', () => {
     const result = buildSaveData(
       ['dashboard:v2:xueqiu-news', 'dashboard:v2:xueqiu-hot'],
       values,
-      '未',
+      '全',
+      true,
       readStates,
     )
 
@@ -509,6 +516,7 @@ describe('buildSaveData', () => {
       ['dashboard:v2:xueqiu-news'],
       values,
       '全',
+      false,
       new Map<string, ReadState | null>(),
     )
 
@@ -559,6 +567,7 @@ describe('buildSaveData', () => {
       ['dashboard:v2:xueqiu-hot'],
       values,
       '全',
+      false,
       new Map<string, ReadState | null>(),
     )
 
@@ -610,6 +619,7 @@ describe('buildSaveData', () => {
       ['dashboard:v2:xueqiu-news', 'dashboard:v2:xueqiu-hot'],
       values,
       '全',
+      false,
       new Map<string, ReadState | null>(),
     )
 
@@ -689,6 +699,7 @@ describe('buildSaveData', () => {
       ['dashboard:v2:xueqiu-news', 'dashboard:v2:xueqiu-hot'],
       values,
       '今',
+      false,
       new Map<string, ReadState | null>(),
     )
 
@@ -728,6 +739,7 @@ describe('buildSaveData', () => {
       ['dashboard:v2:v2ex'],
       values,
       '全',
+      false,
       new Map<string, ReadState | null>(),
     )
 
@@ -744,6 +756,7 @@ describe('buildSaveData', () => {
       ['dashboard:v2:v2ex'],
       values,
       '全',
+      false,
       new Map<string, ReadState | null>(),
     )
 
@@ -760,6 +773,7 @@ describe('buildSaveData', () => {
       ['dashboard:v2:v2ex'],
       values,
       '全',
+      false,
       new Map<string, ReadState | null>(),
     )
 
@@ -769,7 +783,7 @@ describe('buildSaveData', () => {
   test('empty selection produces empty result', () => {
     const values = new Map<string, unknown>([['dashboard:v2:v2ex', cached([])]])
 
-    const result = buildSaveData([], values, '全', new Map<string, ReadState | null>())
+    const result = buildSaveData([], values, '全', false, new Map<string, ReadState | null>())
 
     expect(result).toEqual({})
   })

@@ -59,6 +59,7 @@ export type XueqiuComponentProps = SourceComponentProps<XueqiuRenderData> & {
   state: XueqiuState
   mode: 'news' | 'hot'
   dateFilter: DateFilter
+  filterUnread: boolean
   viewMode?: ViewMode
   retentionMs?: number
   onViewModeChange?: (mode: ViewMode) => void
@@ -70,6 +71,7 @@ export function XueqiuComponent({
   state,
   mode,
   dateFilter,
+  filterUnread,
   viewMode = 'list',
   retentionMs = 7 * 24 * 60 * 60 * 1000,
   onViewModeChange,
@@ -85,7 +87,6 @@ export function XueqiuComponent({
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
   const [elapsedSec, setElapsedSec] = useState(0)
-  const [filterUnread, setFilterUnread] = useState(true)
   const [isBrowsingHistory, setIsBrowsingHistory] = useState(true)
   const aiInitRef = useRef(false)
   const genStartRef = useRef(0)
@@ -105,13 +106,12 @@ export function XueqiuComponent({
   const hotPosts = data?.hotPosts ?? []
   const rawItems = mode === 'news' ? news : hotPosts
   const dateFiltered = applyDateFilter(rawItems, dateFilter, (it) => it.created_at)
-  const items =
-    dateFilter === '未'
-      ? dateFiltered.filter((it) => {
-          const id = String(it.id)
-          return !state.isRead(id) || state.isExpanded(id)
-        })
-      : dateFiltered
+  const items = filterUnread
+    ? dateFiltered.filter((it) => {
+        const id = String(it.id)
+        return !state.isRead(id) || state.isExpanded(id)
+      })
+    : dateFiltered
 
   // Build newsMap from all date-filtered items (not just unread)
   const newsMap = new Map<number, XueqiuNewsItem>()
@@ -350,8 +350,6 @@ export function XueqiuComponent({
           onBack={() => onViewModeChange?.('list')}
           newsCount={summaryItems.length}
           elapsedSec={elapsedSec}
-          filterUnread={filterUnread}
-          onToggleFilterUnread={() => setFilterUnread((v) => !v)}
           isBrowsingHistory={isBrowsingHistory}
         />
       </div>

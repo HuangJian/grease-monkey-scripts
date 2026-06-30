@@ -23,7 +23,10 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
   const state = createRedditState({ retentionMs })
   const expandCollapse = createExpandCollapse()
   let authorTagMap: AuthorTagMap = {}
-  const headerStore = createHeaderState<{ dateFilter: DateFilter }>({ dateFilter: '今' })
+  const headerStore = createHeaderState<{ dateFilter: DateFilter; filterUnread: boolean }>({
+    dateFilter: '今',
+    filterUnread: false,
+  })
 
   async function loadAuthorTags(runtime: Runtime): Promise<void> {
     authorTagMap = await syncAuthorTags({
@@ -85,6 +88,10 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
         <DateFilterGroup
           value={hs.dateFilter}
           onChange={(f) => headerStore.set((s) => ({ ...s, dateFilter: f }))}
+          filterUnread={hs.filterUnread}
+          onToggleFilterUnread={() =>
+            headerStore.set((s) => ({ ...s, filterUnread: !s.filterUnread }))
+          }
         />
       )
     },
@@ -126,6 +133,7 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
           expandCollapse={expandCollapse}
           authorTagMap={authorTagMap}
           dateFilter={hs.dateFilter}
+          filterUnread={hs.filterUnread}
         />
       )
     },

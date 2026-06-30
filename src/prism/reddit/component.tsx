@@ -16,6 +16,7 @@ export type RedditComponentProps = SourceComponentProps<RedditRenderData> & {
   expandCollapse: ExpandCollapse
   authorTagMap: AuthorTagMap
   dateFilter: DateFilter
+  filterUnread: boolean
 }
 
 export function RedditComponent({
@@ -25,18 +26,18 @@ export function RedditComponent({
   expandCollapse,
   authorTagMap,
   dateFilter,
+  filterUnread,
 }: RedditComponentProps) {
   const [, forceRender] = useReducer<number, void>((n) => n + 1, 0)
 
   const dateFiltered = applyGroupedDateFilter(data ?? {}, dateFilter, (t) => t.created)
-  const filtered: RedditRenderData =
-    dateFilter === '未'
-      ? Object.entries(dateFiltered).reduce<RedditRenderData>((acc, [sub, posts]) => {
-          const unread = posts.filter((p) => !state.isRead(p.id))
-          if (unread.length > 0) acc[sub] = unread
-          return acc
-        }, {})
-      : dateFiltered
+  const filtered: RedditRenderData = filterUnread
+    ? Object.entries(dateFiltered).reduce<RedditRenderData>((acc, [sub, posts]) => {
+        const unread = posts.filter((p) => !state.isRead(p.id))
+        if (unread.length > 0) acc[sub] = unread
+        return acc
+      }, {})
+    : dateFiltered
 
   if (Object.keys(filtered).length === 0) {
     return <div class="gm-sp-empty">暂无数据</div>

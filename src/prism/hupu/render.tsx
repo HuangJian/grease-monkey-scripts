@@ -26,6 +26,7 @@ export function renderHupu(
       expandCollapse={expandCollapse}
       authorTagMap={authorTagMap}
       dateFilter={dateFilter}
+      filterUnread={false}
     />,
     container,
   )

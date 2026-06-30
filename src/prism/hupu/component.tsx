@@ -16,6 +16,7 @@ export type HupuComponentProps = SourceComponentProps<HupuRenderData> & {
   expandCollapse: ExpandCollapse
   authorTagMap: AuthorTagMap
   dateFilter: DateFilter
+  filterUnread: boolean
 }
 
 export function HupuComponent({
@@ -25,18 +26,18 @@ export function HupuComponent({
   expandCollapse,
   authorTagMap,
   dateFilter,
+  filterUnread,
 }: HupuComponentProps) {
   const [, forceRender] = useReducer<number, void>((n) => n + 1, 0)
 
   const dateFiltered = applyGroupedDateFilter(data ?? {}, dateFilter, (t) => t.created)
-  const filtered: HupuRenderData =
-    dateFilter === '未'
-      ? Object.entries(dateFiltered).reduce<HupuRenderData>((acc, [board, posts]) => {
-          const unread = posts.filter((p) => !state.isRead(p.id))
-          if (unread.length > 0) acc[board] = unread
-          return acc
-        }, {})
-      : dateFiltered
+  const filtered: HupuRenderData = filterUnread
+    ? Object.entries(dateFiltered).reduce<HupuRenderData>((acc, [board, posts]) => {
+        const unread = posts.filter((p) => !state.isRead(p.id))
+        if (unread.length > 0) acc[board] = unread
+        return acc
+      }, {})
+    : dateFiltered
 
   if (Object.keys(filtered).length === 0) {
     return <div class="gm-sp-empty">暂无数据</div>

@@ -51,17 +51,6 @@ describe('sourceBadge', () => {
 })
 
 describe('applyDateFilter', () => {
-  const items = [
-    { id: '1', created: 100 },
-    { id: '2', created: 200 },
-    { id: '3', created: 300 },
-  ]
-
-  test('returns original items for unknown filter', () => {
-    const result = applyDateFilter(items, '未', (i) => i.created)
-    expect(result).toBe(items)
-  })
-
   test('filters items outside bounds', () => {
     const now = Date.now()
     const dayMs = 86400000
@@ -110,12 +99,6 @@ describe('applyGroupedDateFilter', () => {
     expect(Object.keys(result)).toEqual(['a'])
     expect(result['a'].length).toBe(1)
     expect(result['a'][0].id).toBe('1')
-  })
-
-  test('returns original data for unknown filter', () => {
-    const data = { a: [{ id: '1', created: 100 }] }
-    const result = applyGroupedDateFilter(data, '未', (i) => i.created)
-    expect(result).toBe(data)
   })
 
   test('drops all groups when nothing matches', () => {

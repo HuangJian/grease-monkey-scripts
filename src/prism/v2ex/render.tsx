@@ -21,6 +21,7 @@ export function renderV2ex(
       state={state}
       authorTagMap={authorTagMap}
       dateFilter="全"
+      filterUnread={false}
     />,
     container,
   )

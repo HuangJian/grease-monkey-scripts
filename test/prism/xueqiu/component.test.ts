@@ -20,7 +20,7 @@ function makeItem(id: number, created_at: number = Date.now()): XueqiuNewsItem {
   }
 }
 
-describe('xueqiu unread filter with expand', () => {
+describe('xueqiu unread filter with expand (filterUnread)', () => {
   let state: XueqiuState
 
   beforeEach(() => {
@@ -31,7 +31,7 @@ describe('xueqiu unread filter with expand', () => {
     state.clear()
   })
 
-  test('bugfix: expanded item stays visible when dateFilter is 未 and item is read', () => {
+  test('bugfix: expanded item stays visible when filterUnread is on and item is read', () => {
     const item = makeItem(1)
     const items = [item]
 
@@ -47,7 +47,7 @@ describe('xueqiu unread filter with expand', () => {
     expect(filtered[0]?.id).toBe(1)
   })
 
-  test('read non-expanded item is excluded by 未 filter', () => {
+  test('read non-expanded item is excluded by filterUnread', () => {
     const item = makeItem(1)
     const items = [item]
 
@@ -61,7 +61,7 @@ describe('xueqiu unread filter with expand', () => {
     expect(filtered).toHaveLength(0)
   })
 
-  test('unread item is included by 未 filter regardless of expanded state', () => {
+  test('unread item is included by filterUnread regardless of expanded state', () => {
     const item = makeItem(1)
     const items = [item]
 
@@ -73,7 +73,7 @@ describe('xueqiu unread filter with expand', () => {
     expect(filtered).toHaveLength(1)
   })
 
-  test('collapsing a read item removes it from 未 filter results', () => {
+  test('collapsing a read item removes it from filterUnread results', () => {
     const item = makeItem(1)
     const items = [item]
 

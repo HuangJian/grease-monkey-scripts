@@ -164,8 +164,6 @@ export type SummaryViewProps = {
   onBack: () => void
   newsCount: number
   elapsedSec: number
-  filterUnread: boolean
-  onToggleFilterUnread: () => void
   isBrowsingHistory: boolean
 }
 
@@ -186,8 +184,6 @@ export function SummaryView({
   onBack,
   newsCount,
   elapsedSec,
-  filterUnread,
-  onToggleFilterUnread,
   isBrowsingHistory,
 }: SummaryViewProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
@@ -279,7 +275,6 @@ export function SummaryView({
   // (isBrowsingHistory && active). In browse mode (no selection) and freshly-
   // generated mode, all controls are visible.
   const showBulkRead = !!active && !isBrowsingHistory
-  const showFilterUnread = !isBrowsingHistory || !active
   const showGenerateButton = !isBrowsingHistory || !active
 
   return (
@@ -320,12 +315,6 @@ export function SummaryView({
             >
               本批已读
             </button>
-          )}
-          {showFilterUnread && (
-            <label class="gm-sp-ai-filter-unread" title="勾选后仅将未读新闻发送给 LLM">
-              <input type="checkbox" checked={filterUnread} onChange={onToggleFilterUnread} />
-              过滤已读
-            </label>
           )}
           {showGenerateButton && (
             <button

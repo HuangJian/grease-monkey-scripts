@@ -3,12 +3,12 @@ import { render, cleanup } from '@testing-library/preact'
 import { DATE_OPTIONS, dateFilterBounds, DateFilterGroup } from '../../src/prism/date-filter'
 
 describe('DATE_OPTIONS', () => {
-  test('has exactly 6 entries', () => {
-    expect(DATE_OPTIONS).toHaveLength(6)
+  test('has exactly 5 entries', () => {
+    expect(DATE_OPTIONS).toHaveLength(5)
   })
 
   test('contains expected filters', () => {
-    expect(DATE_OPTIONS).toEqual(['全', '今', '昨', '前', '早', '未'])
+    expect(DATE_OPTIONS).toEqual(['全', '今', '昨', '前', '早'])
   })
 })
 
@@ -54,10 +54,10 @@ describe('dateFilterBounds', () => {
 describe('DateFilterGroup', () => {
   afterEach(cleanup)
 
-  test('renders 6 buttons', () => {
+  test('renders 5 buttons', () => {
     render(<DateFilterGroup value="全" onChange={() => {}} />)
     const buttons = document.querySelectorAll('.gm-sp-date-filter-btn')
-    expect(buttons).toHaveLength(6)
+    expect(buttons).toHaveLength(5)
   })
 
   test('applies active class to selected button', () => {
@@ -100,5 +100,58 @@ describe('DateFilterGroup', () => {
     render(<DateFilterGroup value="全" onChange={() => {}} />)
     const trailing = document.querySelector('.trailing')
     expect(trailing).toBeNull()
+  })
+
+  test('renders filterUnread checkbox when props provided', () => {
+    render(
+      <DateFilterGroup
+        value="全"
+        onChange={() => {}}
+        filterUnread={false}
+        onToggleFilterUnread={() => {}}
+      />,
+    )
+    const checkbox = document.querySelector('.gm-sp-date-filter-unread input[type="checkbox"]')
+    expect(checkbox).not.toBeNull()
+  })
+
+  test('does not render filterUnread checkbox when props omitted', () => {
+    render(<DateFilterGroup value="全" onChange={() => {}} />)
+    const label = document.querySelector('.gm-sp-date-filter-unread')
+    expect(label).toBeNull()
+  })
+
+  test('checkbox reflects filterUnread state', () => {
+    render(
+      <DateFilterGroup
+        value="全"
+        onChange={() => {}}
+        filterUnread={true}
+        onToggleFilterUnread={() => {}}
+      />,
+    )
+    const checkbox = document.querySelector(
+      '.gm-sp-date-filter-unread input[type="checkbox"]',
+    ) as HTMLInputElement
+    expect(checkbox.checked).toBe(true)
+  })
+
+  test('calls onToggleFilterUnread when checkbox clicked', () => {
+    let toggled = false
+    render(
+      <DateFilterGroup
+        value="全"
+        onChange={() => {}}
+        filterUnread={false}
+        onToggleFilterUnread={() => {
+          toggled = true
+        }}
+      />,
+    )
+    const checkbox = document.querySelector(
+      '.gm-sp-date-filter-unread input[type="checkbox"]',
+    ) as HTMLInputElement
+    checkbox.click()
+    expect(toggled).toBe(true)
   })
 })

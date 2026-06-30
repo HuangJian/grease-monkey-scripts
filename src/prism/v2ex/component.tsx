@@ -30,6 +30,7 @@ export type V2exComponentProps = SourceComponentProps<V2exTopic[]> & {
   state: V2exState
   authorTagMap: AuthorTagMap
   dateFilter: DateFilter
+  filterUnread: boolean
 }
 
 export function V2exComponent({
@@ -38,14 +39,14 @@ export function V2exComponent({
   state,
   authorTagMap,
   dateFilter,
+  filterUnread,
 }: V2exComponentProps) {
   const [, forceRender] = useReducer<number, void>((n) => n + 1, 0)
 
   const dateFiltered = applyDateFilter(data ?? [], dateFilter, (t) => t.created)
-  const visible =
-    dateFilter === '未'
-      ? dateFiltered.filter((t) => !state.isRead(t.id))
-      : state.filterVisible(dateFiltered)
+  const visible = filterUnread
+    ? dateFiltered.filter((t) => !state.isRead(t.id))
+    : state.filterVisible(dateFiltered)
 
   function handleMarkRead(topic: V2exTopic) {
     state.markRead(topic.id, Date.now(), topic.replies)

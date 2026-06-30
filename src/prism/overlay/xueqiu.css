@@ -72,6 +72,18 @@
   margin-left: 6px;
 }
 
+.gm-sp-view-toggle .gm-sp-date-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 6px;
+}
+
+.gm-sp-view-toggle svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+
 /* ---- AI Summary view ---- */
 
 .gm-sp-ai-summary {
@@ -105,22 +117,6 @@
 .gm-sp-ai-toolbar .gm-sp-btn {
   padding: 4px 8px;
   line-height: 1.5;
-}
-
-.gm-sp-ai-filter-unread {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: var(--gm-sp-text-md);
-  cursor: pointer;
-  white-space: nowrap;
-  user-select: none;
-  margin-left: auto;
-}
-
-.gm-sp-ai-filter-unread input {
-  margin: 0;
-  cursor: pointer;
 }
 
 .gm-sp-ai-refresh-btn {

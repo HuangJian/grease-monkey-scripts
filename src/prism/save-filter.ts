@@ -125,21 +125,26 @@ function isRead(readState: ReadState | null, id: string): boolean {
   return entry != null && entry.r != null
 }
 
-type CacheFilter = (data: unknown, filter: DateFilter, readState: ReadState | null) => unknown
+type CacheFilter = (
+  data: unknown,
+  filter: DateFilter,
+  filterUnread: boolean,
+  readState: ReadState | null,
+) => unknown
 
-const v2exFilter: CacheFilter = (data, filter, readState) => {
+const v2exFilter: CacheFilter = (data, filter, filterUnread, readState) => {
   const items = data as V2exTopic[]
   if (!Array.isArray(items)) return data
-  if (filter === '未') {
+  if (filterUnread) {
     return items.filter((t) => !isRead(readState, String(t.id)))
   }
   return applyDateFilter(items, filter, (t) => t.created)
 }
 
-const redditFilter: CacheFilter = (data, filter, readState) => {
+const redditFilter: CacheFilter = (data, filter, filterUnread, readState) => {
   const groups = data as Record<string, RedditPost[]>
   if (!groups || typeof groups !== 'object') return data
-  if (filter === '未') {
+  if (filterUnread) {
     return Object.entries(groups).reduce<Record<string, RedditPost[]>>((acc, [sub, posts]) => {
       const unread = posts.filter((p) => !isRead(readState, p.id))
       if (unread.length > 0) acc[sub] = unread
@@ -149,10 +154,10 @@ const redditFilter: CacheFilter = (data, filter, readState) => {
   return applyGroupedDateFilter(groups, filter, (t) => t.created)
 }
 
-const hupuFilter: CacheFilter = (data, filter, readState) => {
+const hupuFilter: CacheFilter = (data, filter, filterUnread, readState) => {
   const groups = data as Record<string, HupuPost[]>
   if (!groups || typeof groups !== 'object') return data
-  if (filter === '未') {
+  if (filterUnread) {
     return Object.entries(groups).reduce<Record<string, HupuPost[]>>((acc, [board, posts]) => {
       const unread = posts.filter((p) => !isRead(readState, p.id))
       if (unread.length > 0) acc[board] = unread
@@ -162,10 +167,10 @@ const hupuFilter: CacheFilter = (data, filter, readState) => {
   return applyGroupedDateFilter(groups, filter, (t) => t.created)
 }
 
-const tnewsFilter: CacheFilter = (data, filter, readState) => {
+const tnewsFilter: CacheFilter = (data, filter, filterUnread, readState) => {
   const items = data as TnewsItem[]
   if (!Array.isArray(items)) return data
-  if (filter === '未') {
+  if (filterUnread) {
     return items.filter((it) => !isRead(readState, it.id))
   }
   return applyDateFilter(items, filter, (it) => it.pubDate)
@@ -174,10 +179,11 @@ const tnewsFilter: CacheFilter = (data, filter, readState) => {
 function filterXueqiuItems(
   items: XueqiuNewsItem[] | undefined,
   filter: DateFilter,
+  filterUnread: boolean,
   readState: ReadState | null,
 ): XueqiuNewsItem[] | undefined {
   if (!Array.isArray(items)) return items
-  if (filter === '未') {
+  if (filterUnread) {
     return items.filter((it) => !isRead(readState, String(it.id)))
   }
   return applyDateFilter(items, filter, (it) => it.created_at)
@@ -194,11 +200,12 @@ function filterCacheData(
   sourceId: string,
   data: unknown,
   filter: DateFilter,
+  filterUnread: boolean,
   readState: ReadState | null,
 ): unknown {
   const filterFn = CACHE_FILTERS[sourceId]
   if (!filterFn) return data
-  return filterFn(data, filter, readState)
+  return filterFn(data, filter, filterUnread, readState)
 }
 
 // ── Build save data ──
@@ -215,6 +222,7 @@ export function buildSaveData(
   selectedKeys: string[],
   values: ReadonlyMap<string, unknown>,
   filter: DateFilter,
+  filterUnread: boolean,
   readStates: ReadonlyMap<string, ReadState | null>,
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {}
@@ -231,9 +239,11 @@ export function buildSaveData(
     if (xueqiuValue && isCachedSource(xueqiuValue)) {
       const readState = readStates.get(XUEQIU_STATE_KEY) ?? null
       const data = xueqiuValue.data as XueqiuRenderData | null
-      const news = hasXueqiuNews ? (filterXueqiuItems(data?.news, filter, readState) ?? []) : []
+      const news = hasXueqiuNews
+        ? (filterXueqiuItems(data?.news, filter, filterUnread, readState) ?? [])
+        : []
       const hotPosts = hasXueqiuHot
-        ? (filterXueqiuItems(data?.hotPosts, filter, readState) ?? [])
+        ? (filterXueqiuItems(data?.hotPosts, filter, filterUnread, readState) ?? [])
         : []
       result[XUEQIU_NEWS_CACHE_KEY] = { ...xueqiuValue, data: { news, hotPosts } }
     }
@@ -247,7 +257,13 @@ export function buildSaveData(
     if (desc?.category === 'cache' && desc.sourceId && isCachedSource(value)) {
       const stateKey = stateKeyForCache(key)
       const readState = stateKey ? (readStates.get(stateKey) ?? null) : null
-      const filteredData = filterCacheData(desc.sourceId, value.data, filter, readState)
+      const filteredData = filterCacheData(
+        desc.sourceId,
+        value.data,
+        filter,
+        filterUnread,
+        readState,
+      )
       result[key] = { ...value, data: filteredData }
     } else {
       result[key] = value

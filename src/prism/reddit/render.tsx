@@ -26,6 +26,7 @@ export function renderReddit(
       expandCollapse={expandCollapse}
       authorTagMap={authorTagMap}
       dateFilter={dateFilter}
+      filterUnread={false}
     />,
     container,
   )
