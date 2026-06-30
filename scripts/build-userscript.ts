@@ -346,6 +346,7 @@ async function buildUserScript(entrypoint: string, mode: BuildMode): Promise<str
 // ---------------------------------------------------------------------------
 
 async function main() {
+  const FORCE_REBUILD = process.argv.includes('--full')
   const srcDir = 'src'
   const entries: string[] = []
 
@@ -378,7 +379,7 @@ async function main() {
       entries.map(async (entrypoint) => {
         const name = basename(dirname(entrypoint))
         const prodFile = `dist/${name}.user.js`
-        const prevHash = readExistingHash(prodFile) ?? ''
+        const prevHash = FORCE_REBUILD ? '' : (readExistingHash(prodFile) ?? '')
 
         try {
           const bundle = await buildUserScript(entrypoint, BUILD_MODES[0])
@@ -398,12 +399,14 @@ async function main() {
 
     // Phase 2: If any script changed, strip console once, then build prod.
     // Stripping is done once globally (idempotent) before any prod build.
-    const hasChanges = entries.some((entrypoint) => {
-      const name = basename(dirname(entrypoint))
-      const hash = hashes.get(name)
-      if (!hash) return false
-      return readExistingHash(`dist/${name}.user.js`) !== hash
-    })
+    const hasChanges =
+      FORCE_REBUILD ||
+      entries.some((entrypoint) => {
+        const name = basename(dirname(entrypoint))
+        const hash = hashes.get(name)
+        if (!hash) return false
+        return readExistingHash(`dist/${name}.user.js`) !== hash
+      })
 
     if (hasChanges) {
       for (const [path, content] of originals) {
@@ -418,7 +421,7 @@ async function main() {
         const hash = hashes.get(name)
         if (!hash) return
         const prodFile = `dist/${name}.user.js`
-        if (readExistingHash(prodFile) === hash) return
+        if (!FORCE_REBUILD && readExistingHash(prodFile) === hash) return
 
         try {
           const bundle = await buildUserScript(entrypoint, BUILD_MODES[1])

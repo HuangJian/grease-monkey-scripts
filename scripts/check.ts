@@ -4,15 +4,25 @@
  * Runs typecheck, lint, format-check, and test concurrently, then build
  * sequentially (build mutates source files). Reports per-step timing and
  * output for failures.
+ *
+ * Scope: typecheck always runs full-incremental (faster than a scoped config).
+ * Test is scoped to the affected modules when changes are confined to
+ * userscript modules (e.g. src/prism, test/prism); shared/global changes
+ * trigger a full test run. Lint and format always run on changed files only.
+ *
+ * Pass --full to force lint, format, and test on the entire project, plus a
+ * forced full rebuild (ignoring build hashes).
  */
 
 import { spawn, execSync } from 'child_process'
 import { resolve, extname } from 'node:path'
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 
 const CWD = resolve(import.meta.dir, '..')
 const BIN = resolve(CWD, 'node_modules/.bin')
 const ENV = { ...process.env, PATH: `${BIN}:${process.env.PATH ?? ''}` }
+
+const FORCE_FULL = process.argv.includes('--full')
 
 /** Extensions oxfmt can format-check (broader than oxlint). */
 const CHECKABLE_EXTS = new Set([
@@ -62,6 +72,43 @@ function getChangedFiles(): string[] {
   } catch {
     return []
   }
+}
+
+/** Discover userscript modules: directories under src/ with an index.user.ts. */
+function discoverModules(): Set<string> {
+  const modules = new Set<string>()
+  for (const entry of readdirSync(resolve(CWD, 'src'), { withFileTypes: true })) {
+    if (entry.isDirectory() && existsSync(resolve(CWD, 'src', entry.name, 'index.user.ts'))) {
+      modules.add(entry.name)
+    }
+  }
+  return modules
+}
+
+type Scope = { mode: 'full'; reason: string } | { mode: 'scoped'; modules: string[] }
+
+/**
+ * Decide test scope based on changed files.
+ *
+ * - --full flag or no changed files → full.
+ * - Any changed file outside a module's src/<m>/ or test/<m>/ tree (shared
+ *   code, project globals) → full.
+ * - Otherwise → scoped to the affected modules.
+ */
+function determineTestScope(changedFiles: string[], modules: Set<string>): Scope {
+  if (FORCE_FULL) return { mode: 'full', reason: '--full flag' }
+  if (changedFiles.length === 0) return { mode: 'full', reason: 'no changes' }
+
+  const affected = new Set<string>()
+  for (const file of changedFiles) {
+    const [root, module] = file.split('/')
+    if ((root === 'src' || root === 'test') && module && modules.has(module)) {
+      affected.add(module)
+    } else {
+      return { mode: 'full', reason: `shared/global change: ${file}` }
+    }
+  }
+  return { mode: 'scoped', modules: [...affected].sort() }
 }
 
 interface Step {
@@ -120,16 +167,37 @@ async function main() {
   const totalStart = performance.now()
 
   const changedFiles = getChangedFiles()
+  const modules = discoverModules()
+  const testScope = determineTestScope(changedFiles, modules)
 
-  const parallelSteps: Step[] = [
-    { name: 'typecheck', cmd: 'tsc', args: ['--noEmit', '--incremental'] },
-  ]
+  // --- Build parallel steps ------------------------------------------------
 
-  const lintableFiles = changedFiles.filter((f) => LINTABLE_EXTS.has(extname(f)))
-  if (lintableFiles.length > 0) {
-    parallelSteps.push({ name: 'lint', cmd: 'oxlint', args: lintableFiles })
+  const parallelSteps: Step[] = []
+
+  // typecheck: full-incremental (faster than a scoped tsconfig).
+  // Skipped when there are no changes and --full is not set.
+  if (FORCE_FULL || changedFiles.length > 0) {
+    parallelSteps.push({ name: 'typecheck', cmd: 'tsc', args: ['--noEmit', '--incremental'] })
   }
-  if (changedFiles.length > 0) {
+
+  // lint: changed JS/TS files, or the whole project with --full.
+  if (FORCE_FULL) {
+    parallelSteps.push({ name: 'lint', cmd: 'oxlint', args: ['.'] })
+  } else {
+    const lintableFiles = changedFiles.filter((f) => LINTABLE_EXTS.has(extname(f)))
+    if (lintableFiles.length > 0) {
+      parallelSteps.push({ name: 'lint', cmd: 'oxlint', args: lintableFiles })
+    }
+  }
+
+  // format-check: changed files, or the whole project with --full.
+  if (FORCE_FULL) {
+    parallelSteps.push({
+      name: 'format',
+      cmd: 'oxfmt',
+      args: ['--check', '.', '--disable-nested-config', '-c', './.oxfmtrc.json'],
+    })
+  } else if (changedFiles.length > 0) {
     parallelSteps.push({
       name: 'format',
       cmd: 'oxfmt',
@@ -137,18 +205,37 @@ async function main() {
     })
   }
 
-  parallelSteps.push({
-    name: 'test',
-    cmd: 'bun',
-    args: ['run', 'scripts/test-silent.ts'],
-    showOutput: true,
-  })
+  // test: scoped to changed modules, or full project with --full / shared changes.
+  // Skipped when there are no changes and --full is not set.
+  if (FORCE_FULL || changedFiles.length > 0) {
+    const testArgs =
+      testScope.mode === 'scoped'
+        ? ['run', 'scripts/test-silent.ts', ...testScope.modules.map((m) => `test/${m}`)]
+        : ['run', 'scripts/test-silent.ts']
+    parallelSteps.push({ name: 'test', cmd: 'bun', args: testArgs, showOutput: true })
+  }
 
-  const stepNames = parallelSteps.map((s) => s.name).join(' · ')
+  // --- Header --------------------------------------------------------------
+
+  const noChanges = changedFiles.length === 0
+  const scopeLabel = FORCE_FULL
+    ? 'full (--full)'
+    : noChanges
+      ? 'no changes'
+      : testScope.mode === 'scoped'
+        ? `test scoped (${testScope.modules.join(', ')})`
+        : `full (${testScope.reason})`
+  const stepNames =
+    parallelSteps.length > 0 ? parallelSteps.map((s) => s.name).join(' · ') : 'nothing'
   const skipped: string[] = []
-  if (lintableFiles.length === 0) skipped.push('lint')
-  if (changedFiles.length === 0) skipped.push('format')
+  if (!FORCE_FULL && noChanges) {
+    skipped.push('typecheck', 'lint', 'format', 'test')
+  } else if (!FORCE_FULL) {
+    const lintableFiles = changedFiles.filter((f) => LINTABLE_EXTS.has(extname(f)))
+    if (lintableFiles.length === 0) skipped.push('lint')
+  }
   const skipNote = skipped.length > 0 ? ` (skipped: ${skipped.join(', ')})` : ''
+  console.log(`Scope: ${scopeLabel}`)
   console.log(`Running ${stepNames} in parallel…${skipNote}\n`)
 
   const results: Result[] = []
@@ -163,10 +250,13 @@ async function main() {
   )
 
   // Build runs after parallel steps — it mutates source files temporarily.
+  const buildArgs = FORCE_FULL
+    ? ['run', 'scripts/build-userscript.ts', '--full']
+    : ['run', 'scripts/build-userscript.ts']
   const buildResult = await run({
     name: 'build',
     cmd: 'bun',
-    args: ['run', 'scripts/build-userscript.ts'],
+    args: buildArgs,
     showOutput: true,
   })
   printResult(buildResult)
