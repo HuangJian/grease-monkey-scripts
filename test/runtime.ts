@@ -1,5 +1,4 @@
 import type { Runtime, ValueChangeListener } from '../src/runtime'
-import { JSDOM } from 'jsdom'
 import { Window } from 'happy-dom'
 
 // Make Preact state updates synchronous in tests
@@ -8,7 +7,22 @@ preactOptions.debounceRendering = (fn: () => void) => fn()
 
 // happy-dom's DOMParser can't parse XML with CDATA sections (RSS feeds).
 // Provide a JSDOM-based DOMParser class for tests that parse XML.
-export const XmlDOMParser = new JSDOM('').window.DOMParser as typeof DOMParser
+export class XmlDOMParser implements DOMParser {
+  #delegate: DOMParser | null = null
+
+  private get delegate(): DOMParser {
+    if (this.#delegate) return this.#delegate
+    const { JSDOM } = require('jsdom')
+    const Parser = new JSDOM('').window.DOMParser
+    const d = new Parser()
+    this.#delegate = d
+    return d
+  }
+
+  parseFromString(string: string, type: DOMParserSupportedType): Document {
+    return this.delegate.parseFromString(string, type)
+  }
+}
 
 const _windows: Window[] = []
 

@@ -1,13 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, it, expect } from 'bun:test'
-import { JSDOM } from 'jsdom'
 import { buildZdicUrl } from '../../src/hanzi-dictionary/app/zdic'
 
 function parseFixture(html: string) {
-  const dom = new JSDOM(`<!DOCTYPE html><html><body></body></html>`)
-  const { DOMParser } = dom.window
-  return new DOMParser().parseFromString(html, 'text/html')
+  return new globalThis.DOMParser().parseFromString(html, 'text/html')
 }
 
 const yaoFixture = readFileSync(resolve(import.meta.dir, 'zdic-yao.html'), 'utf8')
