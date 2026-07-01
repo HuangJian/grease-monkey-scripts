@@ -1,7 +1,14 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks'
+import { numberOrDefault } from '../../../utils'
 import { validateConfig } from '../../config'
 import { createEditorFactory } from '../../editor-helpers/createEditorFactory'
-import { readNumberFields, saveConfigSection, saveSourceSettings } from '../../editor-helpers'
+import {
+  readNumberFields,
+  saveConfigSection,
+  saveSourceSettings,
+  fieldLabel,
+  toFieldRule,
+} from '../../editor-helpers'
 import { SourceSettingsFields, ChipList } from '../../editor-ui'
 import type { SourceEditorContext, SourceEditorResult, SourceSettings } from '../../types'
 import { normalizeSubredditName } from '../parser'
@@ -25,7 +32,7 @@ export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEdit
     FORM_FIELDS.reduce(
       (out, f) => {
         const val = (fresh as Record<string, unknown>)[f.prop]
-        out[f.prop] = typeof val === 'number' ? val : 0
+        out[f.prop] = numberOrDefault(val, 0)
         return out
       },
       {} as Record<string, number>,
@@ -51,12 +58,7 @@ export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEdit
         }
         const inputList = advancedRefs.current.filter(Boolean) as HTMLInputElement[]
         const nums = readNumberFields(
-          FORM_FIELDS.map((f, i) => ({
-            input: inputList[i],
-            min: f.min,
-            max: f.max,
-            errorMessage: f.errorMsg,
-          })),
+          FORM_FIELDS.map((f, i) => toFieldRule(inputList[i], f)),
           (msg) => setError(msg),
         )
         if (nums === null) return
@@ -132,7 +134,7 @@ export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEdit
       <div class="gm-sp-editor-form">
         {FORM_FIELDS.map((f, i) => (
           <label class="gm-sp-editor-row" key={f.prop}>
-            <span>{f.label}</span>
+            <span>{fieldLabel(f)}</span>
             <input
               ref={(el) => {
                 advancedRefs.current[i] = el

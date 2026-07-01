@@ -31,3 +31,7 @@ export function toAbsoluteUrl(url: string | null, base: string): string {
 export function matchesText(matcher: RegExp | ((text: string) => boolean), text: string): boolean {
   return matcher instanceof RegExp ? matcher.test(text) : matcher(text)
 }
+
+export function numberOrDefault(val: unknown, defaultVal: number): number {
+  return typeof val === 'number' ? val : defaultVal
+}

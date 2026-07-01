@@ -1,7 +1,14 @@
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
+import { numberOrDefault } from '../../utils'
 import { loadConfigSection, validateConfig } from '../config'
 import { createEditorFactory } from '../editor-helpers/createEditorFactory'
-import { saveConfigSection, saveSourceSettings } from '../editor-helpers'
+import {
+  saveConfigSection,
+  saveSourceSettings,
+  fieldLabel,
+  fieldErrorMsg,
+  type NumberFieldDef,
+} from '../editor-helpers'
 import { SourceSettingsFields } from '../editor-ui'
 import type { SourceEditorContext, SourceEditorResult, SourceSettings } from '../types'
 import {
@@ -13,19 +20,29 @@ import {
 import { loadAiConfig, saveAiConfig } from './ai/config'
 import type { Runtime } from '../../runtime'
 
+const TTL_FIELD: NumberFieldDef = {
+  prop: 'ttlMinutes',
+  name: 'TTL',
+  unit: '分钟',
+  min: 1,
+  integer: true,
+}
+const RETENTION_FIELD: NumberFieldDef = {
+  prop: 'retentionDays',
+  name: '数据保留',
+  unit: '天',
+  min: 1,
+  max: 90,
+  integer: true,
+}
+
 function coerceXueqiuOptions(
   raw: Record<string, unknown>,
   fallback: XueqiuSourceOptions,
 ): XueqiuSourceOptions {
   return {
-    ttlMinutes:
-      typeof raw['ttlMinutes'] === 'number' && Number.isFinite(raw['ttlMinutes'])
-        ? (raw['ttlMinutes'] as number)
-        : fallback.ttlMinutes,
-    retentionDays:
-      typeof raw['retentionDays'] === 'number' && Number.isFinite(raw['retentionDays'])
-        ? (raw['retentionDays'] as number)
-        : fallback.retentionDays,
+    ttlMinutes: numberOrDefault(raw['ttlMinutes'], fallback.ttlMinutes),
+    retentionDays: numberOrDefault(raw['retentionDays'], fallback.retentionDays),
   }
 }
 
@@ -78,13 +95,13 @@ function XueqiuEditorForm({ fresh, sourceId, settings, ctx, handleRef }: XueqiuE
         const ttlVal = ttlRef.current?.value
         const ttlNum = ttlVal !== undefined ? Number(ttlVal) : NaN
         if (!Number.isFinite(ttlNum) || ttlNum < 1 || Math.round(ttlNum) !== ttlNum) {
-          setError('TTL 必须是 ≥1 的整数')
+          setError(fieldErrorMsg(TTL_FIELD))
           return
         }
         const retentionVal = retentionRef.current?.value
         const retentionNum = retentionVal !== undefined ? Number(retentionVal) : NaN
         if (!Number.isFinite(retentionNum) || retentionNum < 1 || retentionNum > 90) {
-          setError('数据保留必须是 1~90 之间的整数')
+          setError(fieldErrorMsg(RETENTION_FIELD))
           return
         }
         const xueqiu: XueqiuSourceOptions = {
@@ -147,7 +164,7 @@ function XueqiuEditorForm({ fresh, sourceId, settings, ctx, handleRef }: XueqiuE
       />
       <div class="gm-sp-editor-form gm-sp-editor-form-no-border">
         <label class="gm-sp-editor-row">
-          <span>TTL（分钟）</span>
+          <span>{fieldLabel(TTL_FIELD)}</span>
           <input
             ref={ttlRef}
             type="number"
@@ -159,7 +176,7 @@ function XueqiuEditorForm({ fresh, sourceId, settings, ctx, handleRef }: XueqiuE
           />
         </label>
         <label class="gm-sp-editor-row">
-          <span>数据保留（天）</span>
+          <span>{fieldLabel(RETENTION_FIELD)}</span>
           <input
             ref={retentionRef}
             type="number"

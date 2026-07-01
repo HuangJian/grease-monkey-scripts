@@ -39,3 +39,35 @@ export function readNumberFields(
   }
   return out
 }
+
+/**
+ * Field definition that drives both the display label and the validation
+ * error message, eliminating text duplication between the two.
+ */
+export type NumberFieldDef = {
+  prop: string
+  name: string
+  unit?: string
+  min: number
+  max?: number
+  integer?: boolean
+  placeholder?: string
+}
+
+export function fieldLabel(f: NumberFieldDef): string {
+  return f.unit ? `${f.name}（${f.unit}）` : f.name
+}
+
+export function fieldErrorMsg(f: NumberFieldDef): string {
+  const sp = /[a-zA-Z0-9]$/.test(f.name) ? ' ' : ''
+  if (f.max !== undefined) {
+    return f.integer
+      ? `${f.name}${sp}必须是 ${f.min}~${f.max} 之间的整数`
+      : `${f.name}${sp}必须是 ${f.min}~${f.max} 之间`
+  }
+  return f.integer ? `${f.name}${sp}必须是 ≥${f.min} 的整数` : `${f.name}${sp}必须 ≥${f.min}`
+}
+
+export function toFieldRule(input: HTMLInputElement, f: NumberFieldDef): NumberFieldRule {
+  return { input, min: f.min, max: f.max, integer: f.integer, errorMessage: fieldErrorMsg(f) }
+}

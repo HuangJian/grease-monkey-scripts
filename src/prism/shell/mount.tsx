@@ -12,6 +12,8 @@ import {
 } from '../export-import'
 import { showSaveDialog } from '../save-dialog'
 
+// Build script replaces the placeholder with compressed CSS for prod builds
+// (inline LZ decompressor call) or raw CSS for debug builds (plain template literal).
 export const CSS_TO_BE_INJECTED = '/* overlay css placeholder */'
 
 export type OverlayHandle = {

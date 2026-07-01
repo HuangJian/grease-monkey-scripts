@@ -1,39 +1,13 @@
+import type { NumberFieldDef } from '../../editor-helpers'
+
 /**
  * Reddit editor types and constants.
  */
 
-export const FORM_FIELDS: {
-  prop: string
-  label: string
-  min: number
-  max?: number
-  errorMsg: string
-}[] = [
-  { prop: 'ttlMinutes', label: 'TTL（分钟）', min: 1, errorMsg: 'TTL 必须是 ≥1 的整数' },
-  {
-    prop: 'retentionDays',
-    label: '数据保留（天）',
-    min: 1,
-    max: 90,
-    errorMsg: '数据保留必须是 1~90 之间的整数',
-  },
-  {
-    prop: 'todayMinComments',
-    label: '今日最低评论',
-    min: 0,
-    errorMsg: '今日最低评论必须 ≥0',
-  },
-  {
-    prop: 'olderMinComments',
-    label: '历史最低评论',
-    min: 0,
-    errorMsg: '历史最低评论必须 ≥0',
-  },
-  {
-    prop: 'ageHalfLifeDays',
-    label: '衰减半衰期（天）',
-    min: 0.1,
-    max: 30,
-    errorMsg: '衰减半衰期必须是 0.1~30 之间',
-  },
+export const FORM_FIELDS: NumberFieldDef[] = [
+  { prop: 'ttlMinutes', name: 'TTL', unit: '分钟', min: 1, integer: true },
+  { prop: 'retentionDays', name: '数据保留', unit: '天', min: 1, max: 90, integer: true },
+  { prop: 'todayMinComments', name: '今日最低评论', min: 0 },
+  { prop: 'olderMinComments', name: '历史最低评论', min: 0 },
+  { prop: 'ageHalfLifeDays', name: '衰减半衰期', unit: '天', min: 0.1, max: 30 },
 ]

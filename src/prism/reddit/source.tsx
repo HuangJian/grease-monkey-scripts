@@ -1,6 +1,7 @@
 import { REDDIT_AUTHOR_TAGS_KEY, REDDIT_AUTHOR_TAGS_LS_KEY } from '../../shared/author-labels'
 import type { AuthorTagMap } from '../../shared/author-labels'
 import type { Runtime } from '../../runtime'
+import { numberOrDefault } from '../../utils'
 import type { Source, SourceHeaderProps, SourceSettings } from '../types'
 import { createHeaderState, useHeaderState } from '../header-state'
 import { loadCache, saveCache } from '../cache'
@@ -152,24 +153,11 @@ function coerceRedditOptions(
   fallback: RedditSourceOptions,
 ): RedditSourceOptions {
   return {
-    ttlMinutes:
-      typeof raw['ttlMinutes'] === 'number' ? (raw['ttlMinutes'] as number) : fallback.ttlMinutes,
-    retentionDays:
-      typeof raw['retentionDays'] === 'number'
-        ? (raw['retentionDays'] as number)
-        : fallback.retentionDays,
-    todayMinComments:
-      typeof raw['todayMinComments'] === 'number'
-        ? (raw['todayMinComments'] as number)
-        : fallback.todayMinComments,
-    olderMinComments:
-      typeof raw['olderMinComments'] === 'number'
-        ? (raw['olderMinComments'] as number)
-        : fallback.olderMinComments,
-    ageHalfLifeDays:
-      typeof raw['ageHalfLifeDays'] === 'number'
-        ? (raw['ageHalfLifeDays'] as number)
-        : fallback.ageHalfLifeDays,
+    ttlMinutes: numberOrDefault(raw['ttlMinutes'], fallback.ttlMinutes),
+    retentionDays: numberOrDefault(raw['retentionDays'], fallback.retentionDays),
+    todayMinComments: numberOrDefault(raw['todayMinComments'], fallback.todayMinComments),
+    olderMinComments: numberOrDefault(raw['olderMinComments'], fallback.olderMinComments),
+    ageHalfLifeDays: numberOrDefault(raw['ageHalfLifeDays'], fallback.ageHalfLifeDays),
     subreddits:
       Array.isArray(raw['subreddits']) && (raw['subreddits'] as unknown[]).length > 0
         ? (raw['subreddits'] as unknown[]).map((s) => String(s)).filter((s) => s.length > 0)

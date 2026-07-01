@@ -1,10 +1,26 @@
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
+import { numberOrDefault } from '../../utils'
 import { loadConfigSection, validateConfig } from '../config'
 import { createEditorFactory } from '../editor-helpers/createEditorFactory'
-import { readNumberFields, saveConfigSection, saveSourceSettings } from '../editor-helpers'
+import {
+  readNumberFields,
+  saveConfigSection,
+  saveSourceSettings,
+  fieldLabel,
+  toFieldRule,
+  type NumberFieldDef,
+} from '../editor-helpers'
 import type { SourceEditorContext, SourceEditorResult, SourceSettings } from '../types'
 import type { MiscBadgeType, MiscOptions } from './types'
 import type { Runtime } from '../../runtime'
+
+const TTL_FIELD: NumberFieldDef = {
+  prop: 'ttlMinutes',
+  name: 'TTL',
+  unit: '分钟',
+  min: 1,
+  integer: true,
+}
 
 const BADGE_OPTIONS: { value: MiscBadgeType; label: string }[] = [
   { value: 'none', label: '不显示' },
@@ -17,10 +33,7 @@ function coerceMiscOptions(raw: Record<string, unknown>, fallback: MiscOptions):
     ? (raw['badgeType'] as MiscBadgeType)
     : fallback.badgeType
   return {
-    ttlMinutes:
-      typeof raw['ttlMinutes'] === 'number' && Number.isFinite(raw['ttlMinutes'])
-        ? raw['ttlMinutes']
-        : fallback.ttlMinutes,
+    ttlMinutes: numberOrDefault(raw['ttlMinutes'], fallback.ttlMinutes),
     badgeType,
   }
 }
@@ -49,9 +62,8 @@ function MiscEditorForm({ fresh, settings, ctx, handleRef }: MiscEditorFormProps
       render() {},
       save() {
         setError('')
-        const nums = readNumberFields(
-          [{ input: ttlRef.current!, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' }],
-          (msg) => setError(msg),
+        const nums = readNumberFields([toFieldRule(ttlRef.current!, TTL_FIELD)], (msg) =>
+          setError(msg),
         )
         if (nums === null) return
         const misc: MiscOptions = { ttlMinutes: Math.round(nums[0]), badgeType }
@@ -115,7 +127,7 @@ function MiscEditorForm({ fresh, settings, ctx, handleRef }: MiscEditorFormProps
       </div>
       <div class="gm-sp-editor-form">
         <label class="gm-sp-editor-row">
-          <span>TTL（分钟）</span>
+          <span>{fieldLabel(TTL_FIELD)}</span>
           <input
             ref={ttlRef}
             type="number"

@@ -1,21 +1,34 @@
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
+import { numberOrDefault } from '../../utils'
 import { loadConfigSection, validateConfig } from '../config'
 import { createEditorFactory } from '../editor-helpers/createEditorFactory'
-import { readNumberFields, saveConfigSection, saveSourceSettings } from '../editor-helpers'
+import {
+  readNumberFields,
+  saveConfigSection,
+  saveSourceSettings,
+  fieldLabel,
+  toFieldRule,
+  type NumberFieldDef,
+} from '../editor-helpers'
 import { SourceSettingsFields } from '../editor-ui'
 import type { SourceEditorContext, SourceEditorResult, SourceSettings } from '../types'
 import type { TnewsSourceOptions } from './types'
 import type { Runtime } from '../../runtime'
+
+const TTL_FIELD: NumberFieldDef = {
+  prop: 'ttlMinutes',
+  name: 'TTL',
+  unit: '分钟',
+  min: 1,
+  integer: true,
+}
 
 function coerceTnewsOptions(
   raw: Record<string, unknown>,
   fallback: TnewsSourceOptions,
 ): TnewsSourceOptions {
   return {
-    ttlMinutes:
-      typeof raw['ttlMinutes'] === 'number' && Number.isFinite(raw['ttlMinutes'])
-        ? (raw['ttlMinutes'] as number)
-        : fallback.ttlMinutes,
+    ttlMinutes: numberOrDefault(raw['ttlMinutes'], fallback.ttlMinutes),
   }
 }
 
@@ -46,9 +59,8 @@ function TnewsEditorForm({ fresh, settings, ctx, handleRef }: TnewsEditorFormPro
       render() {},
       save() {
         setError('')
-        const nums = readNumberFields(
-          [{ input: ttlRef.current!, min: 1, errorMessage: 'TTL 必须是 ≥1 的整数' }],
-          (msg) => setError(msg),
+        const nums = readNumberFields([toFieldRule(ttlRef.current!, TTL_FIELD)], (msg) =>
+          setError(msg),
         )
         if (nums === null) return
         const tnews: TnewsSourceOptions = {
@@ -85,7 +97,7 @@ function TnewsEditorForm({ fresh, settings, ctx, handleRef }: TnewsEditorFormPro
       />
       <div class="gm-sp-editor-form">
         <label class="gm-sp-editor-row">
-          <span>TTL（分钟）</span>
+          <span>{fieldLabel(TTL_FIELD)}</span>
           <input
             ref={ttlRef}
             type="number"

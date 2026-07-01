@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks'
-import { escapeHtml } from '../../utils'
+import { escapeHtml, numberOrDefault } from '../../utils'
 import { loadConfigSection, validateConfig } from '../config'
 import { createEditorFactory } from '../editor-helpers/createEditorFactory'
 import { saveConfigSection } from '../editor-helpers'
@@ -14,8 +14,7 @@ function coerceWeatherOptions(
   return {
     cities:
       Array.isArray(cities) && cities.length > 0 ? (cities as WeatherCity[]) : fallback.cities,
-    ttlMinutes:
-      typeof raw['ttlMinutes'] === 'number' ? (raw['ttlMinutes'] as number) : fallback.ttlMinutes,
+    ttlMinutes: numberOrDefault(raw['ttlMinutes'], fallback.ttlMinutes),
   }
 }
 

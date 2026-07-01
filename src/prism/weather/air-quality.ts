@@ -1,4 +1,5 @@
 import type { Runtime } from '../../runtime'
+import { numberOrDefault } from '../../utils'
 import { requestJson } from './http'
 import type { WeatherAirQuality } from './types'
 
@@ -20,8 +21,8 @@ export function parseAirQuality(json: unknown): WeatherAirQuality | null {
   if (typeof current.us_aqi !== 'number') return null
   return {
     us_aqi: current.us_aqi,
-    pm2_5: typeof current.pm2_5 === 'number' ? current.pm2_5 : 0,
-    pm10: typeof current.pm10 === 'number' ? current.pm10 : 0,
+    pm2_5: numberOrDefault(current.pm2_5, 0),
+    pm10: numberOrDefault(current.pm10, 0),
   }
 }
 

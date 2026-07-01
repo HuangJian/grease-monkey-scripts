@@ -19,9 +19,11 @@
 // @grant        GM_addValueChangeListener
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addElement
-// @grant        GM_addStyle
 // @grant        unsafeWindow
 // @grant        GM_registerMenuCommand
+// @require      https://cdn.jsdelivr.net/npm/preact@10.29.3/dist/preact.umd.js
+// @require      https://cdn.jsdelivr.net/npm/preact@10.29.3/hooks/dist/hooks.umd.js
+// @require      https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js
 // @connect      api.open-meteo.com
 // @connect      air-quality-api.open-meteo.com
 // @connect      weather.cma.cn

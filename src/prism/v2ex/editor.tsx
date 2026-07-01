@@ -1,48 +1,31 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks'
+import { numberOrDefault } from '../../utils'
 import { loadConfigSection, validateConfig } from '../config'
 import { createEditorFactory } from '../editor-helpers/createEditorFactory'
-import { readNumberFields, saveConfigSection, saveSourceSettings } from '../editor-helpers'
+import {
+  readNumberFields,
+  saveConfigSection,
+  saveSourceSettings,
+  fieldLabel,
+  toFieldRule,
+  type NumberFieldDef,
+} from '../editor-helpers'
 import { SourceSettingsFields } from '../editor-ui'
 import type { SourceEditorContext, SourceEditorResult, SourceSettings } from '../types'
 import type { V2exSourceOptions } from './types'
 
-type FormField = {
-  prop: string
-  label: string
-  min: number
-  max?: number
-  placeholder?: string
-  errorMsg: string
-}
-
-const FORM_FIELDS: FormField[] = [
-  { prop: 'ttlMinutes', label: 'TTL（分钟）', min: 1, errorMsg: 'TTL 必须是 ≥1 的整数' },
-  {
-    prop: 'retentionDays',
-    label: '数据保留（天）',
-    min: 1,
-    max: 90,
-    errorMsg: '数据保留必须是 1~90 之间的整数',
-  },
-  {
-    prop: 'todayMinReplies',
-    label: '今日最低回复',
-    min: 0,
-    errorMsg: '今日最低回复必须 ≥0',
-  },
-  {
-    prop: 'olderMinReplies',
-    label: '历史最低回复',
-    min: 0,
-    errorMsg: '历史最低回复必须 ≥0',
-  },
+const FORM_FIELDS: NumberFieldDef[] = [
+  { prop: 'ttlMinutes', name: 'TTL', unit: '分钟', min: 1, integer: true },
+  { prop: 'retentionDays', name: '数据保留', unit: '天', min: 1, max: 90, integer: true },
+  { prop: 'todayMinReplies', name: '今日最低回复', min: 0 },
+  { prop: 'olderMinReplies', name: '历史最低回复', min: 0 },
   {
     prop: 'ageHalfLifeDays',
-    label: '衰减半衰期（天）',
+    name: '衰减半衰期',
+    unit: '天',
     min: 0.1,
     max: 30,
     placeholder: '0.1–30',
-    errorMsg: '衰减半衰期必须是 0.1~30 之间',
   },
 ]
 
@@ -51,24 +34,11 @@ function coerceV2exOptions(
   fallback: V2exSourceOptions,
 ): V2exSourceOptions {
   return {
-    ttlMinutes:
-      typeof raw['ttlMinutes'] === 'number' ? (raw['ttlMinutes'] as number) : fallback.ttlMinutes,
-    retentionDays:
-      typeof raw['retentionDays'] === 'number'
-        ? (raw['retentionDays'] as number)
-        : fallback.retentionDays,
-    todayMinReplies:
-      typeof raw['todayMinReplies'] === 'number'
-        ? (raw['todayMinReplies'] as number)
-        : fallback.todayMinReplies,
-    olderMinReplies:
-      typeof raw['olderMinReplies'] === 'number'
-        ? (raw['olderMinReplies'] as number)
-        : fallback.olderMinReplies,
-    ageHalfLifeDays:
-      typeof raw['ageHalfLifeDays'] === 'number'
-        ? (raw['ageHalfLifeDays'] as number)
-        : fallback.ageHalfLifeDays,
+    ttlMinutes: numberOrDefault(raw['ttlMinutes'], fallback.ttlMinutes),
+    retentionDays: numberOrDefault(raw['retentionDays'], fallback.retentionDays),
+    todayMinReplies: numberOrDefault(raw['todayMinReplies'], fallback.todayMinReplies),
+    olderMinReplies: numberOrDefault(raw['olderMinReplies'], fallback.olderMinReplies),
+    ageHalfLifeDays: numberOrDefault(raw['ageHalfLifeDays'], fallback.ageHalfLifeDays),
   }
 }
 
@@ -91,7 +61,7 @@ function V2exEditorForm({ fresh, settings, ctx, handleRef }: V2exEditorFormProps
     FORM_FIELDS.reduce(
       (out, f) => {
         const val = (fresh as Record<string, unknown>)[f.prop]
-        out[f.prop] = typeof val === 'number' ? val : 0
+        out[f.prop] = numberOrDefault(val, 0)
         return out
       },
       {} as Record<string, number>,
@@ -114,12 +84,7 @@ function V2exEditorForm({ fresh, settings, ctx, handleRef }: V2exEditorFormProps
         setError('')
         const inputList = inputRefs.current.filter(Boolean) as HTMLInputElement[]
         const nums = readNumberFields(
-          FORM_FIELDS.map((f, i) => ({
-            input: inputList[i],
-            min: f.min,
-            max: f.max,
-            errorMessage: f.errorMsg,
-          })),
+          FORM_FIELDS.map((f, i) => toFieldRule(inputList[i], f)),
           (msg) => setError(msg),
         )
         if (nums === null) return
@@ -162,7 +127,7 @@ function V2exEditorForm({ fresh, settings, ctx, handleRef }: V2exEditorFormProps
       <div class="gm-sp-editor-form">
         {FORM_FIELDS.map((f, i) => (
           <label class="gm-sp-editor-row" key={f.prop}>
-            <span>{f.label}</span>
+            <span>{fieldLabel(f)}</span>
             <input
               ref={(el) => {
                 inputRefs.current[i] = el

@@ -3,9 +3,15 @@
  */
 import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { render } from 'preact'
-import { escapeHtml } from '../../../utils'
+import { escapeHtml, numberOrDefault } from '../../../utils'
 import { validateConfig } from '../../config'
-import { readNumberFields, saveConfigSection, saveSourceSettings } from '../../editor-helpers'
+import {
+  readNumberFields,
+  saveConfigSection,
+  saveSourceSettings,
+  fieldLabel,
+  toFieldRule,
+} from '../../editor-helpers'
 import type {
   SourceEditor,
   SourceEditorContext,
@@ -42,7 +48,7 @@ export function NovelsEditorForm({
     ADVANCED_FIELDS.reduce(
       (out, f) => {
         const val = (fresh as Record<string, unknown>)[f.prop]
-        out[f.prop] = typeof val === 'number' ? val : 0
+        out[f.prop] = numberOrDefault(val, 0)
         return out
       },
       {} as Record<string, number>,
@@ -102,11 +108,7 @@ export function NovelsEditorForm({
         setError('')
         const inputList = advancedRefs.current.filter(Boolean) as HTMLInputElement[]
         const nums = readNumberFields(
-          ADVANCED_FIELDS.map((f, i) => ({
-            input: inputList[i],
-            min: f.min,
-            errorMessage: f.errorMsg,
-          })),
+          ADVANCED_FIELDS.map((f, i) => toFieldRule(inputList[i], f)),
           (msg) => setError(msg),
         )
         if (nums === null) return
@@ -232,7 +234,7 @@ export function NovelsEditorForm({
       <div class="gm-sp-editor-advanced">
         {ADVANCED_FIELDS.map((f, i) => (
           <label class="gm-sp-editor-row" key={f.prop}>
-            <span>{f.label}</span>
+            <span>{fieldLabel(f)}</span>
             <input
               ref={(el) => {
                 advancedRefs.current[i] = el

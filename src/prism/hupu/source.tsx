@@ -1,6 +1,7 @@
 import { HUPU_AUTHOR_TAGS_KEY, HUPU_AUTHOR_TAGS_LS_KEY } from '../../shared/author-labels'
 import type { AuthorTagMap } from '../../shared/author-labels'
 import type { Runtime } from '../../runtime'
+import { numberOrDefault } from '../../utils'
 import { loadConfigSection } from '../config'
 import { syncAuthorTags } from '../author-tags-sync'
 import type { Source, SourceHeaderProps, SourceSettings } from '../types'
@@ -152,36 +153,17 @@ function coerceHupuOptions(
   fallback: HupuSourceOptions,
 ): HupuSourceOptions {
   return {
-    ttlMinutes:
-      typeof raw['ttlMinutes'] === 'number' ? (raw['ttlMinutes'] as number) : fallback.ttlMinutes,
+    ttlMinutes: numberOrDefault(raw['ttlMinutes'], fallback.ttlMinutes),
     boards:
       Array.isArray(raw['boards']) && (raw['boards'] as unknown[]).length > 0
         ? (raw['boards'] as unknown[]).map((s) => String(s)).filter((s) => s.length > 0)
         : fallback.boards,
-    retentionDays:
-      typeof raw['retentionDays'] === 'number'
-        ? (raw['retentionDays'] as number)
-        : fallback.retentionDays,
-    todayMinReplies:
-      typeof raw['todayMinReplies'] === 'number'
-        ? (raw['todayMinReplies'] as number)
-        : fallback.todayMinReplies,
-    olderMinReplies:
-      typeof raw['olderMinReplies'] === 'number'
-        ? (raw['olderMinReplies'] as number)
-        : fallback.olderMinReplies,
-    ageHalfLifeDays:
-      typeof raw['ageHalfLifeDays'] === 'number'
-        ? (raw['ageHalfLifeDays'] as number)
-        : fallback.ageHalfLifeDays,
-    lightsWeight:
-      typeof raw['lightsWeight'] === 'number'
-        ? (raw['lightsWeight'] as number)
-        : fallback.lightsWeight,
-    repliesWeight:
-      typeof raw['repliesWeight'] === 'number'
-        ? (raw['repliesWeight'] as number)
-        : fallback.repliesWeight,
+    retentionDays: numberOrDefault(raw['retentionDays'], fallback.retentionDays),
+    todayMinReplies: numberOrDefault(raw['todayMinReplies'], fallback.todayMinReplies),
+    olderMinReplies: numberOrDefault(raw['olderMinReplies'], fallback.olderMinReplies),
+    ageHalfLifeDays: numberOrDefault(raw['ageHalfLifeDays'], fallback.ageHalfLifeDays),
+    lightsWeight: numberOrDefault(raw['lightsWeight'], fallback.lightsWeight),
+    repliesWeight: numberOrDefault(raw['repliesWeight'], fallback.repliesWeight),
   }
 }
 
