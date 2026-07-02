@@ -21,6 +21,7 @@ import type { V2exCountOptions, V2exTopic } from './types'
  *   两个数据源同时请求（Promise.all）：
  *   ① API  (hot.json)          → parseV2ex()   解析 JSON，提取 id/title/url/replies/created
  *   ② Page (www.v2ex.com/?tab=hot) → parseV2exHotPage() 解析 HTML，提取 DOM 节点信息
+ *      注意：页面源 created 为首次抓取时间（span[title] 显示的是 last_touched 而非创建时间）
  *
  *   任一数据源失败不阻塞；仅当 API 和 Page 同时失败时抛出错误。
  *
@@ -28,8 +29,7 @@ import type { V2exCountOptions, V2exTopic } from './types'
  *   mergeV2exTopics(apiTopics, pageTopics) 执行：
  *   ① 以 id 为 key 建 Map
  *   ② 同 id 话题取 Math.max(replies)，标记 sources: ['api','page']
- *   ③ 页面源且 created < 今日 0:00 → sources 改为 ['api']（自动晋升）
- *   ④ 仅 API 源的话题被丢弃（dropApiOnly=true）
+ *   ③ 仅 API 源的话题被丢弃（dropApiOnly=true）
  *
  *   然后将历史话题中不在当前结果集内的条目合入（标记 sources: ['api']）。
  *

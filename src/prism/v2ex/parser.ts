@@ -39,14 +39,12 @@ export function parseV2ex(json: unknown, maxItems: number): V2exTopic[] {
   return topics
 }
 
-export function parseCreatedFromTitle(titleAttr: string): number | undefined {
-  const match = titleAttr.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) ([+-]\d{2}):(\d{2})$/)
-  if (!match) return undefined
-  const [, datetime, tzSign, tzMinutes] = match
-  const base = Date.parse(`${datetime.replace(' ', 'T')}${tzSign}:${tzMinutes}`)
-  return Number.isFinite(base) ? base : undefined
-}
-
+/**
+ * V2EX 热门页面的 `.topic_info > span[title]` 显示的是 `last_touched`（最后回复时间），
+ * 而非主题创建时间 `created`。页面源无法可靠获取创建时间，
+ * 因此 `created` 设为首次抓取时间（Date.now()），作为近似值。
+ * 合并时 `existing.created || topic.created` 会优先使用 API 源的 `created`。
+ */
 export function parseV2exHotPage(
   html: string,
   maxItems: number,
@@ -75,8 +73,6 @@ export function parseV2exHotPage(
     const countEl = row.querySelector('[class^="count_"]')
     const repliesText = countEl?.textContent?.trim() ?? '0'
     const replies = Number(repliesText)
-    const timeEl = row.querySelector('.topic_info > span[title]')
-    const created = timeEl ? (parseCreatedFromTitle(timeEl.getAttribute('title') ?? '') ?? 0) : 0
     topics.push({
       id,
       title,
@@ -85,7 +81,7 @@ export function parseV2exHotPage(
       member: { username },
       node: { title: nodeTitle },
       sources: [],
-      created,
+      created: Date.now(),
     })
     return topics.length >= maxItems
   })
@@ -97,7 +93,7 @@ export function parseV2exHotPage(
  * ⚠️  后续 agent 注意：修改算法时必须同步更新 fetcher.ts 顶部的算法注释，不要删除！
  *
  * - 同ID话题取最大回复数，标记 sources: ['api','page'] 为双源确认
- * - 页面源且 created < 今日0:00 UTC → sources 改为 ['api'] (自动晋升)
+ * - 页面源 created 为首次抓取时间，合并时优先取 API 源的 created（existing.created || topic.created）
  * - dropApiOnly=true 时丢弃仅 API 源的话题
  */
 export function mergeV2exTopics(
@@ -124,16 +120,6 @@ export function mergeV2exTopics(
       })
     } else {
       byId.set(topic.id, { ...topic, sources: ['page'] })
-    }
-  })
-
-  const todayStartMs = getTodayStartMs()
-
-  byId.forEach((topic) => {
-    if (topic.sources.length === 1 && topic.sources[0] === 'page' && topic.created > 0) {
-      if (topic.created < todayStartMs) {
-        topic.sources = ['api']
-      }
     }
   })
 

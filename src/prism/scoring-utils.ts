@@ -4,10 +4,10 @@
  * Used by v2ex, hupu, reddit, and xueqiu modules.
  */
 
-/** Returns the start of today (UTC midnight) in milliseconds. */
+/** Returns the start of today (local midnight) in milliseconds. */
 export function getTodayStartMs(now?: Date): number {
   const d = now ?? new Date()
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
 }
 
 /**

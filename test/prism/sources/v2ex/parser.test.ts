@@ -4,11 +4,11 @@ import { join } from 'node:path'
 import {
   computeSortScore,
   mergeV2exTopics,
-  parseCreatedFromTitle,
   parseV2ex,
   parseV2exHotPage,
   sortByDecayedScore,
 } from '../../../../src/prism/v2ex/parser'
+import { applyDateFilter } from '../../../../src/prism/shared-utils'
 import type { V2exTopic } from '../../../../src/prism/v2ex/types'
 
 const FIXTURE = [
@@ -93,7 +93,10 @@ describe('parseV2exHotPage', () => {
     expect(topic.node.title).toBe('生活')
     expect(topic.replies).toBe(210)
     expect(topic.sources).toEqual([])
-    expect(topic.created).toBeDefined()
+    // V2EX 热门页 span[title] 显示的是 last_touched 而非 created，
+    // 页面源 created 设为首次抓取时间（近似 Date.now()）
+    expect(topic.created).toBeGreaterThan(0)
+    expect(Date.now() - topic.created).toBeLessThan(5000)
   })
   test('handles missing node gracefully', () => {
     const topics = parseV2exHotPage(loadPageFixture(), 50, new DOMParser())
@@ -122,6 +125,28 @@ describe('parseV2exHotPage', () => {
   test('respects maxItems', () => {
     const topics = parseV2exHotPage(loadPageFixture(), 2, new DOMParser())
     expect(topics).toHaveLength(2)
+  })
+  test('bugfix: does not extract span[title] (last_touched) as created', () => {
+    // V2EX 热门页 .topic_info > span[title] 显示的是 last_touched（最后回复时间），
+    // 不是主题创建时间。页面源 created 应为首次抓取时间（≈ Date.now()），
+    // 而非 fixture 中 span[title] 的 2026-06-02 20:41:31。
+    const before = Date.now()
+    const topics = parseV2exHotPage(loadPageFixture(), 50, new DOMParser())
+    const after = Date.now()
+    for (const t of topics) {
+      // created 应在 [before, after] 区间，不是 fixture 中的 2026-06-02 时间戳
+      expect(t.created).toBeGreaterThanOrEqual(before)
+      expect(t.created).toBeLessThanOrEqual(after)
+    }
+  })
+  test('bugfix: page-only topic with fetch-time created passes date filter', () => {
+    // 页面源 created = Date.now()（首次抓取时间），
+    // 因此 page-only 主题会出现在「今」date filter 中（合理近似）。
+    const pageOnlyTopic: { id: number; created: number } = { id: 1224080, created: Date.now() }
+    const today = applyDateFilter([pageOnlyTopic], '今', (t) => t.created)
+    expect(today).toHaveLength(1)
+    const all = applyDateFilter([pageOnlyTopic], '全', (t) => t.created)
+    expect(all).toHaveLength(1)
   })
 })
 
@@ -390,17 +415,5 @@ describe('sortByDecayedScore', () => {
     ]
     const sorted = sortByDecayedScore(topics, now, 2)
     expect(sorted[0].id).toBe(2)
-  })
-})
-
-describe('parseCreatedFromTitle', () => {
-  test('parses valid datetime with timezone', () => {
-    const result = parseCreatedFromTitle('2026-06-02 20:41:31 +08:00')
-    expect(result).toBeDefined()
-    expect(result).toBeGreaterThan(0)
-  })
-  test('returns undefined for invalid format', () => {
-    expect(parseCreatedFromTitle('')).toBeUndefined()
-    expect(parseCreatedFromTitle('not a date')).toBeUndefined()
   })
 })

@@ -106,21 +106,14 @@ describe('fetchV2ex', () => {
     const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
     const pageTopic = topics.find((t) => t.id === 1217291)
     expect(pageTopic).toBeDefined()
-    // Fixture topic created 2026-06-02 → auto-promoted to 'api' (today > 2026-06-02)
-    expect(pageTopic!.sources).toEqual(['api'])
+    // 页面独占主题 created=首次抓取时间，保持 ['page'] 源
+    expect(pageTopic!.sources).toEqual(['page'])
   })
 
-  test('auto-promotes page-only topics from previous days to api source', async () => {
-    const yesterday = new Date()
-    yesterday.setUTCDate(yesterday.getUTCDate() - 1)
-    yesterday.setUTCHours(12, 0, 0, 0)
-
-    const yesterdayStr = yesterday
-      .toISOString()
-      .replace('T', ' ')
-      .replace('Z', ' +00:00')
-      .replace(/\.\d+/, '')
-    const html = `<html><body><div class="cell item"><a class="topic-link" href="/t/9999">Yesterday topic</a><span class="topic_info"><span title="${yesterdayStr}">1 day ago</span></span><span class="count_orange">50</span></div></body></html>`
+  test('page-only topics stay as page source (no auto-promotion)', async () => {
+    // 页面源 created 为首次抓取时间（span[title] 是 last_touched 而非创建时间），
+    // 不触发基于 created 的自动晋升。页面独占主题保持 ['page'] 源。
+    const html = `<html><body><div class="cell item"><a class="topic-link" href="/t/9999">Yesterday topic</a><span class="topic_info"><span title="2026-01-01 12:00:00 +00:00">1 day ago</span></span><span class="count_orange">50</span></div></body></html>`
 
     const runtime = makeRuntime((d) => {
       if (d.url.includes('hot.json'))
@@ -129,21 +122,14 @@ describe('fetchV2ex', () => {
     })
     const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
     const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
-    const promoted = topics.find((t) => t.id === 9999)
-    expect(promoted).toBeDefined()
-    expect(promoted!.sources).toEqual(['api'])
+    const pageOnly = topics.find((t) => t.id === 9999)
+    expect(pageOnly).toBeDefined()
+    expect(pageOnly!.sources).toEqual(['page'])
+    expect(pageOnly!.created).toBeGreaterThan(0)
   })
 
-  test('does not promote today page-only topics', async () => {
-    const today = new Date()
-    today.setUTCHours(12, 0, 0, 0)
-
-    const todayStr = today
-      .toISOString()
-      .replace('T', ' ')
-      .replace('Z', ' +00:00')
-      .replace(/\.\d+/, '')
-    const html = `<html><body><div class="cell item"><a class="topic-link" href="/t/8888">Today topic</a><span class="topic_info"><span title="${todayStr}">1 hour ago</span></span><span class="count_orange">10</span></div></body></html>`
+  test('today page-only topics stay as page source', async () => {
+    const html = `<html><body><div class="cell item"><a class="topic-link" href="/t/8888">Today topic</a><span class="topic_info"><span title="2026-07-02 12:00:00 +00:00">1 hour ago</span></span><span class="count_orange">10</span></div></body></html>`
 
     const runtime = makeRuntime((d) => {
       if (d.url.includes('hot.json'))
