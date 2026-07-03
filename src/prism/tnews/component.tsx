@@ -105,6 +105,7 @@ export function TnewsComponent({
           const titleText = stripLeadingSymbols(item.title || '(无标题)')
           return (
             <li
+              key={item.id}
               class={`gm-sp-list-item${readClass}${expandedClass}`}
               data-item-id={escapeHtml(item.id)}
             >

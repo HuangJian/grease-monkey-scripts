@@ -83,6 +83,7 @@ export function V2exComponent({
           const replyCount = formatReplyCount(topic.replies, state.getReadReplies(topic.id))
           return (
             <li
+              key={topic.id}
               class={`gm-sp-list-item gm-sp-list-item-flex${hasTags ? ' gm-sp-item-tagged' : ''}${ac}${state.isRead(topic.id) ? ' gm-sp-item-read' : ''}`}
               data-topic-id={topic.id}
             >

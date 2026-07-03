@@ -109,6 +109,7 @@ export function RedditComponent({
                 )
                 return (
                   <li
+                    key={post.id}
                     class={`gm-sp-list-item gm-sp-list-item-flex${hasTags ? ' gm-sp-item-tagged' : ''}${ac}${state.isRead(post.id) ? ' gm-sp-item-read' : ''}`}
                     data-post-id={post.id}
                   >

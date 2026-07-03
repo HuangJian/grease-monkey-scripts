@@ -290,7 +290,11 @@ export function XueqiuComponent({
     const expandedClass = expanded ? ' gm-sp-list-item-expanded' : ''
     const title = item.title || item.description || item.text
     return (
-      <li class={`gm-sp-list-item${readClass}${expandedClass}`} data-item-id={escapeAttr(id)}>
+      <li
+        key={id}
+        class={`gm-sp-list-item${readClass}${expandedClass}`}
+        data-item-id={escapeAttr(id)}
+      >
         <span class="gm-sp-expandable-row" onClick={() => handleItemClick(item)}>
           <span class="gm-sp-expandable-time">{escapeText(formatTime(item.created_at))}</span>
           <span
