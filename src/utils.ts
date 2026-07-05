@@ -35,3 +35,11 @@ export function matchesText(matcher: RegExp | ((text: string) => boolean), text:
 export function numberOrDefault(val: unknown, defaultVal: number): number {
   return typeof val === 'number' ? val : defaultVal
 }
+
+/** Returns true if the element carries any script-owned class (prefixed with `gm-`). */
+export function isGmElement(el: Element): boolean {
+  for (const cls of el.classList) {
+    if (cls.startsWith('gm-')) return true
+  }
+  return false
+}

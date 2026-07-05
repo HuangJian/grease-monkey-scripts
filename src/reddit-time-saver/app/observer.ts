@@ -1,5 +1,6 @@
 import type { Runtime } from '../../runtime'
 import type { AuthorTagMap } from '../../shared/author-labels'
+import { isGmElement } from '../../utils'
 import { applyHighlights } from './highlight'
 import { processElement } from './tag-buttons'
 
@@ -17,6 +18,7 @@ export function setupObserver(
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
         if (!(node instanceof Element)) continue
+        if (isGmElement(node)) continue
         processElement(runtime, authorTagMap, tagAuthor, setTag, unsetTag, node)
         found = true
       }

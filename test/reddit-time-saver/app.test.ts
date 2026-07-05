@@ -267,6 +267,27 @@ describe('createRedditApp', () => {
     const map = app.getAuthorTagMap()
     expect(map.alice).toBeUndefined()
   })
+
+  test('bugfix: tagging with observer active does not cause infinite loop', async () => {
+    const values: Record<string, unknown> = { [STORAGE_KEY]: {} }
+    const runtime = {
+      ...createRuntime(dom),
+      getValue: async <T>(key: string, defaultValue: T) => (values[key] as T) ?? defaultValue,
+    }
+    const app = await createRedditApp(runtime)
+    app.start()
+
+    app.tagAuthor('alice', 'thing_t1_abc1', '低质', -1)
+
+    // Without the fix, applyHighlights inserts .gm-author-tag elements that
+    // re-trigger the MutationObserver in an infinite loop — this await hangs.
+    await new Promise((r) => setTimeout(r, 50))
+
+    const tag = dom.document.querySelector('.gm-author-tag')
+    expect(tag?.textContent).toBe('低质')
+
+    app.stop()
+  })
 })
 
 afterAll(() => closeAllWindows())

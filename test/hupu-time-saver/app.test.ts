@@ -220,6 +220,27 @@ describe('createHupuApp', () => {
     expect(Object.keys(map1['200']).length).toBe(1)
     expect(Object.keys(map2['200']).length).toBe(2)
   })
+
+  test('bugfix: tagging with observer active does not cause infinite loop', async () => {
+    const values: Record<string, unknown> = { [STORAGE_KEY]: {} }
+    const runtime = {
+      ...createRuntime(dom),
+      getValue: async <T>(key: string, defaultValue: T) => (values[key] as T) ?? defaultValue,
+    }
+    const app = await createHupuApp(runtime)
+    app.start()
+
+    app.tagAuthor('200', '222', '串子', -1)
+
+    // Without the fix, applyHighlights inserts .gm-author-tag elements that
+    // re-trigger the MutationObserver in an infinite loop — this await hangs.
+    await new Promise((r) => setTimeout(r, 50))
+
+    const tag = dom.document.querySelector('.gm-author-tag')
+    expect(tag?.textContent).toBe('串子')
+
+    app.stop()
+  })
 })
 
 describe('applyHighlights', () => {
