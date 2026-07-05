@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState, useEffect, useReducer } from 'preact
 import { ItemActions } from '../card/primitives'
 import type { DateFilter } from '../date-filter'
 import { applyDateFilter } from '../shared-utils'
+import { isEditableTarget } from '../shortcut'
 import type { SourceComponentProps } from '../types'
 import type { XueqiuState } from './state'
 import type { XueqiuRenderData, XueqiuNewsItem, ViewMode } from './types'
@@ -45,9 +46,24 @@ function formatTime(timestamp: number): string {
   const d = new Date(timestamp)
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
-  const hour = String(d.getHours()).padStart(2, '0')
-  const minute = String(d.getMinutes()).padStart(2, '0')
-  return `${month}-${day} ${hour}:${minute}`
+  return `${month}-${day}`
+}
+
+/**
+ * Normalize image containers and pack adjacent images onto the same row.
+ *
+ * 1. Convert <p> wrapping only a single <img> into <figure class="xq-figure">
+ *    so both figure-wrapped and p-wrapped images share the same CSS/layout.
+ * 2. Remove whitespace between adjacent </figure> and <figure>. Without this,
+ *    pre-wrap renders the newlines/indentation between figures as line breaks,
+ *    forcing each figure onto its own row.
+ */
+export function packImages(html: string): string {
+  const normalized = html.replace(
+    /<p[^>]*>\s*(<img\b[^>]*>)\s*<\/p>/gi,
+    '<figure class="xq-figure">$1</figure>',
+  )
+  return normalized.replace(/(<\/figure>)\s+(?=<figure)/gi, '$1')
 }
 
 function getTargetUrl(item: XueqiuNewsItem): string {
@@ -68,6 +84,7 @@ export type XueqiuComponentProps = SourceComponentProps<XueqiuRenderData> & {
 export function XueqiuComponent({
   data,
   runtime,
+  root,
   state,
   mode,
   dateFilter,
@@ -79,6 +96,12 @@ export function XueqiuComponent({
 }: XueqiuComponentProps) {
   const [, forceRender] = useReducer<number, void>((n) => n + 1, 0)
   const scrollTargetRef = useRef<string | null>(null)
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
+
+  // Refs for document-level Enter handler (avoids stale closures)
+  const collapseExpandedRef = useRef<(() => void) | null>(null)
+  const lightboxOpenRef = useRef(false)
+  lightboxOpenRef.current = !!lightboxSrc
 
   // AI summary state
   const [summaries, setSummaries] = useState<SummaryEntry[]>([])
@@ -96,10 +119,8 @@ export function XueqiuComponent({
     const id = scrollTargetRef.current
     if (!id) return
     scrollTargetRef.current = null
-    const el = runtime.document.querySelector(
-      `li[data-item-id="${CSS.escape(id)}"] .gm-sp-expandable-row`,
-    )
-    el?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    const el = root.querySelector(`li[data-item-id="${CSS.escape(id)}"] .gm-sp-expandable-row`)
+    el?.scrollIntoView({ block: 'start', behavior: 'auto' })
   })
 
   const news = data?.news ?? []
@@ -146,6 +167,44 @@ export function XueqiuComponent({
       }
     }
   }, [])
+
+  // Lightbox: Escape closes, only when open.
+  // Listen on document (not ShadowRoot) because keyboard events may not
+  // reach ShadowRoot when focus is outside the Shadow DOM (e.g. on body).
+  useEffect(() => {
+    if (!lightboxSrc) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        setLightboxSrc(null)
+      }
+    }
+    runtime.document.addEventListener('keydown', onKey, { capture: true })
+    return () => runtime.document.removeEventListener('keydown', onKey, { capture: true })
+  }, [lightboxSrc, runtime.document])
+
+  // Document-level Enter handler: collapse expanded item.
+  // Listen on document (not ShadowRoot) because keyboard events may not
+  // reach ShadowRoot when focus is outside Shadow DOM (e.g. on body).
+  // Use composedPath() to get the real target inside Shadow DOM.
+  useLayoutEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter') return
+      // composedPath gives the real target inside Shadow DOM
+      const realTarget = e.composedPath()[0] as HTMLElement
+      // Only proceed if target is an Element (skip Document, Window, etc.)
+      if (typeof realTarget?.closest !== 'function') return
+      if (isEditableTarget(realTarget)) return
+      if (realTarget.closest('a, button, .gm-sp-lightbox')) return
+      if (lightboxOpenRef.current) return
+      if (!collapseExpandedRef.current) return
+      e.preventDefault()
+      e.stopPropagation()
+      collapseExpandedRef.current()
+    }
+    runtime.document.addEventListener('keydown', onKey, { capture: true })
+    return () => runtime.document.removeEventListener('keydown', onKey, { capture: true })
+  }, [runtime.document])
 
   async function initAiSummary() {
     const config = await loadAiConfig(runtime)
@@ -244,7 +303,6 @@ export function XueqiuComponent({
 
   function handleItemClick(item: XueqiuNewsItem) {
     const id = String(item.id)
-    const wasExpanded = state.isExpanded(id)
     state.markRead(id)
     items
       .filter((other) => other.id !== item.id)
@@ -252,13 +310,19 @@ export function XueqiuComponent({
         state.setExpanded(String(other.id), false)
       })
     state.toggleExpanded(id)
-    if (!wasExpanded) {
-      scrollTargetRef.current = id
-    }
+    // Scroll the item into view on both expand and collapse:
+    // - Expand: align top so the body is visible
+    // - Collapse: re-align top so the row stays visible after content shrinks
+    scrollTargetRef.current = id
     void state.saveToStorage(runtime)
     notify?.()
     forceRender()
   }
+
+  // Keep the collapse callback ref in sync so the document-level
+  // Enter handler always calls the latest handleItemClick.
+  const expandedItem = items.find((it) => state.isExpanded(String(it.id)))
+  collapseExpandedRef.current = expandedItem ? () => handleItemClick(expandedItem) : null
 
   function handleHide(id: string) {
     state.markHidden(id)
@@ -295,7 +359,12 @@ export function XueqiuComponent({
         class={`gm-sp-list-item${readClass}${expandedClass}`}
         data-item-id={escapeAttr(id)}
       >
-        <span class="gm-sp-expandable-row" onClick={() => handleItemClick(item)}>
+        <span
+          class="gm-sp-expandable-row"
+          role="button"
+          tabindex={0}
+          onClick={() => handleItemClick(item)}
+        >
           <span class="gm-sp-expandable-time">{escapeText(formatTime(item.created_at))}</span>
           <span
             class="gm-sp-expandable-title"
@@ -313,7 +382,16 @@ export function XueqiuComponent({
           <div class="gm-sp-expandable-body">
             <div
               class="gm-sp-xueqiu-body-text"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(unescapeHtml(item.text)) }}
+              dangerouslySetInnerHTML={{
+                __html: packImages(sanitizeHtml(unescapeHtml(item.text))),
+              }}
+              onClick={(e) => {
+                const target = e.target as HTMLElement
+                if (target.tagName === 'IMG') {
+                  e.stopPropagation()
+                  setLightboxSrc((target as HTMLImageElement).src)
+                }
+              }}
             />
             <a
               class="gm-sp-xueqiu-link"
@@ -371,6 +449,11 @@ export function XueqiuComponent({
   return (
     <div class="gm-sp-xueqiu">
       <ol class="gm-sp-list">{items.map((item) => renderItem(item))}</ol>
+      {lightboxSrc && (
+        <div class="gm-sp-lightbox" onClick={() => setLightboxSrc(null)}>
+          <img class="gm-sp-lightbox-img" src={escapeAttr(lightboxSrc)} alt="" />
+        </div>
+      )}
     </div>
   )
 }

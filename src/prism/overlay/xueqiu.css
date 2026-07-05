@@ -46,6 +46,46 @@
   line-height: 1.5;
 }
 
+/* Thumbnail images: pack adjacent figures onto one row */
+.gm-sp-xueqiu-body-text figure.xq-figure {
+  display: inline-block;
+  margin: 2px;
+}
+
+.gm-sp-xueqiu-body-text figure.xq-figure img.ke_img {
+  max-width: 120px;
+  display: block;
+  cursor: pointer;
+  border-radius: var(--gm-sp-radius-xs);
+}
+
+/* Keyboard focus indicator for expandable rows */
+.gm-sp-expandable-row:focus-visible {
+  outline: 2px solid var(--gm-sp-color-primary);
+  outline-offset: 1px;
+  border-radius: var(--gm-sp-radius-xs);
+}
+
+/* ---- Image lightbox ---- */
+
+.gm-sp-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.8);
+  cursor: zoom-out;
+}
+
+.gm-sp-lightbox-img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: var(--gm-sp-radius-sm);
+}
+
 .gm-sp-xueqiu-link {
   display: inline-block;
   margin-top: 8px;

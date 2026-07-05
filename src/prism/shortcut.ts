@@ -35,6 +35,7 @@ export function handleEscapeKey(
 ): void {
   if (e.key !== 'Escape') return
   if (editorRoot?.querySelector('.gm-sp-editor-dialog')) return
+  if (root.querySelector('.gm-sp-lightbox')) return
   if (isEditableTarget(e.target)) return
   const active = root.activeElement
   if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return

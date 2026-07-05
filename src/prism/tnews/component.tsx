@@ -37,6 +37,7 @@ export type TnewsComponentProps = SourceComponentProps<TnewsItem[]> & {
 export function TnewsComponent({
   data,
   runtime,
+  root,
   state,
   now,
   onNotify: notify,
@@ -48,10 +49,8 @@ export function TnewsComponent({
     const id = scrollTargetRef.current
     if (!id) return
     scrollTargetRef.current = null
-    const el = runtime.document.querySelector(
-      `li[data-item-id="${CSS.escape(id)}"] .gm-sp-expandable-row`,
-    )
-    el?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    const el = root.querySelector(`li[data-item-id="${CSS.escape(id)}"] .gm-sp-expandable-row`)
+    el?.scrollIntoView({ block: 'start', behavior: 'auto' })
   })
 
   const items = data ?? []

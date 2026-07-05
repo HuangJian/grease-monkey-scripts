@@ -195,6 +195,19 @@ describe('handleEscapeKey', () => {
     handleEscapeKey(e, root, () => (closed = true))
     expect(closed).toBe(false)
   })
+
+  test('does not close when lightbox is open', () => {
+    const dom = emptyDom()
+    const root = makeShadowRoot(dom)
+    // Simulate an open lightbox inside the shadow root
+    const lightbox = dom.document.createElement('div')
+    lightbox.className = 'gm-sp-lightbox'
+    root.appendChild(lightbox as unknown as Node)
+    let closed = false
+    const e = dispatchEscape(dom, dom.document.body as unknown as unknown as EventTarget)
+    handleEscapeKey(e, root, () => (closed = true))
+    expect(closed).toBe(false)
+  })
 })
 
 afterAll(() => closeAllWindows())
