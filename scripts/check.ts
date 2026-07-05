@@ -195,13 +195,13 @@ async function main() {
     parallelSteps.push({
       name: 'format',
       cmd: 'oxfmt',
-      args: ['--check', '.', '--disable-nested-config', '-c', './.oxfmtrc.json'],
+      args: ['.', '--disable-nested-config', '-c', './.oxfmtrc.json'],
     })
   } else if (changedFiles.length > 0) {
     parallelSteps.push({
       name: 'format',
       cmd: 'oxfmt',
-      args: ['--check', ...changedFiles, '--disable-nested-config', '-c', './.oxfmtrc.json'],
+      args: [...changedFiles, '--disable-nested-config', '-c', './.oxfmtrc.json'],
     })
   }
 

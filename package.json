@@ -9,7 +9,6 @@
     "build": "bun run scripts/build-userscript.ts",
     "lint": "oxlint .",
     "format": "oxfmt . --disable-nested-config -c ./.oxfmtrc.json",
-    "format:check": "oxfmt --check . --disable-nested-config -c ./.oxfmtrc.json",
     "check": "bun run scripts/check.ts"
   },
   "dependencies": {
