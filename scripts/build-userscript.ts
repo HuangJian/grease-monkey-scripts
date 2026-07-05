@@ -15,19 +15,28 @@
  * `import … from 'preact'` / `'preact/hooks'` to the shim, which reads
  * from the global set by the UMD build.
  *
- * Hash is SHA-256 of the bundle content (first 8 hex chars). If the hash
- * matches the existing file on disk, the build is skipped.
+ * Hash is SHA-256 of the debug bundle content + build script source code
+ * (first 8 hex chars). Including the build script source ensures that build
+ * logic changes trigger a rebuild even when script source is unchanged.
+ * If the hash matches the existing file on disk, the build is skipped.
  */
 
 import { mkdir, readdir, readFile, stat, unlink, writeFile } from 'node:fs/promises'
 import { readFileSync, readdirSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
-import { createHash } from 'node:crypto'
 import { bundle as bundleCss, transform } from 'lightningcss'
 import { minify as swcMinify } from '@swc/core'
 import type { JsMinifyOptions } from '@swc/types'
-import { compressToUTF16 } from 'lz-string'
 import type { BunPlugin } from 'bun'
+import {
+  buildDashboardCssReplacement,
+  buildSimpleCssInjection,
+  computeHash,
+  parseBuildHash,
+  parseCssVariables,
+  postSwcOptimize,
+  resolveVarReferences,
+} from './build-utils'
 
 // ---------------------------------------------------------------------------
 // Source file helpers
@@ -93,77 +102,6 @@ function createPreactExternalPlugin(scriptDir: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Post-SWC micro-optimizations for prod builds
-// ---------------------------------------------------------------------------
-
-/**
- * Strip dev-only JSX call arguments from minified output.
- *
- * Bun compiles JSX with the automatic runtime, generating calls like:
- *   jsx(type, props, key, flags, __source, __self)
- *
- * The last THREE arguments (flags, __source, __self) are dev-only and ignored
- * by the jsx-runtime. They are always:
- *   flags:   0, !0, or !1
- *   __source: void 0 (SWC)
- *   __self:  this
- *
- * We strip just these 3 args, leaving `key` intact:
- *   ,<flags>,<source>,this) → )
- *
- * After this, calls where key was `void 0` (undefined key) are left as
- * `...,void 0)`. Since Preact's jsx() defaults key to undefined, we can
- * also strip that trailing `,void 0)`.
- */
-function stripJsxDevArgs(code: string): string {
-  // Strip the 3 dev-only trailing args: ,<flags>,<source>,this) → )
-  code = code.replace(/,(?:!0|!1|0),(?:void 0|0\[0\]),this\)/g, ')')
-
-  // Strip trailing ,void 0) left from JSX calls with undefined key.
-  // Preact's jsx(type, props, key) treats missing key same as key=undefined.
-  // Safe because after the dev-arg strip above, these ,void 0) only appear
-  // as the last arg of jsx calls — all other void 0 uses are in comparisons
-  // (void 0===x), assignments (=void 0), or expressions (||void 0).
-  code = code.replaceAll(',void 0)', ')')
-
-  return code
-}
-
-/**
- * Apply byte-saving transformations to the SWC-minified output.
- *
- * 1. Strip dev-only JSX call arguments (saves ~8 KB across ~650 call sites).
- * 2. Replace `void 0` with `0[0]` (3 bytes shorter per occurrence, same
- *    semantics — both evaluate to `undefined`).
- * 3. Simple wrapper functions → arrow functions:
- *    `function foo(a,b){return bar(a,b)}` → `let foo=(a,b)=>bar(a,b)`
- *    saves ~7 bytes per function.
- */
-function postSwcOptimize(code: string): string {
-  // 1. Strip dev-only JSX call arguments
-  code = stripJsxDevArgs(code)
-
-  // 2. void 0 → 0[0] (3 bytes shorter per occurrence, same semantics)
-  code = code.replaceAll('void 0', '0[0]')
-
-  // 3. Simple wrapper functions → arrow functions
-  //    Pattern: [async] function name(params){return expr}
-  //    Only matches single-return-statement functions with no this/arguments use.
-  //    Trailing ; is required: function declarations don't need semicolons
-  //    (ASI handles them), but let assignments do — and minified output is a
-  //    single line so ASI never triggers.
-  //    The optional `async ` prefix must be captured and moved to the arrow
-  //    function — otherwise `async function foo(){return bar()}` becomes the
-  //    invalid `async let foo=()=>bar();`.
-  code = code.replace(
-    /(async )?function (\w+)\(([^)]*)\)\{return ([^;{}]+)\}/g,
-    (_, async, name, params, expr) => `let ${name}=${async ? 'async' : ''}(${params})=>${expr};`,
-  )
-
-  return code
-}
-
-// ---------------------------------------------------------------------------
 // SWC minify options for prod builds
 // ---------------------------------------------------------------------------
 
@@ -198,36 +136,6 @@ const SWC_OPTIONS: JsMinifyOptions = {
 // ---------------------------------------------------------------------------
 // CSS pipeline
 // ---------------------------------------------------------------------------
-
-/** Parse CSS custom properties (--xxx: value;) into a Map. */
-function parseCssVariables(tokensCss: string): Map<string, string> {
-  const vars = new Map<string, string>()
-  const re = /(--[a-z][a-z0-9-]+)\s*:\s*([^;]+);/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(tokensCss)) !== null) {
-    vars.set(m[1]!, m[2]!.trim())
-  }
-  return vars
-}
-
-/** Replace var(--name) references with their values, up to MAX_DEPTH passes. */
-function resolveVarReferences(css: string, vars: Map<string, string>): string {
-  const MAX_DEPTH = 5
-  let result = css
-  for (let i = 0; i < MAX_DEPTH; i++) {
-    let changed = false
-    result = result.replace(/var\((--[a-z][a-z0-9-]+)\)/g, (_, name) => {
-      const val = vars.get(name)
-      if (val) {
-        changed = true
-        return val
-      }
-      return `var(${name})`
-    })
-    if (!changed) break
-  }
-  return result
-}
 
 /** Minify CSS using Lightning CSS. */
 function minifyCss(css: string): string {
@@ -298,19 +206,9 @@ function findTokensCss(dir: string): string | null {
   return null
 }
 
-/** Escape special characters for safe embedding in a JS template literal. */
-function escapeForTemplateLiteral(css: string): string {
-  return css.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$')
-}
-
 // ---------------------------------------------------------------------------
 // Hash utilities
 // ---------------------------------------------------------------------------
-
-/** Compute SHA-256 hash of content, return first 8 hex chars. */
-function computeHash(content: string): string {
-  return createHash('sha256').update(content).digest('hex').slice(0, 8)
-}
 
 /**
  * Read the build hash from an existing output file.
@@ -318,10 +216,7 @@ function computeHash(content: string): string {
  */
 function readExistingHash(file: string): string | null {
   try {
-    const content = readFileSync(file, 'utf8')
-    const lastLine = content.trimEnd().split('\n').pop()!
-    const match = lastLine.match(/^\/\/ build ([a-f0-9]+)$/)
-    return match ? match[1]! : null
+    return parseBuildHash(readFileSync(file, 'utf8'))
   } catch {
     return null
   }
@@ -364,6 +259,10 @@ async function buildUserScript(entrypoint: string, mode: BuildMode): Promise<str
     throw new Error(`Missing userscript metadata block in ${entrypoint}`)
   }
 
+  // Check whether the script @requires lz-string — determines if CSS is
+  // compressed with LZ-string in prod builds.
+  const hasLzStringRequire = /@require\s+[^\n]*lz-string/.test(metadata)
+
   await mkdir('dist', { recursive: true })
 
   const temporaryOutfile = `dist/.${name}${mode.debug ? '.debug' : '.prod'}.bundle.js`
@@ -376,15 +275,10 @@ async function buildUserScript(entrypoint: string, mode: BuildMode): Promise<str
 
   try {
     if (css) {
-      // Prod: compress CSS with LZ-string to save ~28 KB in the bundle.
-      // Debug: keep raw CSS for readability.
-      const cssToInject = mode.debug ? css : compressToUTF16(css)
-      const escapedCss = escapeForTemplateLiteral(cssToInject)
-
       // Dashboard scripts inject CSS via CSS_TO_BE_INJECTED placeholder in
-      // a Preact <style> tag. Simple scripts inject via GM_addStyle() in the
-      // entry file. Detect which mode this script uses by checking if any
-      // source file references CSS_TO_BE_INJECTED.
+      // a Preact <style> tag (with LZ-string compression in prod). Simple
+      // scripts inject raw CSS via GM_addStyle() — no compression/decompression
+      // dependency needed.
       const isDashboardScript = [...originals.values()].some((c) =>
         c.includes('CSS_TO_BE_INJECTED'),
       )
@@ -392,9 +286,7 @@ async function buildUserScript(entrypoint: string, mode: BuildMode): Promise<str
       for (const [srcPath, content] of originals) {
         // Dashboard: replace CSS_TO_BE_INJECTED placeholder with actual CSS
         if (content.includes('CSS_TO_BE_INJECTED')) {
-          const replacement = mode.debug
-            ? `export const CSS_TO_BE_INJECTED = \`${escapedCss}\``
-            : `export const CSS_TO_BE_INJECTED = LZString.decompressFromUTF16(\`${escapedCss}\`)`
+          const replacement = buildDashboardCssReplacement(css, mode.debug, hasLzStringRequire)
           const modified = content.replace(/export const CSS_TO_BE_INJECTED = .*$/m, replacement)
           await writeFile(srcPath, modified, 'utf8')
         }
@@ -407,7 +299,7 @@ async function buildUserScript(entrypoint: string, mode: BuildMode): Promise<str
           while ((im = importRe.exec(content)) !== null) {
             lastImportEnd = im.index + im[0].length
           }
-          const injection = `\n\nGM_addStyle(\`${escapedCss}\`)\n`
+          const injection = `\n\n${buildSimpleCssInjection(css, hasLzStringRequire)}\n`
           if (lastImportEnd > 0) {
             entrypointSource =
               content.slice(0, lastImportEnd) + injection + content.slice(lastImportEnd)
@@ -490,11 +382,18 @@ async function main() {
   }
 
   const hashes = new Map<string, string>()
-  const built: string[] = []
+  const built: { name: string; hash: string; prodSize?: number; debugSize?: number }[] = []
   const errors: string[] = []
 
+  // Include build script source in hash so that build logic changes trigger
+  // a rebuild even when script source is unchanged.
+  const buildScriptSource = [
+    readFileSync('scripts/build-userscript.ts', 'utf8'),
+    readFileSync('scripts/build-utils.ts', 'utf8'),
+  ].join('\n')
+
   // Phase 1: Build all debug scripts in parallel (original source, unminified)
-  // Hash is computed from the debug bundle content.
+  // Hash is computed from the debug bundle content + build script source.
   await Promise.all(
     entries.map(async (entrypoint) => {
       const name = basename(dirname(entrypoint))
@@ -503,13 +402,13 @@ async function main() {
 
       try {
         const bundle = await buildUserScript(entrypoint, BUILD_MODES[0])
-        const hash = computeHash(bundle)
+        const hash = computeHash(bundle + buildScriptSource)
         hashes.set(name, hash)
 
         if (prevHash !== hash) {
           const outfile = `dist/${name}${BUILD_MODES[0].suffix}`
-          await writeFile(outfile, `${bundle}\n// build ${hash}`)
-          built.push(`${name} (${hash})`)
+          await writeFile(outfile, `${bundle}\nconsole.debug('${name}:build ${hash}')`)
+          built.push({ name, hash })
         }
       } catch (error) {
         errors.push(`${name}: ${error}`)
@@ -528,7 +427,7 @@ async function main() {
 
       try {
         const bundle = await buildUserScript(entrypoint, BUILD_MODES[1])
-        await writeFile(prodFile, `${bundle}\n// build ${hash}`)
+        await writeFile(prodFile, `${bundle}\nconsole.debug('${name}:build ${hash}')`)
       } catch (error) {
         errors.push(`${name} prod: ${error}`)
       }
@@ -538,17 +437,44 @@ async function main() {
   // Update built entries with actual file sizes
   for (const entrypoint of entries) {
     const name = basename(dirname(entrypoint))
-    if (!built.some((s) => s.startsWith(`${name} (`))) continue
-    const idx = built.findIndex((s) => s.startsWith(`${name} (`))
+    const idx = built.findIndex((b) => b.name === name)
+    if (idx === -1) continue
     const prodSize = (await stat(`dist/${name}.user.js`)).size
     const debugSize = (await stat(`dist/${name}.debug.js`)).size
     const hash = hashes.get(name)!
-    built[idx] =
-      `${name} (${(prodSize / 1024).toFixed(1)}/${(debugSize / 1024).toFixed(1)} KB, ${hash})`
+    built[idx].prodSize = prodSize
+    built[idx].debugSize = debugSize
+    built[idx].hash = hash
   }
 
   if (built.length > 0) {
-    console.log(`✓ [built] ${built.join(', ')}`)
+    const rows = built.map((b) => ({
+      name: b.name,
+      prod: b.prodSize !== undefined ? (b.prodSize / 1024).toFixed(1) : '',
+      debug: b.debugSize !== undefined ? (b.debugSize / 1024).toFixed(1) : '',
+      hash: b.hash,
+    }))
+
+    const namePad = Math.max(...rows.map((r) => r.name.length), 'Name'.length)
+    const prodPad = Math.max(...rows.map((r) => r.prod.length), 'Prod (KB)'.length)
+    const debugPad = Math.max(...rows.map((r) => r.debug.length), 'Debug (KB)'.length)
+
+    // Header with unit in column labels
+    console.log(
+      `  ${'Name'.padEnd(namePad)}  ${'Prod (KB)'.padEnd(prodPad)}  ${'Debug (KB)'.padEnd(
+        debugPad,
+      )}  Hash`,
+    )
+    console.log(
+      `  ${'-'.repeat(namePad)}  ${'-'.repeat(prodPad)}  ${'-'.repeat(debugPad)}  ${'-'.repeat(8)}`,
+    )
+
+    // Rows — right-align numeric size columns
+    rows.forEach((r) =>
+      console.log(
+        `✓ ${r.name.padEnd(namePad)}  ${r.prod.padStart(prodPad)}  ${r.debug.padStart(debugPad)}  ${r.hash}`,
+      ),
+    )
   } else {
     console.log('All scripts unchanged, nothing to build.')
   }

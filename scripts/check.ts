@@ -143,7 +143,7 @@ function run(step: Step): Promise<Result> {
         name: step.name,
         ok: code === 0,
         ms: performance.now() - start,
-        output: Buffer.concat(chunks).toString().trim(),
+        output: Buffer.concat(chunks).toString(),
         showOutput: step.showOutput,
       })
     })
