@@ -4,10 +4,15 @@
  * Reads auth from Trae storage.json (handles dGMF byteCrypto encryption),
  * falls back to log extraction, then calls the entitlement API.
  *
+ * How to get the auth token:
+ *   1. Visit https://www.trae.ai/account-setting#usage and login if needed.
+ *   2. Open the browser devtools console and find the user_current_entitlement_list API call.
+ *   3. Copy the Authorization header value (Cloud-IDE-JWT <token>).
+ *
  * Usage:
- *   bun run scripts/trae-test.ts
- *   TRAE_TOKEN=<jwt> bun run scripts/trae-test.ts
- *   TRAE_STORAGE_PATH=/path bun run scripts/trae-test.ts
+ *   bun run scripts/fetchers/trae-test.ts
+ *   TRAE_TOKEN=<jwt> bun run scripts/fetchers/trae-test.ts
+ *   TRAE_STORAGE_PATH=/path bun run scripts/fetchers/trae-test.ts
  */
 
 import { createHash, createDecipheriv } from 'node:crypto'

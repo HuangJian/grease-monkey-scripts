@@ -4,6 +4,9 @@
 // @version      1.0
 // @description  Test Antigravity quota API via GM_xmlhttpRequest (needs Google OAuth refresh token)
 //
+// == Seems not working anymore in July 2026. ==
+// Alternative: install antigravity-cli, open it by `agy` and type the `/quota` command.
+//
 // == 如何获取 Refresh Token ==
 //
 // 参考项目: https://github.com/fhyfhy17/anti-quota
@@ -18,7 +21,7 @@
 // 3. 直接从 Antigravity IDE 数据库提取:
 //      sqlite3 ~/Library/Application\ Support/Antigravity/User/globalStorage/state.vscdb \
 //        "SELECT value FROM ItemTable WHERE key = 'antigravityUnifiedStateSync.oauthToken'" \
-//        | bun run scripts/extract-antigravity-token.ts
+//        | bun run scripts/fetchers/extract-antigravity-token.ts
 //
 // @match        https://github.com/*
 // @grant        GM.getValue
