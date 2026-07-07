@@ -4,6 +4,7 @@
  * Exercises the full CMA fetch pipeline (page HTML + now JSON) against the
  * real CMA APIs and prints parsed results. Uses the project's own parsing
  * modules (parseCmaPage, parseCmaNow) so it validates the actual production code.
+ * Transparently solves SafeLine WAF challenges via the project's safeline module.
  *
  * Usage:
  *   bun scripts/verify-cma.ts [stationId]
@@ -14,6 +15,13 @@
 import { JSDOM } from 'jsdom'
 import { parseCmaPage } from '../../src/prism/weather/cma/parse-page'
 import { parseCmaNow } from '../../src/prism/weather/cma/parse-now'
+import {
+  isSafelineChallenge,
+  parseSafelineChallenge,
+  solveSafelinePow,
+  extractSafelineCookie,
+  buildSafelineCookieHeader,
+} from '../../src/prism/weather/cma/safeline'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -55,6 +63,65 @@ function print(label: string, value: unknown) {
 }
 
 // ---------------------------------------------------------------------------
+// WAF-aware fetch (uses Node/Bun fetch + safeline solver)
+// ---------------------------------------------------------------------------
+
+const UA =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+
+async function fetchWithWaf(
+  url: string,
+  options: { headers?: Record<string, string> } = {},
+): Promise<{ text: string; status: number; statusText: string }> {
+  const res = await fetch(url, {
+    headers: { 'User-Agent': UA, ...options.headers },
+    signal: AbortSignal.timeout(15000),
+  })
+  const text = await res.text()
+
+  if (!isSafelineChallenge(text)) {
+    return { text, status: res.status, statusText: res.statusText }
+  }
+
+  console.log('  [WAF] Challenge detected, solving...')
+
+  const challenge = parseSafelineChallenge(text)
+  if (!challenge) {
+    console.log('  [WAF] Could not parse challenge')
+    return { text, status: res.status, statusText: res.statusText }
+  }
+
+  const setCookie = res.headers.get('set-cookie') ?? ''
+  const cookie = extractSafelineCookie(`Set-Cookie: ${setCookie}`)
+  if (!cookie) {
+    console.log('  [WAF] No safeline_bot_challenge cookie in response headers')
+    return { text, status: res.status, statusText: res.statusText }
+  }
+
+  console.log(`  [WAF] Challenge: ${JSON.stringify(challenge)}`)
+  const suffix = solveSafelinePow(challenge.prefix, challenge.leadingZeroBits)
+  console.log(`  [WAF] PoW solved, suffix=${suffix}`)
+
+  const retryRes = await fetch(url, {
+    headers: {
+      'User-Agent': UA,
+      ...options.headers,
+      Cookie: buildSafelineCookieHeader(cookie, suffix),
+    },
+    signal: AbortSignal.timeout(15000),
+  })
+  const retryText = await retryRes.text()
+
+  if (isSafelineChallenge(retryText)) {
+    console.log('  [WAF] Retry still returned challenge')
+  } else {
+    console.log('  [WAF] Challenge solved successfully!')
+  }
+
+  return { text: retryText, status: retryRes.status, statusText: retryRes.statusText }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -68,17 +135,8 @@ async function main() {
   section('Fetching')
 
   const [pageRes, nowRes] = await Promise.allSettled([
-    fetch(PAGE_URL, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; verify-cma/1.0)' },
-      signal: AbortSignal.timeout(15000),
-    }),
-    fetch(NOW_URL, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; verify-cma/1.0)',
-        Referer: PAGE_URL,
-      },
-      signal: AbortSignal.timeout(15000),
-    }),
+    fetchWithWaf(PAGE_URL),
+    fetchWithWaf(NOW_URL, { headers: { Referer: PAGE_URL } }),
   ])
 
   // --- Page HTML ---
@@ -87,11 +145,8 @@ async function main() {
   if (pageRes.status === 'rejected') {
     console.error(`  FAILED: ${pageRes.reason}`)
   } else {
-    const res = pageRes.value
-    console.log(`  Status : ${res.status} ${res.statusText}`)
-    console.log(`  Length : ${(await res.clone().text()).length} bytes`)
-
-    const html = await res.text()
+    const { text: html, status, statusText } = pageRes.value
+    console.log(`  Status : ${status} ${statusText}`)
     console.log(`  Body   : ${html.length} chars`)
 
     const dom = new JSDOM(html)
@@ -157,10 +212,8 @@ async function main() {
   if (nowRes.status === 'rejected') {
     console.error(`  FAILED: ${nowRes.reason}`)
   } else {
-    const res = nowRes.value
-    console.log(`  Status : ${res.status} ${res.statusText}`)
-
-    const text = await res.text()
+    const { text, status, statusText } = nowRes.value
+    console.log(`  Status : ${status} ${statusText}`)
     console.log(`  Body   : ${text.length} chars`)
     console.log(`  Preview: ${text.slice(0, 200)}`)
 

@@ -11,16 +11,23 @@
  */
 import type { Runtime } from '../../runtime'
 import { fetchAirQuality } from './air-quality'
-import { requestJson, requestText } from './http'
+import { requestJson, requestTextWithHeaders } from './http'
 import { parseWeather } from './parser'
 import { parseCmaNow } from './cma/parse-now'
 import { parseCmaPage } from './cma/parse-page'
+import {
+  isSafelineChallenge,
+  parseSafelineChallenge,
+  solveSafelinePow,
+  extractSafelineCookie,
+  buildSafelineCookieHeader,
+} from './cma/safeline'
 import { FORECAST_DAYS } from './constants'
 import type { WeatherCity, WeatherCityData, WeatherCityEntry } from './types'
 
 export { buildAirQualityUrl, fetchAirQuality, parseAirQuality } from './air-quality'
 export { parseWeather } from './parser'
-export { requestJson, requestText } from './http'
+export { requestJson, requestText, requestTextWithHeaders } from './http'
 
 export function buildWeatherUrl(latitude: number, longitude: number): string {
   const params = new URLSearchParams({
@@ -61,13 +68,59 @@ async function fetchOpenMeteoBase(
   return data
 }
 
+/**
+ * Fetch a CMA URL, transparently solving SafeLine WAF challenges.
+ *
+ * If the first response is a WAF challenge page, this solves the proof-of-work
+ * and retries with the required cookies. If the retry also fails, the original
+ * (challenge) response is returned so the parser can handle it gracefully.
+ */
+async function fetchCmaTextWithWaf(
+  runtime: Runtime,
+  url: string,
+  options: { headers?: Record<string, string> } = {},
+): Promise<string> {
+  const { text, headers } = await requestTextWithHeaders(runtime, url, options)
+
+  if (!isSafelineChallenge(text)) return text
+
+  const challenge = parseSafelineChallenge(text)
+  if (!challenge) {
+    console.warn('[gm-dashboard] cma.waf: challenge detected but could not parse')
+    return text
+  }
+
+  const cookie = extractSafelineCookie(headers)
+  if (!cookie) {
+    console.warn('[gm-dashboard] cma.waf: challenge detected but no safeline_bot_challenge cookie')
+    return text
+  }
+
+  console.debug('[gm-dashboard] cma.waf: solving PoW', challenge)
+  const suffix = solveSafelinePow(challenge.prefix, challenge.leadingZeroBits)
+  console.debug('[gm-dashboard] cma.waf: PoW solved, suffix', suffix)
+
+  const { text: retryText } = await requestTextWithHeaders(runtime, url, {
+    ...options,
+    headers: {
+      ...options.headers,
+      Cookie: buildSafelineCookieHeader(cookie, suffix),
+    },
+  })
+
+  if (isSafelineChallenge(retryText)) {
+    console.warn('[gm-dashboard] cma.waf: retry still returned challenge, giving up')
+  }
+  return retryText
+}
+
 async function fetchCmaPageHtml(runtime: Runtime, stationId: string): Promise<string> {
-  return requestText(runtime, `https://weather.cma.cn/web/weather/${stationId}.html`)
+  return fetchCmaTextWithWaf(runtime, `https://weather.cma.cn/web/weather/${stationId}.html`)
 }
 
 async function fetchCmaNowJson(runtime: Runtime, stationId: string): Promise<unknown> {
   const url = `https://weather.cma.cn/api/now/${stationId}`
-  const text = await requestText(runtime, url, {
+  const text = await fetchCmaTextWithWaf(runtime, url, {
     headers: { Referer: `https://weather.cma.cn/web/weather/${stationId}.html` },
   })
   try {
