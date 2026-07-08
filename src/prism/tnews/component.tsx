@@ -1,12 +1,12 @@
-import { useLayoutEffect, useRef, useReducer } from 'preact/hooks'
-import { escapeHtml } from '../../utils'
-import { formatRelativeTime, ItemActions } from '../card/primitives'
+import { useReducer } from 'preact/hooks'
+import { ItemActions } from '../card/primitives'
 import { createItemHandlers } from '../item-actions'
+import { ExpandableList, useExpandScroll } from '../shared/expandable-list'
 import type { SourceComponentProps } from '../types'
 import type { TnewsState } from './state'
 import type { TnewsItem } from './types'
 
-const TIME_LABEL_FMT = new Intl.DateTimeFormat('zh-CN', {
+const FULL_TIME_FMT = new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric',
   month: '2-digit',
   day: '2-digit',
@@ -14,12 +14,6 @@ const TIME_LABEL_FMT = new Intl.DateTimeFormat('zh-CN', {
   minute: '2-digit',
   hour12: false,
 })
-
-function relativeLabel(pubDate: number, now: number): string {
-  const formatted = formatRelativeTime(pubDate, now)
-  if (formatted === '从未更新') return TIME_LABEL_FMT.format(new Date(pubDate))
-  return formatted
-}
 
 function stripLeadingSymbols(s: string): string {
   return s.replace(/^[\p{S}\p{M}]+/u, '')
@@ -39,35 +33,22 @@ export function TnewsComponent({
   runtime,
   root,
   state,
-  now,
   onNotify: notify,
 }: TnewsComponentProps) {
   const [, forceRender] = useReducer<number, void>((n) => n + 1, 0)
-  const scrollTargetRef = useRef<string | null>(null)
-
-  useLayoutEffect(() => {
-    const id = scrollTargetRef.current
-    if (!id) return
-    scrollTargetRef.current = null
-    const el = root.querySelector(`li[data-item-id="${CSS.escape(id)}"] .gm-sp-expandable-row`)
-    el?.scrollIntoView({ block: 'start', behavior: 'auto' })
-  })
+  const { scrollIfNeeded } = useExpandScroll(root)
 
   const items = data ?? []
 
   function handleRowClick(item: TnewsItem) {
-    const wasExpanded = state.isExpanded(item.id)
+    scrollIfNeeded(item.id)
     state.markRead(item.id)
-
     items.forEach((other) => {
       if (other.id !== item.id) {
         state.setExpanded(other.id, false)
       }
     })
     state.toggleExpanded(item.id)
-    if (!wasExpanded) {
-      scrollTargetRef.current = item.id
-    }
     void state.saveToStorage(runtime)
     notify?.()
     forceRender()
@@ -83,56 +64,26 @@ export function TnewsComponent({
     repliesOf: () => undefined,
   })
 
-  if (items.length === 0) {
-    return (
-      <div class="gm-sp-tnews">
-        <div class="gm-sp-empty">暂无数据</div>
-      </div>
-    )
-  }
-
   return (
-    <div class="gm-sp-tnews">
-      <ol class="gm-sp-list">
-        {items.map((item) => {
-          if (state.isHidden(item.id)) return null
-          const expanded = state.isExpanded(item.id)
-          const read = state.isRead(item.id)
-          const readClass = read ? ' gm-sp-item-read' : ''
-          const expandedClass = expanded ? ' gm-sp-list-item-expanded' : ''
-          const timeText = relativeLabel(item.pubDate, now)
-          const titleText = stripLeadingSymbols(item.title || '(无标题)')
-          return (
-            <li
-              key={item.id}
-              class={`gm-sp-list-item${readClass}${expandedClass}`}
-              data-item-id={escapeHtml(item.id)}
-            >
-              <span class="gm-sp-expandable-row" onClick={() => handleRowClick(item)}>
-                <span
-                  class="gm-sp-expandable-time"
-                  title={escapeHtml(TIME_LABEL_FMT.format(new Date(item.pubDate)))}
-                >
-                  {escapeHtml(timeText)}
-                </span>
-                <span class="gm-sp-expandable-title" title={escapeHtml(titleText)}>
-                  {escapeHtml(titleText)}
-                </span>
-              </span>
-              <ItemActions
-                onBulkRead={() => handleBulkRead(item)}
-                onHide={() => handleHide(item.id)}
-              />
-              {expanded && (
-                <div
-                  class="gm-sp-expandable-body"
-                  dangerouslySetInnerHTML={{ __html: stripImgSizeAttrs(item.descriptionHtml) }}
-                />
-              )}
-            </li>
-          )
-        })}
-      </ol>
-    </div>
+    <ExpandableList
+      items={items}
+      getItemId={(item) => item.id}
+      isExpanded={(id) => state.isExpanded(id)}
+      isRead={(id) => state.isRead(id)}
+      isHidden={(id) => state.isHidden(id)}
+      onRowClick={handleRowClick}
+      getTime={(item) => item.pubDate}
+      timeFormat="date-time"
+      timeTitle={(item) => FULL_TIME_FMT.format(new Date(item.pubDate))}
+      titleAttr={(item) => stripLeadingSymbols(item.title || '(无标题)')}
+      renderTitle={(item) => stripLeadingSymbols(item.title || '(无标题)')}
+      renderBody={(item) => (
+        <div dangerouslySetInnerHTML={{ __html: stripImgSizeAttrs(item.descriptionHtml) }} />
+      )}
+      renderActions={(item) => (
+        <ItemActions onBulkRead={() => handleBulkRead(item)} onHide={() => handleHide(item.id)} />
+      )}
+      containerClassName="gm-sp-tnews"
+    />
   )
 }

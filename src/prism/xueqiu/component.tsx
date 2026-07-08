@@ -3,6 +3,7 @@ import { ItemActions } from '../card/primitives'
 import type { DateFilter } from '../date-filter'
 import { applyDateFilter } from '../shared-utils'
 import { isEditableTarget } from '../shortcut'
+import { ExpandableList, useExpandScroll } from '../shared/expandable-list'
 import type { SourceComponentProps } from '../types'
 import type { XueqiuState } from './state'
 import type { XueqiuRenderData, XueqiuNewsItem, ViewMode } from './types'
@@ -10,10 +11,6 @@ import { SummaryView } from './ai/summary-view'
 import { loadAiConfig, ensureApiKey } from './ai/config'
 import { loadSummaries, saveSummary, summarize, buildSummaryEntry } from './ai/summarize'
 import type { SummaryEntry, XueqiuAiConfig } from './types'
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
 
 function unescapeHtml(s: string): string {
   return s
@@ -40,13 +37,6 @@ function sanitizeHtml(html: string): string {
 
 function escapeAttr(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
-}
-
-function formatTime(timestamp: number): string {
-  const d = new Date(timestamp)
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${month}-${day}`
 }
 
 /**
@@ -95,7 +85,7 @@ export function XueqiuComponent({
   onNotify: notify,
 }: XueqiuComponentProps) {
   const [, forceRender] = useReducer<number, void>((n) => n + 1, 0)
-  const scrollTargetRef = useRef<string | null>(null)
+  const { scrollIfNeeded } = useExpandScroll(root)
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
 
   // Refs for document-level Enter handler (avoids stale closures)
@@ -114,14 +104,6 @@ export function XueqiuComponent({
   const aiInitRef = useRef(false)
   const genStartRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  useLayoutEffect(() => {
-    const id = scrollTargetRef.current
-    if (!id) return
-    scrollTargetRef.current = null
-    const el = root.querySelector(`li[data-item-id="${CSS.escape(id)}"] .gm-sp-expandable-row`)
-    el?.scrollIntoView({ block: 'start', behavior: 'auto' })
-  })
 
   const news = data?.news ?? []
   const hotPosts = data?.hotPosts ?? []
@@ -303,6 +285,7 @@ export function XueqiuComponent({
 
   function handleItemClick(item: XueqiuNewsItem) {
     const id = String(item.id)
+    scrollIfNeeded(id)
     state.markRead(id)
     items
       .filter((other) => other.id !== item.id)
@@ -310,10 +293,6 @@ export function XueqiuComponent({
         state.setExpanded(String(other.id), false)
       })
     state.toggleExpanded(id)
-    // Scroll the item into view on both expand and collapse:
-    // - Expand: align top so the body is visible
-    // - Collapse: re-align top so the row stays visible after content shrinks
-    scrollTargetRef.current = id
     void state.saveToStorage(runtime)
     notify?.()
     forceRender()
@@ -346,68 +325,6 @@ export function XueqiuComponent({
     forceRender()
   }
 
-  function renderItem(item: XueqiuNewsItem) {
-    const id = String(item.id)
-    const read = state.isRead(id)
-    const expanded = state.isExpanded(id)
-    const readClass = read ? ' gm-sp-item-read' : ''
-    const expandedClass = expanded ? ' gm-sp-list-item-expanded' : ''
-    const title = item.title || item.description || item.text
-    return (
-      <li
-        key={id}
-        class={`gm-sp-list-item${readClass}${expandedClass}`}
-        data-item-id={escapeAttr(id)}
-      >
-        <span
-          class="gm-sp-expandable-row"
-          role="button"
-          tabindex={0}
-          onClick={() => handleItemClick(item)}
-        >
-          <span class="gm-sp-expandable-time">{escapeText(formatTime(item.created_at))}</span>
-          <span
-            class="gm-sp-expandable-title"
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(unescapeHtml(title)) }}
-          />
-          {mode === 'hot' && (
-            <span class="gm-sp-xueqiu-stats">
-              <span title="回复数">💬{item.reply_count}</span>
-              <span title="点赞数">👍{item.like_count}</span>
-            </span>
-          )}
-        </span>
-        <ItemActions onBulkRead={() => handleBulkRead(item)} onHide={() => handleHide(id)} />
-        {expanded && (
-          <div class="gm-sp-expandable-body">
-            <div
-              class="gm-sp-xueqiu-body-text"
-              dangerouslySetInnerHTML={{
-                __html: packImages(sanitizeHtml(unescapeHtml(item.text))),
-              }}
-              onClick={(e) => {
-                const target = e.target as HTMLElement
-                if (target.tagName === 'IMG') {
-                  e.stopPropagation()
-                  setLightboxSrc((target as HTMLImageElement).src)
-                }
-              }}
-            />
-            <a
-              class="gm-sp-xueqiu-link"
-              href={escapeAttr(getTargetUrl(item))}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-            >
-              查看原文 →
-            </a>
-          </div>
-        )}
-      </li>
-    )
-  }
-
   // AI summary view
   if (viewMode === 'summary' && mode === 'news') {
     return (
@@ -416,6 +333,7 @@ export function XueqiuComponent({
           summaries={summaries}
           activeSummaryId={activeSummaryId}
           newsMap={newsMap}
+          root={root}
           loading={aiLoading}
           error={aiError}
           unconfigured={!aiConfig?.apiKey && !aiLoading}
@@ -438,22 +356,75 @@ export function XueqiuComponent({
     )
   }
 
-  if (items.length === 0) {
-    return (
-      <div class="gm-sp-xueqiu">
-        <div class="gm-sp-empty">暂无数据</div>
-      </div>
-    )
-  }
-
   return (
-    <div class="gm-sp-xueqiu">
-      <ol class="gm-sp-list">{items.map((item) => renderItem(item))}</ol>
+    <>
+      <ExpandableList
+        items={items}
+        getItemId={(item) => String(item.id)}
+        isExpanded={(id) => state.isExpanded(id)}
+        isRead={(id) => state.isRead(id)}
+        isHidden={(id) => state.isHidden(id)}
+        onRowClick={handleItemClick}
+        getTime={(item) => item.created_at}
+        timeFormat={mode === 'news' ? 'date-time' : 'date'}
+        renderTitle={(item) => (
+          <span
+            dangerouslySetInnerHTML={{
+              __html: sanitizeHtml(unescapeHtml(item.title || item.description || item.text)),
+            }}
+          />
+        )}
+        renderBody={(item) => (
+          <>
+            <div
+              class="gm-sp-xueqiu-body-text"
+              dangerouslySetInnerHTML={{
+                __html: packImages(sanitizeHtml(unescapeHtml(item.text))),
+              }}
+              onClick={(e) => {
+                const target = e.target as HTMLElement
+                if (target.tagName === 'IMG') {
+                  e.stopPropagation()
+                  setLightboxSrc((target as HTMLImageElement).src)
+                }
+              }}
+            />
+            <a
+              class="gm-sp-xueqiu-link"
+              href={escapeAttr(getTargetUrl(item))}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              查看原文 →
+            </a>
+          </>
+        )}
+        renderActions={(item) => (
+          <ItemActions
+            onBulkRead={() => handleBulkRead(item)}
+            onHide={() => handleHide(String(item.id))}
+          />
+        )}
+        renderExtra={
+          mode === 'hot'
+            ? (item) => (
+                <span class="gm-sp-xueqiu-stats">
+                  <span title="回复数">💬{item.reply_count}</span>
+                  <span title="点赞数">👍{item.like_count}</span>
+                </span>
+              )
+            : undefined
+        }
+        containerClassName="gm-sp-xueqiu"
+        rowRole="button"
+        rowTabIndex={0}
+      />
       {lightboxSrc && (
         <div class="gm-sp-lightbox" onClick={() => setLightboxSrc(null)}>
           <img class="gm-sp-lightbox-img" src={escapeAttr(lightboxSrc)} alt="" />
         </div>
       )}
-    </div>
+    </>
   )
 }

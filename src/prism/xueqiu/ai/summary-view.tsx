@@ -1,19 +1,12 @@
 import { useState } from 'preact/hooks'
 import type { SummaryEntry, SummaryTopic, XueqiuNewsItem } from '../types'
 import { stripHtml } from './prompt'
+import { useExpandScroll } from '../../shared/expandable-list'
+import { formatTopicTime } from '../../shared/expandable-utils'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function formatTime(timestamp: number): string {
-  const d = new Date(timestamp)
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  const hour = String(d.getHours()).padStart(2, '0')
-  const minute = String(d.getMinutes()).padStart(2, '0')
-  return `${month}-${day} ${hour}:${minute}`
-}
 
 function getTargetUrl(item: XueqiuNewsItem): string {
   if (item.target.startsWith('http')) return item.target
@@ -58,6 +51,7 @@ function avgElapsedSec(summaries: SummaryEntry[]): number | null {
 // ---------------------------------------------------------------------------
 
 type TopicCardProps = {
+  topicKey: string
   topic: SummaryTopic
   newsMap: Map<number, XueqiuNewsItem>
   isRead: (id: string) => boolean
@@ -67,6 +61,7 @@ type TopicCardProps = {
 }
 
 function TopicCard({
+  topicKey,
   topic,
   newsMap,
   isRead,
@@ -84,11 +79,20 @@ function TopicCard({
     .filter((it): it is XueqiuNewsItem => it !== undefined)
     .sort((a, b) => a.created_at - b.created_at)
 
+  // Latest item timestamp = topic publish time
+  const latestTs = refs.length > 0 ? refs[refs.length - 1]!.created_at : undefined
+
   return (
-    <div class={`gm-sp-ai-card ${IMPORTANCE_CLASS[topic.importance] ?? ''}`}>
+    <div
+      class={`gm-sp-ai-card ${IMPORTANCE_CLASS[topic.importance] ?? ''}`}
+      data-topic-key={topicKey}
+    >
       <div class="gm-sp-ai-card-header" onClick={onToggleCollapse}>
         <span class="gm-sp-ai-importance">{IMPORTANCE_EMOJI[topic.importance] ?? '⚪'}</span>
         <span class="gm-sp-ai-category">{topic.category}</span>
+        {latestTs !== undefined && (
+          <span class="gm-sp-expandable-time">{formatTopicTime(latestTs, 'date-time')}</span>
+        )}
         <span class="gm-sp-ai-title">{topic.title}</span>
         <button
           type="button"
@@ -147,10 +151,14 @@ function TopicCard({
 // SummaryView
 // ---------------------------------------------------------------------------
 
+const TOPIC_SELECTOR = (id: string): string =>
+  `[data-topic-key="${CSS.escape(id)}"] .gm-sp-ai-card-header`
+
 export type SummaryViewProps = {
   summaries: SummaryEntry[]
   activeSummaryId: string | null
   newsMap: Map<number, XueqiuNewsItem>
+  root: ShadowRoot | HTMLElement
   loading: boolean
   error: string | null
   unconfigured: boolean
@@ -171,6 +179,7 @@ export function SummaryView({
   summaries,
   activeSummaryId,
   newsMap,
+  root,
   loading,
   error,
   unconfigured,
@@ -187,6 +196,7 @@ export function SummaryView({
   isBrowsingHistory,
 }: SummaryViewProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const { scrollIfNeeded } = useExpandScroll(root, TOPIC_SELECTOR)
 
   // Don't auto-select the most recent summary — null means "browse mode"
   const active = activeSummaryId ? (summaries.find((s) => s.id === activeSummaryId) ?? null) : null
@@ -196,6 +206,7 @@ export function SummaryView({
   const lastTimed = summaries.find((s) => s.elapsedMs > 0) ?? null
 
   function toggleCollapse(key: string) {
+    scrollIfNeeded(key)
     setCollapsed((prev) => {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
@@ -291,7 +302,8 @@ export function SummaryView({
               <option value="">== 为列表视图的新闻生成摘要 → ==</option>
               {summaries.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {formatTime(s.generatedAt)} · {s.topics.length}主题 · {s.newsCount}条
+                  {formatTopicTime(s.generatedAt, 'date-time')} · {s.topics.length}主题 ·{' '}
+                  {s.newsCount}条
                 </option>
               ))}
             </select>
@@ -351,6 +363,7 @@ export function SummaryView({
             return (
               <TopicCard
                 key={key}
+                topicKey={key}
                 topic={topic}
                 newsMap={newsMap}
                 isRead={isRead}
