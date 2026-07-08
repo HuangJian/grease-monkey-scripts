@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fetchV2ex } from '../../../../src/prism/v2ex/fetcher'
 import { createV2exState } from '../../../../src/prism/v2ex/state'
-import type { V2exCountOptions } from '../../../../src/prism/v2ex/types'
+import type { V2exCountOptions, V2exTopic } from '../../../../src/prism/v2ex/types'
 import type { Runtime, RequestDetails } from '../../../../src/runtime'
 import { createRuntime } from '../../../runtime'
 
@@ -213,6 +213,94 @@ describe('fetchV2ex', () => {
       state,
     )
     expect(topics.find((t) => t.id === 999)).toBeUndefined()
+  })
+
+  test('preserves earliest created for page-only topics on re-fetch', async () => {
+    // Regression: page-only topics get created=Date.now() on each fetch.
+    // Without preserving the cached created, a topic first seen yesterday
+    // would appear as "today's topic" after midnight (24:00 UTC+8).
+    const yesterday = Date.now() - 26 * 60 * 60 * 1000
+    const html = `<html><body><div class="cell item"><a class="topic-link" href="/t/7777">Persistent topic</a><span class="count_orange">50</span></div></body></html>`
+
+    const runtime = makeRuntime((d) => {
+      if (d.url.includes('hot.json')) {
+        d.onload({ responseText: '[]', status: 200, responseHeaders: '' })
+      } else {
+        d.onload({ responseText: html, status: 200, responseHeaders: '' })
+      }
+    })
+    const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
+
+    const prevById = new Map<number, V2exTopic>([
+      [
+        7777,
+        {
+          id: 7777,
+          title: 'Persistent topic',
+          url: 'https://www.v2ex.com/t/7777',
+          replies: 50,
+          member: { username: '' },
+          node: { title: '' },
+          sources: ['page'],
+          created: yesterday,
+        },
+      ],
+    ])
+
+    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state, prevById)
+    const topic = topics.find((t) => t.id === 7777)
+    expect(topic).toBeDefined()
+    // created should be preserved from cache (yesterday), not refreshed to Date.now()
+    expect(topic!.created).toBe(yesterday)
+  })
+
+  test('does not override API-source created from cache', async () => {
+    // API source has real created; even if cache has an earlier value,
+    // the API's created should be kept (not overridden by prevById).
+    const apiCreated = Date.now() - 3 * 24 * 60 * 60 * 1000 // 3 days ago (real)
+    const cachedCreated = Date.now() - 10 * 24 * 60 * 60 * 1000 // 10 days ago (stale page)
+    const sharedTopic = {
+      id: 5555,
+      title: 'API+page',
+      url: 'https://www.v2ex.com/t/5555',
+      replies: 100,
+      member: { username: 'u' },
+      node: { title: 'n' },
+      sources: [],
+      created: apiCreated / 1000, // API returns seconds
+    }
+    const html = `<html><body><div class="cell item"><a class="topic-link" href="/t/5555">API+page</a><span class="count_orange">100</span></div></body></html>`
+
+    const runtime = makeRuntime((d) => {
+      if (d.url.includes('hot.json')) {
+        d.onload({ responseText: JSON.stringify([sharedTopic]), status: 200, responseHeaders: '' })
+      } else {
+        d.onload({ responseText: html, status: 200, responseHeaders: '' })
+      }
+    })
+    const state = createV2exState({ retentionMs: 30 * 24 * 60 * 60 * 1000 })
+
+    const prevById = new Map<number, V2exTopic>([
+      [
+        5555,
+        {
+          id: 5555,
+          title: 'API+page',
+          url: 'https://www.v2ex.com/t/5555',
+          replies: 100,
+          member: { username: 'u' },
+          node: { title: 'n' },
+          sources: ['page'],
+          created: cachedCreated,
+        },
+      ],
+    ])
+
+    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state, prevById)
+    const topic = topics.find((t) => t.id === 5555)
+    expect(topic).toBeDefined()
+    // API's real created (3 days ago) should win, not the stale cached value (10 days ago)
+    expect(topic!.created).toBe(apiCreated)
   })
 
   // history recovery is tested via prevById in source integration tests

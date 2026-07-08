@@ -33,6 +33,12 @@ import type { V2exCountOptions, V2exTopic } from './types'
  *
  *   然后将历史话题中不在当前结果集内的条目合入（标记 sources: ['api']）。
  *
+ * ── 阶段 2.5：保留 page-only 主题的最早 created ──────────────────────────
+ *   页面源 created=Date.now()（首次抓取时间近似），每次重新抓取会被刷新为
+ *   当前时间。若不保留缓存中的较早值，前一天抓到的 page-only 主题在跨天后
+ *   仍会被日期过滤器误判为「今日」主题。因此对无 API 源的话题，取缓存中
+ *   较早的 created（首次出现时间），避免 created 被无限刷新。
+ *
  * ── 阶段 3：门槛过滤 ────────────────────────────────────────────────────
  *   两条规则按顺序执行：
  *   ① 旧话题 (created < 今日 0:00)：replies < olderMinReplies → 移除
@@ -111,6 +117,20 @@ export async function fetchV2ex(
   }
 
   let full = mergeV2exTopics(apiResult.topics, pageResult.topics, false)
+
+  // 阶段 2.5：保留 page-only 主题的最早 created。
+  // 页面源 created=Date.now()（抓取时间近似），重新抓取时会被刷新为当前时间。
+  // 对无 API 源的话题，取缓存中较早的 created，避免跨天后仍被误判为今日主题。
+  if (prevById && prevById.size > 0) {
+    full = full.map((t) => {
+      if (t.sources.includes('api')) return t // API 源有真实 created，不覆盖
+      const prev = prevById.get(t.id)
+      if (prev && prev.created > 0 && prev.created < t.created) {
+        return { ...t, created: prev.created }
+      }
+      return t
+    })
+  }
 
   if (prevById && prevById.size > 0) {
     const currentIds = new Set(full.map((t) => t.id))
