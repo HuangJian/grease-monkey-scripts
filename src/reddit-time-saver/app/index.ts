@@ -8,8 +8,8 @@ import {
   REDDIT_AUTHOR_TAGS_LS_KEY,
 } from '../../shared/author-labels'
 import { applyHighlights } from './highlight'
-import { setupImageViewer } from './image-viewer'
 import { setupObserver } from './observer'
+import { setupImageViewer } from '../../shared/image-viewer'
 import { processElement } from './tag-buttons'
 import type { RedditApp } from '../types'
 

@@ -1,4 +1,5 @@
 @import '../shared/tag-panel/tag-panel.css';
+@import '../shared/image-viewer/image-viewer.css';
 
 .cell[id] > .cell[id] {
   border-left: 2px solid lightblue;

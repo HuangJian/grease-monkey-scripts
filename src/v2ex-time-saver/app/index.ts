@@ -6,6 +6,7 @@ import {
   removeTag,
   toRelativeUrl,
 } from '../../shared/author-labels'
+import { setupImageViewer } from '../../shared/image-viewer'
 import type { TagPanelCallbacks, QuickLabels } from '../../shared/tag-panel'
 import { checkAndDoSignIn } from './sign-in'
 import { embedDiscussions } from './discussion-embedder'
@@ -91,6 +92,7 @@ export async function createV2exApp(runtime: Runtime): Promise<V2exApp> {
     console.debug('[gm-v2ex-time-saver] start', { isReadingTopic, url: runtime.location.href })
 
     checkAndDoSignIn(runtime)
+    setupImageViewer(runtime)
 
     const allPageNumbers = Array.from(runtime.document.querySelectorAll(SELECTORS.pageNumbers))
       .map((it) => parseInt(it.textContent || '', 10))

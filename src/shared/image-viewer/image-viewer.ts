@@ -4,30 +4,55 @@ import { escapeHtml } from '../../utils'
 const OVERLAY_ID = 'gm-img-viewer'
 const OPEN_TAB_KEY = 'Enter'
 
-/** Hosts that serve Reddit-hosted images. */
-const IMAGE_HOST_RE = /(?:preview|i|external-preview)\.redd\.it|redditmedia\.com/i
+/** Known image-hosting domains. */
+const IMAGE_HOST_RE =
+  /(?:preview|i|external-preview)\.redd\.it|redditmedia\.com|i\.imgur\.com|imgur\.com/i
+
+/** Common image file extensions. */
+const IMAGE_EXT_RE = /\.(?:jpe?g|png|gif|webp|bmp|svg|avif|ico)(?:\?|#|$)/i
+
+/**
+ * Default predicate: true if the URL points to a known image host or has an
+ * image file extension.
+ */
+export function isImageUrl(href: string): boolean {
+  return IMAGE_HOST_RE.test(href) || IMAGE_EXT_RE.test(href)
+}
 
 /**
  * Find the image-link ancestor of a click target.
- * Returns the `<a>` if it wraps an `<img>` and points to a Reddit image host.
+ * Returns the `<a>` if it wraps an `<img>` and the href looks like an image.
  */
-export function findImageLink(target: EventTarget | null): HTMLAnchorElement | null {
+export function findImageLink(
+  target: EventTarget | null,
+  shouldIntercept: (href: string) => boolean = isImageUrl,
+): HTMLAnchorElement | null {
   if (!(target instanceof Element)) return null
   const anchor = target.closest('a')
   if (!anchor) return null
   if (!anchor.querySelector('img')) return null
   const href = anchor.getAttribute('href') || ''
-  if (!IMAGE_HOST_RE.test(href)) return null
+  if (!shouldIntercept(href)) return null
   return anchor as HTMLAnchorElement
 }
 
+export type ImageViewerOptions = {
+  /**
+   * Predicate to decide whether a clicked link's href should trigger the
+   * viewer. Defaults to {@link isImageUrl}.
+   */
+  shouldIntercept?: (href: string) => boolean
+}
+
 /**
- * Set up the image popup viewer: intercepts clicks on Reddit image thumbnails
- * and shows a full-size overlay. Press `Enter` to open in a new tab, `Esc` to close.
+ * Set up the image popup viewer: intercepts clicks on image thumbnails and
+ * shows a full-size overlay. Press `Enter` to open in a new tab, `Esc` to
+ * close. Opening a new tab auto-closes the overlay.
  *
  * Returns a cleanup function that removes all listeners and the overlay.
  */
-export function setupImageViewer(runtime: Runtime): () => void {
+export function setupImageViewer(runtime: Runtime, options: ImageViewerOptions = {}): () => void {
+  const shouldIntercept = options.shouldIntercept ?? isImageUrl
   let overlay: HTMLElement | null = null
   let currentUrl = ''
 
@@ -86,7 +111,7 @@ export function setupImageViewer(runtime: Runtime): () => void {
   }
 
   function onDocumentClick(e: MouseEvent): void {
-    const anchor = findImageLink(e.target)
+    const anchor = findImageLink(e.target, shouldIntercept)
     if (!anchor) return
     const url = anchor.href
     if (!url) return
@@ -95,7 +120,7 @@ export function setupImageViewer(runtime: Runtime): () => void {
     open(url)
   }
 
-  // Capture phase: intercept before Reddit's own handlers
+  // Capture phase: intercept before site's own handlers
   runtime.document.addEventListener('click', onDocumentClick, true)
 
   return () => {
