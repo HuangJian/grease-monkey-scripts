@@ -36,7 +36,7 @@ async function loadAuthorTagMap(runtime: Runtime): Promise<AuthorTagMap> {
 export async function createHupuApp(runtime: Runtime): Promise<HupuApp> {
   const authorTagMap = await loadAuthorTagMap(runtime)
   const euidToPuidMap = new Map<string, string>()
-  let _disconnectObserver: (() => void) | null = null
+  let disconnectObserver: (() => void) | null = null
 
   function persist(): void {
     void runtime.setValue(STORAGE_KEY, authorTagMap)
@@ -68,7 +68,7 @@ export async function createHupuApp(runtime: Runtime): Promise<HupuApp> {
   }
 
   function start(): void {
-    _disconnectObserver = setupObserver(
+    disconnectObserver = setupObserver(
       runtime,
       authorTagMap,
       euidToPuidMap,
@@ -138,7 +138,7 @@ export async function createHupuApp(runtime: Runtime): Promise<HupuApp> {
 
   return {
     start,
-    stop: () => _disconnectObserver?.(),
+    stop: () => disconnectObserver?.(),
     tagAuthor,
     setTag,
     unsetTag,

@@ -29,7 +29,7 @@ async function loadAuthorTagMap(runtime: Runtime): Promise<AuthorTagMap> {
 
 export async function createRedditApp(runtime: Runtime): Promise<RedditApp> {
   const authorTagMap = await loadAuthorTagMap(runtime)
-  let _disconnectObserver: (() => void) | null = null
+  let disconnectObserver: (() => void) | null = null
   let teardownImageViewer: (() => void) | null = null
 
   function persist(): void {
@@ -69,14 +69,14 @@ export async function createRedditApp(runtime: Runtime): Promise<RedditApp> {
   function start(): void {
     processElement(runtime, authorTagMap, tagAuthor, setTag, unsetTag, runtime.document.body)
     applyHighlights(runtime, authorTagMap)
-    _disconnectObserver = setupObserver(runtime, authorTagMap, tagAuthor, setTag, unsetTag)
+    disconnectObserver = setupObserver(runtime, authorTagMap, tagAuthor, setTag, unsetTag)
     teardownImageViewer = setupImageViewer(runtime)
   }
 
   return {
     start,
     stop: () => {
-      _disconnectObserver?.()
+      disconnectObserver?.()
       teardownImageViewer?.()
     },
     getAuthorTagMap: () => JSON.parse(JSON.stringify(authorTagMap)) as AuthorTagMap,

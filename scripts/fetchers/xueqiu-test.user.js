@@ -65,7 +65,7 @@
 
           return origOpen.apply(this, arguments)
         }
-        window.__xqCaptured = function() {
+        window.xqCaptured = function() {
           return { hot: { items: hotItems, count: hotCount }, news: { items: newsItems, count: newsCount } }
         }
       })();
@@ -146,7 +146,7 @@
       clickLoadMore()
       await wait(jitter(4000, 0.4))
 
-      var cap = window.__xqCaptured ? window.__xqCaptured() : null
+      var cap = window.xqCaptured ? window.xqCaptured() : null
       var total =
         label === 'hot' ? (cap?.hot?.items?.length ?? -1) : (cap?.news?.items?.length ?? -1)
       if (prevTotal >= 0 && total === prevTotal) {
@@ -189,7 +189,7 @@
 
     // === Cross-validate ===
     await wait(2000)
-    var cap = window.__xqCaptured ? window.__xqCaptured() : null
+    var cap = window.xqCaptured ? window.xqCaptured() : null
     log('=== CROSS-VALIDATION ===')
 
     if (cap) {

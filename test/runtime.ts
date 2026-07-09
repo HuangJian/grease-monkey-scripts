@@ -24,12 +24,12 @@ export class XmlDOMParser implements DOMParser {
   }
 }
 
-const _windows: Window[] = []
+const windows: Window[] = []
 
 export function createDom(html: string, url = 'https://www.v2ex.com/t/123'): Window {
   const win = new Window({ url })
   win.document.documentElement.innerHTML = html
-  _windows.push(win)
+  windows.push(win)
   return win
 }
 
@@ -37,20 +37,20 @@ export function createDom(html: string, url = 'https://www.v2ex.com/t/123'): Win
 export function createHappyDom(html: string, url?: string): Window {
   const win = new Window({ url: url ?? 'http://localhost' })
   win.document.documentElement.innerHTML = html
-  _windows.push(win)
+  windows.push(win)
   return win
 }
 
 /** Close all windows created during tests. Call in afterAll/afterEach. */
 export function closeAllWindows(): void {
-  for (const w of _windows) {
+  for (const w of windows) {
     try {
       w.close()
     } catch {
       /* ignore */
     }
   }
-  _windows.length = 0
+  windows.length = 0
 }
 
 export type MenuCommand = { id: number; name: string; fn: () => void }
