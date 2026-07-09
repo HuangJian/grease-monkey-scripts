@@ -8,6 +8,7 @@ import {
   REDDIT_AUTHOR_TAGS_LS_KEY,
 } from '../../shared/author-labels'
 import { applyHighlights } from './highlight'
+import { setupImageViewer } from './image-viewer'
 import { setupObserver } from './observer'
 import { processElement } from './tag-buttons'
 import type { RedditApp } from '../types'
@@ -29,6 +30,7 @@ async function loadAuthorTagMap(runtime: Runtime): Promise<AuthorTagMap> {
 export async function createRedditApp(runtime: Runtime): Promise<RedditApp> {
   const authorTagMap = await loadAuthorTagMap(runtime)
   let _disconnectObserver: (() => void) | null = null
+  let teardownImageViewer: (() => void) | null = null
 
   function persist(): void {
     void runtime.setValue(STORAGE_KEY, authorTagMap)
@@ -68,11 +70,15 @@ export async function createRedditApp(runtime: Runtime): Promise<RedditApp> {
     processElement(runtime, authorTagMap, tagAuthor, setTag, unsetTag, runtime.document.body)
     applyHighlights(runtime, authorTagMap)
     _disconnectObserver = setupObserver(runtime, authorTagMap, tagAuthor, setTag, unsetTag)
+    teardownImageViewer = setupImageViewer(runtime)
   }
 
   return {
     start,
-    stop: () => _disconnectObserver?.(),
+    stop: () => {
+      _disconnectObserver?.()
+      teardownImageViewer?.()
+    },
     getAuthorTagMap: () => JSON.parse(JSON.stringify(authorTagMap)) as AuthorTagMap,
     tagAuthor,
     setTag,
