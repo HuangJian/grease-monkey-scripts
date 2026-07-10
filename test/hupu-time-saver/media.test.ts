@@ -33,7 +33,7 @@ function replyHtml(content: string) {
   `
 }
 
-describe('processMedia', () => {
+describe('processMedia — GIF handling', () => {
   let dom: ReturnType<typeof createDom>
 
   beforeEach(() => {
@@ -54,92 +54,7 @@ describe('processMedia', () => {
     expect(decodeURIComponent(img.src)).toContain('format,jpg')
   })
 
-  test('GIF image gets a play button overlay', () => {
-    const gifSrc = gifUrl('?x-oss-process=image/resize,w_800/format,webp')
-    const html = replyHtml(wrapImageHtml(gifSrc))
-    dom.document.body.insertAdjacentHTML('beforeend', html)
-
-    processMedia(dom.document.body as unknown as ParentNode)
-
-    const imageWrapper = dom.document.querySelector('.image-wrapper')
-    expect(imageWrapper?.classList.contains('gm-hupu-media')).toBe(true)
-
-    const gifWrapper = dom.document.querySelector('.lazyload-wrapper')
-    expect(gifWrapper?.classList.contains('gm-hupu-gif')).toBe(true)
-
-    const playBtn = gifWrapper?.querySelector('.gm-hupu-gif-play')
-    expect(playBtn).not.toBeNull()
-    expect(playBtn?.getAttribute('role')).toBe('button')
-  })
-
-  test('clicking play restores the animated GIF URL with cache busting', () => {
-    const gifSrc = gifUrl('?x-oss-process=image/resize,w_800/format,webp')
-    const html = replyHtml(wrapImageHtml(gifSrc))
-    dom.document.body.insertAdjacentHTML('beforeend', html)
-
-    processMedia(dom.document.body as unknown as ParentNode)
-
-    const playBtn = dom.document.querySelector('.gm-hupu-gif-play') as unknown as HTMLElement
-    playBtn.click()
-
-    const img = dom.document.querySelector('img.thread-img') as unknown as HTMLImageElement
-    expect(img.src).toContain(gifUrl())
-    expect(img.src).toContain('gmReplay=')
-    expect(img.dataset.gmHupuGifSrc).toBe(gifSrc)
-  })
-
-  test('clicking play pauses and restores the static preview', () => {
-    const gifSrc = gifUrl('?x-oss-process=image/resize,w_800/format,webp')
-    const html = replyHtml(wrapImageHtml(gifSrc))
-    dom.document.body.insertAdjacentHTML('beforeend', html)
-
-    processMedia(dom.document.body as unknown as ParentNode)
-
-    const playBtn = dom.document.querySelector('.gm-hupu-gif-play') as unknown as HTMLElement
-    playBtn.click()
-
-    const img = dom.document.querySelector('img.thread-img') as unknown as HTMLImageElement
-    expect(img.src).toContain('gmReplay=')
-    expect(decodeURIComponent(img.dataset.gmHupuGifPreviewSrc!)).toContain('format,jpg')
-
-    playBtn.click()
-
-    expect(decodeURIComponent(img.src)).toContain('format,jpg')
-    expect(img.src).not.toContain('gmReplay=')
-  })
-
-  test('clicking pause then play again restarts the GIF with fresh cache busting', () => {
-    const gifSrc = gifUrl('?x-oss-process=image/resize,w_800/format,webp')
-    const html = replyHtml(wrapImageHtml(gifSrc))
-    dom.document.body.insertAdjacentHTML('beforeend', html)
-
-    processMedia(dom.document.body as unknown as ParentNode)
-
-    const playBtn = dom.document.querySelector('.gm-hupu-gif-play') as unknown as HTMLElement
-    playBtn.click()
-    playBtn.click()
-
-    playBtn.click()
-    const thirdSrc = (dom.document.querySelector('img.thread-img') as unknown as HTMLImageElement)
-      .src
-
-    expect(thirdSrc).toContain(gifUrl())
-    expect(thirdSrc).toContain('gmReplay=')
-  })
-
-  test('re-running processMedia does not duplicate controls', () => {
-    const gifSrc = gifUrl('?x-oss-process=image/resize,w_800/format,webp')
-    const html = replyHtml(wrapImageHtml(gifSrc))
-    dom.document.body.insertAdjacentHTML('beforeend', html)
-
-    processMedia(dom.document.body as unknown as ParentNode)
-    processMedia(dom.document.body as unknown as ParentNode)
-
-    const playBtns = dom.document.querySelectorAll('.gm-hupu-gif-play')
-    expect(playBtns.length).toBe(1)
-  })
-
-  test('non-GIF images are not modified', () => {
+  test('non-GIF images are not modified by GIF processing', () => {
     const imgSrc = 'https://i5.hoopchina.com.cn/photo.jpg?x-oss-process=image/resize,w_800'
     const html = replyHtml(wrapImageHtml(imgSrc))
     dom.document.body.insertAdjacentHTML('beforeend', html)
@@ -149,78 +64,6 @@ describe('processMedia', () => {
     const img = dom.document.querySelector('img.thread-img') as unknown as HTMLImageElement
     expect(img.dataset.gmHupuGifSrc).toBeUndefined()
     expect(img.src).toBe(imgSrc)
-  })
-
-  test('a reply with 3+ image wrappers gets one collapse/expand control', () => {
-    const images = [
-      gifUrl('?x-oss-process=image/resize,w_800/format,webp'),
-      gifUrl('?x-oss-process=image/resize,w_800/format,webp'),
-      gifUrl('?x-oss-process=image/resize,w_800/format,webp'),
-    ]
-    const content = images.map((src) => wrapImageHtml(src)).join('\n')
-    const html = replyHtml(content)
-    dom.document.body.insertAdjacentHTML('beforeend', html)
-
-    processMedia(dom.document.body as unknown as ParentNode)
-
-    const contentDiv = dom.document.querySelector('.post-reply-list-content')
-    expect(contentDiv?.classList.contains('gm-hupu-media')).toBe(true)
-
-    const toggle = dom.document.querySelector('.gm-hupu-image-group-toggle')
-    expect(toggle).not.toBeNull()
-    expect(toggle?.textContent).toContain('折叠图片')
-  })
-
-  test('collapsing hides all but the first image and expanding restores them', () => {
-    const images = [
-      gifUrl('?x-oss-process=image/resize,w_800/format,webp'),
-      gifUrl('?x-oss-process=image/resize,w_800/format,webp'),
-      gifUrl('?x-oss-process=image/resize,w_800/format,webp'),
-    ]
-    const content = images.map((src) => wrapImageHtml(src)).join('\n')
-    const html = replyHtml(content)
-    dom.document.body.insertAdjacentHTML('beforeend', html)
-
-    processMedia(dom.document.body as unknown as ParentNode)
-
-    const toggle = dom.document.querySelector(
-      '.gm-hupu-image-group-toggle',
-    ) as unknown as HTMLElement
-    toggle.click()
-
-    const contentDiv = dom.document.querySelector('.post-reply-list-content')
-    expect(contentDiv?.classList.contains('gm-hupu-image-group-collapsed')).toBe(true)
-
-    const hiddenWrappers = dom.document.querySelectorAll('.image-wrapper')
-    expect(hiddenWrappers[0].classList.contains('gm-hupu-image-hidden')).toBe(false)
-    expect(hiddenWrappers[1].classList.contains('gm-hupu-image-hidden')).toBe(true)
-    expect(hiddenWrappers[2].classList.contains('gm-hupu-image-hidden')).toBe(true)
-
-    const placeholder = dom.document.querySelector('.gm-hupu-image-group-placeholder')
-    expect(placeholder).not.toBeNull()
-    expect(placeholder?.textContent).toContain('2')
-
-    toggle.click()
-
-    expect(contentDiv?.classList.contains('gm-hupu-image-group-collapsed')).toBe(false)
-    expect(hiddenWrappers[1].classList.contains('gm-hupu-image-hidden')).toBe(false)
-    expect(hiddenWrappers[2].classList.contains('gm-hupu-image-hidden')).toBe(false)
-    expect(dom.document.querySelector('.gm-hupu-image-group-placeholder')).toBeNull()
-  })
-
-  test('a reply with fewer than 3 images does not get a collapse control', () => {
-    const images = [
-      gifUrl('?x-oss-process=image/resize,w_800/format,webp'),
-      gifUrl('?x-oss-process=image/resize,w_800/format,webp'),
-    ]
-    const content = images.map((src) => wrapImageHtml(src)).join('\n')
-    const html = replyHtml(content)
-    dom.document.body.insertAdjacentHTML('beforeend', html)
-
-    processMedia(dom.document.body as unknown as ParentNode)
-
-    const toggle = dom.document.querySelector('.gm-hupu-image-group-toggle')
-    expect(toggle).toBeNull()
   })
 
   test('GIF without x-oss-process gets format,jpg added', () => {
@@ -254,6 +97,95 @@ describe('processMedia', () => {
     const img = dom.document.querySelector('img.thread-img') as unknown as HTMLImageElement
     expect(img.dataset.gmHupuGifSrcset).toBe(`${gifSrc} 2x`)
     expect(img.getAttribute('srcset')).toBeNull()
+  })
+
+  test('re-running processMedia does not re-process GIF images', () => {
+    const gifSrc = gifUrl('?x-oss-process=image/resize,w_800/format,webp')
+    const html = replyHtml(wrapImageHtml(gifSrc))
+    dom.document.body.insertAdjacentHTML('beforeend', html)
+
+    processMedia(dom.document.body as unknown as ParentNode)
+    processMedia(dom.document.body as unknown as ParentNode)
+
+    const img = dom.document.querySelector('img.thread-img') as unknown as HTMLImageElement
+    // src should still be the preview URL (not re-swapped)
+    expect(decodeURIComponent(img.src)).toContain('format,jpg')
+    // No play button elements from old implementation
+    expect(dom.document.querySelector('.gm-hupu-gif-play')).toBeNull()
+  })
+
+  test('GIF image does not get a play button (removed in favor of popup viewer)', () => {
+    const gifSrc = gifUrl('?x-oss-process=image/resize,w_800/format,webp')
+    const html = replyHtml(wrapImageHtml(gifSrc))
+    dom.document.body.insertAdjacentHTML('beforeend', html)
+
+    processMedia(dom.document.body as unknown as ParentNode)
+
+    expect(dom.document.querySelector('.gm-hupu-gif-play')).toBeNull()
+    expect(dom.document.querySelector('.gm-hupu-gif')).toBeNull()
+  })
+})
+
+describe('processMedia — GIF badge', () => {
+  let dom: ReturnType<typeof createDom>
+
+  beforeEach(() => {
+    dom = createDom(`<!doctype html><html><head></head><body></body></html>`, BASE_URL)
+  })
+
+  test('GIF image wrapper gets gm-hupu-gif-thumb class for badge display', () => {
+    const gifSrc = gifUrl('?x-oss-process=image/resize,w_800/format,webp')
+    const html = replyHtml(wrapImageHtml(gifSrc))
+    dom.document.body.insertAdjacentHTML('beforeend', html)
+
+    processMedia(dom.document.body as unknown as ParentNode)
+
+    const wrapper = dom.document.querySelector('.lazyload-wrapper')
+    expect(wrapper?.classList.contains('gm-hupu-gif-thumb')).toBe(true)
+  })
+
+  test('non-GIF image wrapper does not get gm-hupu-gif-thumb class', () => {
+    const imgSrc =
+      'https://i3.hoopchina.com.cn/test_w_1440_h_3120.jpg?x-oss-process=image/resize,w_800/format,webp'
+    const html = replyHtml(wrapImageHtml(imgSrc))
+    dom.document.body.insertAdjacentHTML('beforeend', html)
+
+    processMedia(dom.document.body as unknown as ParentNode)
+
+    const wrapper = dom.document.querySelector('.lazyload-wrapper')
+    expect(wrapper?.classList.contains('gm-hupu-gif-thumb')).toBe(false)
+  })
+
+  test('multiple GIF images all get badge class on their wrappers', () => {
+    const gifSrc = gifUrl('?x-oss-process=image/resize,w_800/format,webp')
+    const html = replyHtml(
+      [wrapImageHtml(gifSrc), wrapImageHtml(gifSrc), wrapImageHtml(gifSrc)].join('\n'),
+    )
+    dom.document.body.insertAdjacentHTML('beforeend', html)
+
+    processMedia(dom.document.body as unknown as ParentNode)
+
+    const wrappers = dom.document.querySelectorAll('.lazyload-wrapper')
+    expect(wrappers.length).toBe(3)
+    wrappers.forEach((w) => {
+      expect(w.classList.contains('gm-hupu-gif-thumb')).toBe(true)
+    })
+  })
+
+  test('GIF image without lazyload-wrapper gets badge class on parent element', () => {
+    const gifSrc = gifUrl()
+    const html = replyHtml(`
+      <p class="image-wrapper">
+        <img src="${gifSrc}" class="thread-img">
+      </p>
+    `)
+    dom.document.body.insertAdjacentHTML('beforeend', html)
+
+    processMedia(dom.document.body as unknown as ParentNode)
+
+    const img = dom.document.querySelector('img.thread-img') as unknown as HTMLImageElement
+    const wrapper = img.parentElement
+    expect(wrapper?.classList.contains('gm-hupu-gif-thumb')).toBe(true)
   })
 })
 

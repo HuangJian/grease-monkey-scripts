@@ -1,6 +1,5 @@
 const GIF_PROCESSED_ATTR = 'data-gm-hupu-gif-processed'
-const IMAGE_GROUP_PROCESSED_ATTR = 'data-gm-hupu-image-group-processed'
-const MIN_IMAGES_FOR_GROUP = 3
+const GIF_THUMB_CLASS = 'gm-hupu-gif-thumb'
 
 type GifUrls = {
   animatedUrl: string
@@ -73,15 +72,12 @@ function deriveGifUrls(src: string): GifUrls | null {
   }
 }
 
-function findImageWrapper(img: Element): Element | null {
-  return (
-    img.closest('.lazyload-wrapper') ??
-    img.closest('.img-wrapper-embedded') ??
-    img.closest('.image-wrapper') ??
-    img.parentElement
-  )
-}
-
+/**
+ * Replace GIF src with a static JPG preview so the thumbnail is lightweight.
+ * The original animated URL is stored in `data-gm-hupu-gif-src` for the
+ * popup viewer to use. A `gm-hupu-gif-thumb` class is added to the image's
+ * wrapper so CSS can show a "GIF" badge indicating click-to-play.
+ */
 function processGif(img: HTMLImageElement): void {
   if (img.getAttribute(GIF_PROCESSED_ATTR)) return
 
@@ -102,206 +98,22 @@ function processGif(img: HTMLImageElement): void {
 
   img.src = urls.previewUrl
 
-  const imageWrapper = img.closest('.image-wrapper')
-  const wrapper = findImageWrapper(img)
-  if (!wrapper) return
-
-  if (imageWrapper) imageWrapper.classList.add('gm-hupu-media')
-  wrapper.classList.add('gm-hupu-gif')
-  wrapper.setAttribute(
-    'style',
-    (wrapper.getAttribute('style') || '') + '; position: relative; display: inline-block;',
-  )
-
-  const playBtn = wrapper.ownerDocument.createElement('span')
-  playBtn.className = 'gm-hupu-gif-play'
-  playBtn.setAttribute('role', 'button')
-  playBtn.setAttribute('tabindex', '0')
-  playBtn.textContent = '▶'
-
-  let playing = false
-  let replayCounter = 0
-  let stopTimer: ReturnType<typeof setTimeout> | null = null
-
-  function stopGif(): void {
-    const previewSrc = img.dataset.gmHupuGifPreviewSrc
-    if (!previewSrc) return
-    img.src = previewSrc
-    wrapper!.classList.remove('gm-hupu-gif-playing')
-    playBtn.textContent = '▶'
-    playing = false
-    if (stopTimer !== null) {
-      clearTimeout(stopTimer)
-      stopTimer = null
-    }
-  }
-
-  function parseGifDuration(url: string): Promise<number> {
-    let rawUrl = url
-    try {
-      const u = new URL(url)
-      u.searchParams.delete('x-oss-process')
-      rawUrl = u.href
-    } catch {
-      /* use original url */
-    }
-    return fetch(rawUrl)
-      .then((r) => r.arrayBuffer())
-      .then((buf) => {
-        const b = new Uint8Array(buf)
-        // validate GIF header
-        if (b[0] !== 0x47 || b[1] !== 0x49 || b[2] !== 0x46) return 5000
-
-        let pos = 6 // skip "GIF87a" / "GIF89a"
-        // logical screen descriptor: 7 bytes
-        const packed = b[10]
-        const hasGct = (packed & 0x80) !== 0
-        const gctEntries = hasGct ? 3 * (1 << ((packed & 0x07) + 1)) : 0
-        pos += 7 + gctEntries
-
-        let duration = 0
-        while (pos < b.length - 1) {
-          const intro = b[pos]
-
-          if (intro === 0x3b) {
-            // trailer — end of GIF
-            break
-          }
-
-          if (intro === 0x21) {
-            // extension
-            const label = b[pos + 1]
-            if (label === 0xf9) {
-              // graphic control extension
-              // block: 0x21, 0xf9, block_size(4), packed(1), delay_le(2), trans(1), term(0)
-              const delay = ((b[pos + 5] << 8) | b[pos + 4]) * 10 // centiseconds → ms
-              if (delay > 0) duration += delay
-            }
-            // skip extension: intro(1) + label(1) + sub-blocks
-            pos += 2
-            while (pos < b.length && b[pos] !== 0) {
-              pos += b[pos] + 1
-            }
-            pos++ // block terminator (0x00)
-            continue
-          }
-
-          if (intro === 0x2c) {
-            // image descriptor: 10 bytes (including the intro byte)
-            pos += 10
-            if (pos < b.length) {
-              const imgPacked = b[pos - 1]
-              const hasLct = (imgPacked & 0x80) !== 0
-              const lctEntries = hasLct ? 3 * (1 << ((imgPacked & 0x07) + 1)) : 0
-              pos += lctEntries
-            }
-            // lzw minimum code size
-            if (pos < b.length) pos++
-            // skip image data sub-blocks
-            while (pos < b.length && b[pos] !== 0) {
-              pos += b[pos] + 1
-            }
-            pos++ // block terminator
-            continue
-          }
-
-          // unknown block, skip one byte
-          pos++
-        }
-        return duration || 5000
-      })
-      .catch(() => 5000)
-  }
-
-  playBtn.addEventListener('click', () => {
-    if (playing) {
-      stopGif()
-      return
-    }
-
-    const animatedUrl = img.dataset.gmHupuGifSrc
-    if (!animatedUrl) return
-    replayCounter++
-    let rawAnimatedUrl = animatedUrl
-    try {
-      const u = new URL(animatedUrl)
-      u.searchParams.delete('x-oss-process')
-      rawAnimatedUrl = u.href
-    } catch {
-      /* use original */
-    }
-    const replayUrl =
-      rawAnimatedUrl +
-      (rawAnimatedUrl.includes('?') ? '&' : '?') +
-      'gmReplay=' +
-      Date.now() +
-      '_' +
-      replayCounter
-    img.src = replayUrl
-    wrapper.classList.add('gm-hupu-gif-playing')
-    playBtn.textContent = '⏸'
-    playing = true
-
-    parseGifDuration(rawAnimatedUrl).then((ms) => {
-      if (!playing) return
-      stopTimer = setTimeout(stopGif, ms)
-    })
-  })
-
-  wrapper.appendChild(playBtn)
-}
-
-function processImageGroup(container: Element): void {
-  if (container.getAttribute(IMAGE_GROUP_PROCESSED_ATTR)) return
-
-  const imageWrappers = container.querySelectorAll(':scope > .image-wrapper')
-  if (imageWrappers.length < MIN_IMAGES_FOR_GROUP) return
-
-  container.setAttribute(IMAGE_GROUP_PROCESSED_ATTR, 'true')
-  container.classList.add('gm-hupu-media')
-
-  const hiddenCount = imageWrappers.length - 1
-
-  const toggle = container.ownerDocument.createElement('span')
-  toggle.className = 'gm-hupu-image-group-toggle'
-  toggle.setAttribute('role', 'button')
-  toggle.setAttribute('tabindex', '0')
-  toggle.textContent = '折叠图片'
-
-  const placeholder = container.ownerDocument.createElement('span')
-  placeholder.className = 'gm-hupu-image-group-placeholder'
-  placeholder.textContent = `已折叠 ${hiddenCount} 张图片`
-  placeholder.style.display = 'none'
-
-  let collapsed = false
-
-  toggle.addEventListener('click', () => {
-    collapsed = !collapsed
-    if (collapsed) {
-      container.classList.add('gm-hupu-image-group-collapsed')
-      toggle.textContent = '展开图片'
-      placeholder.style.display = ''
-      for (let i = 1; i < imageWrappers.length; i++) {
-        imageWrappers[i].classList.add('gm-hupu-image-hidden')
-      }
-    } else {
-      container.classList.remove('gm-hupu-image-group-collapsed')
-      toggle.textContent = '折叠图片'
-      placeholder.remove()
-      for (let i = 1; i < imageWrappers.length; i++) {
-        imageWrappers[i].classList.remove('gm-hupu-image-hidden')
-      }
-    }
-  })
-
-  container.prepend(placeholder)
-  container.prepend(toggle)
+  // Mark wrapper for GIF badge — prefer .lazyload-wrapper (stable across
+  // lazy-load src swaps), fall back to immediate parent.
+  const wrapper = img.closest('.lazyload-wrapper') || img.parentElement
+  wrapper?.classList.add(GIF_THUMB_CLASS)
 }
 
 function isThreadImg(el: Element): el is HTMLImageElement {
   return el.tagName === 'IMG' && el.classList.contains('thread-img')
 }
 
+/**
+ * Process media in the given scope: convert GIF images to static previews
+ * with click-to-play badges. Thumbnail sizing and inline layout are handled
+ * entirely by CSS (targeting `img.thread-img`, `.image-wrapper`,
+ * `.slate-image`) so they apply immediately regardless of lazy-load timing.
+ */
 export function processMedia(root: ParentNode): void {
   if (!root) return
 
@@ -316,11 +128,5 @@ export function processMedia(root: ParentNode): void {
 
   if (root instanceof Element && isThreadImg(root)) {
     processGif(root)
-  }
-
-  const contentContainers = scope.querySelectorAll('.post-reply-list-content')
-  for (const container of contentContainers) {
-    if (container.getAttribute(IMAGE_GROUP_PROCESSED_ATTR)) continue
-    processImageGroup(container)
   }
 }

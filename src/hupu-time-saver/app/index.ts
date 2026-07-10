@@ -8,6 +8,7 @@ import {
   removeTag,
   HUPU_AUTHOR_TAGS_LS_KEY,
 } from '../../shared/author-labels'
+import { setupImageViewer } from '../../shared/image-viewer'
 import type { QuickLabels } from '../../shared/tag-panel'
 import { htmlToDocument } from '../../utils'
 import { buildPageUrl, extractNextData, parseNextData, parseReplyList } from '../selectors'
@@ -37,6 +38,7 @@ export async function createHupuApp(runtime: Runtime): Promise<HupuApp> {
   const authorTagMap = await loadAuthorTagMap(runtime)
   const euidToPuidMap = new Map<string, string>()
   let disconnectObserver: (() => void) | null = null
+  let teardownImageViewer: (() => void) | null = null
 
   function persist(): void {
     void runtime.setValue(STORAGE_KEY, authorTagMap)
@@ -68,6 +70,10 @@ export async function createHupuApp(runtime: Runtime): Promise<HupuApp> {
   }
 
   function start(): void {
+    teardownImageViewer = setupImageViewer(runtime, {
+      shouldInterceptImage: (img) => img.classList.contains('thread-img'),
+      resolveImageUrl: (img) => img.dataset.gmHupuGifSrc || img.currentSrc || img.src,
+    })
     disconnectObserver = setupObserver(
       runtime,
       authorTagMap,
@@ -138,7 +144,10 @@ export async function createHupuApp(runtime: Runtime): Promise<HupuApp> {
 
   return {
     start,
-    stop: () => disconnectObserver?.(),
+    stop: () => {
+      disconnectObserver?.()
+      teardownImageViewer?.()
+    },
     tagAuthor,
     setTag,
     unsetTag,
