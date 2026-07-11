@@ -24,7 +24,7 @@ export function createNovelsSource(
         root={root}
         runtime={runtime}
         onMarkSeen={(bookUrl) => {
-          void markSeen(runtime, bookUrl, data)
+          void markSeen(runtime, bookUrl)
         }}
       />
     ),
@@ -38,6 +38,12 @@ export function createNovelsSource(
         initialNewChapters: options.initialNewChapters,
         maxLatestWindow: options.maxLatestWindow,
       })
+      // Pick up lastSeenChapterUrl updates that markSeen may have written
+      // to the cache while the fetch was in flight. Without this, a
+      // refreshSource save would overwrite markSeen's update with the
+      // stale prevData value, causing already-seen chapters to reappear
+      // as "new" on the next render.
+      await mergeLatestSeen(runtimeArg, books)
       void persistFetchedTitles(runtimeArg, entries, books)
       return { books }
     },
@@ -117,18 +123,42 @@ async function loadCachedTitleMap(runtime: Runtime): Promise<Map<string, string>
   return map
 }
 
-async function markSeen(runtime: Runtime, bookUrl: string, data: NovelData | null): Promise<void> {
-  if (!data?.books) return
-  const current = data.books.find((b) => b.url === bookUrl)
+/**
+ * Read-modify-write: updates only lastSeenChapterUrl for the given book,
+ * preserving fetchedAt and the rest of the cache. Reads from the live cache
+ * (not stale component-closure data) to avoid clobbering a concurrent fetch.
+ */
+export async function markSeen(runtime: Runtime, bookUrl: string): Promise<void> {
+  const cached = await loadCache<NovelData>(runtime, 'novels')
+  if (!cached?.data?.books) return
+  const current = cached.data.books.find((b) => b.url === bookUrl)
   if (!current) return
   const newSeen = current.latestChapters[0]?.url
   if (!newSeen || newSeen === current.lastSeenChapterUrl) return
-  const books = data.books.map((b) =>
+  const books = cached.data.books.map((b) =>
     b.url === bookUrl ? { ...b, lastSeenChapterUrl: newSeen } : b,
   )
   await saveCache(runtime, 'novels', {
     data: { books },
-    fetchedAt: Date.now(),
-    error: '',
+    fetchedAt: cached.fetchedAt,
+    error: cached.error,
   })
+}
+
+/**
+ * Merges lastSeenChapterUrl values from the live cache into freshly fetched
+ * books. This prevents a race condition where markSeen writes a new
+ * lastSeenChapterUrl during a fetch, but refreshSource overwrites it with
+ * the stale prevData value when saving the fetch result.
+ */
+async function mergeLatestSeen(runtime: Runtime, books: NovelBook[]): Promise<void> {
+  const cached = await loadCache<NovelData>(runtime, 'novels')
+  if (!cached?.data?.books) return
+  const seenByUrl = new Map(cached.data.books.map((b) => [b.url, b.lastSeenChapterUrl]))
+  for (const book of books) {
+    const seen = seenByUrl.get(book.url)
+    if (seen && seen !== book.lastSeenChapterUrl) {
+      book.lastSeenChapterUrl = seen
+    }
+  }
 }

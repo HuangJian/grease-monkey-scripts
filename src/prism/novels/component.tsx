@@ -1,6 +1,5 @@
 import { useState } from 'preact/hooks'
 import { escapeHtml, escapeUrl } from '../../utils'
-import type { Runtime } from '../../runtime'
 import type { SourceComponentProps } from '../types'
 import { newChapters } from './state'
 import type { NovelBook, NovelChapter, NovelData } from './types'
@@ -12,7 +11,7 @@ export type NovelsComponentProps = SourceComponentProps<NovelData> & {
   onMarkSeen: (bookUrl: string) => void
 }
 
-export function NovelsComponent({ data, runtime, onMarkSeen }: NovelsComponentProps) {
+export function NovelsComponent({ data, onMarkSeen }: NovelsComponentProps) {
   const books = data?.books ?? []
 
   if (books.length === 0) {
@@ -34,7 +33,7 @@ export function NovelsComponent({ data, runtime, onMarkSeen }: NovelsComponentPr
   return (
     <div class="gm-sp-novels">
       {sorted.map((book) => (
-        <BookBlock key={book.url} book={book} runtime={runtime} onMarkSeen={onMarkSeen} />
+        <BookBlock key={book.url} book={book} onMarkSeen={onMarkSeen} />
       ))}
     </div>
   )
@@ -42,11 +41,9 @@ export function NovelsComponent({ data, runtime, onMarkSeen }: NovelsComponentPr
 
 function BookBlock({
   book,
-  runtime,
   onMarkSeen,
 }: {
   book: NovelBook
-  runtime: Runtime
   onMarkSeen: (bookUrl: string) => void
 }) {
   const titleText = escapeHtml(book.title || book.url)
@@ -111,7 +108,7 @@ function BookBlock({
         <span class="gm-sp-novels-book-status">{statusText}</span>
       </div>
       {errorNoteEl}
-      <ChapterList chapters={unread} runtime={runtime} onMarkSeen={() => onMarkSeen(book.url)} />
+      <ChapterList chapters={unread} onMarkSeen={() => onMarkSeen(book.url)} />
     </div>
   )
 }
@@ -131,11 +128,9 @@ function BookTitleLink({ url, titleText }: { url: string; titleText: string }) {
 
 function ChapterList({
   chapters,
-  runtime,
   onMarkSeen,
 }: {
   chapters: NovelChapter[]
-  runtime: Runtime
   onMarkSeen: () => void
 }) {
   const folded = chapters.length > FOLD_THRESHOLD
@@ -148,7 +143,7 @@ function ChapterList({
     <>
       <ul class={`gm-sp-list gm-sp-list-col${isFolded ? ' gm-sp-novels-chapters-folded' : ''}`}>
         {displayChapters.map((ch) => (
-          <ChapterItem key={ch.url} chapter={ch} runtime={runtime} onMarkSeen={onMarkSeen} />
+          <ChapterItem key={ch.url} chapter={ch} onMarkSeen={onMarkSeen} />
         ))}
       </ul>
       {chapters.length > FOLD_THRESHOLD && (
@@ -164,15 +159,7 @@ function ChapterList({
   )
 }
 
-function ChapterItem({
-  chapter,
-  runtime,
-  onMarkSeen,
-}: {
-  chapter: NovelChapter
-  runtime: Runtime
-  onMarkSeen: () => void
-}) {
+function ChapterItem({ chapter, onMarkSeen }: { chapter: NovelChapter; onMarkSeen: () => void }) {
   const timeText = chapter.postedAt > 0 ? formatPostedAt(chapter.postedAt) : FALLBACK_DATE_LABEL
   const href = escapeUrl(chapter.url)
   return (
@@ -182,12 +169,7 @@ function ChapterItem({
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={(e) => {
-          e.preventDefault()
-          // openTab bypasses sudugu.org v7.js ad script that intercepts <a> click events
-          runtime.openTab(href)
-          onMarkSeen()
-        }}
+        onClick={() => onMarkSeen()}
       >
         <span class="gm-sp-novels-chapter-time">{escapeHtml(timeText)}</span>
         <span class="gm-sp-novels-chapter-title">{escapeHtml(chapter.title)}</span>
