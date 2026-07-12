@@ -41,3 +41,6 @@ export const AQI_LEVELS: Array<{ max: number; level: AqiLevel }> = [
 ]
 
 export const FORECAST_DAYS = 4
+
+/** If CMA fetch fails but previous CMA data is younger than this, retain it. */
+export const CMA_RETENTION_MS = 6 * 60 * 60 * 1000

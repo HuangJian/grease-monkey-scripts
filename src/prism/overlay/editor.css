@@ -64,7 +64,7 @@
 
 .gm-sp-editor-item {
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: auto auto 1fr auto auto auto;
   align-items: center;
   gap: 8px 10px;
   font-size: 13px;
@@ -104,7 +104,6 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px 16px;
-  border-top: 1px solid var(--gm-sp-color-border);
   padding-top: 12px;
 }
 
@@ -119,6 +118,14 @@
 
 .gm-sp-editor-row input[type='number'] {
   max-width: 80px;
+}
+
+.gm-sp-editor-row-span2 {
+  grid-column: 1 / -1;
+}
+
+.gm-sp-weather-editor-form .gm-sp-editor-row input[type='number'] {
+  max-width: none;
 }
 
 .gm-sp-editor-form-no-border {

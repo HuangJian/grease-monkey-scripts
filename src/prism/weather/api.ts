@@ -236,6 +236,9 @@ async function fetchCmaCity(runtime: Runtime, city: WeatherCity): Promise<Weathe
 
   data.cmaUrl = cmaUrl
   data.cmaFailed = !cmaPageOk || !cmaNowOk
+  if (!data.cmaFailed) {
+    data.cmaFetchedAt = Date.now()
+  }
 
   console.debug(
     '[gm-dashboard] cma.fetchCmaCity: merged current.source',

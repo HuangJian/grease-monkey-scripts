@@ -35,6 +35,7 @@ type WeatherEditorFormProps = {
 
 function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
   const [cities, setCities] = useState<WeatherCity[]>(() => fresh.cities.map((c) => ({ ...c })))
+  const [ttlMinutes, setTtlMinutes] = useState(fresh.ttlMinutes)
   const [error, setError] = useState('')
   const labelRef = useRef<HTMLInputElement>(null)
   const cmaRef = useRef<HTMLInputElement>(null)
@@ -81,6 +82,24 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
     setCities((prev) => prev.filter((_, j) => j !== i))
   }, [])
 
+  const moveCityUp = useCallback((i: number) => {
+    if (i <= 0) return
+    setCities((prev) => {
+      const next = [...prev]
+      ;[next[i - 1], next[i]] = [next[i]!, next[i - 1]!]
+      return next
+    })
+  }, [])
+
+  const moveCityDown = useCallback((i: number) => {
+    setCities((prev) => {
+      if (i >= prev.length - 1) return prev
+      const next = [...prev]
+      ;[next[i], next[i + 1]] = [next[i + 1]!, next[i]!]
+      return next
+    })
+  }, [])
+
   useLayoutEffect(() => {
     handleRef.current = {
       render() {},
@@ -93,7 +112,7 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
         void saveConfigSection({
           runtime: ctx.runtime,
           sectionKey: 'weather',
-          section: { cities, ttlMinutes: fresh.ttlMinutes } satisfies WeatherSourceOptions,
+          section: { cities, ttlMinutes } satisfies WeatherSourceOptions,
           validate: validateConfig,
           onError: (msg) => setError(msg),
           onSuccess: () => {
@@ -106,21 +125,42 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
         ctx.close()
       },
     }
-  }, [cities])
+  }, [cities, ttlMinutes])
 
   return (
     <div class="gm-sp-editor">
+      <div class="gm-sp-editor-error" hidden={!error}>
+        {error}
+      </div>
       <div class="gm-sp-editor-list">
         {cities.length === 0 ? (
           <div class="gm-sp-editor-empty">尚未添加城市</div>
         ) : (
           cities.map((city, i) => (
             <div class="gm-sp-editor-item" key={i}>
+              <button
+                type="button"
+                class="gm-sp-editor-chip-move"
+                aria-label="move up"
+                disabled={i === 0}
+                onClick={() => moveCityUp(i)}
+              >
+                ▲
+              </button>
+              <button
+                type="button"
+                class="gm-sp-editor-chip-move"
+                aria-label="move down"
+                disabled={i === cities.length - 1}
+                onClick={() => moveCityDown(i)}
+              >
+                ▼
+              </button>
               <span class="gm-sp-editor-item-label">{escapeHtml(city.cityLabel)}</span>
               <span>
                 {city.latitude.toFixed(4)}, {city.longitude.toFixed(4)}
               </span>
-              {city.cmaStationId && <span>CMA {escapeHtml(city.cmaStationId)}</span>}
+              <span>{city.cmaStationId ? `CMA ${city.cmaStationId}` : ''}</span>
               <button
                 type="button"
                 class="gm-sp-item-remove"
@@ -133,7 +173,7 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
           ))
         )}
       </div>
-      <div class="gm-sp-editor-form">
+      <div class="gm-sp-editor-form gm-sp-weather-editor-form">
         <label class="gm-sp-editor-row">
           <span>城市名</span>
           <input
@@ -186,9 +226,17 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
         >
           添加城市
         </button>
-      </div>
-      <div class="gm-sp-editor-error" hidden={!error}>
-        {error}
+        <hr class="gm-sp-editor-row-span2" style="width: 100%" />
+        <label class="gm-sp-editor-row gm-sp-editor-row-span2">
+          <span>刷新周期（分钟）</span>
+          <input
+            type="number"
+            class="gm-sp-input"
+            min="1"
+            value={ttlMinutes}
+            onInput={(e) => setTtlMinutes(Number((e.target as HTMLInputElement).value))}
+          />
+        </label>
       </div>
     </div>
   )
