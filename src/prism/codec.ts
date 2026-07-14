@@ -194,6 +194,10 @@ function expandTnews(v: Record<string, unknown>): Record<string, unknown> {
 // Novels
 function compressNovelChapter(v: Record<string, unknown>): Record<string, unknown> {
   if (isShortItem(v)) return v
+  // Gap marker: only store omittedCount
+  if (typeof v.omittedCount === 'number' && v.omittedCount > 0) {
+    return { oc: v.omittedCount }
+  }
   const out: Record<string, unknown> = { u: v.url ?? v.u, t: v.title ?? v.t }
   if (typeof v.postedAt === 'number' && v.postedAt > 0) out.pa = compressTimestamp(v.postedAt)
   return out
@@ -201,6 +205,10 @@ function compressNovelChapter(v: Record<string, unknown>): Record<string, unknow
 
 function expandNovelChapter(v: Record<string, unknown>): Record<string, unknown> {
   if (v.url !== undefined) return v
+  // Gap marker
+  if (typeof v.oc === 'number') {
+    return { url: '', title: '', postedAt: 0, omittedCount: v.oc }
+  }
   const out: Record<string, unknown> = {
     url: v.u ?? '',
     title: v.t ?? '',

@@ -59,20 +59,11 @@ function extractTitleFromH1(h1: Element): string | null {
   return text || null
 }
 
-function parseHome(
-  html: string,
+function parseLatestThree(
+  itemTxt: Element | null | undefined,
   pageUrl: string,
-  domParser: DOMParser,
-  now: number = Date.now(),
-): ParsedHome {
-  if (!html) {
-    return { title: null, latestThree: [], lastPageNumber: 1 }
-  }
-  const doc = htmlToDocument(html, domParser)
-  const itemTxt = doc.querySelector('.itemtxt')
-  const h1 = itemTxt?.querySelector('h1') ?? null
-  const title = h1 ? extractTitleFromH1(h1) : null
-
+  now: number,
+): NovelChapter[] {
   const latestThree: NovelChapter[] = []
   const liNodes = itemTxt?.querySelectorAll(':scope > ul > li') ?? []
   liNodes.forEach((li) => {
@@ -87,9 +78,57 @@ function parseHome(
     const postedAt = labelText ? (parseChapterLabel(labelText, now) ?? 0) : 0
     latestThree.push({ url, title: chapterTitle, postedAt })
   })
+  return latestThree
+}
 
+function overlayTimestamps(chapters: NovelChapter[], latestThree: NovelChapter[]): void {
+  const labelByUrl = new Map<string, number>()
+  for (const c of latestThree) {
+    if (c.postedAt > 0) labelByUrl.set(c.url, c.postedAt)
+  }
+  for (let i = 0; i < chapters.length; i++) {
+    const pa = labelByUrl.get(chapters[i]!.url)
+    if (pa !== undefined) chapters[i] = { ...chapters[i]!, postedAt: pa }
+  }
+}
+
+function parseHome(
+  html: string,
+  pageUrl: string,
+  domParser: DOMParser,
+  now: number = Date.now(),
+): ParsedHome {
+  if (!html) {
+    return { title: null, latestThree: [], homeChapters: [], lastPageNumber: 1 }
+  }
+  const doc = htmlToDocument(html, domParser)
+  const itemTxt = doc.querySelector('.itemtxt')
+  const h1 = itemTxt?.querySelector('h1') ?? null
+  const title = h1 ? extractTitleFromH1(h1) : null
+
+  const latestThree = parseLatestThree(itemTxt, pageUrl, now)
   const lastPageNumber = parseLastPageNumber(doc)
-  return { title, latestThree, lastPageNumber }
+
+  // Check if the full chapter list (#list) is available on the home page
+  const list = doc.querySelector('#list')
+  const listAnchors = list?.querySelectorAll('ul li a[href]')
+
+  if (listAnchors && listAnchors.length > 0) {
+    const chapters: NovelChapter[] = []
+    listAnchors.forEach((anchor) => {
+      const href = anchor.getAttribute('href') ?? ''
+      const url = toAbsoluteUrl(href, pageUrl)
+      const chapterTitle = (anchor.textContent ?? '').trim()
+      if (!url || !chapterTitle) return
+      chapters.push({ url, title: chapterTitle, postedAt: 0 })
+    })
+    // Reverse to newest-first order (sudugu's #list is oldest-first)
+    const homeChapters = chapters.reverse()
+    overlayTimestamps(homeChapters, latestThree)
+    return { title, latestThree, homeChapters, lastPageNumber }
+  }
+
+  return { title, latestThree, homeChapters: [], lastPageNumber }
 }
 
 function parseLastPageNumber(doc: Document): number {
@@ -123,7 +162,9 @@ function parseChapterList(html: string, pageUrl: string, domParser: DOMParser): 
 
 function buildTailUrl(homeUrl: string, pageNumber: number): string {
   if (pageNumber <= 1) return homeUrl
-  return toAbsoluteUrl(`p-${pageNumber}.html`, homeUrl)
+  // Ensure base ends with '/' so p-N.html resolves within the book directory
+  const base = homeUrl.endsWith('/') ? homeUrl : `${homeUrl}/`
+  return toAbsoluteUrl(`p-${pageNumber}.html`, base)
 }
 
 export const suduguAdapter: NovelAdapter = {

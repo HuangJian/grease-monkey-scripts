@@ -137,6 +137,19 @@
   display: none;
 }
 
+.gm-sp-novels-chapter-gap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 4px;
+}
+
+.gm-sp-novels-chapter-gap-text {
+  font-size: 10px;
+  color: var(--gm-sp-color-text-muted);
+  font-style: italic;
+}
+
 .gm-sp-novels-book-toggle {
   cursor: pointer;
   align-self: center;

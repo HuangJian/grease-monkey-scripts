@@ -2,7 +2,10 @@ import type { NovelChapter } from '../types'
 
 export type ParsedHome = {
   title: string | null
+  /** Latest 3 chapters with timestamps from itemtxt (for overlay). */
   latestThree: NovelChapter[]
+  /** All chapters from #list on the home page (newest-first), empty if no #list. */
+  homeChapters: NovelChapter[]
   lastPageNumber: number
 }
 

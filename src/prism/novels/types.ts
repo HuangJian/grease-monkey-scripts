@@ -7,6 +7,8 @@ export type NovelChapter = {
   url: string
   title: string
   postedAt: number
+  /** Gap marker: number of omitted chapters between the surrounding entries. */
+  omittedCount?: number
 }
 
 export type NovelBook = {

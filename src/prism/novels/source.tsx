@@ -5,7 +5,7 @@ import { loadCache, saveCache } from '../cache'
 import { NovelsComponent } from './component'
 import { createNovelsEditor } from './editor/form'
 import { fetchNovels } from './fetcher'
-import { newChapters } from './state'
+import { newChapterCount } from './state'
 import type { NovelBook, NovelData, NovelEntry, NovelSourceOptions } from './types'
 
 export function createNovelsSource(
@@ -65,7 +65,7 @@ export function createNovelsSource(
 
 export function novelsTabLabel(data: NovelData | null): TabLabel {
   const books = (data?.books ?? []) as NovelBook[]
-  const updated = books.filter((b) => newChapters(b).length > 0).length
+  const updated = books.filter((b) => newChapterCount(b) > 0).length
   return { label: '网文更新', badge: updated > 0 ? updated : null }
 }
 
@@ -133,7 +133,7 @@ export async function markSeen(runtime: Runtime, bookUrl: string): Promise<void>
   if (!cached?.data?.books) return
   const current = cached.data.books.find((b) => b.url === bookUrl)
   if (!current) return
-  const newSeen = current.latestChapters[0]?.url
+  const newSeen = current.latestChapters.find((c) => !c.omittedCount)?.url
   if (!newSeen || newSeen === current.lastSeenChapterUrl) return
   const books = cached.data.books.map((b) =>
     b.url === bookUrl ? { ...b, lastSeenChapterUrl: newSeen } : b,

@@ -72,20 +72,25 @@ describe('suduguAdapter.parseHome', () => {
     )
     expect(title).toBe('九龙夺嫡，我真不想当太子')
   })
-  test('extracts latest three chapters with absolute urls and labels', () => {
+  test('extracts home chapters with absolute urls and labels', () => {
     const html = loadFixture('sudugu-166.html')
-    const { latestThree } = suduguAdapter.parseHome(
+    const { latestThree, homeChapters } = suduguAdapter.parseHome(
       html,
       'https://www.sudugu.org/166/',
       new DOMParser(),
       NOW_2026_06_03,
     )
+    // latestThree has the 3 newest chapters from itemtxt
     expect(latestThree).toHaveLength(3)
     expect(latestThree[0]!.url).toBe('https://www.sudugu.org/166/3874094.html')
     expect(latestThree[0]!.title).toBe('第798章 请为太子加九锡')
     expect(latestThree[0]!.postedAt).toBeDefined()
     expect(latestThree[2]!.url).toBe('https://www.sudugu.org/166/3871335.html')
     expect(latestThree[2]!.title).toBe('第796章 父皇，你别无选择')
+    // homeChapters has all chapters from #list (newest-first)
+    expect(homeChapters.length).toBeGreaterThan(3)
+    expect(homeChapters[0]!.url).toBe(latestThree[0]!.url)
+    expect(homeChapters[0]!.postedAt).toBe(latestThree[0]!.postedAt)
   })
   test('detects lastPageNumber = 1 when no pagination exists', () => {
     const html = loadFixture('sudugu-166.html')
@@ -107,18 +112,32 @@ describe('suduguAdapter.parseHome', () => {
     )
     expect(lastPageNumber).toBe(2)
   })
-  test('extracts title and latest three for paginated book', () => {
+  test('extracts title and home chapters for paginated book', () => {
     const html = loadFixture('sudugu-12-home.html')
-    const { title, latestThree } = suduguAdapter.parseHome(
+    const { title, homeChapters } = suduguAdapter.parseHome(
       html,
       'https://www.sudugu.org/12/',
       new DOMParser(),
       NOW_2026_06_03,
     )
     expect(title).toBe('龙藏')
-    expect(latestThree).toHaveLength(3)
-    expect(latestThree[0]!.url).toBe('https://www.sudugu.org/12/3873955.html')
-    expect(latestThree[0]!.title).toBe('第1302章 敌人和朋友')
+    expect(homeChapters.length).toBeGreaterThan(3)
+    expect(homeChapters[0]!.title).toContain('章')
+  })
+  test('overlays postedAt from itemtxt onto home chapters', () => {
+    const html = loadFixture('sudugu-166.html')
+    const { homeChapters } = suduguAdapter.parseHome(
+      html,
+      'https://www.sudugu.org/166/',
+      new DOMParser(),
+      NOW_2026_06_03,
+    )
+    // First three chapters should have postedAt from itemtxt
+    expect(homeChapters[0]!.postedAt).toBeGreaterThan(0)
+    expect(homeChapters[1]!.postedAt).toBeGreaterThan(0)
+    expect(homeChapters[2]!.postedAt).toBeGreaterThan(0)
+    // Later chapters should have postedAt = 0 (no time info in #list)
+    expect(homeChapters[3]!.postedAt).toBe(0)
   })
   test('returns empty result for empty html', () => {
     const result = suduguAdapter.parseHome(
@@ -129,6 +148,7 @@ describe('suduguAdapter.parseHome', () => {
     )
     expect(result.title).toBeNull()
     expect(result.latestThree).toEqual([])
+    expect(result.homeChapters).toEqual([])
     expect(result.lastPageNumber).toBe(1)
   })
 })
@@ -166,6 +186,14 @@ describe('suduguAdapter.buildTailUrl', () => {
       'https://www.sudugu.org/12/p-2.html',
     )
     expect(suduguAdapter.buildTailUrl('https://www.sudugu.org/166/', 5)).toBe(
+      'https://www.sudugu.org/166/p-5.html',
+    )
+  })
+  test('bugfix: handles home url without trailing slash', () => {
+    expect(suduguAdapter.buildTailUrl('https://www.sudugu.org/12', 2)).toBe(
+      'https://www.sudugu.org/12/p-2.html',
+    )
+    expect(suduguAdapter.buildTailUrl('https://www.sudugu.org/166', 5)).toBe(
       'https://www.sudugu.org/166/p-5.html',
     )
   })

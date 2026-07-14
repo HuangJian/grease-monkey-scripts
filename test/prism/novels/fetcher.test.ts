@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { fetchNovels, mergeTail } from '../../../src/prism/novels/fetcher'
+import { collapseChapters, fetchNovels, mergeTail } from '../../../src/prism/novels/fetcher'
 import type { NovelAdapter } from '../../../src/prism/novels/adapters/types'
 import type { NovelBook, NovelChapter, NovelEntry } from '../../../src/prism/novels/types'
 import type { RequestDetails } from '../../../src/runtime'
@@ -125,7 +125,7 @@ describe('fetchNovels', () => {
     expect(books[0]!.lastSeenChapterUrl).toBe('')
   })
 
-  test('initialSeenUrl picks index N when more chapters than threshold', async () => {
+  test('new book sets lastSeenChapterUrl to empty (all chapters new)', async () => {
     const server = makeServer()
     server.setResponse(
       URL_12,
@@ -142,7 +142,8 @@ describe('fetchNovels', () => {
       initialNewChapters: 1,
       maxLatestWindow: 50,
     })
-    expect(books[0]!.lastSeenChapterUrl).toBe('https://www.sudugu.org/12/c2.html')
+    // New books have lastSeenChapterUrl = '' (all chapters are new)
+    expect(books[0]!.lastSeenChapterUrl).toBe('')
   })
 
   test('bugfix: initial fetch of multi-page book fetches tail and sets lastSeenChapterUrl', async () => {
@@ -186,14 +187,17 @@ describe('fetchNovels', () => {
       'https://www.sudugu.org/12/c6.html',
       'https://www.sudugu.org/12/c5.html',
     ])
-    // lastSeenChapterUrl should be set to chapters[3].url (the 4th chapter)
-    expect(books[0]!.lastSeenChapterUrl).toBe('https://www.sudugu.org/12/c7.html')
-    // newChapters should return 3 chapters
+    // New book: lastSeenChapterUrl = '' (all chapters are new)
+    expect(books[0]!.lastSeenChapterUrl).toBe('')
+    // newChapters should return all chapters
     const { newChapters } = await import('../../../src/prism/novels/state')
     expect(newChapters(books[0]!).map((c) => c.url)).toEqual([
       'https://www.sudugu.org/12/c10.html',
       'https://www.sudugu.org/12/c9.html',
       'https://www.sudugu.org/12/c8.html',
+      'https://www.sudugu.org/12/c7.html',
+      'https://www.sudugu.org/12/c6.html',
+      'https://www.sudugu.org/12/c5.html',
     ])
   })
 
@@ -297,7 +301,12 @@ describe('fetchNovels', () => {
     }
     const books = await fetchNovels(server.runtime, [{ url: URL_12 }], [prev])
     expect(server.hits).toEqual([URL_12])
-    expect(books[0]!.latestChapters).toHaveLength(3)
+    // Chapters are trimmed to newest..prevSeen: [c10, c9]
+    expect(books[0]!.latestChapters).toHaveLength(2)
+    expect(books[0]!.latestChapters.map((c) => c.url)).toEqual([
+      'https://www.sudugu.org/12/c10.html',
+      'https://www.sudugu.org/12/c9.html',
+    ])
   })
 
   test('unknown site returns siteId=unknown with error and preserves prev fields', async () => {
@@ -479,30 +488,63 @@ describe('fetchNovels', () => {
 describe('mergeTail', () => {
   test('reverses tail to newest-first and slices up to and including prevSeen', () => {
     const tail = [chapter('c1'), chapter('c2'), chapter('c3'), chapter('c4'), chapter('c5')]
-    const out = mergeTail(tail, [], 'c3', 50)
+    const out = mergeTail(tail, [], 'c3')
     expect(out.map((c) => c.url)).toEqual(['c5', 'c4', 'c3'])
   })
 
   test('returns full reversed tail when prevSeen is not present', () => {
     const tail = [chapter('c1'), chapter('c2'), chapter('c3')]
-    const out = mergeTail(tail, [], 'gone', 50)
+    const out = mergeTail(tail, [], 'gone')
     expect(out.map((c) => c.url)).toEqual(['c3', 'c2', 'c1'])
   })
 
   test('overlays postedAt from latestThree onto matching chapters', () => {
     const tail = [chapter('c1'), chapter('c2'), chapter('c3')]
     const latest = [chapter('c3', '3', 1000), chapter('c2', '2', 2000)]
-    const out = mergeTail(tail, latest, 'c1', 50)
+    const out = mergeTail(tail, latest, 'c1')
     const byUrl = new Map(out.map((c) => [c.url, c.postedAt]))
     expect(byUrl.get('c3')).toBe(1000)
     expect(byUrl.get('c2')).toBe(2000)
     expect(byUrl.get('c1')).toBe(0)
   })
+})
 
-  test('caps to maxWindow', () => {
-    const tail = Array.from({ length: 100 }, (_, i) => chapter(`c${i}`))
-    const out = mergeTail(tail, [], 'gone', 10)
-    expect(out).toHaveLength(10)
+describe('collapseChapters', () => {
+  test('does not collapse when <= 20 unread', () => {
+    const chapters = Array.from({ length: 20 }, (_, i) => chapter(`c${i}`))
+    const out = collapseChapters(chapters, '')
+    expect(out).toEqual(chapters)
+  })
+
+  test('collapses to earliest 10 + gap + latest 10 when > 20 unread', () => {
+    const chapters = Array.from({ length: 36 }, (_, i) => chapter(`c${i}`))
+    const out = collapseChapters(chapters, '')
+    // Should have: 10 latest + 1 gap + 10 earliest = 21
+    expect(out).toHaveLength(21)
+    // First 10 are latest chapters (c0..c9)
+    expect(out.slice(0, 10).map((c) => c.url)).toEqual(
+      Array.from({ length: 10 }, (_, i) => `c${i}`),
+    )
+    // Gap marker at index 10
+    expect(out[10]!.omittedCount).toBe(16)
+    // Last 10 are earliest chapters (c26..c35)
+    expect(out.slice(11).map((c) => c.url)).toEqual(
+      Array.from({ length: 10 }, (_, i) => `c${i + 26}`),
+    )
+  })
+
+  test('preserves seen chapter at the end', () => {
+    const chapters = Array.from({ length: 36 }, (_, i) => chapter(`c${i}`))
+    // Add seen chapter at the end
+    chapters.push(chapter('seen'))
+    const out = collapseChapters(chapters, 'seen')
+    // Should have: 10 latest + 1 gap + 10 earliest + 1 seen = 22
+    expect(out).toHaveLength(22)
+    expect(out[out.length - 1]!.url).toBe('seen')
+  })
+
+  test('does not collapse when no chapters', () => {
+    expect(collapseChapters([], '')).toEqual([])
   })
 })
 
@@ -515,6 +557,7 @@ function makeFakeAdapter(id: string, hostnames: string[]): NovelAdapter {
       return {
         title: titleMatch ? titleMatch[1]! : null,
         latestThree: [],
+        homeChapters: [],
         lastPageNumber: 1,
       }
     },

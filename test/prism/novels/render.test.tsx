@@ -128,8 +128,8 @@ describe('renderNovels', () => {
     expect(toggle.textContent).toBe('收起未读章节')
   })
 
-  test('book with 5 new chapters does not fold', () => {
-    const chapters = Array.from({ length: 5 }, (_, i) =>
+  test('book with 3 new chapters does not fold', () => {
+    const chapters = Array.from({ length: 3 }, (_, i) =>
       chapter(`https://www.sudugu.org/166/c${i}.html`, `第${i}章`, Date.now() - i * 1000),
     )
     const data: NovelData = {
@@ -144,10 +144,10 @@ describe('renderNovels', () => {
     }
     renderNovels(root, data, ctx())
     expect(within(root).queryByRole('button', { name: /章未读/ })).toBeNull()
-    expect(within(root).getAllByRole('listitem').length).toBe(5)
+    expect(within(root).getAllByRole('listitem').length).toBe(3)
   })
 
-  test('chapter without postedAt shows "刚刚更新"', () => {
+  test('chapter without postedAt shows "未知"', () => {
     const data: NovelData = {
       books: [
         book({
@@ -159,7 +159,7 @@ describe('renderNovels', () => {
       ],
     }
     renderNovels(root, data, ctx())
-    expect(within(root).getByText('刚刚更新')).not.toBeNull()
+    expect(within(root).getByText('未知')).not.toBeNull()
   })
 
   test('unknown site shows warning and is not clickable as chapter', () => {

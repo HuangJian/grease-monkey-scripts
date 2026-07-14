@@ -3,5 +3,7 @@ data/
 dist/
 tmp/
 output/
+.vscode/
+
 .DS_Store
 *.tsbuildinfo

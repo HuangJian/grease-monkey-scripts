@@ -1,9 +1,18 @@
 import { describe, expect, test } from 'bun:test'
-import { initialSeenUrl, isNewChapter, newChapters } from '../../../src/prism/novels/state'
+import {
+  initialSeenUrl,
+  isNewChapter,
+  newChapterCount,
+  newChapters,
+} from '../../../src/prism/novels/state'
 import type { NovelBook, NovelChapter } from '../../../src/prism/novels/types'
 
 function chapter(url: string, title = url): NovelChapter {
   return { url, title, postedAt: 0 }
+}
+
+function gap(count: number): NovelChapter {
+  return { url: '', title: '', postedAt: 0, omittedCount: count }
 }
 
 function book(over: Partial<NovelBook>): NovelBook {
@@ -102,6 +111,45 @@ describe('newChapters', () => {
       latestChapters: [chapter('c3'), chapter('c2'), chapter('c1')],
       lastSeenChapterUrl: 'c3',
     })
+    expect(newChapters(b)).toEqual([])
+  })
+})
+
+describe('newChapters with gap markers', () => {
+  test('gap marker before seen is included in newChapters', () => {
+    const b = book({
+      latestChapters: [chapter('c5'), gap(16), chapter('c26'), chapter('seen')],
+      lastSeenChapterUrl: 'seen',
+    })
+    expect(newChapters(b).map((c) => c.url)).toEqual(['c5', '', 'c26'])
+  })
+
+  test('gap marker not new when seen is before it (markSeen to newest)', () => {
+    const chapters = [chapter('c5'), gap(16), chapter('c26'), chapter('seen')]
+    const b = book({
+      latestChapters: chapters,
+      lastSeenChapterUrl: 'c5',
+    })
+    expect(newChapters(b)).toEqual([])
+    expect(newChapterCount(b)).toBe(0)
+  })
+
+  test('newChapterCount includes omittedCount from gap markers', () => {
+    const b = book({
+      latestChapters: [chapter('c5'), gap(16), chapter('c26'), chapter('seen')],
+      lastSeenChapterUrl: 'seen',
+    })
+    // 1 (c5) + 16 (gap) + 1 (c26) = 18
+    expect(newChapterCount(b)).toBe(18)
+  })
+
+  test('newChapterCount is 0 after markSeen to newest', () => {
+    const chapters = [chapter('c5'), gap(979), chapter('old')]
+    const b = book({
+      latestChapters: chapters,
+      lastSeenChapterUrl: 'c5',
+    })
+    expect(newChapterCount(b)).toBe(0)
     expect(newChapters(b)).toEqual([])
   })
 })

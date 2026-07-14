@@ -1,11 +1,11 @@
 import { useState } from 'preact/hooks'
 import { escapeHtml, escapeUrl } from '../../utils'
 import type { SourceComponentProps } from '../types'
-import { newChapters } from './state'
+import { newChapterCount, newChapters } from './state'
 import type { NovelBook, NovelChapter, NovelData } from './types'
 
-const FALLBACK_DATE_LABEL = '刚刚更新'
-const FOLD_THRESHOLD = 5
+const FALLBACK_DATE_LABEL = '未知'
+const FOLD_THRESHOLD = 3
 
 export type NovelsComponentProps = SourceComponentProps<NovelData> & {
   onMarkSeen: (bookUrl: string) => void
@@ -23,8 +23,8 @@ export function NovelsComponent({ data, onMarkSeen }: NovelsComponentProps) {
   }
 
   const sorted = [...books].sort((a, b) => {
-    const aRead = newChapters(a).length === 0
-    const bRead = newChapters(b).length === 0
+    const aRead = newChapterCount(a) === 0
+    const bRead = newChapterCount(b) === 0
     if (aRead && !bRead) return 1
     if (!aRead && bRead) return -1
     return 0
@@ -49,6 +49,7 @@ function BookBlock({
   const titleText = escapeHtml(book.title || book.url)
   const bookUrl = escapeUrl(book.url)
   const unread = newChapters(book)
+  const unreadCount = newChapterCount(book)
 
   if (book.siteId === 'unknown') {
     const errorText = book.error || '未知站点，暂不支持'
@@ -79,7 +80,7 @@ function BookBlock({
     <div class="gm-sp-novels-book-error">刷新失败：{book.error}</div>
   ) : null
 
-  if (unread.length === 0) {
+  if (unreadCount === 0) {
     const statusText = '无更新'
     return (
       <div class="gm-sp-novels-book" data-book-url={bookUrl}>
@@ -99,7 +100,7 @@ function BookBlock({
     )
   }
 
-  const statusText = `${unread.length} 章新`
+  const statusText = `${unreadCount} 章新`
 
   return (
     <div class="gm-sp-novels-book" data-book-url={bookUrl}>
@@ -137,16 +138,22 @@ function ChapterList({
   const [userExpanded, setUserExpanded] = useState(false)
   const isFolded = folded && !userExpanded
   const displayChapters = isFolded ? chapters.slice(0, 2) : chapters
-  const hiddenCount = chapters.length - displayChapters.length
+  const totalCount = chapters.reduce((sum, c) => sum + (c.omittedCount ?? 1), 0)
+  const displayCount = displayChapters.reduce((sum, c) => sum + (c.omittedCount ?? 1), 0)
+  const hiddenCount = totalCount - displayCount
 
   return (
     <>
       <ul class={`gm-sp-list gm-sp-list-col${isFolded ? ' gm-sp-novels-chapters-folded' : ''}`}>
-        {displayChapters.map((ch) => (
-          <ChapterItem key={ch.url} chapter={ch} onMarkSeen={onMarkSeen} />
-        ))}
+        {displayChapters.map((ch, i) =>
+          ch.omittedCount ? (
+            <GapItem key={`gap-${i}`} count={ch.omittedCount} />
+          ) : (
+            <ChapterItem key={ch.url} chapter={ch} onMarkSeen={onMarkSeen} />
+          ),
+        )}
       </ul>
-      {chapters.length > FOLD_THRESHOLD && (
+      {folded && (
         <button
           type="button"
           class="gm-sp-novels-book-toggle"
@@ -156,6 +163,14 @@ function ChapterList({
         </button>
       )}
     </>
+  )
+}
+
+function GapItem({ count }: { count: number }) {
+  return (
+    <li class="gm-sp-novels-chapter gm-sp-novels-chapter-gap">
+      <span class="gm-sp-novels-chapter-gap-text">……省略 {count} 章</span>
+    </li>
   )
 }
 
