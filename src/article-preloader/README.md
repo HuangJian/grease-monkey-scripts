@@ -31,6 +31,7 @@
 - `www.xbiquge.so`
 - `www.biduoxs.com`
 - `www.sudugu.org`
+- `www.shudugu.org`
 - `www.tongrenxsw.com`
 
 ## 安装

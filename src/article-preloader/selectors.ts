@@ -16,7 +16,10 @@ export function findChapterLink(
 }
 
 export function selectorsFactory(host: string, doc: Document): Selectors {
-  const config = SITE_CONFIGS.find((c) => host.includes(c.host))
+  const config = SITE_CONFIGS.find((c) => {
+    const hosts = Array.isArray(c.host) ? c.host : [c.host]
+    return hosts.some((h) => host.includes(h))
+  })
   if (!config) throw new Error(`Unsupported website: ${host}`)
 
   if (config.kind === 'text') {

@@ -20,7 +20,7 @@ export const SITE_CONFIGS: SiteConfig[] = [
   },
   {
     kind: 'text',
-    host: 'sudugu.org',
+    host: ['sudugu.org', 'shudugu.org'],
     chapterLinkSelector: '.prenext a',
     contentSelector: '.con',
     previousChapterTextPattern: /上一章|上一页/,

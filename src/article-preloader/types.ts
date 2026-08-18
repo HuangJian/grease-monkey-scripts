@@ -1,6 +1,6 @@
 export type DirectSelectorConfig = {
   kind: 'direct'
-  host: string
+  host: string | string[]
   contentSelector?: string
   previousChapterLinkSelector: string
   indexLinkSelector: string
@@ -9,7 +9,7 @@ export type DirectSelectorConfig = {
 
 export type TextPatternConfig = {
   kind: 'text'
-  host: string
+  host: string | string[]
   contentSelector?: string
   chapterLinkSelector: string
   previousChapterTextPattern: RegExp
