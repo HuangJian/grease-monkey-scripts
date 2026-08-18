@@ -4,6 +4,7 @@ dist/
 tmp/
 output/
 .vscode/
+.workbuddy/
 
 .DS_Store
 *.tsbuildinfo
