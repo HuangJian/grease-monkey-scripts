@@ -29,6 +29,8 @@
 // @connect      weather.cma.cn
 // @connect      www.v2ex.com
 // @connect      www.sudugu.org
+// @connect      www.shudugu.org
+// @connect      shudugu.org
 // @connect      www.reddit.com
 // @connect      old.reddit.com
 // @connect      bbs.hupu.com

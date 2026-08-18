@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks'
 import { escapeHtml, escapeUrl } from '../../utils'
 import type { SourceComponentProps } from '../types'
 import { newChapterCount, newChapters } from './state'
+import { displayUrl } from './mirror'
 import type { NovelBook, NovelChapter, NovelData } from './types'
 
 const FALLBACK_DATE_LABEL = '未知'
@@ -56,7 +57,7 @@ function BookBlock({
     return (
       <div class="gm-sp-novels-book gm-sp-novels-book-unknown" data-book-url={bookUrl}>
         <div class="gm-sp-novels-book-header">
-          <BookTitleLink url={book.url} titleText={titleText} />
+          <BookTitleLink book={book} titleText={titleText} />
           <span class="gm-sp-novels-book-status">未知站点</span>
         </div>
         <div class="gm-sp-novels-book-error">{errorText}</div>
@@ -68,7 +69,7 @@ function BookBlock({
     return (
       <div class="gm-sp-novels-book" data-book-url={bookUrl}>
         <div class="gm-sp-novels-book-header">
-          <BookTitleLink url={book.url} titleText={titleText} />
+          <BookTitleLink book={book} titleText={titleText} />
           <span class="gm-sp-novels-book-status">加载失败</span>
         </div>
         <div class="gm-sp-novels-book-error">{book.error}</div>
@@ -85,7 +86,7 @@ function BookBlock({
     return (
       <div class="gm-sp-novels-book" data-book-url={bookUrl}>
         <div class="gm-sp-novels-book-header">
-          <BookTitleLink url={book.url} titleText={titleText} />
+          <BookTitleLink book={book} titleText={titleText} />
           <span class="gm-sp-novels-book-status gm-sp-novels-book-status-none">{statusText}</span>
         </div>
         {errorNoteEl}
@@ -105,16 +106,17 @@ function BookBlock({
   return (
     <div class="gm-sp-novels-book" data-book-url={bookUrl}>
       <div class="gm-sp-novels-book-header">
-        <BookTitleLink url={book.url} titleText={titleText} />
+        <BookTitleLink book={book} titleText={titleText} />
         <span class="gm-sp-novels-book-status">{statusText}</span>
       </div>
       {errorNoteEl}
-      <ChapterList chapters={unread} onMarkSeen={() => onMarkSeen(book.url)} />
+      <ChapterList chapters={unread} book={book} onMarkSeen={() => onMarkSeen(book.url)} />
     </div>
   )
 }
 
-function BookTitleLink({ url, titleText }: { url: string; titleText: string }) {
+function BookTitleLink({ book, titleText }: { book: NovelBook; titleText: string }) {
+  const url = displayUrl(book, book.url)
   return (
     <a
       class="gm-sp-novels-book-title"
@@ -129,9 +131,11 @@ function BookTitleLink({ url, titleText }: { url: string; titleText: string }) {
 
 function ChapterList({
   chapters,
+  book,
   onMarkSeen,
 }: {
   chapters: NovelChapter[]
+  book: NovelBook
   onMarkSeen: () => void
 }) {
   const folded = chapters.length > FOLD_THRESHOLD
@@ -149,7 +153,7 @@ function ChapterList({
           ch.omittedCount ? (
             <GapItem key={`gap-${i}`} count={ch.omittedCount} />
           ) : (
-            <ChapterItem key={ch.url} chapter={ch} onMarkSeen={onMarkSeen} />
+            <ChapterItem key={ch.url} chapter={ch} book={book} onMarkSeen={onMarkSeen} />
           ),
         )}
       </ul>
@@ -174,9 +178,17 @@ function GapItem({ count }: { count: number }) {
   )
 }
 
-function ChapterItem({ chapter, onMarkSeen }: { chapter: NovelChapter; onMarkSeen: () => void }) {
+function ChapterItem({
+  chapter,
+  book,
+  onMarkSeen,
+}: {
+  chapter: NovelChapter
+  book: NovelBook
+  onMarkSeen: () => void
+}) {
   const timeText = chapter.postedAt > 0 ? formatPostedAt(chapter.postedAt) : FALLBACK_DATE_LABEL
-  const href = escapeUrl(chapter.url)
+  const href = escapeUrl(displayUrl(book, chapter.url))
   return (
     <li class="gm-sp-novels-chapter">
       <a
@@ -199,7 +211,7 @@ function ReadChapterItem({ chapter, book }: { chapter: NovelChapter; book: Novel
     <li class="gm-sp-novels-chapter">
       <a
         class="gm-sp-novels-chapter-link"
-        href={escapeUrl(chapter.url)}
+        href={escapeUrl(displayUrl(book, chapter.url))}
         target="_blank"
         rel="noopener noreferrer"
       >

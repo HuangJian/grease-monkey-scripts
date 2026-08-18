@@ -229,6 +229,7 @@ function compressNovelBook(v: Record<string, unknown>): Record<string, unknown> 
   }
   if (v.lastSeenChapterUrl) out.lu = v.lastSeenChapterUrl
   if (v.error) out.e = v.error
+  if (typeof v.mirrorHost === 'string' && v.mirrorHost) out.mh = v.mirrorHost
   return out
 }
 
@@ -243,6 +244,7 @@ function expandNovelBook(v: Record<string, unknown>): Record<string, unknown> {
     fetchedAt: expandTimestamp(v.fa as number | undefined) ?? 0,
     lastSeenChapterUrl: v.lu ?? '',
     error: v.e ?? '',
+    mirrorHost: typeof v.mh === 'string' ? v.mh : undefined,
   }
   return out
 }

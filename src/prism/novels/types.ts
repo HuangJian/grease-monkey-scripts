@@ -19,6 +19,8 @@ export type NovelBook = {
   lastSeenChapterUrl: string
   fetchedAt: number
   error: string
+  /** Host that last successfully served this book's content (e.g. the working mirror). */
+  mirrorHost?: string
 }
 
 export type NovelData = {

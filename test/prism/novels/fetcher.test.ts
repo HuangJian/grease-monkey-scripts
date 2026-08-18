@@ -365,6 +365,127 @@ describe('fetchNovels', () => {
     expect(books[0]!.title).toBe('神书')
   })
 
+  test('falls back to shudugu.org mirror when sudugu.org fails', async () => {
+    const server = makeServer()
+    // Primary sudugu host fails; shudugu mirror serves the content.
+    server.setError('https://www.sudugu.org/166/')
+    server.setResponse(
+      'https://www.shudugu.org/166/',
+      homeHtml({
+        title: '镜中书',
+        chapters: [
+          { url: '/166/c3.html', title: '第3章', label: '今天' },
+          { url: '/166/c2.html', title: '第2章', label: '昨天' },
+          { url: '/166/c1.html', title: '第1章', label: '06-01' },
+        ],
+      }),
+    )
+    const books = await fetchNovels(server.runtime, [{ url: URL_166 }], [])
+    // Mirror host was attempted as a fallback.
+    expect(server.hits).toEqual(['https://www.sudugu.org/166/', 'https://www.shudugu.org/166/'])
+    expect(books).toHaveLength(1)
+    // Book identity stays on the canonical sudugu URL.
+    expect(books[0]!.url).toBe(URL_166)
+    expect(books[0]!.siteId).toBe('sudugu')
+    expect(books[0]!.title).toBe('镜中书')
+    expect(books[0]!.error).toBe('')
+    expect(books[0]!.latestChapters).toHaveLength(3)
+  })
+
+  test('records error only after both sudugu and shudugu mirrors fail', async () => {
+    const server = makeServer()
+    server.setError('https://www.sudugu.org/166/')
+    server.setError('https://www.shudugu.org/166/')
+    const prev: NovelBook = {
+      url: URL_166,
+      siteId: 'sudugu',
+      title: 'T',
+      latestChapters: [chapter('https://www.sudugu.org/166/c4.html', '4')],
+      lastSeenChapterUrl: 'https://www.sudugu.org/166/c4.html',
+      fetchedAt: 1000,
+      error: '',
+    }
+    const books = await fetchNovels(server.runtime, [{ url: URL_166 }], [prev])
+    expect(server.hits).toEqual(['https://www.sudugu.org/166/', 'https://www.shudugu.org/166/'])
+    expect(books[0]!.error).toMatch(/network error/)
+    expect(books[0]!.fetchedAt).toBe(1000)
+    expect(books[0]!.lastSeenChapterUrl).toBe('https://www.sudugu.org/166/c4.html')
+  })
+
+  test('records mirrorHost when content is served by the mirror', async () => {
+    const server = makeServer()
+    server.setError('https://www.sudugu.org/166/')
+    server.setResponse(
+      'https://www.shudugu.org/166/',
+      homeHtml({
+        title: '镜中书',
+        chapters: [
+          { url: '/166/c3.html', title: '第3章', label: '今天' },
+          { url: '/166/c2.html', title: '第2章', label: '昨天' },
+          { url: '/166/c1.html', title: '第1章', label: '06-01' },
+        ],
+      }),
+    )
+    const books = await fetchNovels(server.runtime, [{ url: URL_166 }], [])
+    // Identity stays canonical, but the host that actually served is recorded.
+    expect(books[0]!.url).toBe(URL_166)
+    expect(books[0]!.mirrorHost).toBe('www.shudugu.org')
+    expect(books[0]!.error).toBe('')
+  })
+
+  test('uses the last mirror first when it is up (original not hit)', async () => {
+    const server = makeServer()
+    server.setResponse(
+      'https://www.shudugu.org/166/',
+      homeHtml({
+        title: '镜中书',
+        chapters: [{ url: '/166/c3.html', title: '第3章', label: '今天' }],
+      }),
+    )
+    // sudugu.org is not configured, so it would fail if it were attempted.
+    const prev: NovelBook = {
+      url: URL_166,
+      siteId: 'sudugu',
+      title: '镜中书',
+      latestChapters: [],
+      lastSeenChapterUrl: '',
+      fetchedAt: 1000,
+      error: '',
+      mirrorHost: 'www.shudugu.org',
+    }
+    const books = await fetchNovels(server.runtime, [{ url: URL_166 }], [prev])
+    expect(server.hits).toEqual(['https://www.shudugu.org/166/'])
+    expect(books[0]!.mirrorHost).toBe('www.shudugu.org')
+    expect(books[0]!.title).toBe('镜中书')
+  })
+
+  test('prioritizes last mirror on next fetch, falls back to original when mirror is down', async () => {
+    const server = makeServer()
+    server.setError('https://www.shudugu.org/166/')
+    server.setResponse(
+      'https://www.sudugu.org/166/',
+      homeHtml({
+        title: '回源',
+        chapters: [{ url: '/166/c3.html', title: '第3章', label: '今天' }],
+      }),
+    )
+    const prev: NovelBook = {
+      url: URL_166,
+      siteId: 'sudugu',
+      title: '镜中书',
+      latestChapters: [],
+      lastSeenChapterUrl: '',
+      fetchedAt: 1000,
+      error: '',
+      mirrorHost: 'www.shudugu.org',
+    }
+    const books = await fetchNovels(server.runtime, [{ url: URL_166 }], [prev])
+    // Preferred mirror tried first (failed), then the original served.
+    expect(server.hits).toEqual(['https://www.shudugu.org/166/', 'https://www.sudugu.org/166/'])
+    expect(books[0]!.mirrorHost).toBe('www.sudugu.org')
+    expect(books[0]!.title).toBe('回源')
+  })
+
   test('runs same-host entries serially', async () => {
     const server = makeServer()
     const callOrder: string[] = []

@@ -78,7 +78,11 @@ async function fetchKnownEntry(
   _options: FetchNovelsOptions,
 ): Promise<NovelBook> {
   const now = Date.now()
-  const homeHtml = await getText(runtime, entry.url)
+  const hosts = orderedMirrorHosts(entry.url, adapter.hostnames, prev?.mirrorHost)
+  const homeResult = await fetchWithFallback(runtime, entry.url, hosts)
+  // Host that actually served the home page; reused for tail pages and recorded on the book.
+  let usedHost = homeResult.host
+  const homeHtml = homeResult.html
   const domParser = new runtime.DOMParser()
   const home = adapter.parseHome(homeHtml, entry.url, domParser, now)
 
@@ -100,8 +104,13 @@ async function fetchKnownEntry(
       )
       for (let p = 2; p <= home.lastPageNumber; p++) {
         const tailUrl = adapter.buildTailUrl(entry.url, p)
-        const tailHtml = await getText(runtime, tailUrl)
-        const tailChapters = adapter.parseChapterList(tailHtml, tailUrl, domParser)
+        const tailResult = await fetchWithFallback(
+          runtime,
+          tailUrl,
+          orderedMirrorHosts(tailUrl, adapter.hostnames, usedHost),
+        )
+        usedHost = tailResult.host
+        const tailChapters = adapter.parseChapterList(tailResult.html, tailUrl, domParser)
         console.debug('[gm-novels] tail page', p, tailUrl, 'chapters:', tailChapters.length)
         // tailChapters are oldest-first; prepend reversed to get newest-first
         chapters = [...tailChapters.reverse(), ...chapters]
@@ -123,8 +132,13 @@ async function fetchKnownEntry(
       chapters = home.latestThree
     } else {
       const tailUrl = adapter.buildTailUrl(entry.url, home.lastPageNumber)
-      const tailHtml = await getText(runtime, tailUrl)
-      const tailChapters = adapter.parseChapterList(tailHtml, tailUrl, domParser)
+      const tailResult = await fetchWithFallback(
+        runtime,
+        tailUrl,
+        orderedMirrorHosts(tailUrl, adapter.hostnames, usedHost),
+      )
+      usedHost = tailResult.host
+      const tailChapters = adapter.parseChapterList(tailResult.html, tailUrl, domParser)
       chapters = mergeTail(tailChapters, home.latestThree, prevSeen)
     }
   }
@@ -151,6 +165,7 @@ async function fetchKnownEntry(
     fetchedAt: now,
     lastSeenChapterUrl: lastSeen,
     error: '',
+    mirrorHost: usedHost,
   }
   return book
 }
@@ -215,6 +230,7 @@ function buildUnknownBook(entry: NovelEntry, prev: NovelBook | undefined): Novel
     fetchedAt: prev?.fetchedAt ?? Date.now(),
     lastSeenChapterUrl: prev?.lastSeenChapterUrl ?? '',
     error: '未知站点，暂不支持',
+    mirrorHost: prev?.mirrorHost,
   }
   return book
 }
@@ -233,6 +249,7 @@ function buildFailureBook(
     fetchedAt: prev?.fetchedAt ?? Date.now(),
     lastSeenChapterUrl: prev?.lastSeenChapterUrl ?? '',
     error: message,
+    mirrorHost: prev?.mirrorHost,
   }
   return book
 }
@@ -279,4 +296,104 @@ function getText(runtime: Runtime, url: string): Promise<string> {
       ontimeout: () => settle(() => reject(new Error('timeout'))),
     })
   })
+}
+
+/**
+ * Fetch `baseUrl`, trying each host in `orderedHosts` (in order) and returning the
+ * first successful response together with the host that served it. Throws the last
+ * error only if every candidate fails.
+ */
+async function fetchWithFallback(
+  runtime: Runtime,
+  baseUrl: string,
+  orderedHosts: string[],
+): Promise<{ html: string; host: string }> {
+  let lastError: Error | undefined
+  for (const host of orderedHosts) {
+    const url = rewriteHost(baseUrl, host)
+    try {
+      return { html: await getText(runtime, url), host }
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e))
+      console.debug('[gm-novels] mirror fetch failed:', url, lastError.message)
+    }
+  }
+  throw lastError ?? new Error('network error')
+}
+
+/** Host without a leading `www.`, used to treat `www.x` and `x` as the same site. */
+function stripWww(host: string): string {
+  return host.startsWith('www.') ? host.slice(4) : host
+}
+
+function rewriteHost(url: string, newHost: string): string {
+  try {
+    const u = new URL(url)
+    u.hostname = newHost
+    return u.href
+  } catch {
+    return url
+  }
+}
+
+/** Distinct *other* mirror sites (one host per site; original & same-site variants excluded). */
+function otherMirrorHosts(url: string, hostnames: ReadonlyArray<string>): string[] {
+  let originalHost: string
+  try {
+    originalHost = new URL(url).hostname
+  } catch {
+    return []
+  }
+  const originalSite = stripWww(originalHost)
+  const seenSites = new Set<string>()
+  const result: string[] = []
+  for (const h of hostnames) {
+    if (h === originalHost) continue
+    // Skip same-site variants (e.g. www vs bare) so we don't retry a host that failed.
+    if (stripWww(h) === originalSite) continue
+    const site = stripWww(h)
+    if (seenSites.has(site)) continue
+    seenSites.add(site)
+    result.push(h)
+  }
+  return result
+}
+
+/**
+ * Ordered candidate hosts for a fetch: the preferred mirror first (if it's a distinct,
+ * declared site), then the original host, then remaining mirror sites. At most one host
+ * per site. This makes the last-working mirror the first choice on the next fetch while
+ * still falling back to the original and other mirrors.
+ */
+function orderedMirrorHosts(
+  url: string,
+  hostnames: ReadonlyArray<string>,
+  preferredHost?: string,
+): string[] {
+  let originalHost: string
+  try {
+    originalHost = new URL(url).hostname
+  } catch {
+    return preferredHost ? [preferredHost] : []
+  }
+  const originalSite = stripWww(originalHost)
+  const seen = new Set<string>()
+  const order: string[] = []
+  const pushUnique = (h: string) => {
+    const s = stripWww(h)
+    if (seen.has(s)) return
+    seen.add(s)
+    order.push(h)
+  }
+  // Preferred mirror first, but only if it's a distinct, declared site.
+  if (
+    preferredHost &&
+    stripWww(preferredHost) !== originalSite &&
+    hostnames.includes(preferredHost)
+  ) {
+    pushUnique(preferredHost)
+  }
+  pushUnique(originalHost)
+  for (const h of otherMirrorHosts(url, hostnames)) pushUnique(h)
+  return order
 }

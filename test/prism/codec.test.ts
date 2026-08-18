@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { compressForStorage, expandFromStorage } from '../../src/prism/codec'
 import { CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/prism/types'
+import type { NovelBook } from '../../src/prism/novels/types'
 
 function roundTrip<T>(sourceId: string, data: T, fetchedAt: number = Date.now()): T {
   const cached = { data, fetchedAt, error: '' }
@@ -203,6 +204,49 @@ describe('codec round-trip: novels', () => {
     expect(result.books[0].title).toBe('My Novel')
     expect(result.books[0].latestChapters[0].title).toBe('Chapter 1')
     expect(result.books[0].lastSeenChapterUrl).toBe('https://example.com/ch1')
+  })
+
+  test('preserves mirrorHost (last working mirror) across round-trip', () => {
+    const data: { books: NovelBook[] } = {
+      books: [
+        {
+          url: 'https://www.sudugu.org/166/',
+          siteId: 'sudugu',
+          title: 'My Novel',
+          latestChapters: [
+            {
+              url: 'https://www.sudugu.org/166/c1.html',
+              title: 'Chapter 1',
+              postedAt: 1700000000000,
+            },
+          ],
+          fetchedAt: 1700000000000,
+          lastSeenChapterUrl: 'https://www.sudugu.org/166/c1.html',
+          mirrorHost: 'www.shudugu.org',
+          error: '',
+        },
+      ],
+    }
+    const result = roundTrip('novels', data)
+    expect(result.books[0].mirrorHost).toBe('www.shudugu.org')
+  })
+
+  test('omits mirrorHost when not set', () => {
+    const data: { books: NovelBook[] } = {
+      books: [
+        {
+          url: 'https://www.sudugu.org/166/',
+          siteId: 'sudugu',
+          title: 'My Novel',
+          latestChapters: [],
+          fetchedAt: 1700000000000,
+          lastSeenChapterUrl: '',
+          error: '',
+        },
+      ],
+    }
+    const result = roundTrip('novels', data)
+    expect(result.books[0].mirrorHost).toBeUndefined()
   })
 })
 

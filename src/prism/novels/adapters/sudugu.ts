@@ -2,7 +2,7 @@ import { htmlToDocument, toAbsoluteUrl } from '../../../utils'
 import type { NovelChapter } from '../types'
 import type { NovelAdapter, ParsedHome } from './types'
 
-const SUDUGU_HOSTNAMES = ['www.sudugu.org', 'sudugu.org'] as const
+const SUDUGU_HOSTNAMES = ['www.sudugu.org', 'sudugu.org', 'www.shudugu.org', 'shudugu.org'] as const
 
 export function parseChapterLabel(text: string, now: number = Date.now()): number | undefined {
   const trimmed = text.trim()
