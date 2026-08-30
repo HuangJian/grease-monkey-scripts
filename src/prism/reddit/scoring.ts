@@ -1,4 +1,5 @@
 import { getTodayStartMs, computeDecayedScore } from '../scoring-utils'
+import { earliestTimestamp } from '../shared-utils'
 import type { RedditCountOptions, RedditPost } from './types'
 
 /**
@@ -77,7 +78,7 @@ export function mergeSubPosts(
           score: Math.max(existing.score, prev.score),
           numComments: Math.max(existing.numComments, prev.numComments),
           author: existing.author || prev.author,
-          created: Math.min(existing.created, prev.created),
+          created: earliestTimestamp(existing.created, prev.created),
         })
       } else {
         byId.set(id, prev)

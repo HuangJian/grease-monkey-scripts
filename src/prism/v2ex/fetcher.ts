@@ -8,6 +8,7 @@ import {
   sortByDecayedScore,
 } from './parser'
 import type { V2exState } from './state'
+import { earliestTimestamp } from '../shared-utils'
 import type { V2exCountOptions, V2exTopic } from './types'
 
 /**
@@ -31,13 +32,20 @@ import type { V2exCountOptions, V2exTopic } from './types'
  *   ② 同 id 话题取 Math.max(replies)，标记 sources: ['api','page']
  *   ③ 仅 API 源的话题被丢弃（dropApiOnly=true）
  *
- *   然后将历史话题中不在当前结果集内的条目合入（标记 sources: ['api']）。
+ *   然后将历史话题中不在当前结果集内的条目合入（标记 sources: ['api']，
+ *   使其跳过阶段 3 的「今日 page-only」门槛）。合入时保留本次抓取主题的原始
+ *   sources，不覆盖为 ['page']。
  *
- * ── 阶段 2.5：保留 page-only 主题的最早 created ──────────────────────────
- *   页面源 created=Date.now()（首次抓取时间近似），每次重新抓取会被刷新为
- *   当前时间。若不保留缓存中的较早值，前一天抓到的 page-only 主题在跨天后
- *   仍会被日期过滤器误判为「今日」主题。因此对无 API 源的话题，取缓存中
- *   较早的 created（首次出现时间），避免 created 被无限刷新。
+ * ── 阶段 2.5：保留最早 created（覆盖所有来源，含 API 源）────────────────
+ *   created >= fetchStartMs 的一律是抓取时刻近似：页面源 created=Date.now()，
+ *   以及 API 缺 created 字段时的回落值。每次重新抓取都会把它们刷新为当前
+ *   时间，若不保留缓存中的较早值，跨天后会被日期过滤器误判为「今日」主题，
+ *   上游永久缺 created 的主题更会永远停在「今」。故取缓存中较早的 created
+ *   （首次出现时间）。
+ *
+ *   created < fetchStartMs 的是上游给的真实时间戳，以它为准，即使缓存里更
+ *   早 —— 缓存中可能存着更旧的粗略估值（页面源首次抓取时间），取最小值会让
+ *   一个实际 3 天前的主题被当成 10 天前而过早过期。
  *
  * ── 阶段 3：门槛过滤 ────────────────────────────────────────────────────
  *   两条规则按顺序执行：
@@ -97,6 +105,9 @@ export async function fetchV2ex(
   state: V2exState,
   prevById?: Map<number, V2exTopic>,
 ): Promise<V2exTopic[]> {
+  // 早于本次抓取起始时刻的 created 才是上游给的真实时间戳；等于/晚于它的
+  // 一律是「抓取时刻近似」（页面源 created=Date.now()，或 API 缺 created 的回落）。
+  const fetchStartMs = Date.now()
   const [apiResult, pageResult] = await Promise.all([
     fetchFromEndpoint(runtime, `${HOT_API_BASE}?_t=${Date.now()}`, (body) => {
       const json: unknown = JSON.parse(body)
@@ -118,17 +129,19 @@ export async function fetchV2ex(
 
   let full = mergeV2exTopics(apiResult.topics, pageResult.topics, false)
 
-  // 阶段 2.5：保留 page-only 主题的最早 created。
-  // 页面源 created=Date.now()（抓取时间近似），重新抓取时会被刷新为当前时间。
-  // 对无 API 源的话题，取缓存中较早的 created，避免跨天后仍被误判为今日主题。
+  // 阶段 2.5：保留最早 created —— 覆盖所有来源，包括 API 源。
+  // - 本次 created 晚于/等于 fetchStartMs：是抓取时刻近似，重新抓取会被刷新成
+  //   当前时间。取缓存中较早的值（首次出现时刻），避免跨天后被误判为今日主题，
+  //   也避免上游永久缺 created 的主题永远停在「今」。
+  // - 本次 created 早于 fetchStartMs：是上游给的真实时间戳，以它为准，
+  //   即使缓存里更早 —— 缓存里可能存着更旧的粗略估值（页面源首次抓取时间），
+  //   若取最小值，一个实际 3 天前的主题会被当成 10 天前而提前过期。
   if (prevById && prevById.size > 0) {
     full = full.map((t) => {
-      if (t.sources.includes('api')) return t // API 源有真实 created，不覆盖
+      if (t.created < fetchStartMs) return t
       const prev = prevById.get(t.id)
-      if (prev && prev.created > 0 && prev.created < t.created) {
-        return { ...t, created: prev.created }
-      }
-      return t
+      if (!prev) return t
+      return { ...t, created: earliestTimestamp(t.created, prev.created) }
     })
   }
 
@@ -143,6 +156,8 @@ export async function fetchV2ex(
       })
     })
     if (recovered.length > 0) {
+      // recovered 与 full 的 id 天然不相交，这里等价于拼接：
+      // mergeV2exTopics 必须保留 full 自带的 sources，不能把 live 主题改写成 ['page']。
       full = mergeV2exTopics(recovered, full, false)
     }
   }

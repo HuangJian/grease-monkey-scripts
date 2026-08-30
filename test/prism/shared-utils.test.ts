@@ -4,6 +4,9 @@ import {
   sourceBadge,
   applyDateFilter,
   applyGroupedDateFilter,
+  hasKnownTimestamp,
+  earliestTimestamp,
+  isRetentionExpired,
 } from '../../src/prism/shared-utils'
 
 describe('formatReplyCount', () => {
@@ -47,6 +50,50 @@ describe('sourceBadge', () => {
     const badge = sourceBadge(old)
     expect(badge.icon).toBe('⏳')
     expect(badge.title).toBe('历史主题')
+  })
+})
+
+describe('hasKnownTimestamp', () => {
+  test('rejects the 0 sentinel used for a missing creation time', () => {
+    expect(hasKnownTimestamp(0)).toBe(false)
+    expect(hasKnownTimestamp(-1)).toBe(false)
+    expect(hasKnownTimestamp(Number.NaN)).toBe(false)
+    expect(hasKnownTimestamp(undefined)).toBe(false)
+  })
+
+  test('accepts real timestamps', () => {
+    expect(hasKnownTimestamp(Date.now())).toBe(true)
+  })
+})
+
+describe('earliestTimestamp', () => {
+  test('takes the earlier of two real timestamps', () => {
+    expect(earliestTimestamp(500, 300)).toBe(300)
+    expect(earliestTimestamp(300, 500)).toBe(300)
+  })
+
+  test('ignores unknown timestamps so a stale 0 cannot win', () => {
+    // Regression: Math.min(live, 0) used to zero out a freshly fetched post
+    // whenever the cached copy had lost its timestamp.
+    expect(earliestTimestamp(0, 500)).toBe(500)
+    expect(earliestTimestamp(500, 0)).toBe(500)
+  })
+})
+
+describe('isRetentionExpired', () => {
+  const retentionMs = 7 * 86400000
+  const now = Date.now()
+
+  test('expires items older than the retention window', () => {
+    expect(isRetentionExpired(now - retentionMs - 1, now, retentionMs)).toBe(true)
+  })
+
+  test('keeps items inside the retention window', () => {
+    expect(isRetentionExpired(now - retentionMs + 1, now, retentionMs)).toBe(false)
+  })
+
+  test('expires a missing timestamp so legacy 0 entries get purged', () => {
+    expect(isRetentionExpired(0, now, retentionMs)).toBe(true)
   })
 })
 

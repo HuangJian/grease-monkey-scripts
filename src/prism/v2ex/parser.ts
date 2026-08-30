@@ -1,4 +1,5 @@
 import { getTodayStartMs, computeTimeDecay } from '../scoring-utils'
+import { hasKnownTimestamp } from '../shared-utils'
 import { htmlToDocument, toAbsoluteUrl } from '../../utils'
 import { HOT_PAGE_URL, MEMBER_PATH_RE, TOPIC_PATH_RE } from './constants'
 import type { V2exTopic } from './types'
@@ -6,6 +7,7 @@ import type { V2exTopic } from './types'
 export function parseV2ex(json: unknown, maxItems: number): V2exTopic[] {
   if (!Array.isArray(json)) return []
   const topics: V2exTopic[] = []
+  const now = Date.now()
   json.some((item) => {
     if (!item || typeof item !== 'object') return false
     const t = item as Record<string, unknown>
@@ -32,7 +34,9 @@ export function parseV2ex(json: unknown, maxItems: number): V2exTopic[] {
       member,
       node,
       sources: [],
-      created: Number.isFinite(created) && created > 0 ? created : 0,
+      // 上游没给创建时间时用抓取时刻近似（与页面源、reddit、hupu 一致）。
+      // 绝不能写 0：0 会被当成 1970，把主题错误地塞进「早」这一档。
+      created: hasKnownTimestamp(created) ? created : now,
     })
     return topics.length >= maxItems
   })
@@ -95,6 +99,8 @@ export function parseV2exHotPage(
  * - 同ID话题取最大回复数，标记 sources: ['api','page'] 为双源确认
  * - 页面源 created 为首次抓取时间，合并时优先取 API 源的 created（existing.created || topic.created）
  * - dropApiOnly=true 时丢弃仅 API 源的话题
+ * - 两侧 id 不相交时（如存量恢复）等价于拼接：保留各方自带的 sources，
+ *   不把 pageTopics 一律改写成 ['page']
  */
 export function mergeV2exTopics(
   apiTopics: V2exTopic[],
@@ -119,7 +125,13 @@ export function mergeV2exTopics(
         created: existing.created || topic.created,
       })
     } else {
-      byId.set(topic.id, { ...topic, sources: ['page'] })
+      // 保留入参自带的来源标记。调用方可能传入已经合并过的主题（如存量恢复），
+      // 它们的 sources 是真实来源；若一律改写成 ['page']，来源角标（🔥/⏳）
+      // 会显示错，阶段 3 也会把 API 主题误套 todayMinReplies 门槛。
+      byId.set(topic.id, {
+        ...topic,
+        sources: topic.sources.length ? [...topic.sources] : ['page'],
+      })
     }
   })
 

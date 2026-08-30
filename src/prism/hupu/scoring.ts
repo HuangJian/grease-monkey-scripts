@@ -1,4 +1,5 @@
 import { getTodayStartMs, computeTimeDecay } from '../scoring-utils'
+import { earliestTimestamp } from '../shared-utils'
 import type { HupuCountOptions, HupuPost } from './types'
 
 /**
@@ -108,7 +109,7 @@ export function mergeBoardPosts(
           author: existing.author || prev.author,
           authorUrl: existing.authorUrl || prev.authorUrl,
           topicName: existing.topicName || prev.topicName,
-          created: Math.min(existing.created, prev.created),
+          created: earliestTimestamp(existing.created, prev.created),
         })
       } else {
         byId.set(id, prev)

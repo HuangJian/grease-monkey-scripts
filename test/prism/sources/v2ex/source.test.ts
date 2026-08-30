@@ -4,8 +4,9 @@ import { h } from 'preact'
 import { createV2exSource } from '../../../../src/prism/v2ex/source'
 import type { V2exSourceOptions, V2exTopic } from '../../../../src/prism/v2ex/types'
 import type { RequestDetails } from '../../../../src/runtime'
-import { STATE_KEY } from '../../../../src/prism/types'
+import { STATE_KEY, type Source } from '../../../../src/prism/types'
 import { loadCache, saveCache } from '../../../../src/prism/cache'
+import { refreshSource } from '../../../../src/prism/app/refresh'
 import { createRuntime, type TestRuntime } from '../../../runtime'
 
 const DEFAULTS: V2exSourceOptions = {
@@ -158,5 +159,114 @@ describe('createV2exSource', () => {
     const items = cached?.data ?? []
     expect(items).toHaveLength(1)
     expect(items[0]?.id).toBe(2)
+  })
+
+  test('fetch does not return topics past the retention window', async () => {
+    const runtime: TestRuntime = {
+      ...createRuntime(),
+      request: (d: RequestDetails) => {
+        d.onload({ responseText: '[]', status: 200, responseHeaders: '' })
+      },
+    }
+    const now = Date.now()
+    const retentionMs = DEFAULTS.retentionDays * 24 * 60 * 60 * 1000
+    const make = (id: number, created: number): V2exTopic => ({
+      id,
+      title: `t${id}`,
+      url: `https://www.v2ex.com/t/${id}`,
+      replies: 50,
+      member: { username: 'a' },
+      node: { title: 'n' },
+      created,
+      sources: [],
+    })
+    const stale = make(1, now - retentionMs - 1000)
+    const fresh = make(2, now - 1000)
+
+    const source = createV2exSource({ ...DEFAULTS, todayMinReplies: 0, olderMinReplies: 0 })
+    const result = await source.fetch(runtime, [stale, fresh])
+    // The recovery path re-injects everything in prevData, so an expired topic
+    // has to be filtered out of the result too — otherwise refreshSource writes
+    // it straight back over pruneExpiredCache's trimmed snapshot.
+    expect(result.map((t) => t.id)).toEqual([2])
+  })
+
+  test('purges legacy topics that lost their created time from the cache', async () => {
+    const now = Date.now()
+    const untimestamped: V2exTopic = {
+      id: 1,
+      title: 'legacy',
+      url: 'https://www.v2ex.com/t/1',
+      replies: 50,
+      member: { username: 'a' },
+      node: { title: 'n' },
+      created: 0,
+      sources: [],
+    }
+    const runtime: TestRuntime = {
+      ...createRuntime(),
+      request: (d: RequestDetails) => {
+        d.onload({ responseText: '[]', status: 200, responseHeaders: '' })
+      },
+    }
+    await saveCache(runtime, 'v2ex', {
+      data: [untimestamped],
+      fetchedAt: now,
+      error: '',
+    })
+    runtime.stores[STATE_KEY('v2ex')] = { '1': { r: Math.floor(now / 60000), n: 50 } }
+
+    const source = createV2exSource({ ...DEFAULTS, todayMinReplies: 0, olderMinReplies: 0 })
+    await source.fetch(runtime, [untimestamped])
+
+    // created === 0 counts as expired, so the entry is dropped from the cache
+    // and its (now orphaned) state is cleared with it.
+    const cached = await loadCache<V2exTopic[]>(runtime, 'v2ex')
+    expect(cached?.data ?? []).toEqual([])
+    expect(runtime.stores[STATE_KEY('v2ex')]).toEqual({})
+  })
+
+  test('read state of a live topic survives repeated refreshSource calls', async () => {
+    const now = Date.now()
+    const retentionMs = DEFAULTS.retentionDays * 24 * 60 * 60 * 1000
+    const topic = (id: number, created: number) => ({
+      id,
+      title: `t${id}`,
+      url: `https://www.v2ex.com/t/${id}`,
+      replies: 50,
+      member: { username: 'a' },
+      node: { title: 'n' },
+      created: Math.floor(created / 1000),
+    })
+    // id 1 is 3 days old: inside the retention window, so it shows under 早
+    const older = topic(1, now - 3 * 86400000)
+    const runtime: TestRuntime = {
+      ...createRuntime(),
+      request: (d: RequestDetails) => {
+        if (d.url.includes('hot.json')) {
+          d.onload({
+            responseText: JSON.stringify([older]),
+            status: 200,
+            responseHeaders: '',
+          })
+        } else {
+          d.onload({ responseText: '[]', status: 200, responseHeaders: '' })
+        }
+      },
+    }
+    const source = createV2exSource({ ...DEFAULTS, todayMinReplies: 0, olderMinReplies: 0 })
+    await refreshSource(runtime, source as unknown as Source<unknown>)
+
+    const stateKey = STATE_KEY('v2ex')
+    runtime.stores[stateKey] = { '1': { r: Math.floor(now / 60000), n: 50 } }
+
+    await refreshSource(runtime, source as unknown as Source<unknown>)
+    await refreshSource(runtime, source as unknown as Source<unknown>)
+
+    // Regression: an old topic used to be resurrected by the recovery path on
+    // every refresh while pruneExpiredCache deleted its read state, so anything
+    // under 早 flipped back to unread.
+    expect(runtime.stores[stateKey]).toEqual({ '1': { r: Math.floor(now / 60000), n: 50 } })
+    expect(retentionMs).toBeGreaterThan(3 * 86400000)
   })
 })

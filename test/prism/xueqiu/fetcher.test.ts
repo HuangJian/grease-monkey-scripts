@@ -242,6 +242,32 @@ describe('xueqiu fetchXueqiu (direct API)', () => {
     expect(result.hotPosts[0]?.like_count).toBe(10)
   })
 
+  test('falls back to fetch time when created_at is missing', async () => {
+    const runtime = createRuntime()
+    const before = Date.now()
+
+    runtime.queueResponse(
+      'https://xueqiu.com/statuses/livenews/list.json',
+      JSON.stringify({
+        items: [makeApiItem(301, { text: 'No timestamp', target: '/status/301' })],
+        next_max_id: null,
+      }),
+    )
+    runtime.queueResponse(
+      'https://xueqiu.com/statuses/hot/listV3.json?page=1',
+      JSON.stringify({ list: [], has_next_page: false }),
+    )
+
+    const { fetchXueqiu } = await import('../../../src/prism/xueqiu/fetcher')
+    const result = await fetchXueqiu(runtime, { ttlMinutes: 60, retentionDays: 7 })
+
+    // created_at must not become 0: that reads as 1970, both polluting 早 and
+    // making the retention sweep delete the item's read state on every refresh.
+    expect(result.news).toHaveLength(1)
+    expect(result.news[0]?.created_at).toBeGreaterThanOrEqual(before)
+    expect(result.news[0]?.created_at).toBeLessThanOrEqual(Date.now())
+  })
+
   test('throws on first-round NEWS failure', async () => {
     const runtime = createRuntime()
     // No response queued for NEWS → onerror → reject

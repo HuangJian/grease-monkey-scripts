@@ -183,6 +183,47 @@ describe('fetchV2ex', () => {
     expect(shared!.sources).toEqual(['api', 'page'])
   })
 
+  test('keeps live sources when stale topics are recovered', async () => {
+    // A prevById entry that the live fetch misses triggers the recovery path,
+    // which used to rewrite every live topic's sources to ['page'].
+    const html = `<html><body><div class="cell item"><a class="topic-link" href="/t/1">Live topic</a><span class="topic_info"></span><span class="count_orange">50</span></div></body></html>`
+    const liveTopic = {
+      id: 1,
+      title: 'live',
+      url: 'https://www.v2ex.com/t/1',
+      replies: 50,
+      member: { username: 'u' },
+      node: { title: 'n' },
+      sources: [],
+      created: Date.now(),
+    }
+    const staleTopic: V2exTopic = {
+      id: 4242,
+      title: 'stale',
+      url: 'https://www.v2ex.com/t/4242',
+      replies: 100,
+      member: { username: 'u' },
+      node: { title: 'n' },
+      sources: ['api', 'page'],
+      created: Date.now() - 24 * 60 * 60 * 1000,
+    }
+    const runtime = makeRuntime((d) => {
+      if (d.url.includes('hot.json')) {
+        d.onload({ responseText: JSON.stringify([liveTopic]), status: 200, responseHeaders: '' })
+      } else {
+        d.onload({ responseText: html, status: 200, responseHeaders: '' })
+      }
+    })
+    const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
+    const prevById = new Map<number, V2exTopic>([[4242, staleTopic]])
+    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state, prevById)
+    const live = topics.find((t) => t.id === 1)
+    const stale = topics.find((t) => t.id === 4242)
+    expect(stale).toBeDefined()
+    expect(live).toBeDefined()
+    expect(live!.sources).toEqual(['api', 'page'])
+  })
+
   test('filters out today page topics with replies below todayMinReplies', async () => {
     const lowReplyTopic = {
       id: 999,
@@ -252,6 +293,54 @@ describe('fetchV2ex', () => {
     expect(topic).toBeDefined()
     // created should be preserved from cache (yesterday), not refreshed to Date.now()
     expect(topic!.created).toBe(yesterday)
+  })
+
+  test('keeps first-seen created for an API topic that never reports one', async () => {
+    // The API omits `created`, so parseV2ex falls back to the fetch time.
+    // Without stage 2.5 covering api sources the topic is re-stamped on every
+    // refresh and stays stuck in 今 forever.
+    const firstSeen = Date.now() - 3 * 24 * 60 * 60 * 1000
+    const noTimestampTopic = {
+      id: 6060,
+      title: 'no created',
+      url: 'https://www.v2ex.com/t/6060',
+      replies: 100,
+      member: { username: 'u' },
+      node: { title: 'n' },
+      sources: [],
+    }
+    const runtime = makeRuntime((d) => {
+      if (d.url.includes('hot.json')) {
+        d.onload({
+          responseText: JSON.stringify([noTimestampTopic]),
+          status: 200,
+          responseHeaders: '',
+        })
+      } else {
+        d.onload({ responseText: '<html><body></body></html>', status: 200, responseHeaders: '' })
+      }
+    })
+    const state = createV2exState({ retentionMs: 30 * 24 * 60 * 60 * 1000 })
+    const prevById = new Map<number, V2exTopic>([
+      [
+        6060,
+        {
+          id: 6060,
+          title: 'no created',
+          url: 'https://www.v2ex.com/t/6060',
+          replies: 100,
+          member: { username: 'u' },
+          node: { title: 'n' },
+          sources: ['api'],
+          created: firstSeen,
+        },
+      ],
+    ])
+
+    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state, prevById)
+    const topic = topics.find((t) => t.id === 6060)
+    expect(topic).toBeDefined()
+    expect(topic!.created).toBe(firstSeen)
   })
 
   test('does not override API-source created from cache', async () => {

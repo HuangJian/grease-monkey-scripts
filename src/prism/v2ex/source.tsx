@@ -11,6 +11,7 @@ import { createV2exEditor } from './editor'
 import { fetchV2ex } from './fetcher'
 import { loadCache, saveCache } from '../cache'
 import { createV2exState } from './state'
+import { isRetentionExpired } from '../shared-utils'
 import type { V2exSourceOptions, V2exTopic } from './types'
 
 export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]> {
@@ -40,6 +41,7 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
    * 清理缓存中过期的主题数据。
    * 每次 fetch 后调用，删除 created 时间早于 retentionMs 的条目，
    * 并同步清理对应 state（readAt/hiddenAt/readReplies），避免孤儿 state。
+   * created 未知（0）的条目永不过期，否则其 state 会在每次刷新时被清掉。
    *
    * 注意：state.ttlMs = retentionMs + 1天，状态比数据多保留 1 天，
    * 防止 fetch 失败时 pruneExpiredCache 未执行导致状态早于数据消失。
@@ -52,9 +54,11 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
     const cached = await loadCache<V2exTopic[]>(runtime, 'v2ex')
     if (!cached?.data || !Array.isArray(cached.data)) return
     const now = Date.now()
-    const pruned = cached.data.filter((t) => now - t.created < retentionMs)
+    const pruned = cached.data.filter((t) => !isRetentionExpired(t.created, now, retentionMs))
     if (pruned.length === cached.data.length) return
-    const removedIds = cached.data.filter((t) => now - t.created >= retentionMs).map((t) => t.id)
+    const removedIds = cached.data
+      .filter((t) => isRetentionExpired(t.created, now, retentionMs))
+      .map((t) => t.id)
     if (removedIds.length > 0) {
       state.removeEntries(removedIds)
       await state.saveToStorage(runtime)
@@ -115,7 +119,14 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
         state,
         prevById,
       )
-      const visible = state.filterVisible(allTopics)
+      // 超出保留期的主题不再返回。refreshSource 会用本结果覆盖 pruneExpiredCache
+      // 写回的裁剪快照：只要结果里仍带过期主题，缓存就永远不会被真正裁剪，而
+      // pruneExpiredCache 里的 removeEntries 却在每次刷新删掉它们的已读状态——
+      // 表现就是「已读主题刷新后又变回未读」。
+      const now = Date.now()
+      const visible = state.filterVisible(
+        allTopics.filter((t) => !isRetentionExpired(t.created, now, retentionMs)),
+      )
       await state.saveToStorage(runtime)
       await pruneExpiredCache(runtime)
       return visible

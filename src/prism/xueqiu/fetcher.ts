@@ -11,6 +11,7 @@
  * Test script: scripts/fetchers/xueqiu-api-test.user.js
  */
 import { loadCache } from '../cache'
+import { hasKnownTimestamp } from '../shared-utils'
 import type { Runtime } from '../../runtime'
 import type { XueqiuRenderData, XueqiuNewsItem, XueqiuSourceOptions } from './types'
 
@@ -29,13 +30,16 @@ type ApiResponse = {
 // ---- API item to XueqiuNewsItem mapping ----
 
 function toNewsItem(item: ApiItem): XueqiuNewsItem {
+  const createdAt = Number(item.created_at)
   return {
     id: item.id,
     title: String(item.title ?? ''),
     text: String(item.text ?? item.description ?? ''),
     description: String(item.description ?? ''),
     target: String(item.target ?? `/status/${item.id}`),
-    created_at: Number(item.created_at ?? 0),
+    // 上游没给时间戳时用抓取时刻近似。绝不能写 0：0 会被当成 1970，
+    // 既污染「早」这一档，又会被保留期清理当成早已过期而反复删掉已读状态。
+    created_at: hasKnownTimestamp(createdAt) ? createdAt : Date.now(),
     status_id: Number(item.status_id ?? item.id),
     reply_count: Number(item.reply_count ?? 0),
     like_count: Number(item.like_count ?? item.fav_count ?? 0),

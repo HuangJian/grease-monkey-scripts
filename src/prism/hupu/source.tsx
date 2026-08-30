@@ -15,6 +15,7 @@ import { createHupuEditor } from './editor/form'
 import { fetchHupu } from './fetcher'
 import { mergeBoardPosts, selectPostsPerBoard } from './scoring'
 import { createHupuState } from './state'
+import { isRetentionExpired } from '../shared-utils'
 import type { HupuPost, HupuSourceOptions } from './types'
 
 export type HupuRenderData = Record<string, HupuPost[]>
@@ -42,6 +43,7 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
    * 清理缓存中过期的帖子数据。
    * 每次 fetch 后调用，删除 created 时间早于 retentionMs 的条目，
    * 并同步清理对应 state（readAt/hiddenAt/readReplies），避免孤儿 state。
+   * created 未知（0）的条目永不过期，否则其 state 会在每次刷新时被清掉。
    *
    * 注意：state.ttlMs = retentionMs + 1天，状态比数据多保留 1 天，
    * 防止 fetch 失败时 pruneExpiredCache 未执行导致状态早于数据消失。
@@ -58,10 +60,12 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
     let changed = false
     const removedIds: string[] = []
     for (const [board, posts] of Object.entries(cached.data)) {
-      const kept = posts.filter((p) => now - p.created < retentionMs)
+      const kept = posts.filter((p) => !isRetentionExpired(p.created, now, retentionMs))
       if (kept.length !== posts.length) {
         changed = true
-        posts.filter((p) => now - p.created >= retentionMs).forEach((p) => removedIds.push(p.id))
+        posts
+          .filter((p) => isRetentionExpired(p.created, now, retentionMs))
+          .forEach((p) => removedIds.push(p.id))
       }
       if (kept.length > 0) pruned[board] = kept
     }
@@ -117,9 +121,13 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
       const merged = mergeBoardPosts(fetchResult.boards, prevById)
       const now = Date.now()
       const selected = selectPostsPerBoard(merged, { ...fresh, now })
+      // 见 v2ex/source.tsx：refreshSource 用本结果覆盖 pruneExpiredCache 的裁剪快照，
+      // 因此过期帖子必须从返回值里剔除，否则缓存永不裁剪、已读状态却被反复清掉。
       const visible: HupuRenderData = {}
       selected.forEach((posts, board) => {
-        visible[board] = state.filterVisible(posts)
+        visible[board] = state.filterVisible(
+          posts.filter((p) => !isRetentionExpired(p.created, now, retentionMs)),
+        )
       })
       await state.saveToStorage(runtime)
       await pruneExpiredCache(runtime)

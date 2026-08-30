@@ -18,6 +18,7 @@ import { createXueqiuEditor } from './editor'
 import { fetchXueqiu } from './fetcher'
 import { rankHotPosts } from './scoring/ranking'
 import { createXueqiuState, type XueqiuState } from './state'
+import { isRetentionExpired } from '../shared-utils'
 import {
   DEFAULT_RANKING_OPTIONS,
   type XueqiuNewsItem,
@@ -189,6 +190,7 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
    * 清理缓存中过期的雪球数据。
    * 每次 fetch 后调用，删除 created_at 时间早于 retentionMs 的条目，
    * 并同步清理对应 state（readAt/hiddenAt/readReplies），避免孤儿 state。
+   * created_at 未知（0）的条目永不过期，否则其 state 会在每次刷新时被清掉。
    *
    * 注意：state.ttlMs = retentionMs + 1天，状态比数据多保留 1 天，
    * 防止 fetch 失败时 pruneExpiredCache 未执行导致状态早于数据消失。
@@ -205,7 +207,7 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
     const removedIds: string[] = []
     const prune = (items: XueqiuNewsItem[]) =>
       items.filter((it) => {
-        if (now - it.created_at >= retentionMs) {
+        if (isRetentionExpired(it.created_at, now, retentionMs)) {
           removedIds.push(String(it.id))
           return false
         }

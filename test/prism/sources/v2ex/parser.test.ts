@@ -56,6 +56,24 @@ describe('parseV2ex', () => {
   test('limits to maxItems', () => {
     expect(parseV2ex(FIXTURE, 2)).toHaveLength(2)
   })
+  test('falls back to fetch time when created is missing', () => {
+    const before = Date.now()
+    const topics = parseV2ex(FIXTURE, 10)
+    const after = Date.now()
+    // FIXTURE has no created field. It must not become 0: that reads as 1970,
+    // dumps the topic into 早 and gets it purged as infinitely old.
+    expect(topics).toHaveLength(3)
+    for (const t of topics) {
+      expect(t.created).toBeGreaterThanOrEqual(before)
+      expect(t.created).toBeLessThanOrEqual(after)
+    }
+  })
+  test('converts created from seconds to milliseconds', () => {
+    const seconds = 1_700_000_000
+    const topics = parseV2ex([{ ...FIXTURE[0], created: seconds }], 10)
+    expect(topics).toHaveLength(1)
+    expect(topics[0].created).toBe(seconds * 1000)
+  })
   test('returns empty for non-array', () => {
     expect(parseV2ex({}, 10)).toEqual([])
     expect(parseV2ex(null, 10)).toEqual([])
@@ -173,6 +191,22 @@ describe('mergeV2exTopics', () => {
     expect(merged[0].id).toBe(1)
     expect(merged[0].replies).toBe(10)
     expect(merged[0].sources).toEqual(['api', 'page'])
+  })
+  test('preserves sources when the two sides are disjoint', () => {
+    // Regression: the recovery path calls mergeV2exTopics(recovered, full, false)
+    // with disjoint id sets, so every live topic fell into the else branch and
+    // had its sources rewritten to ['page'] — faking the 🔥/⏳ source badge and
+    // mis-gating the stage-3 todayMinReplies threshold.
+    const recovered = [topic({ id: 1, sources: ['api', 'page'] })]
+    const live = [topic({ id: 2, sources: ['api'] })]
+    const merged = mergeV2exTopics(recovered, live, false)
+    expect(merged).toHaveLength(2)
+    expect(merged.find((t) => t.id === 1)?.sources).toEqual(['api', 'page'])
+    expect(merged.find((t) => t.id === 2)?.sources).toEqual(['api'])
+  })
+  test('still labels a genuinely page-only topic as page', () => {
+    const merged = mergeV2exTopics([topic({ id: 1 })], [topic({ id: 2 })], false)
+    expect(merged.find((t) => t.id === 2)?.sources).toEqual(['page'])
   })
   test('takes max replies when both sources differ', () => {
     const api = [topic({ id: 1, replies: 5 })]
