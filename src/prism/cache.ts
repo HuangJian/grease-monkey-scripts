@@ -1,6 +1,7 @@
 import type { Runtime } from '../runtime'
 import { CACHE_KEY, CACHE_SCHEMA_VERSION, VERY_STALE_MULTIPLIER, type CachedSource } from './types'
 import { compressForStorage, expandFromStorage } from './codec'
+import { localDateKey } from './shared-utils'
 
 function stripNulls<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj, (_k, v) => v ?? undefined))
@@ -32,6 +33,16 @@ export async function saveCache<T>(
 export function isStale(cached: CachedSource<unknown> | null, ttlMs: number, now: number): boolean {
   if (!cached) return true
   return now - cached.fetchedAt > ttlMs
+}
+
+/**
+ * Stale when the cache's fetch day (browser timezone) differs from today.
+ * Used by sources flagged `refreshDailyAtLocalMidnight` so they refresh once
+ * per local day after midnight rather than on a fixed TTL since last fetch.
+ */
+export function isStaleOnDayBoundary(cached: CachedSource<unknown> | null, now: number): boolean {
+  if (!cached) return true
+  return localDateKey(cached.fetchedAt) !== localDateKey(now)
 }
 
 export function isVeryStale(

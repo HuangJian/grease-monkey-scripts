@@ -144,6 +144,13 @@ export type Source<T> = {
   readonly id: string
   readonly title: string
   readonly ttlMs: number
+  /**
+   * When true, the source is considered stale once the local calendar day
+   * (browser timezone) of its last fetch differs from today — so it refreshes
+   * after local midnight each day instead of on a fixed TTL. Used by local
+   * sources (e.g. xit) whose refresh carries a daily recurring-task reset.
+   */
+  readonly refreshDailyAtLocalMidnight?: boolean
   readonly placement?: 'main' | 'side'
   readonly groupId?: string
   readonly order?: number

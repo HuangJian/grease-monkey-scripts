@@ -7,7 +7,27 @@ import {
   hasKnownTimestamp,
   earliestTimestamp,
   isRetentionExpired,
+  localDateKey,
 } from '../../src/prism/shared-utils'
+
+describe('localDateKey', () => {
+  test('formats as YYYY-MM-DD in local time', () => {
+    // Noon UTC — safely mid-day in any timezone, so +1h stays on the same day.
+    const ms = Date.UTC(2026, 2, 9, 12, 0)
+    const key = localDateKey(ms)
+    expect(key).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    // The local-day key must equal the key derived from a same-local-day instant.
+    const sameLocalDay = new Date(ms)
+    sameLocalDay.setHours(sameLocalDay.getHours() + 1) // still same local calendar day
+    expect(localDateKey(sameLocalDay.getTime())).toBe(key)
+  })
+
+  test('two instants on different local days produce different keys', () => {
+    const d = new Date(2026, 2, 9, 23, 59)
+    const next = new Date(2026, 2, 10, 0, 1)
+    expect(localDateKey(d.getTime())).not.toBe(localDateKey(next.getTime()))
+  })
+})
 
 describe('formatReplyCount', () => {
   test('returns current when readReplies is undefined', () => {

@@ -142,3 +142,54 @@ describe('runOpportunisticRefresh backoff skip', () => {
     expect(refreshed).toBe(true)
   })
 })
+
+describe('runOpportunisticRefresh refreshDailyAtLocalMidnight', () => {
+  function startOfToday(): number {
+    const d = new Date()
+    d.setHours(1, 0, 0, 0) // early today, comfortably past midnight
+    return d.getTime()
+  }
+
+  test('refreshes a source whose cached day differs from today', async () => {
+    const runtime = createRuntime()
+    // CachedSource carries no ttlMs; staleness comes from the source flag.
+    const yesterday = startOfToday() - 26 * 3600_000
+    runtime.stores[CACHE_KEY('test')] = staleCache({ fetchedAt: yesterday })
+    let refreshed = false
+    const source = makeSource({
+      ttlMs: 1000 * 60 * 60 * 24 * 365, // 1 year: plain isStale never triggers
+      refreshDailyAtLocalMidnight: true,
+      fetch: async () => [],
+    })
+    await runOpportunisticRefresh(runtime, [source], async () => {
+      refreshed = true
+    })
+    expect(refreshed).toBe(true)
+  })
+
+  test('does NOT refresh a source fetched earlier today, even past its ttlMs', async () => {
+    const runtime = createRuntime()
+    runtime.stores[CACHE_KEY('test')] = staleCache({ fetchedAt: startOfToday() })
+    let refreshed = false
+    const source = makeSource({
+      ttlMs: 1000, // 1s: plain isStale would be true
+      refreshDailyAtLocalMidnight: true,
+      fetch: async () => [],
+    })
+    await runOpportunisticRefresh(runtime, [source], async () => {
+      refreshed = true
+    })
+    expect(refreshed).toBe(false)
+  })
+
+  test('a source without the flag still uses ttlMs', async () => {
+    const runtime = createRuntime()
+    runtime.stores[CACHE_KEY('test')] = staleCache({ fetchedAt: startOfToday() })
+    let refreshed = false
+    const source = makeSource({ fetch: async () => [] }) // ttlMs 60s, fetched ~2h ago
+    await runOpportunisticRefresh(runtime, [source], async () => {
+      refreshed = true
+    })
+    expect(refreshed).toBe(true)
+  })
+})

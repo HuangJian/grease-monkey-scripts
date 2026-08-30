@@ -14,6 +14,16 @@ export function sourceBadge(created: number): { icon: string; title: string } {
 }
 
 /**
+ * Local calendar-day key in `YYYY-MM-DD` (browser timezone).
+ * Two timestamps on the same local day share a key, so it is the unit for
+ * "refresh once per day after local midnight" logic.
+ */
+export function localDateKey(ms: number): string {
+  const d = new Date(ms)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/**
  * A usable creation timestamp.
  *
  * Parsers drop items whose timestamp fails this check (`parseV2ex`, xueqiu

@@ -53,6 +53,10 @@ export function createXitSource(
     id: 'xit',
     title: 'xit',
     ttlMs: 24 * 3600 * 1000,
+    // xit 的 fetch 携带每日/每周重复任务的自动取消勾选（recurring-reset）。
+    // 用「本地自然日」而非 24h TTL 作为刷新判据，使其每天 0:00（浏览器时区）
+    // 之后触发刷新，而不是在上次抓取的 24 小时后才刷新。
+    refreshDailyAtLocalMidnight: true,
     placement,
     hideHeaderActions: true,
     dialogTitle: (

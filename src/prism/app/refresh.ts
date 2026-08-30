@@ -1,7 +1,7 @@
 import type { Runtime } from '../../runtime'
 import type { Source, CachedSource } from '../types'
 import { BACKOFF_DELAYS_MS } from '../types'
-import { isInBackoff, isStale, loadCache, saveCache } from '../cache'
+import { isInBackoff, isStale, isStaleOnDayBoundary, loadCache, saveCache } from '../cache'
 import { releaseLock, tryAcquireLock } from '../lock'
 import { SkipRefreshError } from '../errors'
 
@@ -69,7 +69,10 @@ export async function runOpportunisticRefresh(
     await Promise.all(
       sources.map(async (source) => {
         const cached = await loadCache<unknown>(runtime, source.id)
-        if (!isStale(cached, source.ttlMs, now)) return null
+        const isStaleNow = source.refreshDailyAtLocalMidnight
+          ? isStaleOnDayBoundary(cached, now)
+          : isStale(cached, source.ttlMs, now)
+        if (!isStaleNow) return null
         if (isInBackoff(cached, now)) {
           console.debug(
             '[gm-dashboard] runOpportunisticRefresh backoff-skip sourceId=',
