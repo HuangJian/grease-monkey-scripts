@@ -36,11 +36,7 @@
 // @connect      bbs.hupu.com
 // @connect      xueqiu.com
 // @connect      rsshub.rssforever.com
-// @connect      oauth2.googleapis.com
-// @connect      cloudcode-pa.googleapis.com
 // @connect      openrouter.ai
-// @connect      api-sg-central.trae.ai
-// @connect      chatgpt.com
 // @noframes
 // ==/UserScript==
 

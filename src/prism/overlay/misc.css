@@ -1,6 +1,6 @@
 .gm-sp-misc-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 6px;
   padding: 6px 6px 0;
 }
@@ -38,10 +38,6 @@
 
 .gm-sp-misc-nums {
   font-variant-numeric: tabular-nums;
-}
-
-.gm-sp-misc-ml6 {
-  margin-left: 6px;
 }
 
 .gm-sp-misc-ml4 {
@@ -104,12 +100,6 @@
   color: var(--gm-sp-color-text-muted);
   margin-right: 3px;
   font-variant-numeric: tabular-nums;
-}
-
-/* Trae reset date */
-.gm-sp-misc-reset {
-  font-size: 10px;
-  color: var(--gm-sp-color-text-muted);
 }
 
 /* Remaining percentage colors */

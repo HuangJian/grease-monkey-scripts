@@ -9,7 +9,7 @@ import { resetRecurringTasks } from './recurring-reset'
 import type { XitData, XitLine } from './types'
 
 export const DEFAULT_XIT_TEXT = `xit (xit 语法规范):
-[ ] ! 欢迎使用 Antigravity xit -> 2026-06-12 #help
+[ ] ! 欢迎使用 xit -> 2026-06-12 #help
 [ ] @ 点击卡片右上角铅笔图标 ✏ 来编辑这些内容 #usage
 [ ] 这是一个普通待办事项
 [x] 这是一个已完成的事项 #done

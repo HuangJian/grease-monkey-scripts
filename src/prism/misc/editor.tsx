@@ -11,7 +11,7 @@ import {
   type NumberFieldDef,
 } from '../editor-helpers'
 import type { SourceEditorContext, SourceEditorResult, SourceSettings } from '../types'
-import type { MiscBadgeType, MiscOptions } from './types'
+import type { MiscOptions } from './types'
 import type { Runtime } from '../../runtime'
 
 const TTL_FIELD: NumberFieldDef = {
@@ -22,19 +22,9 @@ const TTL_FIELD: NumberFieldDef = {
   integer: true,
 }
 
-const BADGE_OPTIONS: { value: MiscBadgeType; label: string }[] = [
-  { value: 'none', label: '不显示' },
-  { value: 'pct50', label: 'quota > 50% 数目' },
-  { value: 'pct30', label: 'quota > 30% 数目' },
-]
-
 function coerceMiscOptions(raw: Record<string, unknown>, fallback: MiscOptions): MiscOptions {
-  const badgeType = BADGE_OPTIONS.some((o) => o.value === raw['badgeType'])
-    ? (raw['badgeType'] as MiscBadgeType)
-    : fallback.badgeType
   return {
     ttlMinutes: numberOrDefault(raw['ttlMinutes'], fallback.ttlMinutes),
-    badgeType,
   }
 }
 
@@ -54,7 +44,6 @@ function MiscEditorForm({ fresh, settings, ctx, handleRef }: MiscEditorFormProps
   const [ttl, setTtl] = useState(fresh.ttlMinutes)
   const [tabTitle, setTabTitle] = useState(settings.tabTitle)
   const [priority, setPriority] = useState(settings.priority)
-  const [badgeType, setBadgeType] = useState<MiscBadgeType>(fresh.badgeType)
   const ttlRef = useRef<HTMLInputElement>(null)
 
   useLayoutEffect(() => {
@@ -66,7 +55,7 @@ function MiscEditorForm({ fresh, settings, ctx, handleRef }: MiscEditorFormProps
           setError(msg),
         )
         if (nums === null) return
-        const misc: MiscOptions = { ttlMinutes: Math.round(nums[0]), badgeType }
+        const misc: MiscOptions = { ttlMinutes: Math.round(nums[0]) }
         void saveConfigSection({
           runtime: ctx.runtime,
           sectionKey: 'misc',
@@ -87,7 +76,7 @@ function MiscEditorForm({ fresh, settings, ctx, handleRef }: MiscEditorFormProps
         ctx.close()
       },
     }
-  }, [ttl, tabTitle, priority, badgeType])
+  }, [ttl, tabTitle, priority])
 
   return (
     <div class="gm-sp-editor">
@@ -110,19 +99,6 @@ function MiscEditorForm({ fresh, settings, ctx, handleRef }: MiscEditorFormProps
             value={priority}
             onInput={(e) => setPriority(Number((e.target as HTMLInputElement).value))}
           />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>Badge 显示</span>
-          <select
-            value={badgeType}
-            onChange={(e) => setBadgeType((e.target as HTMLSelectElement).value as MiscBadgeType)}
-          >
-            {BADGE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
         </label>
       </div>
       <div class="gm-sp-editor-form">

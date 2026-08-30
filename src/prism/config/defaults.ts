@@ -46,7 +46,6 @@ export const DEFAULT_CONFIG: Config = {
   },
   misc: {
     ttlMinutes: 10,
-    badgeType: 'none' as const,
   },
   xit: {
     enabled: true,
