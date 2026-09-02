@@ -31,7 +31,7 @@ export const DEFAULT_CONFIG: Config = {
     repliesWeight: 1,
   },
   novels: {
-    entries: [],
+    books: [],
     ttlMinutes: 60,
     initialNewChapters: 3,
     maxNewChaptersPerBook: 5,

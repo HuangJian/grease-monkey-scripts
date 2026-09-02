@@ -144,16 +144,18 @@ describe('runOpportunisticRefresh backoff skip', () => {
 })
 
 describe('runOpportunisticRefresh refreshDailyAtLocalMidnight', () => {
-  function startOfToday(): number {
-    const d = new Date()
-    d.setHours(1, 0, 0, 0) // early today, comfortably past midnight
-    return d.getTime()
+  // A timestamp earlier today, guaranteed in the past and > ttlMs before now,
+  // and on the same calendar day as `now`. Using a fixed "today 01:00" instead
+  // made this flaky: when the suite runs between 00:00 and 01:00 local, that
+  // value lands in the future and `isStale` (plain ttlMs) returns false.
+  function earlierToday(msAgo = 5 * 60_000): number {
+    return Date.now() - msAgo
   }
 
   test('refreshes a source whose cached day differs from today', async () => {
     const runtime = createRuntime()
     // CachedSource carries no ttlMs; staleness comes from the source flag.
-    const yesterday = startOfToday() - 26 * 3600_000
+    const yesterday = earlierToday() - 26 * 3600_000
     runtime.stores[CACHE_KEY('test')] = staleCache({ fetchedAt: yesterday })
     let refreshed = false
     const source = makeSource({
@@ -169,7 +171,7 @@ describe('runOpportunisticRefresh refreshDailyAtLocalMidnight', () => {
 
   test('does NOT refresh a source fetched earlier today, even past its ttlMs', async () => {
     const runtime = createRuntime()
-    runtime.stores[CACHE_KEY('test')] = staleCache({ fetchedAt: startOfToday() })
+    runtime.stores[CACHE_KEY('test')] = staleCache({ fetchedAt: earlierToday() })
     let refreshed = false
     const source = makeSource({
       ttlMs: 1000, // 1s: plain isStale would be true
@@ -184,9 +186,9 @@ describe('runOpportunisticRefresh refreshDailyAtLocalMidnight', () => {
 
   test('a source without the flag still uses ttlMs', async () => {
     const runtime = createRuntime()
-    runtime.stores[CACHE_KEY('test')] = staleCache({ fetchedAt: startOfToday() })
+    runtime.stores[CACHE_KEY('test')] = staleCache({ fetchedAt: earlierToday() })
     let refreshed = false
-    const source = makeSource({ fetch: async () => [] }) // ttlMs 60s, fetched ~2h ago
+    const source = makeSource({ fetch: async () => [] }) // ttlMs 60s, fetched earlier today
     await runOpportunisticRefresh(runtime, [source], async () => {
       refreshed = true
     })

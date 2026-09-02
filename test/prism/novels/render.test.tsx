@@ -1,20 +1,35 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { cleanup, within } from '@testing-library/preact'
 import { renderNovels } from '../../../src/prism/novels/render'
-import type { NovelBook, NovelData } from '../../../src/prism/novels/types'
+import type {
+  NovelBook,
+  NovelChapter,
+  NovelChapterVariant,
+  NovelData,
+} from '../../../src/prism/novels/types'
+import { bookId } from '../../../src/prism/novels/migrate'
+import { chapterKey } from '../../../src/prism/novels/chapter-key'
 import { createRuntime } from '../../runtime'
 
-function chapter(url: string, title: string, postedAt: number = 0) {
-  return { url, title, postedAt }
+function chapter(url: string, title: string, postedAt: number = 0): NovelChapter {
+  return {
+    key: chapterKey(title),
+    title,
+    postedAt,
+    variants: [{ url, title, postedAt, siteId: 'sudugu', host: undefined }],
+  }
 }
 
-function book(
-  overrides: Partial<NovelBook> & Pick<NovelBook, 'url' | 'siteId' | 'title'>,
-): NovelBook {
+function book(overrides: Partial<NovelBook> & { url?: string; siteId?: string }): NovelBook {
+  const url = overrides.url ?? 'https://www.sudugu.org/166/'
+  const siteId = overrides.siteId ?? 'sudugu'
   return {
+    id: bookId(url),
+    title: '',
+    sources: [{ url, siteId, mirrorHost: undefined, chapterCount: 0, error: '' }],
     latestChapters: [],
+    lastSeenChapterKey: '',
     fetchedAt: 0,
-    lastSeenChapterUrl: '',
     error: '',
     ...overrides,
   }
@@ -39,8 +54,8 @@ afterEach(() => {
 function ctx() {
   return {
     runtime: createRuntime(),
-    onMarkSeen: (url: string) => {
-      markedSeen.push(url)
+    onMarkSeen: (id: string) => {
+      markedSeen.push(id)
     },
   }
 }
@@ -76,10 +91,10 @@ describe('renderNovels', () => {
     const link = within(items[0]!).getByRole('link') as HTMLAnchorElement
     expect(link.href).toBe('https://www.sudugu.org/166/c2.html')
     link.click()
-    expect(markedSeen).toEqual(['https://www.sudugu.org/166/'])
+    expect(markedSeen).toEqual([bookId('https://www.sudugu.org/166/')])
   })
 
-  test('book with no new chapters shows "无更新"', () => {
+  test('book with no new chapters shows 无更新', () => {
     const now = Date.now()
     const data: NovelData = {
       books: [
@@ -91,7 +106,7 @@ describe('renderNovels', () => {
             chapter('https://www.sudugu.org/166/c2.html', '第2章', now - 1000),
             chapter('https://www.sudugu.org/166/c1.html', '第1章', now - 1000),
           ],
-          lastSeenChapterUrl: 'https://www.sudugu.org/166/c2.html',
+          lastSeenChapterKey: chapterKey('第2章'),
         }),
       ],
     }
@@ -147,7 +162,7 @@ describe('renderNovels', () => {
     expect(within(root).getAllByRole('listitem').length).toBe(3)
   })
 
-  test('chapter without postedAt shows "未知"', () => {
+  test('chapter without postedAt shows 未知', () => {
     const data: NovelData = {
       books: [
         book({
@@ -205,7 +220,7 @@ describe('renderNovels', () => {
           siteId: 'sudugu',
           title: 'T',
           latestChapters: [chapter('https://www.sudugu.org/166/c1.html', '1')],
-          lastSeenChapterUrl: 'https://www.sudugu.org/166/c0.html',
+          lastSeenChapterKey: 'n:0',
           error: 'timeout',
         }),
       ],
@@ -224,7 +239,7 @@ describe('renderNovels', () => {
           siteId: 'test',
           title: '已读完',
           latestChapters: [chapter('https://example.com/a/c2', '第2章', 1000)],
-          lastSeenChapterUrl: 'https://example.com/a/c2',
+          lastSeenChapterKey: chapterKey('第2章'),
         }),
         book({
           url: 'https://example.com/b/',
@@ -256,7 +271,7 @@ describe('renderNovels', () => {
             chapter('https://www.sudugu.org/166/c1.html', '1', 1),
             chapter('https://www.sudugu.org/166/c0.html', '0', 1),
           ],
-          lastSeenChapterUrl: 'https://www.sudugu.org/166/c0.html',
+          lastSeenChapterKey: 't:0',
         }),
       ],
     }
@@ -265,7 +280,10 @@ describe('renderNovels', () => {
     expect(items.length).toBe(2)
     within(items[0]!).getByRole('link').click()
     within(items[1]!).getByRole('link').click()
-    expect(markedSeen).toEqual(['https://www.sudugu.org/166/', 'https://www.sudugu.org/166/'])
+    expect(markedSeen).toEqual([
+      bookId('https://www.sudugu.org/166/'),
+      bookId('https://www.sudugu.org/166/'),
+    ])
   })
 
   test('bugfix: folded state resets when unread count drops below threshold across re-render', () => {
@@ -304,5 +322,61 @@ describe('renderNovels', () => {
     const list2 = within(root).getByRole('list')
     expect(list2.classList.contains('gm-sp-novels-chapters-folded')).toBe(false)
     expect(within(root).getAllByRole('listitem').length).toBe(3)
+  })
+
+  test('multi-source book shows a progress summary and one chip per source', () => {
+    const variants: NovelChapterVariant[] = [
+      {
+        url: 'https://www.sudugu.org/166/c5.html',
+        title: '第5章',
+        postedAt: 0,
+        siteId: 'sudugu',
+        host: undefined,
+      },
+      {
+        url: 'https://b.example/166/c5.html',
+        title: '第5章',
+        postedAt: 0,
+        siteId: 'site-b',
+        host: undefined,
+      },
+    ]
+    const data: NovelData = {
+      books: [
+        {
+          id: bookId('https://www.sudugu.org/166/'),
+          title: '九龙夺嫡',
+          sources: [
+            {
+              url: 'https://www.sudugu.org/166/',
+              siteId: 'sudugu',
+              mirrorHost: undefined,
+              chapterCount: 120,
+              error: '',
+            },
+            {
+              url: 'https://b.example/166/',
+              siteId: 'site-b',
+              mirrorHost: undefined,
+              chapterCount: 118,
+              error: '',
+            },
+          ],
+          latestChapters: [{ key: chapterKey('第5章'), title: '第5章', postedAt: 0, variants }],
+          lastSeenChapterKey: '',
+          fetchedAt: 0,
+          error: '',
+        },
+      ],
+    }
+    renderNovels(root, data, ctx())
+    const summary = root.querySelector('.gm-sp-novels-book-sources') as HTMLElement
+    expect(summary).not.toBeNull()
+    expect(summary.textContent).toContain('sudugu')
+    expect(summary.textContent).toContain('120')
+    expect(summary.textContent).toContain('b')
+    expect(summary.textContent).toContain('118')
+    expect(within(root).getAllByRole('link', { name: 'sudugu' }).length).toBe(1)
+    expect(within(root).getAllByRole('link', { name: 'b' }).length).toBe(1)
   })
 })

@@ -1,2 +1,2 @@
 export { createNovelsSource } from './source'
-export type { NovelData, NovelEntry, NovelSourceOptions } from './types'
+export type { NovelData, NovelBookConfig, NovelSourceOptions } from './types'

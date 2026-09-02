@@ -14,7 +14,6 @@
  */
 import { useLayoutEffect, useRef } from 'preact/hooks'
 import type { ComponentChildren } from 'preact'
-import { escapeHtml } from '../../utils'
 import { formatTopicTime, isElementInScrollContainer, type TimeFormat } from './expandable-utils'
 
 // ---------------------------------------------------------------------------
@@ -145,11 +144,7 @@ export function ExpandableList<T>({
           if (rowTabIndex !== undefined) rowProps.tabindex = rowTabIndex
 
           return (
-            <li
-              key={id}
-              class={`gm-sp-list-item${readClass}${expandedClass}`}
-              data-item-id={escapeHtml(id)}
-            >
+            <li key={id} class={`gm-sp-list-item${readClass}${expandedClass}`} data-item-id={id}>
               <span {...rowProps}>
                 {time !== undefined && (
                   <span class="gm-sp-expandable-time" title={timeTitle?.(item)}>

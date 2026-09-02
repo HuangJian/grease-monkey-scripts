@@ -15,6 +15,7 @@
       {
         "allow": ["__vue__"]
       }
-    ]
+    ],
+    "import/no-cycle": "error"
   }
 }

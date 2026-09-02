@@ -181,10 +181,10 @@ describe('validateConfig', () => {
   })
 
   describe('novels', () => {
-    test('accepts valid novels config', () => {
+    test('accepts valid novels config with books', () => {
       const result = validateConfig({
         novels: {
-          entries: [{ url: 'https://example.com/book' }],
+          books: [{ title: '神书', urls: ['https://example.com/book'] }],
           ttlMinutes: 60,
           initialNewChapters: 3,
           maxNewChaptersPerBook: 5,
@@ -194,20 +194,57 @@ describe('validateConfig', () => {
       expect(result).toEqual({ ok: true })
     })
 
-    test('rejects entry with invalid URL', () => {
+    test('accepts a book with multiple sources', () => {
+      const result = validateConfig({
+        novels: {
+          books: [{ title: '', urls: ['https://example.com/a', 'https://mirror.example/a'] }],
+        },
+      })
+      expect(result).toEqual({ ok: true })
+    })
+
+    test('rejects book with invalid URL', () => {
+      const result = validateConfig({
+        novels: { books: [{ title: 'x', urls: ['not-a-url'] }] },
+      })
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error).toContain('有效 URL')
+    })
+
+    test('rejects book with empty urls', () => {
+      const result = validateConfig({
+        novels: { books: [{ title: 'x', urls: [] }] },
+      })
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error).toContain('urls')
+    })
+
+    test('rejects duplicate URL across books', () => {
+      const result = validateConfig({
+        novels: {
+          books: [
+            { title: 'a', urls: ['https://example.com/x'] },
+            { title: 'b', urls: ['https://example.com/x'] },
+          ],
+        },
+      })
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error).toContain('重复')
+    })
+
+    test('legacy entries section still validates (backward compat)', () => {
+      const result = validateConfig({
+        novels: { entries: [{ url: 'https://example.com/book' }] },
+      })
+      expect(result).toEqual({ ok: true })
+    })
+
+    test('rejects legacy entry with invalid URL', () => {
       const result = validateConfig({
         novels: { entries: [{ url: 'not-a-url' }] },
       })
       expect(result.ok).toBe(false)
       if (!result.ok) expect(result.error).toContain('url 必须是有效 URL')
-    })
-
-    test('rejects entry with non-string alias', () => {
-      const result = validateConfig({
-        novels: { entries: [{ url: 'https://example.com', alias: 42 }] },
-      })
-      expect(result.ok).toBe(false)
-      if (!result.ok) expect(result.error).toContain('alias')
     })
   })
 

@@ -3,19 +3,21 @@ import { createNovelsSource, markSeen } from '../../../src/prism/novels/source'
 import { loadCache, saveCache } from '../../../src/prism/cache'
 import { CONFIG_KEY } from '../../../src/prism/types'
 import type { NovelData } from '../../../src/prism/novels/types'
+import { bookId } from '../../../src/prism/novels/migrate'
+import { chapterKey } from '../../../src/prism/novels/chapter-key'
 import { createRuntime } from '../../runtime'
 
 describe('createNovelsSource', () => {
-  test('fetch reads entries from CONFIG_KEY when storage has entries that differ from captured options', async () => {
+  test('fetch reads books from CONFIG_KEY when storage has books that differ from captured options', async () => {
     const runtime = createRuntime()
 
     runtime.stores[CONFIG_KEY] = {
-      novels: { entries: [{ url: 'https://unknown-host.example/book/' }] },
+      novels: { books: [{ title: '', urls: ['https://unknown-host.example/book/'] }] },
     }
 
     const source = createNovelsSource(
       {
-        entries: [],
+        books: [],
         ttlMinutes: 60,
         maxNewChaptersPerBook: 5,
         initialNewChapters: 3,
@@ -26,17 +28,18 @@ describe('createNovelsSource', () => {
 
     const result = await source.fetch(runtime, undefined)
     expect(result.books).toHaveLength(1)
-    expect(result.books[0]!.url).toBe('https://unknown-host.example/book/')
+    expect(result.books[0]!.id).toBe(bookId('https://unknown-host.example/book/'))
+    expect(result.books[0]!.sources[0]!.url).toBe('https://unknown-host.example/book/')
   })
 
-  test('fetch falls back to captured options.entries when CONFIG_KEY has no novels entries', async () => {
+  test('fetch falls back to captured options.books when CONFIG_KEY has no novels books', async () => {
     const runtime = createRuntime()
 
     delete runtime.stores[CONFIG_KEY]
 
     const source = createNovelsSource(
       {
-        entries: [{ url: 'https://unknown-host.example/fallback/' }],
+        books: [{ title: '', urls: ['https://unknown-host.example/fallback/'] }],
         ttlMinutes: 60,
         maxNewChaptersPerBook: 5,
         initialNewChapters: 3,
@@ -47,19 +50,19 @@ describe('createNovelsSource', () => {
 
     const result = await source.fetch(runtime, undefined)
     expect(result.books).toHaveLength(1)
-    expect(result.books[0]!.url).toBe('https://unknown-host.example/fallback/')
+    expect(result.books[0]!.id).toBe(bookId('https://unknown-host.example/fallback/'))
   })
 
-  test('persistFetchedTitles saves fetched title as alias for entries without one', async () => {
+  test('persistFetchedTitles saves fetched title into the matching book config', async () => {
     const runtime = createRuntime()
 
     runtime.stores[CONFIG_KEY] = {
-      novels: { entries: [{ url: 'https://www.sudugu.org/166/' }] },
+      novels: { books: [{ title: '', urls: ['https://www.sudugu.org/166/'] }] },
     }
 
     const source = createNovelsSource(
       {
-        entries: [],
+        books: [],
         ttlMinutes: 60,
         maxNewChaptersPerBook: 5,
         initialNewChapters: 3,
@@ -68,15 +71,17 @@ describe('createNovelsSource', () => {
       runtime,
     )
 
-    const prevData = {
+    const prevData: NovelData = {
       books: [
         {
-          url: 'https://www.sudugu.org/166/',
-          siteId: 'unknown',
+          id: bookId('https://www.sudugu.org/166/'),
           title: '九龙夺嫡',
+          sources: [
+            { url: 'https://www.sudugu.org/166/', siteId: 'sudugu', chapterCount: 0, error: '' },
+          ],
           latestChapters: [],
+          lastSeenChapterKey: '',
           fetchedAt: 1000,
-          lastSeenChapterUrl: '',
           error: '',
         },
       ],
@@ -86,28 +91,37 @@ describe('createNovelsSource', () => {
 
     const updated = runtime.stores[CONFIG_KEY] as Record<string, unknown>
     expect(updated?.novels).toBeTruthy()
-    const entries = (updated.novels as { entries: { url: string; alias?: string }[] }).entries
-    expect(entries).toHaveLength(1)
-    expect(entries[0]!.alias).toBe('九龙夺嫡')
+    const books = (updated.novels as { books: { title: string }[] }).books
+    expect(books).toHaveLength(1)
+    expect(books[0]!.title).toBe('九龙夺嫡')
   })
 })
 
 describe('markSeen', () => {
-  test('bugfix: preserves fetchedAt and updates lastSeenChapterUrl from cache', async () => {
+  test('bugfix: preserves fetchedAt and updates lastSeenChapterKey from cache', async () => {
     const runtime = createRuntime()
     const bookUrl = 'https://unknown-host.example/book/'
     const chapterUrl = 'https://unknown-host.example/book/c1.html'
+    const id = bookId(bookUrl)
+    const key = chapterKey('Ch1')
 
     await saveCache(runtime, 'novels', {
       data: {
         books: [
           {
-            url: bookUrl,
-            siteId: 'unknown',
+            id,
             title: 'Test',
-            latestChapters: [{ url: chapterUrl, title: 'Ch1', postedAt: 0 }],
+            sources: [{ url: bookUrl, siteId: 'unknown', chapterCount: 0, error: '' }],
+            latestChapters: [
+              {
+                key,
+                title: 'Ch1',
+                postedAt: 0,
+                variants: [{ url: chapterUrl, title: 'Ch1', postedAt: 0, siteId: 'unknown' }],
+              },
+            ],
+            lastSeenChapterKey: '',
             fetchedAt: 1000,
-            lastSeenChapterUrl: '',
             error: '',
           },
         ],
@@ -116,26 +130,28 @@ describe('markSeen', () => {
       error: '',
     })
 
-    await markSeen(runtime, bookUrl)
+    await markSeen(runtime, id)
 
     const cached = await loadCache<NovelData>(runtime, 'novels')
     expect(cached).not.toBeNull()
     expect(cached!.fetchedAt).toBe(1000)
-    expect(cached!.data!.books[0]!.lastSeenChapterUrl).toBe(chapterUrl)
+    expect(cached!.data!.books[0]!.lastSeenChapterKey).toBe(key)
   })
 
-  test('bugfix: source.fetch picks up lastSeenChapterUrl from cache (race condition)', async () => {
+  test('bugfix: source.fetch picks up lastSeenChapterKey from cache (race condition)', async () => {
     const runtime = createRuntime()
     const bookUrl = 'https://unknown-host.example/book/'
     const chapterUrl = 'https://unknown-host.example/book/c1.html'
+    const id = bookId(bookUrl)
+    const key = chapterKey('Ch1')
 
     runtime.stores[CONFIG_KEY] = {
-      novels: { entries: [{ url: bookUrl }] },
+      novels: { books: [{ title: '', urls: [bookUrl] }] },
     }
 
     const source = createNovelsSource(
       {
-        entries: [],
+        books: [],
         ttlMinutes: 60,
         maxNewChaptersPerBook: 5,
         initialNewChapters: 3,
@@ -144,17 +160,24 @@ describe('markSeen', () => {
       runtime,
     )
 
-    // Cache has updated lastSeenChapterUrl (written by markSeen during a fetch)
+    // Cache has updated lastSeenChapterKey (written by markSeen during a fetch)
     await saveCache(runtime, 'novels', {
       data: {
         books: [
           {
-            url: bookUrl,
-            siteId: 'unknown',
+            id,
             title: 'Test',
-            latestChapters: [{ url: chapterUrl, title: 'Ch1', postedAt: 0 }],
+            sources: [{ url: bookUrl, siteId: 'unknown', chapterCount: 0, error: '' }],
+            latestChapters: [
+              {
+                key,
+                title: 'Ch1',
+                postedAt: 0,
+                variants: [{ url: chapterUrl, title: 'Ch1', postedAt: 0, siteId: 'unknown' }],
+              },
+            ],
+            lastSeenChapterKey: key,
             fetchedAt: 1000,
-            lastSeenChapterUrl: chapterUrl,
             error: '',
           },
         ],
@@ -163,16 +186,23 @@ describe('markSeen', () => {
       error: '',
     })
 
-    // Fetch with stale prevData (lastSeenChapterUrl = '' — the value before markSeen)
+    // Fetch with stale prevData (lastSeenChapterKey = '' — the value before markSeen)
     const stalePrev: NovelData = {
       books: [
         {
-          url: bookUrl,
-          siteId: 'unknown',
+          id,
           title: 'Test',
-          latestChapters: [{ url: chapterUrl, title: 'Ch1', postedAt: 0 }],
+          sources: [{ url: bookUrl, siteId: 'unknown', chapterCount: 0, error: '' }],
+          latestChapters: [
+            {
+              key,
+              title: 'Ch1',
+              postedAt: 0,
+              variants: [{ url: chapterUrl, title: 'Ch1', postedAt: 0, siteId: 'unknown' }],
+            },
+          ],
+          lastSeenChapterKey: '',
           fetchedAt: 1000,
-          lastSeenChapterUrl: '',
           error: '',
         },
       ],
@@ -180,7 +210,7 @@ describe('markSeen', () => {
 
     const result = await source.fetch(runtime, stalePrev)
 
-    // mergeLatestSeen should pick up the cache's lastSeenChapterUrl
-    expect(result.books[0]!.lastSeenChapterUrl).toBe(chapterUrl)
+    // mergeLatestSeen should pick up the cache's lastSeenChapterKey
+    expect(result.books[0]!.lastSeenChapterKey).toBe(key)
   })
 })

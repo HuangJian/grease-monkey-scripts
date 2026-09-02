@@ -3,6 +3,7 @@ import { ItemActions } from '../card/primitives'
 import type { DateFilter } from '../date-filter'
 import { applyDateFilter } from '../shared-utils'
 import { isEditableTarget } from '../shortcut'
+import { sanitizeHtml } from '../shared/sanitize'
 import { ExpandableList, useExpandScroll } from '../shared/expandable-list'
 import type { SourceComponentProps } from '../types'
 import type { XueqiuState } from './state'
@@ -11,33 +12,6 @@ import { SummaryView } from './ai/summary-view'
 import { loadAiConfig, ensureApiKey } from './ai/config'
 import { loadSummaries, saveSummary, summarize, buildSummaryEntry } from './ai/summarize'
 import type { SummaryEntry, XueqiuAiConfig } from './types'
-
-function unescapeHtml(s: string): string {
-  return s
-    .replace(/&amp;lt;/g, '<')
-    .replace(/&amp;gt;/g, '>')
-    .replace(/&amp;quot;/g, '"')
-    .replace(/&amp;#39;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-}
-
-function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
-    .replace(/<embed\b[^>]*>/gi, '')
-    .replace(/javascript:/gi, '')
-    .replace(/on\w+\s*=/gi, 'data-blocked=')
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
-}
 
 /**
  * Normalize image containers and pack adjacent images onto the same row.
@@ -370,7 +344,10 @@ export function XueqiuComponent({
         renderTitle={(item) => (
           <span
             dangerouslySetInnerHTML={{
-              __html: sanitizeHtml(unescapeHtml(item.title || item.description || item.text)),
+              __html: sanitizeHtml(
+                item.title || item.description || item.text,
+                new runtime.DOMParser(),
+              ),
             }}
           />
         )}
@@ -379,7 +356,9 @@ export function XueqiuComponent({
             <div
               class="gm-sp-xueqiu-body-text"
               dangerouslySetInnerHTML={{
-                __html: packImages(sanitizeHtml(unescapeHtml(item.text))),
+                __html: packImages(
+                  sanitizeHtml(item.text, new runtime.DOMParser(), { wrapImagesInAnchor: false }),
+                ),
               }}
               onClick={(e) => {
                 const target = e.target as HTMLElement
@@ -391,7 +370,7 @@ export function XueqiuComponent({
             />
             <a
               class="gm-sp-xueqiu-link"
-              href={escapeAttr(getTargetUrl(item))}
+              href={getTargetUrl(item)}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
@@ -422,7 +401,7 @@ export function XueqiuComponent({
       />
       {lightboxSrc && (
         <div class="gm-sp-lightbox" onClick={() => setLightboxSrc(null)}>
-          <img class="gm-sp-lightbox-img" src={escapeAttr(lightboxSrc)} alt="" />
+          <img class="gm-sp-lightbox-img" src={lightboxSrc} alt="" />
         </div>
       )}
     </>

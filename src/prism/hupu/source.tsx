@@ -1,8 +1,6 @@
 import { HUPU_AUTHOR_TAGS_KEY, HUPU_AUTHOR_TAGS_LS_KEY } from '../../shared/author-labels'
 import type { AuthorTagMap } from '../../shared/author-labels'
 import type { Runtime } from '../../runtime'
-import { numberOrDefault } from '../../utils'
-import { loadConfigSection } from '../config'
 import { syncAuthorTags } from '../author-tags-sync'
 import type { Source, SourceHeaderProps, SourceSettings } from '../types'
 import { createHeaderState, useHeaderState } from '../header-state'
@@ -13,6 +11,7 @@ import { HupuComponent } from './component'
 import { createExpandCollapse } from '../expand-collapse'
 import { createHupuEditor } from './editor/form'
 import { fetchHupu } from './fetcher'
+import { loadFreshHupuOptions } from './options'
 import { mergeBoardPosts, selectPostsPerBoard } from './scoring'
 import { createHupuState } from './state'
 import { isRetentionExpired } from '../shared-utils'
@@ -154,30 +153,4 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
       return createHupuEditor(options, settings)
     },
   }
-}
-
-function coerceHupuOptions(
-  raw: Record<string, unknown>,
-  fallback: HupuSourceOptions,
-): HupuSourceOptions {
-  return {
-    ttlMinutes: numberOrDefault(raw['ttlMinutes'], fallback.ttlMinutes),
-    boards:
-      Array.isArray(raw['boards']) && (raw['boards'] as unknown[]).length > 0
-        ? (raw['boards'] as unknown[]).map((s) => String(s)).filter((s) => s.length > 0)
-        : fallback.boards,
-    retentionDays: numberOrDefault(raw['retentionDays'], fallback.retentionDays),
-    todayMinReplies: numberOrDefault(raw['todayMinReplies'], fallback.todayMinReplies),
-    olderMinReplies: numberOrDefault(raw['olderMinReplies'], fallback.olderMinReplies),
-    ageHalfLifeDays: numberOrDefault(raw['ageHalfLifeDays'], fallback.ageHalfLifeDays),
-    lightsWeight: numberOrDefault(raw['lightsWeight'], fallback.lightsWeight),
-    repliesWeight: numberOrDefault(raw['repliesWeight'], fallback.repliesWeight),
-  }
-}
-
-export async function loadFreshHupuOptions(
-  runtime: Runtime,
-  fallback: HupuSourceOptions,
-): Promise<HupuSourceOptions> {
-  return loadConfigSection(runtime, 'hupu', fallback, (raw) => coerceHupuOptions(raw, fallback))
 }

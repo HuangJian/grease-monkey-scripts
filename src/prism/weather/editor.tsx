@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks'
-import { escapeHtml, numberOrDefault } from '../../utils'
+import { numberOrDefault } from '../../utils'
 import { loadConfigSection, validateConfig } from '../config'
 import { createEditorFactory } from '../editor-helpers/createEditorFactory'
 import { saveConfigSection } from '../editor-helpers'
@@ -156,7 +156,7 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
               >
                 ▼
               </button>
-              <span class="gm-sp-editor-item-label">{escapeHtml(city.cityLabel)}</span>
+              <span class="gm-sp-editor-item-label">{city.cityLabel}</span>
               <span>
                 {city.latitude.toFixed(4)}, {city.longitude.toFixed(4)}
               </span>

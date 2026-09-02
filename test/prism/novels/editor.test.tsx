@@ -3,7 +3,7 @@ import { cleanup, waitFor, within } from '@testing-library/preact'
 import { createNovelsEditor } from '../../../src/prism/novels/editor/form'
 import { CONFIG_KEY, DEFAULT_SOURCE_SETTINGS } from '../../../src/prism/types'
 import { createRuntime, type TestRuntime } from '../../runtime'
-import type { NovelEntry } from '../../../src/prism/novels/types'
+import type { NovelBookConfig } from '../../../src/prism/novels/types'
 
 let runtime: TestRuntime
 let root: HTMLElement
@@ -29,10 +29,13 @@ const baseOptions = {
   maxLatestWindow: 50,
 }
 
-async function mountEditor(entries: NovelEntry[], cachedTitles: Map<string, string> = new Map()) {
+async function mountEditor(
+  books: NovelBookConfig[],
+  cachedTitles: Map<string, string> = new Map(),
+) {
   const editor = createNovelsEditor(
     {
-      entries,
+      books,
       ...baseOptions,
       getCachedTitles: () => Promise.resolve(cachedTitles),
     },
@@ -50,14 +53,14 @@ async function mountEditor(entries: NovelEntry[], cachedTitles: Map<string, stri
 }
 
 describe('createNovelsEditor', () => {
-  test('renders empty list when no entries', async () => {
+  test('renders empty list when no books', async () => {
     await mountEditor([])
     expect(within(root).getByText(/尚未添加/)).not.toBeNull()
   })
 
-  test('renders existing entries with title from cache', async () => {
+  test('renders existing books with title from cache', async () => {
     await mountEditor(
-      [{ url: 'https://www.sudugu.org/166/' }],
+      [{ title: '', urls: ['https://www.sudugu.org/166/'] }],
       new Map([['https://www.sudugu.org/166/', '九龙夺嫡']]),
     )
     const items = within(root).queryAllByText('九龙夺嫡')
@@ -65,37 +68,52 @@ describe('createNovelsEditor', () => {
     expect(items[0]!.textContent).toBe('九龙夺嫡')
   })
 
-  test('uses alias when no cached title', async () => {
-    await mountEditor([{ url: 'https://www.sudugu.org/166/', alias: '神书' }])
+  test('uses title when no cached title', async () => {
+    await mountEditor([{ title: '神书', urls: ['https://www.sudugu.org/166/'] }])
     expect(within(root).getByText('神书')).not.toBeNull()
   })
 
   test('shows unknown-site warning for unregistered hostnames', async () => {
-    await mountEditor([{ url: 'https://other.example/x/' }])
+    await mountEditor([{ title: '', urls: ['https://other.example/x/'] }])
     const warn = within(root).getByText('未知站点') as HTMLElement
     expect(warn.hidden).toBe(false)
   })
 
   test('hides unknown-site warning for registered hostnames', async () => {
-    await mountEditor([{ url: 'https://www.sudugu.org/166/' }])
+    await mountEditor([{ title: '', urls: ['https://www.sudugu.org/166/'] }])
     const warn = within(root).getByText('未知站点') as HTMLElement
     expect(warn.hidden).toBe(true)
   })
 
-  test('adds a valid URL to the list', async () => {
+  test('adds a valid URL to a new book', async () => {
     await mountEditor([])
     const urlInput = within(root).getByPlaceholderText(
       'https://www.sudugu.org/166/',
     ) as HTMLInputElement
-    const aliasInput = within(root).getByPlaceholderText('九龙夺嫡') as HTMLInputElement
+    const titleInput = within(root).getByPlaceholderText('书名（可选）') as HTMLInputElement
     const addBtn = within(root).getByRole('button', { name: '添加书库' }) as HTMLButtonElement
     urlInput.value = 'https://www.sudugu.org/12/'
-    aliasInput.value = '龙藏'
+    titleInput.value = '龙藏'
     addBtn.click()
     await waitFor(() => {
       expect(within(root).queryAllByText('龙藏').length).toBe(1)
     })
     expect(within(root).getByText('龙藏').textContent).toBe('龙藏')
+  })
+
+  test('appends a URL to an existing book with the same title', async () => {
+    await mountEditor([{ title: '九龙', urls: ['https://www.sudugu.org/166/'] }])
+    const urlInput = within(root).getByPlaceholderText(
+      'https://www.sudugu.org/166/',
+    ) as HTMLInputElement
+    const titleInput = within(root).getByPlaceholderText('书名（可选）') as HTMLInputElement
+    const addBtn = within(root).getByRole('button', { name: '添加书库' }) as HTMLButtonElement
+    urlInput.value = 'https://www.sudugu.org/12/'
+    titleInput.value = '九龙'
+    addBtn.click()
+    await waitFor(() => {
+      expect(within(root).queryAllByText('https://www.sudugu.org/12/').length).toBe(1)
+    })
   })
 
   test('rejects empty URL', async () => {
@@ -107,7 +125,7 @@ describe('createNovelsEditor', () => {
   })
 
   test('rejects duplicate URL', async () => {
-    await mountEditor([{ url: 'https://www.sudugu.org/166/' }])
+    await mountEditor([{ title: '', urls: ['https://www.sudugu.org/166/'] }])
     const urlInput = within(root).getByPlaceholderText(
       'https://www.sudugu.org/166/',
     ) as HTMLInputElement
@@ -132,18 +150,22 @@ describe('createNovelsEditor', () => {
     })
   })
 
-  test('removes an entry when the × button is clicked', async () => {
+  test('removes a url from a book when its × button is clicked', async () => {
     await mountEditor([
-      { url: 'https://www.sudugu.org/166/' },
-      { url: 'https://www.sudugu.org/12/' },
+      { title: '', urls: ['https://www.sudugu.org/166/', 'https://www.sudugu.org/12/'] },
     ])
-    expect(within(root).getAllByRole('button', { name: 'remove' }).length).toBe(2)
+    expect(within(root).queryAllByText('https://www.sudugu.org/12/').length).toBeGreaterThanOrEqual(
+      1,
+    )
     const removeBtns = within(root).getAllByRole('button', { name: 'remove' })
-    removeBtns[0]!.click()
+    // Order: [book-remove, url-remove, url-remove]; remove the last url.
+    removeBtns[removeBtns.length - 1]!.click()
     await waitFor(() => {
-      expect(within(root).getAllByRole('button', { name: 'remove' }).length).toBe(1)
+      expect(within(root).queryAllByText('https://www.sudugu.org/12/').length).toBe(0)
+      expect(
+        within(root).queryAllByText('https://www.sudugu.org/166/').length,
+      ).toBeGreaterThanOrEqual(1)
     })
-    expect(within(root).getAllByText('https://www.sudugu.org/12/').length).toBeGreaterThanOrEqual(1)
   })
 
   test('cancel button triggers close', async () => {
@@ -153,14 +175,14 @@ describe('createNovelsEditor', () => {
   })
 
   test('save persists novels config to CONFIG_KEY', async () => {
-    const result = await mountEditor([{ url: 'https://www.sudugu.org/166/' }])
+    const result = await mountEditor([{ title: '', urls: ['https://www.sudugu.org/166/'] }])
     void result.save?.()
     await waitFor(() => {
       const stored = runtime.stores[CONFIG_KEY] as
-        | { novels: { entries: NovelEntry[]; ttlMinutes: number } }
+        | { novels: { books: NovelBookConfig[]; ttlMinutes: number } }
         | undefined
       expect(stored).toBeTruthy()
-      expect(stored?.novels.entries).toEqual([{ url: 'https://www.sudugu.org/166/' }])
+      expect(stored?.novels.books).toEqual([{ title: '', urls: ['https://www.sudugu.org/166/'] }])
       expect(stored?.novels.ttlMinutes).toBe(60)
     })
   })
@@ -176,12 +198,14 @@ describe('createNovelsEditor', () => {
     })
   })
 
-  test('allows saving an entry with unknown host', async () => {
-    const result = await mountEditor([{ url: 'https://other.example/x/' }])
+  test('allows saving a book with unknown host', async () => {
+    const result = await mountEditor([{ title: '', urls: ['https://other.example/x/'] }])
     void result.save?.()
     await waitFor(() => {
-      const stored = runtime.stores[CONFIG_KEY] as { novels: { entries: NovelEntry[] } } | undefined
-      expect(stored?.novels.entries).toEqual([{ url: 'https://other.example/x/' }])
+      const stored = runtime.stores[CONFIG_KEY] as
+        | { novels: { books: NovelBookConfig[] } }
+        | undefined
+      expect(stored?.novels.books).toEqual([{ title: '', urls: ['https://other.example/x/'] }])
     })
   })
 
@@ -193,15 +217,15 @@ describe('createNovelsEditor', () => {
       },
     }
     runtime.stores[CONFIG_KEY] = preexisting
-    const result = await mountEditor([{ url: 'https://www.sudugu.org/166/' }])
+    const result = await mountEditor([{ title: '', urls: ['https://www.sudugu.org/166/'] }])
     void result.save?.()
     await waitFor(() => {
       const stored = runtime.stores[CONFIG_KEY] as Record<string, unknown> | undefined
       expect(stored?.weather).toEqual(preexisting.weather)
       expect(stored?.novels).toBeTruthy()
       if (stored) {
-        expect((stored.novels as { entries: NovelEntry[] }).entries).toEqual([
-          { url: 'https://www.sudugu.org/166/' },
+        expect((stored.novels as { books: NovelBookConfig[] }).books).toEqual([
+          { title: '', urls: ['https://www.sudugu.org/166/'] },
         ])
       }
     })

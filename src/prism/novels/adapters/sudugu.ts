@@ -1,8 +1,9 @@
 import { htmlToDocument, toAbsoluteUrl } from '../../../utils'
-import type { NovelChapter } from '../types'
+import type { NovelRawChapter } from '../types'
 import type { NovelAdapter, ParsedHome } from './types'
 
 const SUDUGU_HOSTNAMES = ['www.sudugu.org', 'sudugu.org', 'www.shudugu.org', 'shudugu.org'] as const
+const DEQIXS_HOSTNAMES = ['www.deqixs.org', 'deqixs.org'] as const
 
 export function parseChapterLabel(text: string, now: number = Date.now()): number | undefined {
   const trimmed = text.trim()
@@ -53,6 +54,14 @@ function startOfDay(d: Date): Date {
 }
 
 function extractTitleFromH1(h1: Element): string | null {
+  // Real site markup is `<h1><a href>真实书名</a>最新章节</h1>`. Prefer the
+  // anchor text so the trailing "最新章节" marker is not captured as part of
+  // the title.
+  const anchor = h1.querySelector('a')
+  const fromAnchor = (anchor?.textContent ?? '').trim()
+  if (fromAnchor) return fromAnchor
+  // Fallback for fixtures that place the title directly in the h1: drop <i>
+  // metadata (e.g. "<i>100万字</i>书名") and use the remaining text.
   const clone = h1.cloneNode(true) as Element
   clone.querySelectorAll('i').forEach((child) => child.remove())
   const text = (clone.textContent ?? '').trim()
@@ -63,8 +72,8 @@ function parseLatestThree(
   itemTxt: Element | null | undefined,
   pageUrl: string,
   now: number,
-): NovelChapter[] {
-  const latestThree: NovelChapter[] = []
+): NovelRawChapter[] {
+  const latestThree: NovelRawChapter[] = []
   const liNodes = itemTxt?.querySelectorAll(':scope > ul > li') ?? []
   liNodes.forEach((li) => {
     const anchor = li.querySelector('a[href]')
@@ -81,7 +90,7 @@ function parseLatestThree(
   return latestThree
 }
 
-function overlayTimestamps(chapters: NovelChapter[], latestThree: NovelChapter[]): void {
+function overlayTimestamps(chapters: NovelRawChapter[], latestThree: NovelRawChapter[]): void {
   const labelByUrl = new Map<string, number>()
   for (const c of latestThree) {
     if (c.postedAt > 0) labelByUrl.set(c.url, c.postedAt)
@@ -114,7 +123,7 @@ function parseHome(
   const listAnchors = list?.querySelectorAll('ul li a[href]')
 
   if (listAnchors && listAnchors.length > 0) {
-    const chapters: NovelChapter[] = []
+    const chapters: NovelRawChapter[] = []
     listAnchors.forEach((anchor) => {
       const href = anchor.getAttribute('href') ?? ''
       const url = toAbsoluteUrl(href, pageUrl)
@@ -143,12 +152,12 @@ function parseLastPageNumber(doc: Document): number {
   return max
 }
 
-function parseChapterList(html: string, pageUrl: string, domParser: DOMParser): NovelChapter[] {
+function parseChapterList(html: string, pageUrl: string, domParser: DOMParser): NovelRawChapter[] {
   if (!html) return []
   const doc = htmlToDocument(html, domParser)
   const list = doc.querySelector('#list')
   if (!list) return []
-  const chapters: NovelChapter[] = []
+  const chapters: NovelRawChapter[] = []
   const anchors = list.querySelectorAll('ul li a[href]')
   anchors.forEach((anchor) => {
     const href = anchor.getAttribute('href') ?? ''
@@ -167,10 +176,15 @@ function buildTailUrl(homeUrl: string, pageNumber: number): string {
   return toAbsoluteUrl(`p-${pageNumber}.html`, base)
 }
 
-export const suduguAdapter: NovelAdapter = {
-  id: 'sudugu',
-  hostnames: SUDUGU_HOSTNAMES,
-  parseHome,
-  parseChapterList,
-  buildTailUrl,
+/**
+ * sudugu and deqixs serve the same chapter-list template, so they share one
+ * parser. Each adapter keeps its own id/hostnames so the per-source `siteId`
+ * and UI label stay correct per site, and mirror fallback stays scoped to each
+ * site's own hosts (no cross-site leakage).
+ */
+function makeTemplateAdapter(id: string, hostnames: readonly string[]): NovelAdapter {
+  return { id, hostnames: hostnames as string[], parseHome, parseChapterList, buildTailUrl }
 }
+
+export const suduguAdapter = makeTemplateAdapter('sudugu', SUDUGU_HOSTNAMES)
+export const deqixsAdapter = makeTemplateAdapter('deqixs', DEQIXS_HOSTNAMES)

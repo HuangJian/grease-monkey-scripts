@@ -134,7 +134,42 @@ export function validateConfig(value: unknown): ConfigValidation {
     if (!isPlainObject(n)) {
       return { ok: false, error: 'novels 必须是对象' }
     }
-    if ('entries' in n) {
+    if ('books' in n) {
+      const list = n['books']
+      if (!Array.isArray(list)) {
+        return { ok: false, error: 'novels.books 必须是数组' }
+      }
+      const seenUrls = new Set<string>()
+      for (let i = 0; i < list.length; i++) {
+        const b = list[i]
+        if (!isPlainObject(b)) {
+          return { ok: false, error: `novels.books[${i}] 必须是对象` }
+        }
+        if (typeof b['title'] !== 'string') {
+          return { ok: false, error: `novels.books[${i}].title 必须是 string` }
+        }
+        const urls = b['urls']
+        if (!Array.isArray(urls) || urls.length === 0) {
+          return { ok: false, error: `novels.books[${i}].urls 必须是非空数组` }
+        }
+        for (let j = 0; j < urls.length; j++) {
+          const u = urls[j]
+          if (typeof u !== 'string' || !u) {
+            return { ok: false, error: `novels.books[${i}].urls[${j}] 必须是非空字符串` }
+          }
+          try {
+            void new URL(u)
+          } catch {
+            return { ok: false, error: `novels.books[${i}].urls[${j}] 必须是有效 URL` }
+          }
+          if (seenUrls.has(u)) {
+            return { ok: false, error: `novels 的 URL 重复：${u}` }
+          }
+          seenUrls.add(u)
+        }
+      }
+    } else if ('entries' in n) {
+      // Legacy single-source shape kept for backward compatibility.
       const list = n['entries']
       if (!Array.isArray(list)) {
         return { ok: false, error: 'novels.entries 必须是数组' }

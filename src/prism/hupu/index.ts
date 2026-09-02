@@ -1,4 +1,5 @@
-export { createHupuSource, loadFreshHupuOptions, type HupuRenderData } from './source'
+export { createHupuSource, type HupuRenderData } from './source'
+export { loadFreshHupuOptions } from './options'
 export { createHupuEditor } from './editor/form'
 export { fetchHupu } from './fetcher'
 export { createHupuState, type HupuState } from './state'

@@ -1,4 +1,5 @@
-export { createRedditSource, loadFreshRedditOptions, type RedditRenderData } from './source'
+export { createRedditSource, type RedditRenderData } from './source'
+export { loadFreshRedditOptions } from './options'
 export { createRedditEditor } from './editor/form'
 export { fetchReddit } from './fetcher'
 export { createRedditState, type RedditState } from './state'

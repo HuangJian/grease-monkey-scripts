@@ -13,7 +13,7 @@ import { SourceSettingsFields, ChipList } from '../../editor-ui'
 import type { SourceEditorContext, SourceEditorResult, SourceSettings } from '../../types'
 import { normalizeSubredditName } from '../parser'
 import type { RedditSourceOptions } from '../types'
-import { loadFreshRedditOptions } from '../source'
+import { loadFreshRedditOptions } from '../options'
 import { FORM_FIELDS } from './types'
 
 type RedditEditorFormProps = {

@@ -3,7 +3,7 @@ import { render } from 'preact'
 import { loadCache, saveCache } from '../cache'
 import type { SourceEditor, SourceEditorContext, SourceEditorResult } from '../types'
 import { renderXitPreview } from './render'
-import { DEFAULT_XIT_TEXT } from './source'
+import { DEFAULT_XIT_TEXT } from './constants'
 import type { XitData } from './types'
 
 type XitEditorFormProps = {

@@ -1,7 +1,7 @@
-import { suduguAdapter } from './sudugu'
+import { suduguAdapter, deqixsAdapter } from './sudugu'
 import type { NovelAdapter } from './types'
 
-export const ADAPTERS: ReadonlyArray<NovelAdapter> = [suduguAdapter]
+export const ADAPTERS: ReadonlyArray<NovelAdapter> = [suduguAdapter, deqixsAdapter]
 
 export function adapterByHostname(hostname: string): NovelAdapter | undefined {
   return ADAPTERS.find((a) => a.hostnames.includes(hostname))

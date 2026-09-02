@@ -85,14 +85,10 @@ export function RedditComponent({
         const collapsedClass = isActive ? '' : ' gm-sp-section-collapsed'
         const caretClass = showCaret ? ' gm-sp-caret-visible' : ''
         return (
-          <section class={`gm-sp-section${collapsedClass}`} data-sub={escapeHtml(sub)}>
-            <h3
-              class="gm-sp-section-title"
-              data-sub={escapeHtml(sub)}
-              onClick={() => handleToggleSub(sub)}
-            >
+          <section class={`gm-sp-section${collapsedClass}`} data-sub={sub}>
+            <h3 class="gm-sp-section-title" data-sub={sub} onClick={() => handleToggleSub(sub)}>
               <span class={`gm-sp-caret${caretClass}`}>▾</span>
-              r/{escapeHtml(sub)}
+              r/{sub}
             </h3>
             <ol class="gm-sp-list">
               {visiblePosts.map((post) => {
@@ -102,7 +98,7 @@ export function RedditComponent({
                 const hasTags = !!authorTags && Object.keys(authorTags).length > 0
                 const ac = authorClass(authorTags ? getTotalScore(authorTags) : 0)
                 const titleSuffix = buildAuthorTagHtml(authorTags, escapeHtml)
-                const authorText = author ? `@${escapeHtml(author)}` : ''
+                const authorText = author ? `@${author}` : ''
                 const commentCount = formatReplyCount(
                   post.numComments,
                   state.getReadReplies(post.id),

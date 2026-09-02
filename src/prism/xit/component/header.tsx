@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef } from 'preact/hooks'
-import { escapeHtml } from '../../../utils'
 import type { SourceHeaderProps } from '../../types'
 import { useHeaderState, type HeaderStateStore } from '../../header-state'
 import { parseXitText } from '../parser'
-import { getTagCounts } from '../source'
+import { getTagCounts } from '../tag-counts'
 import {
   loadFilters,
   getDefaultFilter,
@@ -207,7 +206,7 @@ export function XitHeaderControls({
                     data-filter-id={f.id}
                     onClick={() => onFilterClick(f)}
                   >
-                    <span class="gm-sp-xit-saved-filter-name">{escapeHtml(f.name)}</span>
+                    <span class="gm-sp-xit-saved-filter-name">{f.name}</span>
                     <span class="gm-sp-xit-saved-filter-actions">
                       <span
                         class={`gm-sp-xit-saved-filter-star${starClass}`}
@@ -255,7 +254,7 @@ export function XitHeaderControls({
                     data-tag={name}
                     onClick={() => onTagClick(name)}
                   >
-                    #{escapeHtml(name)} <span class="gm-sp-xit-tag-chip-count">{count}</span>
+                    #{name} <span class="gm-sp-xit-tag-chip-count">{count}</span>
                   </button>
                 )
               })}

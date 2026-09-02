@@ -13,7 +13,7 @@ import { SourceSettingsFields, ChipList } from '../../editor-ui'
 import type { SourceEditorContext, SourceEditorResult, SourceSettings } from '../../types'
 import { normalizeBoardSlug } from '../parser'
 import type { HupuSourceOptions } from '../types'
-import { loadFreshHupuOptions } from '../source'
+import { loadFreshHupuOptions } from '../options'
 import { FORM_FIELDS } from './types'
 
 type HupuEditorFormProps = {

@@ -70,6 +70,20 @@ describe('loadConfig', () => {
     expect(cfg.weather.cities[0].latitude).toBe(31.2)
     expect(cfg.v2ex.ttlMinutes).toBe(DEFAULT_CONFIG.v2ex.ttlMinutes)
   })
+  test('falls back to DEFAULT_CONFIG when stored config is invalid', async () => {
+    const runtime = createRuntime()
+    runtime.stores[CONFIG_KEY] = {
+      v2ex: { ttlMinutes: 'not-a-number' },
+    }
+    const cfg = await loadConfig(runtime)
+    expect(cfg).toEqual(DEFAULT_CONFIG)
+  })
+  test('falls back to DEFAULT_CONFIG when stored config root is not an object', async () => {
+    const runtime = createRuntime()
+    runtime.stores[CONFIG_KEY] = 'garbage'
+    const cfg = await loadConfig(runtime)
+    expect(cfg).toEqual(DEFAULT_CONFIG)
+  })
 })
 
 describe('loadConfigSection', () => {

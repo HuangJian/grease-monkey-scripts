@@ -184,69 +184,153 @@ describe('codec round-trip: tnews', () => {
 })
 
 describe('codec round-trip: novels', () => {
-  test('preserves book fields', () => {
-    const data = {
-      books: [
-        {
-          url: 'https://example.com/book',
-          siteId: 'site1',
-          title: 'My Novel',
-          latestChapters: [
-            { url: 'https://example.com/ch1', title: 'Chapter 1', postedAt: 1700000000000 },
-          ],
-          fetchedAt: 1700000000000,
-          lastSeenChapterUrl: 'https://example.com/ch1',
-        },
-      ],
-    }
-    const result = roundTrip('novels', data)
-    expect(result.books[0].url).toBe('https://example.com/book')
-    expect(result.books[0].title).toBe('My Novel')
-    expect(result.books[0].latestChapters[0].title).toBe('Chapter 1')
-    expect(result.books[0].lastSeenChapterUrl).toBe('https://example.com/ch1')
-  })
-
-  test('preserves mirrorHost (last working mirror) across round-trip', () => {
+  test('preserves book fields and per-source variants', () => {
     const data: { books: NovelBook[] } = {
       books: [
         {
-          url: 'https://www.sudugu.org/166/',
-          siteId: 'sudugu',
+          id: 'u:https://example.com/book',
           title: 'My Novel',
+          sources: [
+            { url: 'https://example.com/book', siteId: 'sudugu', chapterCount: 100, error: '' },
+          ],
           latestChapters: [
             {
-              url: 'https://www.sudugu.org/166/c1.html',
+              key: 'n:1',
               title: 'Chapter 1',
               postedAt: 1700000000000,
+              variants: [
+                {
+                  url: 'https://example.com/ch1',
+                  title: 'Chapter 1',
+                  postedAt: 1700000000000,
+                  siteId: 'sudugu',
+                  host: undefined,
+                },
+              ],
             },
           ],
+          lastSeenChapterKey: 'n:1',
           fetchedAt: 1700000000000,
-          lastSeenChapterUrl: 'https://www.sudugu.org/166/c1.html',
-          mirrorHost: 'www.shudugu.org',
           error: '',
         },
       ],
     }
     const result = roundTrip('novels', data)
-    expect(result.books[0].mirrorHost).toBe('www.shudugu.org')
+    expect(result.books[0]!.id).toBe('u:https://example.com/book')
+    expect(result.books[0]!.title).toBe('My Novel')
+    expect(result.books[0]!.lastSeenChapterKey).toBe('n:1')
+    expect(result.books[0]!.sources[0]!.siteId).toBe('sudugu')
+    expect(result.books[0]!.latestChapters[0]!.title).toBe('Chapter 1')
+    expect(result.books[0]!.latestChapters[0]!.variants[0]!.url).toBe('https://example.com/ch1')
+  })
+
+  test('preserves per-source mirrorHost and per-variant host across round-trip', () => {
+    const data: { books: NovelBook[] } = {
+      books: [
+        {
+          id: 'u:https://www.sudugu.org/166/',
+          title: 'My Novel',
+          sources: [
+            {
+              url: 'https://www.sudugu.org/166/',
+              siteId: 'sudugu',
+              mirrorHost: 'www.shudugu.org',
+              chapterCount: 100,
+              error: '',
+            },
+          ],
+          latestChapters: [
+            {
+              key: 'n:1',
+              title: 'Chapter 1',
+              postedAt: 1700000000000,
+              variants: [
+                {
+                  url: 'https://www.sudugu.org/166/c1.html',
+                  title: 'Chapter 1',
+                  postedAt: 1700000000000,
+                  siteId: 'sudugu',
+                  host: 'www.shudugu.org',
+                },
+              ],
+            },
+          ],
+          lastSeenChapterKey: 'n:1',
+          fetchedAt: 1700000000000,
+          error: '',
+        },
+      ],
+    }
+    const result = roundTrip('novels', data)
+    expect(result.books[0]!.sources[0]!.mirrorHost).toBe('www.shudugu.org')
+    expect(result.books[0]!.latestChapters[0]!.variants[0]!.host).toBe('www.shudugu.org')
   })
 
   test('omits mirrorHost when not set', () => {
     const data: { books: NovelBook[] } = {
       books: [
         {
-          url: 'https://www.sudugu.org/166/',
-          siteId: 'sudugu',
+          id: 'u:https://www.sudugu.org/166/',
           title: 'My Novel',
+          sources: [
+            { url: 'https://www.sudugu.org/166/', siteId: 'sudugu', chapterCount: 0, error: '' },
+          ],
           latestChapters: [],
+          lastSeenChapterKey: '',
           fetchedAt: 1700000000000,
-          lastSeenChapterUrl: '',
           error: '',
         },
       ],
     }
     const result = roundTrip('novels', data)
-    expect(result.books[0].mirrorHost).toBeUndefined()
+    expect(result.books[0]!.sources[0]!.mirrorHost).toBeUndefined()
+  })
+
+  test('round-trips a multi-source chapter (multiple variants)', () => {
+    const data: { books: NovelBook[] } = {
+      books: [
+        {
+          id: 'u:https://www.sudugu.org/166/',
+          title: 'My Novel',
+          sources: [
+            { url: 'https://www.sudugu.org/166/', siteId: 'sudugu', chapterCount: 5, error: '' },
+            { url: 'https://b.example/166/', siteId: 'site-b', chapterCount: 4, error: '' },
+          ],
+          latestChapters: [
+            {
+              key: 'n:5',
+              title: '第5章',
+              postedAt: 0,
+              variants: [
+                {
+                  url: 'https://www.sudugu.org/166/c5.html',
+                  title: '第5章',
+                  postedAt: 0,
+                  siteId: 'sudugu',
+                  host: undefined,
+                },
+                {
+                  url: 'https://b.example/166/c5.html',
+                  title: '第5章',
+                  postedAt: 0,
+                  siteId: 'site-b',
+                  host: undefined,
+                },
+              ],
+            },
+          ],
+          lastSeenChapterKey: '',
+          fetchedAt: 1700000000000,
+          error: '',
+        },
+      ],
+    }
+    const result = roundTrip('novels', data)
+    expect(result.books[0]!.sources).toHaveLength(2)
+    expect(result.books[0]!.latestChapters[0]!.variants.map((v) => v.siteId)).toEqual([
+      'sudugu',
+      'site-b',
+    ])
   })
 })
 

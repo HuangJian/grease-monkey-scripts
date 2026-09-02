@@ -1,16 +1,38 @@
-import type { NovelBook } from './types'
+import type { NovelChapterVariant, NovelSourceState } from './types'
 
-/**
- * Rewrite `url`'s host to the book's last-working mirror host when one is known.
- * Keeps the path/query so chapter and book links point at the mirror that actually
- * served the content, while the canonical (entry) URL stays the book's identity.
- */
-export function displayUrl(book: Pick<NovelBook, 'mirrorHost'>, url: string): string {
-  if (!book.mirrorHost) return url
+function rewriteHost(url: string, newHost: string): string {
   try {
     const u = new URL(url)
-    u.hostname = book.mirrorHost
+    u.hostname = newHost
     return u.href
+  } catch {
+    return url
+  }
+}
+
+/**
+ * Rewrite a chapter variant's url to the host that actually served its source
+ * pages (the mirror), while the canonical (entry) url stays the variant's
+ * identity. Falls back to the original url when no mirror host is recorded.
+ */
+export function variantUrl(v: NovelChapterVariant): string {
+  if (!v.host) return v.url
+  return rewriteHost(v.url, v.host)
+}
+
+/** Rewrite a source's home url to the mirror host recorded for it. */
+export function sourceUrl(source: NovelSourceState): string {
+  if (!source.mirrorHost) return source.url
+  return rewriteHost(source.url, source.mirrorHost)
+}
+
+/** Short label for a source: the registrable name's first label, sans `www.`. */
+export function sourceLabel(url: string): string {
+  try {
+    const hostname = new URL(url).hostname
+    const bare = hostname.replace(/^www\./, '')
+    const first = bare.split('.')[0]
+    return first || bare
   } catch {
     return url
   }

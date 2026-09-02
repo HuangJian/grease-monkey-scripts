@@ -1,19 +1,22 @@
 import { useState } from 'preact/hooks'
-import { escapeHtml, escapeUrl } from '../../utils'
+import { escapeUrl } from '../../utils'
 import type { SourceComponentProps } from '../types'
 import { newChapterCount, newChapters } from './state'
-import { displayUrl } from './mirror'
-import type { NovelBook, NovelChapter, NovelData } from './types'
+import { sourceLabel, sourceUrl, variantUrl } from './mirror'
+import { normalizeBooks } from './migrate'
+import type { NovelBook, NovelChapter, NovelChapterVariant, NovelData } from './types'
 
 const FALLBACK_DATE_LABEL = '未知'
 const FOLD_THRESHOLD = 3
 
 export type NovelsComponentProps = SourceComponentProps<NovelData> & {
-  onMarkSeen: (bookUrl: string) => void
+  onMarkSeen: (bookId: string) => void
 }
 
 export function NovelsComponent({ data, onMarkSeen }: NovelsComponentProps) {
-  const books = data?.books ?? []
+  // Normalize at the read path so legacy cached data (without `sources`) and
+  // freshly-fetched books both render through the same component.
+  const books = normalizeBooks(data?.books ?? [])
 
   if (books.length === 0) {
     return (
@@ -34,7 +37,7 @@ export function NovelsComponent({ data, onMarkSeen }: NovelsComponentProps) {
   return (
     <div class="gm-sp-novels">
       {sorted.map((book) => (
-        <BookBlock key={book.url} book={book} onMarkSeen={onMarkSeen} />
+        <BookBlock key={book.id} book={book} onMarkSeen={onMarkSeen} />
       ))}
     </div>
   )
@@ -45,17 +48,18 @@ function BookBlock({
   onMarkSeen,
 }: {
   book: NovelBook
-  onMarkSeen: (bookUrl: string) => void
+  onMarkSeen: (bookId: string) => void
 }) {
-  const titleText = escapeHtml(book.title || book.url)
-  const bookUrl = escapeUrl(book.url)
+  const titleText = book.title || book.sources[0]?.url || book.id
   const unread = newChapters(book)
   const unreadCount = newChapterCount(book)
+  const multiSource = book.sources.length > 1
+  const unknown = book.sources.length > 0 && book.sources.every((s) => s.siteId === 'unknown')
 
-  if (book.siteId === 'unknown') {
+  if (unknown) {
     const errorText = book.error || '未知站点，暂不支持'
     return (
-      <div class="gm-sp-novels-book gm-sp-novels-book-unknown" data-book-url={bookUrl}>
+      <div class="gm-sp-novels-book gm-sp-novels-book-unknown" data-book-id={book.id}>
         <div class="gm-sp-novels-book-header">
           <BookTitleLink book={book} titleText={titleText} />
           <span class="gm-sp-novels-book-status">未知站点</span>
@@ -67,7 +71,7 @@ function BookBlock({
 
   if (book.error && book.latestChapters.length === 0) {
     return (
-      <div class="gm-sp-novels-book" data-book-url={bookUrl}>
+      <div class="gm-sp-novels-book" data-book-id={book.id}>
         <div class="gm-sp-novels-book-header">
           <BookTitleLink book={book} titleText={titleText} />
           <span class="gm-sp-novels-book-status">加载失败</span>
@@ -82,17 +86,21 @@ function BookBlock({
   ) : null
 
   if (unreadCount === 0) {
-    const statusText = '无更新'
     return (
-      <div class="gm-sp-novels-book" data-book-url={bookUrl}>
+      <div class="gm-sp-novels-book" data-book-id={book.id}>
         <div class="gm-sp-novels-book-header">
           <BookTitleLink book={book} titleText={titleText} />
-          <span class="gm-sp-novels-book-status gm-sp-novels-book-status-none">{statusText}</span>
+          <span class="gm-sp-novels-book-status gm-sp-novels-book-status-none">无更新</span>
         </div>
+        {book.sources.length > 1 ? <BookSourceSummary book={book} /> : null}
         {errorNoteEl}
         {book.latestChapters.length > 0 ? (
           <ul class="gm-sp-list gm-sp-list-col">
-            <ReadChapterItem chapter={book.latestChapters[0]!} book={book} />
+            <ReadChapterItem
+              chapter={book.latestChapters[0]!}
+              book={book}
+              multiSource={multiSource}
+            />
           </ul>
         ) : (
           <div class="gm-sp-novels-book-note">暂无新章节</div>
@@ -101,22 +109,27 @@ function BookBlock({
     )
   }
 
-  const statusText = `${unreadCount} 章新`
-
   return (
-    <div class="gm-sp-novels-book" data-book-url={bookUrl}>
+    <div class="gm-sp-novels-book" data-book-id={book.id}>
       <div class="gm-sp-novels-book-header">
         <BookTitleLink book={book} titleText={titleText} />
-        <span class="gm-sp-novels-book-status">{statusText}</span>
+        <span class="gm-sp-novels-book-status">{`${unreadCount} 章新`}</span>
       </div>
+      {book.sources.length > 1 ? <BookSourceSummary book={book} /> : null}
       {errorNoteEl}
-      <ChapterList chapters={unread} book={book} onMarkSeen={() => onMarkSeen(book.url)} />
+      <ChapterList
+        chapters={unread}
+        book={book}
+        multiSource={multiSource}
+        onMarkSeen={() => onMarkSeen(book.id)}
+      />
     </div>
   )
 }
 
 function BookTitleLink({ book, titleText }: { book: NovelBook; titleText: string }) {
-  const url = displayUrl(book, book.url)
+  const primary = book.sources[0]
+  const url = primary ? sourceUrl(primary) : book.id
   return (
     <a
       class="gm-sp-novels-book-title"
@@ -129,13 +142,30 @@ function BookTitleLink({ book, titleText }: { book: NovelBook; titleText: string
   )
 }
 
+/** Small multi-source progress summary: `sudugu 120 · biquge 118`, `⚠` on failures. */
+function BookSourceSummary({ book }: { book: NovelBook }) {
+  return (
+    <div class="gm-sp-novels-book-sources">
+      {book.sources.map((s) => (
+        <span class="gm-sp-novels-book-src" key={s.url} data-failed={s.error ? 'true' : 'false'}>
+          {s.error ? '⚠ ' : ''}
+          {sourceLabel(s.url)}
+          {s.error ? '' : ` ${s.chapterCount}`}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 function ChapterList({
   chapters,
   book,
+  multiSource,
   onMarkSeen,
 }: {
   chapters: NovelChapter[]
   book: NovelBook
+  multiSource: boolean
   onMarkSeen: () => void
 }) {
   const folded = chapters.length > FOLD_THRESHOLD
@@ -153,7 +183,13 @@ function ChapterList({
           ch.omittedCount ? (
             <GapItem key={`gap-${i}`} count={ch.omittedCount} />
           ) : (
-            <ChapterItem key={ch.url} chapter={ch} book={book} onMarkSeen={onMarkSeen} />
+            <ChapterItem
+              key={ch.key}
+              chapter={ch}
+              book={book}
+              multiSource={multiSource}
+              onMarkSeen={onMarkSeen}
+            />
           ),
         )}
       </ul>
@@ -180,44 +216,101 @@ function GapItem({ count }: { count: number }) {
 
 function ChapterItem({
   chapter,
-  book,
+  book: _book,
+  multiSource,
   onMarkSeen,
 }: {
   chapter: NovelChapter
   book: NovelBook
+  multiSource: boolean
   onMarkSeen: () => void
 }) {
   const timeText = chapter.postedAt > 0 ? formatPostedAt(chapter.postedAt) : FALLBACK_DATE_LABEL
-  const href = escapeUrl(displayUrl(book, chapter.url))
+
+  if (!multiSource) {
+    const href = escapeUrl(variantUrl(chapter.variants[0]!))
+    return (
+      <li class="gm-sp-novels-chapter">
+        <a
+          class="gm-sp-novels-chapter-link"
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => onMarkSeen()}
+        >
+          <span class="gm-sp-novels-chapter-time">{timeText}</span>
+          <span class="gm-sp-novels-chapter-title">{chapter.title}</span>
+        </a>
+      </li>
+    )
+  }
+
   return (
-    <li class="gm-sp-novels-chapter">
-      <a
-        class="gm-sp-novels-chapter-link"
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={() => onMarkSeen()}
-      >
-        <span class="gm-sp-novels-chapter-time">{escapeHtml(timeText)}</span>
-        <span class="gm-sp-novels-chapter-title">{escapeHtml(chapter.title)}</span>
-      </a>
+    <li class="gm-sp-novels-chapter gm-sp-novels-chapter-multi">
+      <span class="gm-sp-novels-chapter-time">{timeText}</span>
+      <span class="gm-sp-novels-chapter-title">{chapter.title}</span>
+      <span class="gm-sp-novels-chapter-sources">
+        {chapter.variants.map((v) => (
+          <ChapterSourceChip key={v.url} variant={v} onMarkSeen={onMarkSeen} />
+        ))}
+      </span>
     </li>
   )
 }
 
-function ReadChapterItem({ chapter, book }: { chapter: NovelChapter; book: NovelBook }) {
-  const timeText = formatPostedAt(chapter.postedAt || book.fetchedAt) + '【已读】'
+function ChapterSourceChip({
+  variant,
+  onMarkSeen,
+}: {
+  variant: NovelChapterVariant
+  onMarkSeen: () => void
+}) {
+  const href = escapeUrl(variantUrl(variant))
+  const label = sourceLabel(variant.url)
   return (
-    <li class="gm-sp-novels-chapter">
-      <a
-        class="gm-sp-novels-chapter-link"
-        href={escapeUrl(displayUrl(book, chapter.url))}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <span class="gm-sp-novels-chapter-time">{escapeHtml(timeText)}</span>
-        <span class="gm-sp-novels-chapter-title">{escapeHtml(chapter.title)}</span>
-      </a>
+    <a
+      class="gm-sp-novels-chapter-src"
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={variant.host ?? variant.url}
+      onClick={() => onMarkSeen()}
+    >
+      {label}
+    </a>
+  )
+}
+
+function ReadChapterItem({
+  chapter,
+  book,
+  multiSource,
+}: {
+  chapter: NovelChapter
+  book: NovelBook
+  multiSource: boolean
+}) {
+  const timeText = formatPostedAt(chapter.postedAt || book.fetchedAt) + '【已读】'
+  if (!multiSource) {
+    const href = escapeUrl(variantUrl(chapter.variants[0]!))
+    return (
+      <li class="gm-sp-novels-chapter">
+        <a class="gm-sp-novels-chapter-link" href={href} target="_blank" rel="noopener noreferrer">
+          <span class="gm-sp-novels-chapter-time">{timeText}</span>
+          <span class="gm-sp-novels-chapter-title">{chapter.title}</span>
+        </a>
+      </li>
+    )
+  }
+  return (
+    <li class="gm-sp-novels-chapter gm-sp-novels-chapter-multi">
+      <span class="gm-sp-novels-chapter-time">{timeText}</span>
+      <span class="gm-sp-novels-chapter-title">{chapter.title}</span>
+      <span class="gm-sp-novels-chapter-sources">
+        {chapter.variants.map((v) => (
+          <ChapterSourceChip key={v.url} variant={v} onMarkSeen={() => {}} />
+        ))}
+      </span>
     </li>
   )
 }

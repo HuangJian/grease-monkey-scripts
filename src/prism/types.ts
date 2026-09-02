@@ -33,7 +33,7 @@ export type CachedSource<T> = {
 }
 
 import type { WeatherCity } from './weather/types'
-import type { NovelEntry } from './novels/types'
+import type { NovelBookConfig } from './novels/types'
 import type { TnewsConfig } from './tnews/types'
 import type { MiscOptions } from './misc/types'
 import type { XueqiuSourceOptions } from './xueqiu/types'
@@ -73,7 +73,7 @@ export type Config = {
   reddit: RedditConfig
   hupu: HupuConfig
   novels: {
-    entries: NovelEntry[]
+    books: NovelBookConfig[]
     ttlMinutes: number
     initialNewChapters: number
     maxNewChaptersPerBook: number

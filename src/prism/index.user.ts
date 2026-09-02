@@ -24,19 +24,7 @@
 // @require      https://cdn.jsdelivr.net/npm/preact@10.29.3/dist/preact.umd.js
 // @require      https://cdn.jsdelivr.net/npm/preact@10.29.3/hooks/dist/hooks.umd.js
 // @require      https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js
-// @connect      api.open-meteo.com
-// @connect      air-quality-api.open-meteo.com
-// @connect      weather.cma.cn
-// @connect      www.v2ex.com
-// @connect      www.sudugu.org
-// @connect      www.shudugu.org
-// @connect      shudugu.org
-// @connect      www.reddit.com
-// @connect      old.reddit.com
-// @connect      bbs.hupu.com
-// @connect      xueqiu.com
-// @connect      rsshub.rssforever.com
-// @connect      openrouter.ai
+// @connect      *
 // @noframes
 // ==/UserScript==
 

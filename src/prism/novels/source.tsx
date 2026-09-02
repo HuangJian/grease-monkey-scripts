@@ -6,7 +6,9 @@ import { NovelsComponent } from './component'
 import { createNovelsEditor } from './editor/form'
 import { fetchNovels } from './fetcher'
 import { newChapterCount } from './state'
-import type { NovelBook, NovelData, NovelEntry, NovelSourceOptions } from './types'
+import { bookId, normalizeBooks } from './migrate'
+import { coerceNovelBooks } from './editor/types'
+import type { NovelBook, NovelBookConfig, NovelData, NovelSourceOptions } from './types'
 
 export function createNovelsSource(
   options: NovelSourceOptions,
@@ -23,8 +25,8 @@ export function createNovelsSource(
         data={data}
         root={root}
         runtime={runtime}
-        onMarkSeen={(bookUrl) => {
-          void markSeen(runtime, bookUrl)
+        onMarkSeen={(bookId_) => {
+          void markSeen(runtime, bookId_)
         }}
       />
     ),
@@ -32,25 +34,25 @@ export function createNovelsSource(
       return novelsTabLabel(data)
     },
     async fetch(runtimeArg, prevData) {
-      const entries = await loadFreshEntries(runtimeArg, options.entries)
-      const prevBooks = prevData?.books ?? []
-      const books = await fetchNovels(runtimeArg, entries, prevBooks, {
+      const configs = await loadFreshBooks(runtimeArg, options.books)
+      const prevBooks = normalizeBooks(prevData?.books)
+      const books = await fetchNovels(runtimeArg, configs, prevBooks, {
         initialNewChapters: options.initialNewChapters,
         maxLatestWindow: options.maxLatestWindow,
       })
-      // Pick up lastSeenChapterUrl updates that markSeen may have written
+      // Pick up lastSeenChapterKey updates that markSeen may have written
       // to the cache while the fetch was in flight. Without this, a
       // refreshSource save would overwrite markSeen's update with the
       // stale prevData value, causing already-seen chapters to reappear
       // as "new" on the next render.
       await mergeLatestSeen(runtimeArg, books)
-      void persistFetchedTitles(runtimeArg, entries, books)
+      void persistFetchedTitles(runtimeArg, configs, books)
       return { books }
     },
     createEditor(settings: SourceSettings) {
       return createNovelsEditor(
         {
-          entries: options.entries,
+          books: options.books,
           ttlMinutes: options.ttlMinutes,
           maxNewChaptersPerBook: options.maxNewChaptersPerBook,
           initialNewChapters: options.initialNewChapters,
@@ -64,18 +66,22 @@ export function createNovelsSource(
 }
 
 export function novelsTabLabel(data: NovelData | null): TabLabel {
-  const books = (data?.books ?? []) as NovelBook[]
+  // Normalize so legacy cached data (chapters without `key`) counts as new.
+  const books = normalizeBooks(data?.books)
   const updated = books.filter((b) => newChapterCount(b) > 0).length
   return { label: '网文更新', badge: updated > 0 ? updated : null }
 }
 
-async function loadFreshEntries(runtime: Runtime, fallback: NovelEntry[]): Promise<NovelEntry[]> {
+async function loadFreshBooks(
+  runtime: Runtime,
+  fallback: NovelBookConfig[],
+): Promise<NovelBookConfig[]> {
   try {
     const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
-    const entries = (stored?.novels as { entries?: NovelEntry[] } | undefined)?.entries
-    if (Array.isArray(entries) && entries.length > 0) return entries
+    const books = coerceNovelBooks(stored?.['novels'] as Record<string, unknown> | undefined, [])
+    if (books.length > 0) return books
   } catch (e) {
-    console.debug('[gm-dashboard] novels loadFreshEntries error', e)
+    console.debug('[gm-dashboard] novels loadFreshBooks error', e)
   }
   return fallback
 }
@@ -90,54 +96,57 @@ function entryHostname(url: string): string {
 
 async function persistFetchedTitles(
   runtime: Runtime,
-  entries: NovelEntry[],
+  configs: NovelBookConfig[],
   books: NovelBook[],
 ): Promise<void> {
   try {
-    const bookByUrl = new Map(books.map((b) => [b.url, b]))
+    const bookById = new Map(books.map((b) => [b.id, b]))
     let changed = false
-    const updated = entries.map((e) => {
-      if (e.alias) return e
-      const book = bookByUrl.get(e.url)
-      if (!book?.title || book.title === entryHostname(e.url)) return e
+    const updated = configs.map((config) => {
+      if (config.title) return config
+      const primaryUrl = config.urls[0] ?? ''
+      const book = bookById.get(bookId(primaryUrl))
+      if (!book?.title || book.title === entryHostname(primaryUrl)) return config
       changed = true
-      return { url: e.url, alias: book.title }
+      return { ...config, title: book.title }
     })
     if (!changed) return
     const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
     await runtime.setValue(CONFIG_KEY, {
       ...(stored ?? {}),
-      novels: { ...((stored?.novels as Record<string, unknown>) ?? {}), entries: updated },
+      novels: { ...((stored?.['novels'] as Record<string, unknown>) ?? {}), books: updated },
     })
   } catch (e) {
     console.debug('[gm-dashboard] novels persistFetchedTitles error', e)
   }
 }
 
+/** Cached book titles keyed by both book id and each source url, so the editor can name books it has never fetched. */
 async function loadCachedTitleMap(runtime: Runtime): Promise<Map<string, string>> {
   const cached = await loadCache<NovelData>(runtime, 'novels')
   const map = new Map<string, string>()
-  ;(cached?.data?.books ?? []).forEach((book) => {
-    if (book.title) map.set(book.url, book.title)
-  })
+  for (const book of normalizeBooks(cached?.data?.books)) {
+    if (!book.title) continue
+    map.set(book.id, book.title)
+    for (const s of book.sources) map.set(s.url, book.title)
+  }
   return map
 }
 
 /**
- * Read-modify-write: updates only lastSeenChapterUrl for the given book,
+ * Read-modify-write: updates only lastSeenChapterKey for the given book,
  * preserving fetchedAt and the rest of the cache. Reads from the live cache
  * (not stale component-closure data) to avoid clobbering a concurrent fetch.
  */
-export async function markSeen(runtime: Runtime, bookUrl: string): Promise<void> {
+export async function markSeen(runtime: Runtime, id: string): Promise<void> {
   const cached = await loadCache<NovelData>(runtime, 'novels')
   if (!cached?.data?.books) return
-  const current = cached.data.books.find((b) => b.url === bookUrl)
+  const cachedBooks = normalizeBooks(cached.data.books)
+  const current = cachedBooks.find((b) => b.id === id)
   if (!current) return
-  const newSeen = current.latestChapters.find((c) => !c.omittedCount)?.url
-  if (!newSeen || newSeen === current.lastSeenChapterUrl) return
-  const books = cached.data.books.map((b) =>
-    b.url === bookUrl ? { ...b, lastSeenChapterUrl: newSeen } : b,
-  )
+  const newSeen = current.latestChapters.find((c) => !c.omittedCount)?.key
+  if (!newSeen || newSeen === current.lastSeenChapterKey) return
+  const books = cachedBooks.map((b) => (b.id === id ? { ...b, lastSeenChapterKey: newSeen } : b))
   await saveCache(runtime, 'novels', {
     data: { books },
     fetchedAt: cached.fetchedAt,
@@ -146,19 +155,21 @@ export async function markSeen(runtime: Runtime, bookUrl: string): Promise<void>
 }
 
 /**
- * Merges lastSeenChapterUrl values from the live cache into freshly fetched
+ * Merges lastSeenChapterKey values from the live cache into freshly fetched
  * books. This prevents a race condition where markSeen writes a new
- * lastSeenChapterUrl during a fetch, but refreshSource overwrites it with
+ * lastSeenChapterKey during a fetch, but refreshSource overwrites it with
  * the stale prevData value when saving the fetch result.
  */
 async function mergeLatestSeen(runtime: Runtime, books: NovelBook[]): Promise<void> {
   const cached = await loadCache<NovelData>(runtime, 'novels')
   if (!cached?.data?.books) return
-  const seenByUrl = new Map(cached.data.books.map((b) => [b.url, b.lastSeenChapterUrl]))
+  const seenById = new Map(
+    normalizeBooks(cached.data.books).map((b) => [b.id, b.lastSeenChapterKey]),
+  )
   for (const book of books) {
-    const seen = seenByUrl.get(book.url)
-    if (seen && seen !== book.lastSeenChapterUrl) {
-      book.lastSeenChapterUrl = seen
+    const seen = seenById.get(book.id)
+    if (seen && seen !== book.lastSeenChapterKey) {
+      book.lastSeenChapterKey = seen
     }
   }
 }

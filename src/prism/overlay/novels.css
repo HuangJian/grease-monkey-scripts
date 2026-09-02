@@ -188,3 +188,124 @@
   border-radius: var(--gm-sp-radius-pill);
   padding: 2px 8px;
 }
+
+/* Multi-source book: progress summary line under the title. */
+.gm-sp-novels-book-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 10px;
+  color: var(--gm-sp-color-text-muted);
+  padding: 0 0 2px;
+}
+
+.gm-sp-novels-book-src[data-failed='true'] {
+  color: var(--gm-sp-color-danger);
+}
+
+/* Multi-source chapter row: time + title + a chip per source. */
+.gm-sp-novels-chapter-multi {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 6px;
+  padding: 2px 4px;
+}
+
+.gm-sp-novels-chapter-sources {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.gm-sp-novels-chapter-src {
+  font-size: 10px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--gm-sp-color-primary);
+  background: rgba(37, 99, 235, 0.1);
+  border: 1px solid var(--gm-sp-color-primary-border, rgba(37, 99, 235, 0.25));
+  border-radius: var(--gm-sp-radius-pill);
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
+.gm-sp-novels-chapter-src:hover {
+  background: rgba(37, 99, 235, 0.18);
+  text-decoration: underline;
+}
+
+/* Editor: grouped-by-book layout. */
+.gm-sp-ne-book {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--gm-sp-color-border);
+  border-radius: var(--gm-sp-radius-md);
+  padding: 6px;
+  background: var(--gm-sp-color-bg);
+}
+
+.gm-sp-ne-book-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gm-sp-ne-book-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.gm-sp-ne-book-display {
+  font-size: 11px;
+  color: var(--gm-sp-color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gm-sp-ne-addurl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.gm-sp-ne-addurl .gm-sp-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.gm-sp-ne-addurl .gm-sp-editor-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+}
+
+.gm-sp-editor-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 0;
+}
+
+.gm-sp-item-move {
+  background: transparent;
+  border: 1px solid var(--gm-sp-color-border);
+  border-radius: var(--gm-sp-radius-sm);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  padding: 1px 5px;
+  cursor: pointer;
+  color: var(--gm-sp-color-text-soft);
+}
+
+.gm-sp-item-move:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.gm-sp-item-move:hover:not(:disabled) {
+  background: var(--gm-sp-color-bg-muted);
+}

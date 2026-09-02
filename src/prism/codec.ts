@@ -1,4 +1,5 @@
 import type { CachedSource } from './types'
+import { normalizeBook } from './novels/migrate'
 
 const SOURCE_BASE: Record<string, string> = {
   v2ex: 'https://www.v2ex.com',
@@ -191,62 +192,122 @@ function expandTnews(v: Record<string, unknown>): Record<string, unknown> {
   }
 }
 
-// Novels
-function compressNovelChapter(v: Record<string, unknown>): Record<string, unknown> {
-  if (isShortItem(v)) return v
-  // Gap marker: only store omittedCount
-  if (typeof v.omittedCount === 'number' && v.omittedCount > 0) {
-    return { oc: v.omittedCount }
-  }
-  const out: Record<string, unknown> = { u: v.url ?? v.u, t: v.title ?? v.t }
-  if (typeof v.postedAt === 'number' && v.postedAt > 0) out.pa = compressTimestamp(v.postedAt)
+// Novels (multi-source)
+function compressNovelSource(s: Record<string, unknown>): Record<string, unknown> {
+  if (isShortItem(s)) return s
+  const out: Record<string, unknown> = { u: s.url, si: s.siteId }
+  if (typeof s.mirrorHost === 'string' && s.mirrorHost) out.mh = s.mirrorHost
+  if (typeof s.chapterCount === 'number' && s.chapterCount > 0) out.cc = s.chapterCount
+  if (typeof s.error === 'string' && s.error) out.e = s.error
   return out
 }
 
-function expandNovelChapter(v: Record<string, unknown>): Record<string, unknown> {
-  if (v.url !== undefined) return v
-  // Gap marker
-  if (typeof v.oc === 'number') {
-    return { url: '', title: '', postedAt: 0, omittedCount: v.oc }
+function expandNovelSource(s: Record<string, unknown>): Record<string, unknown> {
+  if (s.url !== undefined) return s
+  return {
+    url: s.u ?? '',
+    siteId: s.si ?? '',
+    mirrorHost: typeof s.mh === 'string' ? s.mh : undefined,
+    chapterCount: typeof s.cc === 'number' ? s.cc : 0,
+    error: s.e ?? '',
   }
-  const out: Record<string, unknown> = {
+}
+
+function compressVariant(v: Record<string, unknown>): Record<string, unknown> {
+  if (isShortItem(v)) return v
+  const out: Record<string, unknown> = { u: v.url, t: v.title, si: v.siteId }
+  if (typeof v.postedAt === 'number' && v.postedAt > 0) out.pa = compressTimestamp(v.postedAt)
+  if (typeof v.host === 'string' && v.host) out.h = v.host
+  return out
+}
+
+function expandVariant(v: Record<string, unknown>): Record<string, unknown> {
+  if (v.url !== undefined) return v
+  return {
     url: v.u ?? '',
     title: v.t ?? '',
     postedAt: expandTimestamp(v.pa as number | undefined) ?? 0,
-  }
-  return out
-}
-
-function compressNovelBook(v: Record<string, unknown>): Record<string, unknown> {
-  if (v.u !== undefined) return v
-  const chapters = (v.latestChapters ?? []) as Record<string, unknown>[]
-  const out: Record<string, unknown> = {
-    u: v.url ?? v.u,
-    si: v.siteId ?? v.si,
-    t: v.title ?? v.t,
-    lcs: chapters.map(compressNovelChapter),
-    fa: compressTimestamp((v.fetchedAt ?? v.fa) as number | undefined),
-  }
-  if (v.lastSeenChapterUrl) out.lu = v.lastSeenChapterUrl
-  if (v.error) out.e = v.error
-  if (typeof v.mirrorHost === 'string' && v.mirrorHost) out.mh = v.mirrorHost
-  return out
-}
-
-function expandNovelBook(v: Record<string, unknown>): Record<string, unknown> {
-  if (v.url !== undefined) return v
-  const chapters = (v.lcs ?? []) as Record<string, unknown>[]
-  const out: Record<string, unknown> = {
-    url: v.u ?? '',
     siteId: v.si ?? '',
-    title: v.t ?? '',
-    latestChapters: chapters.map(expandNovelChapter),
-    fetchedAt: expandTimestamp(v.fa as number | undefined) ?? 0,
-    lastSeenChapterUrl: v.lu ?? '',
-    error: v.e ?? '',
-    mirrorHost: typeof v.mh === 'string' ? v.mh : undefined,
+    host: typeof v.h === 'string' ? v.h : undefined,
   }
+}
+
+function compressNovelChapter(c: Record<string, unknown>): Record<string, unknown> {
+  if (isShortItem(c)) return c
+  // Gap marker: only store omittedCount
+  if (typeof c.omittedCount === 'number' && c.omittedCount > 0) {
+    return { oc: c.omittedCount }
+  }
+  const variants = (c.variants ?? []) as Record<string, unknown>[]
+  const out: Record<string, unknown> = {
+    k: c.key,
+    t: c.title,
+    pa: compressTimestamp((c.postedAt ?? 0) as number),
+    v: variants.map(compressVariant),
+  }
+  if (typeof c.number === 'number') out.n = c.number
   return out
+}
+
+function expandNovelChapter(c: Record<string, unknown>): Record<string, unknown> {
+  if (c.url !== undefined) return c
+  // Gap marker
+  if (typeof c.oc === 'number') {
+    return { key: '', title: '', postedAt: 0, variants: [], omittedCount: c.oc }
+  }
+  return {
+    key: c.k ?? '',
+    title: c.t ?? '',
+    postedAt: expandTimestamp(c.pa as number | undefined) ?? 0,
+    number: typeof c.n === 'number' ? c.n : undefined,
+    variants: ((c.v ?? []) as Record<string, unknown>[]).map(expandVariant),
+  }
+}
+
+function compressNovelBook(b: Record<string, unknown>): Record<string, unknown> {
+  if (isShortItem(b)) return b
+  // Already compressed (new or legacy payload) — leave untouched.
+  if (b.lc !== undefined || b.u !== undefined) return b
+  const sources = (b.sources ?? []) as Record<string, unknown>[]
+  const chapters = (b.latestChapters ?? []) as Record<string, unknown>[]
+  const out: Record<string, unknown> = {
+    bi: b.id ?? b.url ?? '',
+    t: b.title ?? '',
+    ss: sources.map(compressNovelSource),
+    lc: chapters.map(compressNovelChapter),
+    fa: compressTimestamp((b.fetchedAt ?? 0) as number),
+  }
+  if (typeof b.lastSeenChapterKey === 'string' && b.lastSeenChapterKey)
+    out.lk = b.lastSeenChapterKey
+  if (typeof b.error === 'string' && b.error) out.e = b.error
+  return out
+}
+
+function expandNovelBook(b: Record<string, unknown>): Record<string, unknown> {
+  // Already in full shape — return as-is (normalizeBook will upgrade on read).
+  if (b.latestChapters !== undefined) return b
+  const legacy = b.u !== undefined
+  const record = legacy
+    ? {
+        url: b.u ?? '',
+        siteId: b.si ?? '',
+        title: b.t ?? '',
+        latestChapters: b.lcs ?? [],
+        fetchedAt: expandTimestamp(b.fa as number | undefined) ?? 0,
+        lastSeenChapterUrl: b.lu ?? '',
+        error: b.e ?? '',
+        mirrorHost: typeof b.mh === 'string' ? b.mh : undefined,
+      }
+    : {
+        id: b.bi ?? '',
+        title: b.t ?? '',
+        sources: ((b.ss ?? []) as Record<string, unknown>[]).map(expandNovelSource),
+        latestChapters: ((b.lc ?? []) as Record<string, unknown>[]).map(expandNovelChapter),
+        fetchedAt: expandTimestamp(b.fa as number | undefined) ?? 0,
+        lastSeenChapterKey: b.lk ?? '',
+        error: b.e ?? '',
+      }
+  return normalizeBook(record) ?? record
 }
 
 // Per-source compress/expand dispatch via registry

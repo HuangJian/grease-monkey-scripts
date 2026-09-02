@@ -102,8 +102,8 @@ export function V2exComponent({
                 dangerouslySetInnerHTML={{ __html: escapeHtml(topic.title) + titleSuffix }}
               />
               <span class="gm-sp-item-meta">
-                <span>{escapeHtml(topic.node.title)}</span>
-                <span class={ac.trim() || undefined}>@{escapeHtml(username)}</span>
+                <span>{topic.node.title}</span>
+                <span class={ac.trim() || undefined}>@{username}</span>
               </span>
               <ItemActions
                 onBulkRead={() => handleBulkRead(topic)}

@@ -85,14 +85,14 @@ export function HupuComponent({
         const collapsedClass = isActive ? '' : ' gm-sp-section-collapsed'
         const caretClass = showCaret ? ' gm-sp-caret-visible' : ''
         return (
-          <section class={`gm-sp-section${collapsedClass}`} data-board={escapeHtml(board)}>
+          <section class={`gm-sp-section${collapsedClass}`} data-board={board}>
             <h3
               class="gm-sp-section-title"
-              data-board={escapeHtml(board)}
+              data-board={board}
               onClick={() => handleToggleBoard(board)}
             >
               <span class={`gm-sp-caret${caretClass}`}>▾</span>
-              {escapeHtml(board)}
+              {board}
             </h3>
             <ol class="gm-sp-list">
               {visiblePosts.map((post) => {
@@ -102,7 +102,7 @@ export function HupuComponent({
                 const hasTags = !!authorTags && Object.keys(authorTags).length > 0
                 const ac = authorClass(authorTags ? getTotalScore(authorTags) : 0)
                 const titleSuffix = buildAuthorTagHtml(authorTags, escapeHtml)
-                const authorText = author ? `@${escapeHtml(author)}` : ''
+                const authorText = author ? `@${author}` : ''
                 const replyCount = formatReplyCount(post.replies, state.getReadReplies(post.id))
                 return (
                   <li

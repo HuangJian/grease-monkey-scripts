@@ -3,7 +3,7 @@
  */
 import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { render } from 'preact'
-import { escapeHtml, numberOrDefault } from '../../../utils'
+import { numberOrDefault } from '../../../utils'
 import { validateConfig } from '../../config'
 import {
   readNumberFields,
@@ -19,7 +19,7 @@ import type {
   SourceSettings,
   BadgeType,
 } from '../../types'
-import type { NovelEntry, NovelSourceOptions } from '../types'
+import type { NovelBookConfig, NovelSourceOptions } from '../types'
 import { ADVANCED_FIELDS } from './types'
 import { hostnameFor, isUnknownHost, loadFreshOptions } from './helpers'
 
@@ -42,7 +42,9 @@ export function NovelsEditorForm({
   ctx,
   handleRef,
 }: NovelsEditorFormProps) {
-  const [entries, setEntries] = useState<NovelEntry[]>(() => fresh.entries.map((e) => ({ ...e })))
+  const [books, setBooks] = useState<NovelBookConfig[]>(() =>
+    fresh.books.map((b) => ({ title: b.title, urls: [...b.urls] })),
+  )
   const [error, setError] = useState('')
   const [advanced, setAdvanced] = useState<Record<string, number>>(() =>
     ADVANCED_FIELDS.reduce(
@@ -57,18 +59,75 @@ export function NovelsEditorForm({
   const [tabTitle, setTabTitle] = useState(settings.tabTitle)
   const [priority, setPriority] = useState(settings.priority)
   const [badgeType, setBadgeType] = useState(settings.badgeType)
+  const bookTitleRef = useRef<HTMLInputElement>(null)
   const urlRef = useRef<HTMLInputElement>(null)
-  const aliasRef = useRef<HTMLInputElement>(null)
   const advancedRefs = useRef<(HTMLInputElement | null)[]>([])
+  const urlInputRefs = useRef<Record<number, HTMLInputElement | null>>({})
 
   const onAdvancedChange = useCallback((prop: string, val: number) => {
     setAdvanced((prev) => ({ ...prev, [prop]: val }))
   }, [])
 
+  const setBookTitle = useCallback((bookIdx: number, title: string) => {
+    setBooks((prev) => prev.map((b, i) => (i === bookIdx ? { ...b, title } : b)))
+  }, [])
+
+  const removeBook = useCallback((bookIdx: number) => {
+    setBooks((prev) => prev.filter((_, i) => i !== bookIdx))
+  }, [])
+
+  const removeUrl = useCallback((bookIdx: number, urlIdx: number) => {
+    setBooks((prev) =>
+      prev
+        .map((b, i) => {
+          if (i !== bookIdx) return b
+          const urls = b.urls.filter((_, j) => j !== urlIdx)
+          return { ...b, urls }
+        })
+        .filter((b) => b.urls.length > 0),
+    )
+  }, [])
+
+  const moveUrl = useCallback((bookIdx: number, urlIdx: number, dir: -1 | 1) => {
+    setBooks((prev) =>
+      prev.map((b, i) => {
+        if (i !== bookIdx) return b
+        const next = [...b.urls]
+        const target = urlIdx + dir
+        if (target < 0 || target >= next.length) return b
+        ;[next[urlIdx], next[target]] = [next[target]!, next[urlIdx]!]
+        return { ...b, urls: next }
+      }),
+    )
+  }, [])
+
+  const commitAddUrl = useCallback(
+    (bookIdx: number) => {
+      const el = urlInputRefs.current[bookIdx]
+      const url = (el?.value ?? '').trim()
+      if (!url) {
+        setError('请输入来源 URL')
+        return
+      }
+      if (!hostnameFor(url)) {
+        setError('URL 格式无效')
+        return
+      }
+      if (books.some((b) => b.urls.includes(url))) {
+        setError('该书库已在列表中')
+        return
+      }
+      setBooks((prev) => prev.map((b, i) => (i === bookIdx ? { ...b, urls: [...b.urls, url] } : b)))
+      if (el) el.value = ''
+      setError('')
+    },
+    [books],
+  )
+
   const handleAdd = useCallback(() => {
     setError('')
     const url = urlRef.current?.value.trim()
-    const alias = aliasRef.current?.value.trim()
+    const title = bookTitleRef.current?.value.trim()
     if (!url) {
       setError('请输入书库 URL')
       return
@@ -77,15 +136,21 @@ export function NovelsEditorForm({
       setError('URL 格式无效')
       return
     }
-    if (entries.some((e) => e.url === url)) {
+    const existing = books.find((b) => b.urls.includes(url))
+    if (existing) {
       setError('该书库已在列表中')
       return
     }
-    const entry: NovelEntry = alias ? { url, alias } : { url }
-    setEntries((prev) => [...prev, entry])
+    setBooks((prev) => {
+      const match = title ? prev.find((b) => b.title === title) : undefined
+      if (match) {
+        return prev.map((b) => (b === match ? { ...b, urls: [...b.urls, url] } : b))
+      }
+      return [...prev, { title: title ?? '', urls: [url] }]
+    })
     if (urlRef.current) urlRef.current.value = ''
-    if (aliasRef.current) aliasRef.current.value = ''
-  }, [entries])
+    if (bookTitleRef.current) bookTitleRef.current.value = ''
+  }, [books])
 
   const handleAddKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -96,10 +161,6 @@ export function NovelsEditorForm({
     },
     [handleAdd],
   )
-
-  const removeEntry = useCallback((i: number) => {
-    setEntries((prev) => prev.filter((_, j) => j !== i))
-  }, [])
 
   useLayoutEffect(() => {
     handleRef.current = {
@@ -113,7 +174,7 @@ export function NovelsEditorForm({
         )
         if (nums === null) return
         const novels: NovelSourceOptions = {
-          entries,
+          books: books.map((b) => ({ title: b.title, urls: [...b.urls] })),
           ttlMinutes: Math.round(nums[0]),
           initialNewChapters: Math.round(nums[1]),
           maxNewChaptersPerBook: Math.round(nums[2]),
@@ -136,7 +197,7 @@ export function NovelsEditorForm({
         ctx.close()
       },
     }
-  }, [entries, advanced, tabTitle, priority, badgeType])
+  }, [books, advanced, tabTitle, priority, badgeType])
 
   return (
     <div class="gm-sp-editor">
@@ -174,28 +235,93 @@ export function NovelsEditorForm({
         </label>
       </div>
       <div class="gm-sp-editor-list">
-        {entries.length === 0 ? (
+        {books.length === 0 ? (
           <div class="gm-sp-editor-empty">尚未添加书库</div>
         ) : (
-          entries.map((entry, i) => {
-            const unknown = isUnknownHost(entry.url)
-            const title = titleMap.get(entry.url)
-            const display = entry.alias || title || entry.url
+          books.map((book, bookIdx) => {
+            const cached = titleMap.get(book.urls[0] ?? '')
+            const displayTitle = book.title || cached || book.urls[0] || '(未命名)'
             return (
-              <div class="gm-sp-editor-item" key={i}>
-                <span class="gm-sp-editor-item-label">{escapeHtml(display)}</span>
-                <span class="gm-sp-ne-item-url">{escapeHtml(entry.url)}</span>
-                <span class="gm-sp-ne-item-warn" hidden={!unknown}>
-                  未知站点
-                </span>
-                <button
-                  type="button"
-                  class="gm-sp-item-remove"
-                  aria-label="remove"
-                  onClick={() => removeEntry(i)}
-                >
-                  ×
-                </button>
+              <div class="gm-sp-ne-book" key={bookIdx}>
+                <div class="gm-sp-ne-book-head">
+                  <input
+                    type="text"
+                    class="gm-sp-input gm-sp-ne-book-title"
+                    placeholder="九龙夺嫡"
+                    value={book.title}
+                    onInput={(e) => setBookTitle(bookIdx, (e.target as HTMLInputElement).value)}
+                  />
+                  <button
+                    type="button"
+                    class="gm-sp-item-remove"
+                    aria-label="remove book"
+                    title="删除整本书"
+                    onClick={() => removeBook(bookIdx)}
+                  >
+                    ×
+                  </button>
+                </div>
+                <span class="gm-sp-ne-book-display">{displayTitle}</span>
+                {book.urls.map((url, urlIdx) => {
+                  const unknown = isUnknownHost(url)
+                  return (
+                    <div class="gm-sp-editor-item" key={`${bookIdx}:${urlIdx}`}>
+                      <span class="gm-sp-ne-item-url">{url}</span>
+                      <span class="gm-sp-ne-item-warn" hidden={!unknown}>
+                        未知站点
+                      </span>
+                      <button
+                        type="button"
+                        class="gm-sp-item-move"
+                        aria-label="move up"
+                        disabled={urlIdx === 0}
+                        onClick={() => moveUrl(bookIdx, urlIdx, -1)}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        class="gm-sp-item-move"
+                        aria-label="move down"
+                        disabled={urlIdx === book.urls.length - 1}
+                        onClick={() => moveUrl(bookIdx, urlIdx, 1)}
+                      >
+                        ↓
+                      </button>
+                      <button
+                        type="button"
+                        class="gm-sp-item-remove"
+                        aria-label="remove"
+                        onClick={() => removeUrl(bookIdx, urlIdx)}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )
+                })}
+                <div class="gm-sp-ne-addurl">
+                  <input
+                    ref={(el) => {
+                      urlInputRefs.current[bookIdx] = el
+                    }}
+                    type="url"
+                    class="gm-sp-input"
+                    placeholder="添加同本书的其它来源，如 https://www.deqixs.org/97/"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        commitAddUrl(bookIdx)
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    class="gm-sp-btn gm-sp-editor-btn"
+                    onClick={() => commitAddUrl(bookIdx)}
+                  >
+                    添加来源
+                  </button>
+                </div>
               </div>
             )
           })
@@ -203,22 +329,22 @@ export function NovelsEditorForm({
       </div>
       <div class="gm-sp-editor-form-stacked">
         <label class="gm-sp-editor-row">
+          <span>书名（可选）</span>
+          <input
+            ref={bookTitleRef}
+            type="text"
+            class="gm-sp-input"
+            placeholder="书名（可选）"
+            onKeyDown={handleAddKeyDown}
+          />
+        </label>
+        <label class="gm-sp-editor-row">
           <span>书库 URL</span>
           <input
             ref={urlRef}
             type="url"
             class="gm-sp-input"
             placeholder="https://www.sudugu.org/166/"
-            onKeyDown={handleAddKeyDown}
-          />
-        </label>
-        <label class="gm-sp-editor-row">
-          <span>别名（可选）</span>
-          <input
-            ref={aliasRef}
-            type="text"
-            class="gm-sp-input"
-            placeholder="九龙夺嫡"
             onKeyDown={handleAddKeyDown}
           />
         </label>

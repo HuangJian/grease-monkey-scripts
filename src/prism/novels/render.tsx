@@ -5,7 +5,7 @@ import type { NovelData } from './types'
 
 export type RenderNovelsContext = {
   runtime: Runtime
-  onMarkSeen: (bookUrl: string) => void
+  onMarkSeen: (bookId: string) => void
 }
 
 export function renderNovels(
