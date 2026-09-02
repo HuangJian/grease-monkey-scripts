@@ -9,6 +9,7 @@ import {
 } from './parser'
 import type { V2exState } from './state'
 import { earliestTimestamp } from '../shared-utils'
+import { requestText } from '../shared/request'
 import type { V2exCountOptions, V2exTopic } from './types'
 
 /**
@@ -68,34 +69,22 @@ import type { V2exCountOptions, V2exTopic } from './types'
 
 type FetchOutcome = { topics: V2exTopic[]; error?: string }
 
-function fetchFromEndpoint(
+async function fetchFromEndpoint(
   runtime: Runtime,
   url: string,
   parse: (body: string) => V2exTopic[],
 ): Promise<FetchOutcome> {
-  return new Promise<FetchOutcome>((resolve) => {
-    let settled = false
-    const settle = (outcome: FetchOutcome) => {
-      if (settled) return
-      settled = true
-      resolve(outcome)
-    }
-    runtime.request({
-      url,
-      method: 'GET',
-      timeout: 15000,
-      anonymous: true,
-      onload(response) {
-        try {
-          settle({ topics: parse(response.responseText) })
-        } catch (e) {
-          settle({ topics: [], error: e instanceof Error ? e.message : String(e) })
-        }
-      },
-      onerror: () => settle({ topics: [], error: 'network error' }),
-      ontimeout: () => settle({ topics: [], error: 'timeout' }),
-    })
-  })
+  let body: string
+  try {
+    body = await requestText(runtime, url, { anonymous: true })
+  } catch (e) {
+    return { topics: [], error: e instanceof Error ? e.message : String(e) }
+  }
+  try {
+    return { topics: parse(body) }
+  } catch (e) {
+    return { topics: [], error: e instanceof Error ? e.message : String(e) }
+  }
 }
 
 export async function fetchV2ex(

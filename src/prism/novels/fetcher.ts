@@ -5,6 +5,7 @@ import type { NovelBook, NovelBookConfig, NovelChapterVariant, NovelSourceState 
 import { bookId, normalizeBooks } from './migrate'
 import { chapterKey } from './chapter-key'
 import { mergeSourceChapters } from './merge'
+import { requestText } from '../shared/request'
 
 export type FetchNovelsOptions = {
   initialNewChapters: number
@@ -290,26 +291,6 @@ function hostnameFallback(url: string): string {
   }
 }
 
-function getText(runtime: Runtime, url: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let settled = false
-    const settle = (fn: () => void) => {
-      if (settled) return
-      settled = true
-      fn()
-    }
-    runtime.request({
-      url,
-      method: 'GET',
-      timeout: 15000,
-      anonymous: true,
-      onload: (response) => settle(() => resolve(response.responseText)),
-      onerror: () => settle(() => reject(new Error('network error'))),
-      ontimeout: () => settle(() => reject(new Error('timeout'))),
-    })
-  })
-}
-
 async function fetchWithFallback(
   runtime: Runtime,
   baseUrl: string,
@@ -319,7 +300,7 @@ async function fetchWithFallback(
   for (const host of orderedHosts) {
     const url = rewriteHost(baseUrl, host)
     try {
-      return { html: await getText(runtime, url), host }
+      return { html: await requestText(runtime, url, { anonymous: true }), host }
     } catch (e) {
       lastError = e instanceof Error ? e : new Error(String(e))
       console.debug('[gm-novels] mirror fetch failed:', url, lastError.message)

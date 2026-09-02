@@ -1,6 +1,6 @@
 import type { Runtime } from '../../runtime'
 import { numberOrDefault } from '../../utils'
-import { requestJson } from './http'
+import { requestJson } from '../shared/request'
 import type { WeatherAirQuality } from './types'
 
 export function buildAirQualityUrl(latitude: number, longitude: number): string {

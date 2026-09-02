@@ -11,7 +11,7 @@
  */
 import type { Runtime } from '../../runtime'
 import { fetchAirQuality } from './air-quality'
-import { requestJson, requestTextWithHeaders } from './http'
+import { requestJson, requestTextWithHeaders } from '../shared/request'
 import { parseWeather } from './parser'
 import { parseCmaNow } from './cma/parse-now'
 import { parseCmaPage } from './cma/parse-page'
@@ -27,7 +27,7 @@ import type { WeatherCity, WeatherCityData, WeatherCityEntry } from './types'
 
 export { buildAirQualityUrl, fetchAirQuality, parseAirQuality } from './air-quality'
 export { parseWeather } from './parser'
-export { requestJson, requestText, requestTextWithHeaders } from './http'
+export { requestJson, requestText, requestTextWithHeaders } from '../shared/request'
 
 export function buildWeatherUrl(latitude: number, longitude: number): string {
   const params = new URLSearchParams({
