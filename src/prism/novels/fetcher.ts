@@ -6,6 +6,7 @@ import { bookId, normalizeBooks } from './migrate'
 import { chapterKey } from './chapter-key'
 import { mergeSourceChapters } from './merge'
 import { requestText } from '../shared/request'
+import { mapLimit } from '../shared/concurrency'
 
 export type FetchNovelsOptions = {
   initialNewChapters: number
@@ -13,6 +14,12 @@ export type FetchNovelsOptions = {
 }
 
 const DEFAULT_MAX_WINDOW = 50
+
+// Bound the otherwise-unbounded fan-out (see frontend.refactor.md P2: "全局无并发控制").
+// A book fans out over its mirrors; many books fan out over fetchOneBook. Limiting
+// both keeps total in-flight requests finite even with many books/mirrors.
+const MAX_BOOK_CONCURRENCY = 4
+const MAX_MIRROR_CONCURRENCY = 3
 
 type RawChapter = { url: string; title: string; postedAt: number }
 
@@ -33,8 +40,10 @@ export async function fetchNovels(
   const prevByUrl = new Map<string, NovelBook>()
   prevList.forEach((b) => b.sources.forEach((s) => prevByUrl.set(s.url, b)))
 
-  return Promise.all(
-    books.map((cfg) => fetchOneBook(runtime, cfg, prevById, prevByUrl, options, resolveAdapter)),
+  return mapLimit(
+    books,
+    (cfg) => fetchOneBook(runtime, cfg, prevById, prevByUrl, options, resolveAdapter),
+    MAX_BOOK_CONCURRENCY,
   )
 }
 
@@ -80,9 +89,10 @@ async function fetchOneBook(
   let anyError = false
   const fetchedTitles: string[] = []
 
-  // Fetch every source of the book at once; results stay in config order.
-  const sourceResults = await Promise.all(
-    cfg.urls.map(async (url) => {
+  // Fetch every source of the book, bounded per-book; results stay in config order.
+  const sourceResults = await mapLimit(
+    cfg.urls,
+    async (url) => {
       const adapter = resolveAdapter(url)
       const prevSource = prev?.sources.find((s) => s.url === url)
       if (!adapter) {
@@ -141,7 +151,8 @@ async function fetchOneBook(
           failed: true,
         }
       }
-    }),
+    },
+    MAX_MIRROR_CONCURRENCY,
   )
 
   for (const r of sourceResults) {

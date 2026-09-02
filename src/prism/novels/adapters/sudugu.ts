@@ -1,57 +1,10 @@
 import { htmlToDocument, toAbsoluteUrl } from '../../../utils'
+import { parseChapterLabel } from '../../shared/date-parse'
 import type { NovelRawChapter } from '../types'
 import type { NovelAdapter, ParsedHome } from './types'
 
 const SUDUGU_HOSTNAMES = ['www.sudugu.org', 'sudugu.org', 'www.shudugu.org', 'shudugu.org'] as const
 const DEQIXS_HOSTNAMES = ['www.deqixs.org', 'deqixs.org'] as const
-
-export function parseChapterLabel(text: string, now: number = Date.now()): number | undefined {
-  const trimmed = text.trim()
-  if (!trimmed) return undefined
-  const nowDate = new Date(now)
-
-  if (trimmed === '今天') {
-    return startOfDay(nowDate).getTime()
-  }
-  if (trimmed === '昨天') {
-    const d = startOfDay(nowDate)
-    d.setDate(d.getDate() - 1)
-    return d.getTime()
-  }
-
-  const fullDate = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(trimmed)
-  if (fullDate) {
-    const [, y, m, d] = fullDate
-    return new Date(Number(y), Number(m) - 1, Number(d)).getTime()
-  }
-
-  const monthDay = /^(\d{1,2})-(\d{1,2})$/.exec(trimmed)
-  if (monthDay) {
-    const [, m, d] = monthDay
-    const year = nowDate.getFullYear()
-    const candidate = new Date(year, Number(m) - 1, Number(d))
-    if (candidate.getTime() > now) {
-      candidate.setFullYear(year - 1)
-    }
-    return candidate.getTime()
-  }
-
-  const hourMinute = /^(\d{1,2}):(\d{2})$/.exec(trimmed)
-  if (hourMinute) {
-    const [, h, m] = hourMinute
-    const d = startOfDay(nowDate)
-    d.setHours(Number(h), Number(m), 0, 0)
-    return d.getTime()
-  }
-
-  return undefined
-}
-
-function startOfDay(d: Date): Date {
-  const copy = new Date(d.getTime())
-  copy.setHours(0, 0, 0, 0)
-  return copy
-}
 
 function extractTitleFromH1(h1: Element): string | null {
   // Real site markup is `<h1><a href>真实书名</a>最新章节</h1>`. Prefer the

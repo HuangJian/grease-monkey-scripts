@@ -1,4 +1,5 @@
 import { htmlToDocument, toAbsoluteUrl } from '../../utils'
+import { parseRelativeTime } from '../shared/date-parse'
 import { HUPU_BASE_URL } from './constants'
 import type { HupuPost } from './types'
 
@@ -106,30 +107,6 @@ export function parseHupuDom(
     return out.length >= maxItems
   })
   return out
-}
-
-function parseRelativeTime(text: string, now: number): number {
-  if (!text) return now
-  const minuteMatch = text.match(/(\d+)\s*分钟前/)
-  if (minuteMatch) return now - Number(minuteMatch[1]) * 60_000
-  const hourMatch = text.match(/(\d+)\s*小时前/)
-  if (hourMatch) return now - Number(hourMatch[1]) * 3_600_000
-  const dayMatch = text.match(/(\d+)\s*天前/)
-  if (dayMatch) return now - Number(dayMatch[1]) * 86_400_000
-  const fullMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})$/)
-  if (fullMatch) {
-    const [, y, m, d, h, min] = fullMatch
-    const ts = new Date(`${y}-${m}-${d}T${h}:${min}:00+08:00`).getTime()
-    if (Number.isFinite(ts) && ts > 0) return ts
-  }
-  const mdMatch = text.match(/^(\d{2})-(\d{2})\s+(\d{2}):(\d{2})$/)
-  if (mdMatch) {
-    const [, m, d, h, min] = mdMatch
-    const year = new Date().getFullYear()
-    const ts = new Date(`${year}-${m}-${d}T${h}:${min}:00+08:00`).getTime()
-    if (Number.isFinite(ts) && ts > 0) return ts
-  }
-  return now
 }
 
 export function mergeHupuPosts(jsonPosts: HupuPost[], domPosts: HupuPost[]): HupuPost[] {

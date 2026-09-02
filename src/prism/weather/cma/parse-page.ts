@@ -7,6 +7,7 @@
  * hour and wrapping into the next day.
  */
 import type { WeatherDaily, WeatherHourly } from '../types'
+import { parseDateLabelToStr } from '../../shared/date-parse'
 import { WMO_OVERCAST, CMA_WIND_DIR_TO_DEG } from './constants'
 import {
   parseTemp,
@@ -41,15 +42,11 @@ export function parseCmaPage(html: string, DOMParserCtor: typeof DOMParser): Cma
   const tempMax: number[] = []
   const tempMin: number[] = []
   const weatherCodes: number[] = []
-  const year = new Date().getFullYear()
 
   dayNodes.forEach((dayEl) => {
     const dateLabel = dayEl.querySelector('.day-item')?.textContent ?? ''
-    const m = dateLabel.match(/(\d{1,2})\/(\d{1,2})/)
-    if (!m) return
-    const mm = m[1]!.padStart(2, '0')
-    const dd = m[2]!.padStart(2, '0')
-    const dateStr = `${year}-${mm}-${dd}`
+    const dateStr = parseDateLabelToStr(dateLabel, Date.now())
+    if (!dateStr) return
     dailyDates.push(dateStr)
 
     const dayIcon = codeFromIcon(dayEl.querySelector('.day-item.dayicon img'))

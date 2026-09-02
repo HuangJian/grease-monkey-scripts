@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { parseChapterLabel, suduguAdapter } from '../../../../src/prism/novels/adapters/sudugu'
+import { parseChapterLabel } from '../../../../src/prism/shared/date-parse'
+import { suduguAdapter } from '../../../../src/prism/novels/adapters/sudugu'
 
 function loadFixture(name: string): string {
   return readFileSync(join(import.meta.dir, '..', '__fixtures__', name), 'utf8')
