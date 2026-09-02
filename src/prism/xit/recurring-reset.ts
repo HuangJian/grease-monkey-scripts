@@ -1,8 +1,7 @@
 import type { Runtime } from '../../runtime'
 import { parseXitText, isWeekdayName } from './parser'
 import type { XitItem } from './types'
-
-const LAST_RESET_KEY = 'dashboard:v2:xit-last-reset'
+import { XIT_LAST_RESET_KEY as LAST_RESET_KEY } from '../keys'
 
 /**
  * Returns a date string in YYYY-MM-DD format (local time).

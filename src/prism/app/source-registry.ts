@@ -13,23 +13,30 @@ import { buildCardGroups, type CardGroup } from '../card-group'
 
 export type SourceRegistry = ReturnType<typeof createSourceRegistry>
 
+/** Weaken a concrete `Source<T>` to `Source<unknown>` only here, at the
+ * registry boundary, so downstream generic consumers (card/render/refresh)
+ * share one erasure point instead of eleven scattered double-casts. */
+function toErasure<T>(source: Source<T>): Source<unknown> {
+  return source as unknown as Source<unknown>
+}
+
 export function createSourceRegistry(config: Config, runtime: Runtime) {
   const tnews = createTnewsSource(config.tnews)
   const xueqiu = createXueqiuSources(config.xueqiu)
   const sources: Source<unknown>[] = [
-    createV2exSource(config.v2ex) as unknown as Source<unknown>,
-    createWeatherSource(config.weather) as unknown as Source<unknown>,
-    createNovelsSource(config.novels, runtime) as unknown as Source<unknown>,
-    createRedditSource(config.reddit) as unknown as Source<unknown>,
-    createHupuSource(config.hupu) as unknown as Source<unknown>,
-    tnews.source as unknown as Source<unknown>,
-    xueqiu.mainSource as unknown as Source<unknown>,
-    xueqiu.hotSource as unknown as Source<unknown>,
+    toErasure(createV2exSource(config.v2ex)),
+    toErasure(createWeatherSource(config.weather)),
+    toErasure(createNovelsSource(config.novels, runtime)),
+    toErasure(createRedditSource(config.reddit)),
+    toErasure(createHupuSource(config.hupu)),
+    toErasure(tnews.source),
+    toErasure(xueqiu.mainSource),
+    toErasure(xueqiu.hotSource),
   ]
   if (config.xit?.enabled !== false) {
-    sources.push(createXitSource(config.xit, runtime) as unknown as Source<unknown>)
+    sources.push(toErasure(createXitSource(config.xit, runtime)))
   }
-  sources.push(createMiscSource(runtime) as unknown as Source<unknown>)
+  sources.push(toErasure(createMiscSource(runtime)))
   const cardGroups = buildCardGroups(sources, config.sourceSettings)
   const groupById = new Map<string, CardGroup>()
   const groupForSource = new Map<string, CardGroup>()

@@ -1,4 +1,5 @@
 import type { CachedSource } from './types'
+import { CACHE_CODEC_VERSION } from './types'
 import { normalizeBook } from './novels/migrate'
 
 const SOURCE_BASE: Record<string, string> = {
@@ -20,9 +21,12 @@ function compressTimestamp(v: number | undefined): number | undefined {
   return Math.floor(v / 60000)
 }
 
+/** Represents a timestamp so small that it is in minute units (pre-epoch-ms era). */
+const MINUTE_UNITS_THRESHOLD = 1e9
+
 function expandTimestamp(v: number | undefined): number | undefined {
   if (v === undefined) return v
-  if (v < 1e9) return v * 60000
+  if (v < MINUTE_UNITS_THRESHOLD) return v * 60000
   return v
 }
 
@@ -316,18 +320,60 @@ type CodecShape = 'array' | 'grouped' | 'novels'
 
 type CodecEntry = {
   shape: CodecShape
+  /** Format version this codec writes/read (legacy sniffable data has none). */
+  version: number
   compress: (v: Record<string, unknown>) => Record<string, unknown>
   expand: (v: Record<string, unknown>) => Record<string, unknown>
 }
 
 const CODECS: Record<string, CodecEntry> = {
-  v2ex: { shape: 'array', compress: compressV2ex, expand: expandV2ex },
-  reddit: { shape: 'grouped', compress: compressReddit, expand: expandReddit },
-  hupu: { shape: 'grouped', compress: compressHupu, expand: expandHupu },
-  'xueqiu-news': { shape: 'grouped', compress: compressXueqiu, expand: expandXueqiu },
-  'xueqiu-hot': { shape: 'grouped', compress: compressXueqiu, expand: expandXueqiu },
-  tnews: { shape: 'array', compress: compressTnews, expand: expandTnews },
-  novels: { shape: 'novels', compress: compressNovelBook, expand: expandNovelBook },
+  v2ex: {
+    shape: 'array',
+    version: CACHE_CODEC_VERSION,
+    compress: compressV2ex,
+    expand: expandV2ex,
+  },
+  reddit: {
+    shape: 'grouped',
+    version: CACHE_CODEC_VERSION,
+    compress: compressReddit,
+    expand: expandReddit,
+  },
+  hupu: {
+    shape: 'grouped',
+    version: CACHE_CODEC_VERSION,
+    compress: compressHupu,
+    expand: expandHupu,
+  },
+  'xueqiu-news': {
+    shape: 'grouped',
+    version: CACHE_CODEC_VERSION,
+    compress: compressXueqiu,
+    expand: expandXueqiu,
+  },
+  'xueqiu-hot': {
+    shape: 'grouped',
+    version: CACHE_CODEC_VERSION,
+    compress: compressXueqiu,
+    expand: expandXueqiu,
+  },
+  tnews: {
+    shape: 'array',
+    version: CACHE_CODEC_VERSION,
+    compress: compressTnews,
+    expand: expandTnews,
+  },
+  novels: {
+    shape: 'novels',
+    version: CACHE_CODEC_VERSION,
+    compress: compressNovelBook,
+    expand: expandNovelBook,
+  },
+}
+
+/** Returns the codec format version used to compress `data`, or null for no codec. */
+export function codecVersionFor(sourceId: string): number | null {
+  return CODECS[sourceId]?.version ?? null
 }
 
 function transformShape(
@@ -366,9 +412,12 @@ function compressData(sourceId: string, data: unknown): unknown {
   return transformShape(data, entry.shape, entry.compress)
 }
 
-function expandData(sourceId: string, data: unknown): unknown {
+function expandData(sourceId: string, version: number | undefined, data: unknown): unknown {
   const entry = CODECS[sourceId]
   if (!entry) return data
+  // Only the current codec format is expandable; legacy values (no field)
+  // share the current shape and are handled by the sniff-based expanders.
+  if (version !== undefined && version !== entry.version) return data
   return transformShape(data, entry.shape, entry.expand)
 }
 
@@ -376,7 +425,7 @@ export function compressForStorage<T>(
   sourceId: string,
   cached: Omit<CachedSource<T>, 'schemaVersion'>,
 ): Record<string, unknown> {
-  return {
+  const out: Record<string, unknown> = {
     fetchedAt: cached.fetchedAt,
     data: compressData(sourceId, cached.data),
     error: cached.error,
@@ -384,12 +433,15 @@ export function compressForStorage<T>(
     nextRetryAt: cached.nextRetryAt,
     failureCount: cached.failureCount,
   }
+  const currentVersion = codecVersionFor(sourceId)
+  if (currentVersion !== null) out.codecVersion = currentVersion
+  return out
 }
 
 export function expandFromStorage<T>(sourceId: string, value: CachedSource<T>): CachedSource<T> {
   return {
     ...value,
-    data: expandData(sourceId, value.data) as T,
+    data: expandData(sourceId, value.codecVersion, value.data) as T,
     error: value.error ?? '',
   }
 }

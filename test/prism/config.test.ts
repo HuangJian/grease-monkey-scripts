@@ -52,6 +52,14 @@ describe('deepMerge', () => {
       a: { b: 1 },
     })
   })
+  test('type-mismatched override is skipped, not written through', () => {
+    const merged = deepMerge({ a: 1, b: 'x' }, { a: 'oops', b: 42 })
+    expect(merged).toEqual({ a: 1, b: 'x' })
+  })
+  test('object override for non-object base is skipped', () => {
+    const merged = deepMerge({ a: 5 }, { a: { nested: true } })
+    expect(merged).toEqual({ a: 5 })
+  })
 })
 
 describe('loadConfig', () => {

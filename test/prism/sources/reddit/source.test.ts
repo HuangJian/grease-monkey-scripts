@@ -143,7 +143,7 @@ describe('validateConfig.reddit', () => {
       validateConfig({
         reddit: {
           ttlMinutes: 30,
-          historyDays: 7,
+          retentionDays: 7,
           todayMinComments: 10,
           olderMinComments: 20,
           ageHalfLifeDays: 2,

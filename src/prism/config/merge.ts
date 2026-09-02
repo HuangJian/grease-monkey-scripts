@@ -12,22 +12,24 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
  * The return type is `T` (same as `base`) for ergonomic chaining at call sites.
  * The runtime `isPlainObject` guard ensures only structurally compatible values
  * are recursively merged; non-object values from `override` replace `base`
- * wholesale. The `as T` cast is safe because the merge preserves the shape of
- * `base` for any key not present in `override`, and `override` values are only
- * inserted when they are plain objects (recursively merged) or non-undefined
- * primitives/arrays (direct replacement).
+ * wholesale. Values whose type differs from the existing base value are skipped
+ * (with a warning) instead of being written through and mislabeled as `T`.
  */
-export function deepMerge<T>(base: T, override: unknown): T {
+export function deepMerge<T extends Record<string, unknown>>(base: T, override: unknown): T {
   if (!isPlainObject(base) || !isPlainObject(override)) {
     return override === undefined ? base : (override as T)
   }
   const result: Record<string, unknown> = { ...base }
   Object.keys(override).forEach((key) => {
-    const baseVal = base[key as keyof T]
+    const baseVal = base[key]
     const overrideVal = override[key]
     if (isPlainObject(baseVal) && isPlainObject(overrideVal)) {
       result[key] = deepMerge(baseVal, overrideVal)
     } else if (overrideVal !== undefined) {
+      if (baseVal !== undefined && typeof baseVal !== typeof overrideVal) {
+        console.warn(`[gm-dashboard] deepMerge type mismatch for "${key}": ignoring override`)
+        return
+      }
       result[key] = overrideVal
     }
   })

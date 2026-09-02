@@ -1,13 +1,11 @@
 import type { Runtime } from '../runtime'
 import { CONFIG_KEY, type Config } from './types'
+import { XIT_CACHE_KEY, XIT_CACHE_STORAGE_KEY, XIT_FILTERS_KEY } from './keys'
 import { loadCache, saveCache } from './cache'
 import { deepMerge } from './config'
 import { validateConfig } from './config'
 import type { CachedSource } from './types'
 import type { XitData, NamedFilterStore } from './xit/types'
-
-const XIT_CACHE_KEY = 'xit'
-const XIT_FILTERS_KEY = 'dashboard:v2:xit-filters'
 
 type ExportData = Record<string, unknown>
 
@@ -21,7 +19,7 @@ export async function buildExportData(runtime: Runtime): Promise<ExportData> {
 
   const xitCached = await loadCache<XitData>(runtime, XIT_CACHE_KEY)
   if (xitCached !== null) {
-    result['dashboard:v2:xit'] = xitCached
+    result[XIT_CACHE_STORAGE_KEY] = xitCached
   }
 
   const filters = await runtime.getValue<unknown>(XIT_FILTERS_KEY, null)
@@ -68,7 +66,7 @@ export function validateImportData(data: unknown): ImportValidation {
   }
 
   const obj = data as Record<string, unknown>
-  const knownKeys = [CONFIG_KEY, 'dashboard:v2:xit', XIT_FILTERS_KEY]
+  const knownKeys = [CONFIG_KEY, XIT_CACHE_STORAGE_KEY, XIT_FILTERS_KEY]
   const hasKnownKey = knownKeys.some((k) => k in obj)
   if (!hasKnownKey) {
     return { ok: false, error: '导入数据不包含任何已知的配置键' }
@@ -82,8 +80,8 @@ export function validateImportData(data: unknown): ImportValidation {
     }
   }
 
-  if ('dashboard:v2:xit' in obj) {
-    const xit = obj['dashboard:v2:xit']
+  if (XIT_CACHE_STORAGE_KEY in obj) {
+    const xit = obj[XIT_CACHE_STORAGE_KEY]
     if (typeof xit !== 'object' || xit === null || Array.isArray(xit)) {
       return { ok: false, error: 'xit 数据必须是对象' }
     }
@@ -125,8 +123,8 @@ export async function applyImportData(runtime: Runtime, data: ExportData): Promi
     await runtime.setValue(CONFIG_KEY, merged)
   }
 
-  if ('dashboard:v2:xit' in data) {
-    const cached = data['dashboard:v2:xit'] as CachedSource<XitData>
+  if (XIT_CACHE_STORAGE_KEY in data) {
+    const cached = data[XIT_CACHE_STORAGE_KEY] as CachedSource<XitData>
     await saveCache(runtime, XIT_CACHE_KEY, {
       data: cached.data,
       fetchedAt: cached.fetchedAt ?? Date.now(),

@@ -1,18 +1,16 @@
 import type { ComponentType, VNode } from 'preact'
 import type { Runtime } from '../runtime'
+import { KEY_PREFIX, CACHE_KEY, STATE_KEY, LOCK_KEY, CONFIG_KEY } from './keys'
 
-export const KEY_PREFIX = 'dashboard:v2'
-
-export const CACHE_KEY = (sourceId: string): string => `${KEY_PREFIX}:${sourceId}`
-export const STATE_KEY = (sourceId: string): string => `${KEY_PREFIX}:state:${sourceId}`
-export const LOCK_KEY = (sourceId: string): string => `${KEY_PREFIX}:lock:${sourceId}`
-export const CONFIG_KEY = `${KEY_PREFIX}:config`
+export { KEY_PREFIX, CACHE_KEY, STATE_KEY, LOCK_KEY, CONFIG_KEY }
 
 export const LOCK_TTL_MS = 180_000
 export const LOCK_VERIFY_DELAY_MS = 50
 
 export const VERY_STALE_MULTIPLIER = 3
 export const CACHE_SCHEMA_VERSION = 2
+/** Per-source data codec format version (tracks compressed-item shapes). */
+export const CACHE_CODEC_VERSION = 1
 
 /** Consecutive-failure backoff delays (1m, 2m, 5m, 10m cap). */
 export const BACKOFF_DELAYS_MS = [60_000, 120_000, 300_000, 600_000] as const
@@ -21,6 +19,8 @@ export type Lock = { owner: string; expiresAt: number }
 
 export type CachedSource<T> = {
   schemaVersion: number
+  /** Codec format used to compress `data`; absent means legacy (v1/v0 sniffable). */
+  codecVersion?: number
   data: T | null
   fetchedAt: number
   error: string
@@ -114,7 +114,14 @@ export type SourceEditor = (
 
 export type TabLabel = { label: string; badge?: string | number | null }
 
-export type BadgeType = 'default' | 'none' | 'allUnread' | 'todayUnread' | 'subBoardUpdate'
+export const VALID_BADGE_TYPES = [
+  'default',
+  'none',
+  'allUnread',
+  'todayUnread',
+  'subBoardUpdate',
+] as const
+export type BadgeType = (typeof VALID_BADGE_TYPES)[number]
 
 export type SourceSettings = {
   tabTitle: string

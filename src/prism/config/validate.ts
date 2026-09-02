@@ -1,10 +1,23 @@
 import { isPlainObject } from './merge'
-
-const VALID_BADGE_TYPES = ['default', 'none', 'allUnread', 'todayUnread', 'subBoardUpdate']
+import { VALID_BADGE_TYPES } from '../types'
+import type { Config, SourceSettings } from '../types'
 
 export type ConfigValidation = { ok: true } | { ok: false; error: string }
 
 type NumberFieldDef = [string, number, number]
+
+/** Returns an error when `obj` contains keys not in `fields`. */
+function rejectUnknownKeys(
+  obj: Record<string, unknown>,
+  prefix: string,
+  fields: readonly string[],
+): ConfigValidation | null {
+  const unknown = Object.keys(obj).find((k) => !fields.includes(k))
+  if (unknown !== undefined) {
+    return { ok: false, error: `${prefix} 包含未知字段 "${unknown}"` }
+  }
+  return null
+}
 
 function validateNumberFields(
   obj: Record<string, unknown>,
@@ -31,6 +44,26 @@ export function validateConfig(value: unknown): ConfigValidation {
   if (!isPlainObject(value)) {
     return { ok: false, error: '根值必须是 plain object' }
   }
+  const ROOT_FIELDS = [
+    'weather',
+    'v2ex',
+    'reddit',
+    'hupu',
+    'novels',
+    'tnews',
+    'xueqiu',
+    'misc',
+    'xit',
+    'shortcut',
+    'hostAllowlist',
+    'sourceSettings',
+  ] as const satisfies readonly (keyof Config)[]
+  const rootUnknown = Object.keys(value).find(
+    (k) => !ROOT_FIELDS.includes(k as (typeof ROOT_FIELDS)[number]),
+  )
+  if (rootUnknown !== undefined) {
+    return { ok: false, error: `配置包含未知字段 "${rootUnknown}"` }
+  }
   if ('hostAllowlist' in value) {
     const list = value['hostAllowlist']
     if (!Array.isArray(list) || !list.every((x) => typeof x === 'string')) {
@@ -48,6 +81,12 @@ export function validateConfig(value: unknown): ConfigValidation {
     if ('enabled' in s && typeof s['enabled'] !== 'boolean') {
       return { ok: false, error: 'shortcut.enabled 必须是 boolean' }
     }
+    const SHORTCUT_FIELDS = [
+      'doublePressWindowMs',
+      'enabled',
+    ] as const satisfies readonly (keyof Config['shortcut'])[]
+    const shortcutUnknown = rejectUnknownKeys(s, 'shortcut', SHORTCUT_FIELDS)
+    if (shortcutUnknown) return shortcutUnknown
   }
   if ('weather' in value) {
     const w = value['weather']
@@ -80,6 +119,9 @@ export function validateConfig(value: unknown): ConfigValidation {
         if (typeof c['cityLabel'] !== 'string' || !c['cityLabel']) {
           return { ok: false, error: `weather.cities[${i}].cityLabel 必须是非空字符串` }
         }
+        if ('cmaStationId' in c && typeof c['cmaStationId'] !== 'string') {
+          return { ok: false, error: `weather.cities[${i}].cmaStationId 必须是 string` }
+        }
       }
     }
     if ('ttlMinutes' in w) {
@@ -88,6 +130,12 @@ export function validateConfig(value: unknown): ConfigValidation {
         return { ok: false, error: 'weather.ttlMinutes 必须是正数' }
       }
     }
+    const WEATHER_FIELDS = [
+      'cities',
+      'ttlMinutes',
+    ] as const satisfies readonly (keyof Config['weather'])[]
+    const weatherUnknown = rejectUnknownKeys(w, 'weather', WEATHER_FIELDS)
+    if (weatherUnknown) return weatherUnknown
   }
   if ('v2ex' in value) {
     const v = value['v2ex']
@@ -102,6 +150,15 @@ export function validateConfig(value: unknown): ConfigValidation {
       ['ageHalfLifeDays', 0.1, 30],
     ])
     if (r) return r
+    const V2EX_FIELDS = [
+      'ttlMinutes',
+      'retentionDays',
+      'todayMinReplies',
+      'olderMinReplies',
+      'ageHalfLifeDays',
+    ] as const satisfies readonly (keyof Config['v2ex'])[]
+    const v2exUnknown = rejectUnknownKeys(v, 'v2ex', V2EX_FIELDS)
+    if (v2exUnknown) return v2exUnknown
   }
   if ('reddit' in value) {
     const r = value['reddit']
@@ -128,6 +185,16 @@ export function validateConfig(value: unknown): ConfigValidation {
       ['ageHalfLifeDays', 0.1, 30],
     ])
     if (r2) return r2
+    const REDDIT_FIELDS = [
+      'ttlMinutes',
+      'retentionDays',
+      'todayMinComments',
+      'olderMinComments',
+      'ageHalfLifeDays',
+      'subreddits',
+    ] as const satisfies readonly (keyof Config['reddit'])[]
+    const redditUnknown = rejectUnknownKeys(r, 'reddit', REDDIT_FIELDS)
+    if (redditUnknown) return redditUnknown
   }
   if ('novels' in value) {
     const n = value['novels']
@@ -199,6 +266,16 @@ export function validateConfig(value: unknown): ConfigValidation {
       ['maxLatestWindow', 1, Number.POSITIVE_INFINITY],
     ])
     if (r) return r
+    const NOVELS_FIELDS = [
+      'books',
+      'ttlMinutes',
+      'initialNewChapters',
+      'maxNewChaptersPerBook',
+      'maxLatestWindow',
+    ] as const satisfies readonly (keyof Config['novels'])[]
+    // 'entries' is the legacy single-source shape kept for backward compat.
+    const novelsUnknown = rejectUnknownKeys(n, 'novels', [...NOVELS_FIELDS, 'entries'])
+    if (novelsUnknown) return novelsUnknown
   }
   if ('tnews' in value) {
     const t = value['tnews']
@@ -214,6 +291,9 @@ export function validateConfig(value: unknown): ConfigValidation {
         }
       }
     }
+    const TNEWS_FIELDS = ['ttlMinutes'] as const satisfies readonly (keyof Config['tnews'])[]
+    const tnewsUnknown = rejectUnknownKeys(t, 'tnews', TNEWS_FIELDS)
+    if (tnewsUnknown) return tnewsUnknown
   }
   if ('xueqiu' in value) {
     const x = value['xueqiu']
@@ -225,6 +305,12 @@ export function validateConfig(value: unknown): ConfigValidation {
       ['retentionDays', 1, 90],
     ])
     if (r) return r
+    const XUEQIU_FIELDS = [
+      'ttlMinutes',
+      'retentionDays',
+    ] as const satisfies readonly (keyof Config['xueqiu'])[]
+    const xueqiuUnknown = rejectUnknownKeys(x, 'xueqiu', XUEQIU_FIELDS)
+    if (xueqiuUnknown) return xueqiuUnknown
   }
   if ('xit' in value) {
     const n = value['xit']
@@ -237,6 +323,9 @@ export function validateConfig(value: unknown): ConfigValidation {
     if ('placement' in n && n['placement'] !== 'main' && n['placement'] !== 'side') {
       return { ok: false, error: 'xit.placement 必须是 "main" 或 "side"' }
     }
+    const XIT_FIELDS = ['enabled', 'placement'] as const satisfies readonly (keyof Config['xit'])[]
+    const xitUnknown = rejectUnknownKeys(n, 'xit', XIT_FIELDS)
+    if (xitUnknown) return xitUnknown
   }
   if ('misc' in value) {
     const m = value['misc']
@@ -245,6 +334,11 @@ export function validateConfig(value: unknown): ConfigValidation {
     }
     const r = validateNumberFields(m, 'misc', [['ttlMinutes', 1, Number.POSITIVE_INFINITY]])
     if (r) return r
+    const MISC_FIELDS = ['ttlMinutes'] as const satisfies readonly (keyof NonNullable<
+      Config['misc']
+    >)[]
+    const miscUnknown = rejectUnknownKeys(m, 'misc', MISC_FIELDS)
+    if (miscUnknown) return miscUnknown
   }
   if ('hupu' in value) {
     const h = value['hupu']
@@ -273,6 +367,18 @@ export function validateConfig(value: unknown): ConfigValidation {
       ['repliesWeight', 0, 100],
     ])
     if (r) return r
+    const HUPU_FIELDS = [
+      'ttlMinutes',
+      'retentionDays',
+      'boards',
+      'todayMinReplies',
+      'olderMinReplies',
+      'ageHalfLifeDays',
+      'lightsWeight',
+      'repliesWeight',
+    ] as const satisfies readonly (keyof Config['hupu'])[]
+    const hupuUnknown = rejectUnknownKeys(h, 'hupu', HUPU_FIELDS)
+    if (hupuUnknown) return hupuUnknown
   }
   if ('sourceSettings' in value) {
     const s = value['sourceSettings']
@@ -289,12 +395,22 @@ export function validateConfig(value: unknown): ConfigValidation {
       if ('priority' in v && typeof v['priority'] !== 'number') {
         return { ok: false, error: `sourceSettings.${key}.priority 必须是 number` }
       }
-      if ('badgeType' in v && !VALID_BADGE_TYPES.includes(v['badgeType'] as string)) {
+      if (
+        'badgeType' in v &&
+        !VALID_BADGE_TYPES.includes(v['badgeType'] as (typeof VALID_BADGE_TYPES)[number])
+      ) {
         return {
           ok: false,
           error: `sourceSettings.${key}.badgeType 必须是 ${VALID_BADGE_TYPES.join('/')}`,
         }
       }
+      const SOURCE_SETTINGS_FIELDS = [
+        'tabTitle',
+        'priority',
+        'badgeType',
+      ] as const satisfies readonly (keyof SourceSettings)[]
+      const ssUnknown = rejectUnknownKeys(v, `sourceSettings.${key}`, SOURCE_SETTINGS_FIELDS)
+      if (ssUnknown) return ssUnknown
     }
   }
   return { ok: true }

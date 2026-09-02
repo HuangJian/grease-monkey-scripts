@@ -21,6 +21,12 @@ describe('validateConfig', () => {
     test('accepts full default config', () => {
       expect(validateConfig(DEFAULT_CONFIG)).toEqual({ ok: true })
     })
+
+    test('rejects unknown root fields', () => {
+      const result = validateConfig({ v2exx: { ttlMinutes: 30 } })
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error).toBe('配置包含未知字段 "v2exx"')
+    })
   })
 
   describe('hostAllowlist', () => {
@@ -114,6 +120,23 @@ describe('validateConfig', () => {
       if (!result.ok) expect(result.error).toContain('cityLabel')
     })
 
+    test('accepts city with non-string cmaStationId omitted', () => {
+      const result = validateConfig({
+        weather: { cities: [{ latitude: 39.9, longitude: 116.4, cityLabel: '北京' }] },
+      })
+      expect(result).toEqual({ ok: true })
+    })
+
+    test('rejects city with non-string cmaStationId', () => {
+      const result = validateConfig({
+        weather: {
+          cities: [{ latitude: 39.9, longitude: 116.4, cityLabel: '北京', cmaStationId: 123 }],
+        },
+      })
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error).toContain('cmaStationId 必须是 string')
+    })
+
     test('rejects non-positive ttlMinutes', () => {
       const result = validateConfig({
         weather: {
@@ -132,6 +155,12 @@ describe('validateConfig', () => {
         v2ex: { ttlMinutes: 30, todayMinReplies: 10, olderMinReplies: 20, ageHalfLifeDays: 2 },
       })
       expect(result).toEqual({ ok: true })
+    })
+
+    test('rejects unknown v2ex fields (typo protection)', () => {
+      const result = validateConfig({ v2ex: { ttlMinuts: 30 } })
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error).toBe('v2ex 包含未知字段 "ttlMinuts"')
     })
 
     test('rejects non-object v2ex', () => {
@@ -353,8 +382,14 @@ describe('validateConfig', () => {
 
   describe('misc', () => {
     test('accepts valid misc config', () => {
-      const result = validateConfig({ misc: { ttlMinutes: 10, badgeType: 'none' } })
+      const result = validateConfig({ misc: { ttlMinutes: 10 } })
       expect(result).toEqual({ ok: true })
+    })
+
+    test('rejects unknown misc fields', () => {
+      const result = validateConfig({ misc: { ttlMinutes: 10, badgeType: 'none' } })
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error).toBe('misc 包含未知字段 "badgeType"')
     })
 
     test('rejects non-object misc', () => {

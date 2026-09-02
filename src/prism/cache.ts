@@ -1,6 +1,7 @@
 import type { Runtime } from '../runtime'
 import { CACHE_KEY, CACHE_SCHEMA_VERSION, VERY_STALE_MULTIPLIER, type CachedSource } from './types'
-import { compressForStorage, expandFromStorage } from './codec'
+import { compressForStorage } from './codec'
+import { migrateCache } from './codec-migrate'
 import { localDateKey } from './shared-utils'
 
 function stripNulls<T>(obj: T): T {
@@ -11,10 +12,12 @@ export async function loadCache<T>(
   runtime: Runtime,
   sourceId: string,
 ): Promise<CachedSource<T> | null> {
-  const value = await runtime.getValue<CachedSource<T> | null>(CACHE_KEY(sourceId), null)
-  if (!value || typeof value.fetchedAt !== 'number') return null
-  if (value.schemaVersion !== CACHE_SCHEMA_VERSION) return null
-  return expandFromStorage(sourceId, value)
+  const value = await runtime.getValue<unknown>(CACHE_KEY(sourceId), null)
+  const migrated = migrateCache<T>(sourceId, value)
+  if (!migrated && value !== null && value !== undefined) {
+    console.warn(`[gm-prism] cache for ${sourceId} dropped: unmigratable shape`)
+  }
+  return migrated
 }
 
 export async function saveCache<T>(

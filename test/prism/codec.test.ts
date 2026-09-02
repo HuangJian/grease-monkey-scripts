@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { compressForStorage, expandFromStorage } from '../../src/prism/codec'
-import { CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/prism/types'
+import { migrateCache } from '../../src/prism/codec-migrate'
+import { CACHE_CODEC_VERSION, CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/prism/types'
 import type { NovelBook } from '../../src/prism/novels/types'
 
 function roundTrip<T>(sourceId: string, data: T, fetchedAt: number = Date.now()): T {
@@ -357,5 +358,79 @@ describe('codec: unknown source passthrough', () => {
     const stored = { ...compressed, schemaVersion: CACHE_SCHEMA_VERSION } as CachedSource<unknown>
     const expanded = expandFromStorage('unknown-source', stored)
     expect(expanded.data).toBe(data)
+  })
+})
+
+describe('codec: codecVersion behavior', () => {
+  test('compressForStorage stamps the current codecVersion', () => {
+    const compressed = compressForStorage('v2ex', {
+      data: [{ id: '1', title: 'T', url: '', replies: 0 }],
+      fetchedAt: Date.now(),
+      error: '',
+    })
+    expect(compressed.codecVersion).toBe(CACHE_CODEC_VERSION)
+  })
+
+  test('unknown-source storage omits codecVersion', () => {
+    const compressed = compressForStorage('unknown-source', {
+      data: { a: 1 },
+      fetchedAt: Date.now(),
+      error: '',
+    })
+    expect(compressed.codecVersion).toBeUndefined()
+  })
+
+  test('expandFromStorage passes legacy (no codecVersion) data through', () => {
+    const stored = {
+      data: {
+        news: [{ id: 1, title: 'Full', text: 'x', target: 'https://xueqiu.com/1', created_at: 0 }],
+      },
+      schemaVersion: CACHE_SCHEMA_VERSION,
+      fetchedAt: 1,
+      error: '',
+    } as unknown as CachedSource<unknown>
+    const expanded = expandFromStorage('xueqiu-news', stored)
+    const items = expanded.data as { news: { title: string }[] }
+    expect(items.news[0]!.title).toBe('Full')
+  })
+
+  test('expandFromStorage leaves unknown codecVersion data untouched and migrateCache drops it', () => {
+    const data = { x: 1 }
+    const stored = {
+      schemaVersion: CACHE_SCHEMA_VERSION,
+      codecVersion: (CACHE_CODEC_VERSION ?? 0) + 1,
+      data,
+      fetchedAt: 123,
+      error: '',
+    } as CachedSource<unknown>
+    const expanded = expandFromStorage('v2ex', stored)
+    expect(expanded.data).toBe(data)
+
+    expect(migrateCache('v2ex', stored)).toBeNull()
+  })
+})
+
+describe('codec-migrate: migrateCache', () => {
+  test('returns null for non-object values', () => {
+    expect(migrateCache('v2ex', null)).toBeNull()
+    expect(migrateCache('v2ex', 'x')).toBeNull()
+  })
+
+  test('returns null without fetchedAt', () => {
+    expect(migrateCache('v2ex', { error: 'x' })).toBeNull()
+  })
+
+  test('returns null on schemaVersion mismatch', () => {
+    const stored = { schemaVersion: 1, fetchedAt: 1, error: '' }
+    expect(migrateCache('v2ex', stored)).toBeNull()
+  })
+
+  test('migrates current-schema v2ex cache', () => {
+    const data = [{ t: 'compressed title', u: '/t/1', a: 'alice', nt: 'jobs' }]
+    const stored = { schemaVersion: CACHE_SCHEMA_VERSION, data, fetchedAt: 1, error: '' }
+    const migrated = migrateCache('v2ex', stored)
+    expect(migrated).not.toBeNull()
+    const items = migrated?.data as { title: string }[]
+    expect(items[0]!.title).toBe('compressed title')
   })
 })

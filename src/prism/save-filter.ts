@@ -6,6 +6,16 @@ import type { RedditPost } from './reddit/types'
 import type { HupuPost } from './hupu/types'
 import type { TnewsItem } from './tnews/types'
 import type { XueqiuNewsItem, XueqiuRenderData } from './xueqiu/types'
+import {
+  KEY_PREFIX,
+  CONFIG_KEY,
+  XIT_CACHE_STORAGE_KEY,
+  XIT_FILTERS_KEY,
+  XUEQIU_NEWS_CACHE_KEY,
+  XUEQIU_HOT_CACHE_KEY,
+} from './keys'
+
+export { XUEQIU_NEWS_CACHE_KEY, XUEQIU_HOT_CACHE_KEY }
 
 // ── Types ──
 
@@ -21,7 +31,6 @@ export type KeyDescription = {
 
 // ── Key classification ──
 
-const KEY_PREFIX = 'dashboard:v2'
 const CACHE_KEY_PREFIX = `${KEY_PREFIX}:`
 const STATE_KEY_PREFIX = `${KEY_PREFIX}:state:`
 const LOCK_KEY_PREFIX = `${KEY_PREFIX}:lock:`
@@ -45,11 +54,7 @@ const SOURCE_LABELS: Record<string, string> = {
   misc: '杂项',
 }
 
-const EXACT_EXCLUDED_KEYS = new Set([
-  `${KEY_PREFIX}:config`,
-  `${KEY_PREFIX}:xit`,
-  `${KEY_PREFIX}:xit-filters`,
-])
+const EXACT_EXCLUDED_KEYS = new Set([CONFIG_KEY, XIT_CACHE_STORAGE_KEY, XIT_FILTERS_KEY])
 
 export function isExcludedKey(key: string): boolean {
   if (EXACT_EXCLUDED_KEYS.has(key)) return true
@@ -102,8 +107,6 @@ function stateSourceIdFor(cacheSourceId: string): string | null {
 
 // ── Xueqiu dual-source ──
 
-export const XUEQIU_NEWS_CACHE_KEY = 'dashboard:v2:xueqiu-news'
-export const XUEQIU_HOT_CACHE_KEY = 'dashboard:v2:xueqiu-hot'
 const XUEQIU_STATE_KEY = `${STATE_KEY_PREFIX}xueqiu`
 
 /** xueqiu-hot data lives inside xueqiu-news cache (dual-source single-fetch). */
