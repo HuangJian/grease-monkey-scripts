@@ -1,7 +1,8 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { numberOrDefault } from '../../utils'
-import { loadConfigSection, validateConfig } from '../config'
+import { validateConfig } from '../config'
 import { createEditorFactory } from '../editor-helpers/createEditorFactory'
+import { loadFreshV2exOptions } from './options'
 import {
   readNumberFields,
   saveConfigSection,
@@ -28,26 +29,6 @@ const FORM_FIELDS: NumberFieldDef[] = [
     placeholder: '0.1–30',
   },
 ]
-
-function coerceV2exOptions(
-  raw: Record<string, unknown>,
-  fallback: V2exSourceOptions,
-): V2exSourceOptions {
-  return {
-    ttlMinutes: numberOrDefault(raw['ttlMinutes'], fallback.ttlMinutes),
-    retentionDays: numberOrDefault(raw['retentionDays'], fallback.retentionDays),
-    todayMinReplies: numberOrDefault(raw['todayMinReplies'], fallback.todayMinReplies),
-    olderMinReplies: numberOrDefault(raw['olderMinReplies'], fallback.olderMinReplies),
-    ageHalfLifeDays: numberOrDefault(raw['ageHalfLifeDays'], fallback.ageHalfLifeDays),
-  }
-}
-
-async function loadFreshOptions(
-  runtime: import('../../runtime').Runtime,
-  fallback: V2exSourceOptions,
-): Promise<V2exSourceOptions> {
-  return loadConfigSection(runtime, 'v2ex', fallback, (raw) => coerceV2exOptions(raw, fallback))
-}
 
 type V2exEditorFormProps = {
   fresh: V2exSourceOptions
@@ -152,7 +133,7 @@ function V2exEditorForm({ fresh, settings, ctx, handleRef }: V2exEditorFormProps
 
 export function createV2exEditor(options: V2exSourceOptions, settings: SourceSettings) {
   return createEditorFactory(
-    (runtime) => loadFreshOptions(runtime, options),
+    (runtime) => loadFreshV2exOptions(runtime, options),
     V2exEditorForm,
     (fresh) => ({ fresh, settings }),
   )

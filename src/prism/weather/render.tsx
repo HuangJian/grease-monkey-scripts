@@ -1,16 +1,16 @@
 import { render } from 'preact'
+import type { Runtime } from '../../runtime'
 import { WeatherComponent } from './component'
 import type { WeatherData } from './types'
 
-export function renderWeather(container: HTMLElement, data: WeatherData | null): void {
+export function renderWeather(
+  container: HTMLElement,
+  data: WeatherData | null,
+  runtime: Runtime,
+): void {
   render(null, container)
   render(
-    <WeatherComponent
-      data={data}
-      root={undefined as any}
-      runtime={undefined as any}
-      activeIndex={0}
-    />,
+    <WeatherComponent data={data} root={container} runtime={runtime} activeIndex={0} />,
     container,
   )
 }

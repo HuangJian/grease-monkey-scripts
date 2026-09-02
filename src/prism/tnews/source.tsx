@@ -4,6 +4,7 @@ import type { Source, SourceSettings, TabLabel } from '../types'
 import { RETENTION_MS } from './constants'
 import { TnewsComponent } from './component'
 import { createTnewsEditor } from './editor'
+import { loadFreshTnewsOptions } from './options'
 import { fetchTnews } from './fetcher'
 import { filterByRetention, mergeByLink, sortByPubDateDesc } from './parser'
 import { createTnewsState, type TnewsState } from './state'
@@ -16,11 +17,14 @@ export type TnewsHandle = {
 }
 
 export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
+  let currentOptions = options
   const state: TnewsState = createTnewsState({ retentionMs: RETENTION_MS })
   const source: Source<TnewsItem[]> = {
     id: 'tnews',
     title: '竹新社',
-    ttlMs: options.ttlMinutes * 60_000,
+    get ttlMs() {
+      return currentOptions.ttlMinutes * 60_000
+    },
     groupId: 'browse',
     order: 1,
     RenderComponent: (props) => <TnewsComponent {...props} state={state} now={Date.now()} />,
@@ -28,6 +32,7 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
       return tnewsTabLabel(data, state)
     },
     async fetch(runtime, prevData) {
+      currentOptions = await loadFreshTnewsOptions(runtime, currentOptions)
       await state.loadFromStorage(runtime)
       const result = await fetchTnews(runtime)
       console.debug(
@@ -66,7 +71,7 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
       await state.loadFromStorage(runtime)
     },
     createEditor(settings: SourceSettings) {
-      return createTnewsEditor(options, settings)
+      return createTnewsEditor(currentOptions, settings)
     },
   }
   const handle: TnewsHandle = {

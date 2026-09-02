@@ -20,7 +20,8 @@ import type { HupuPost, HupuSourceOptions } from './types'
 export type HupuRenderData = Record<string, HupuPost[]>
 
 export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderData> {
-  const retentionMs = options.retentionDays * 24 * 60 * 60 * 1000
+  let currentOptions = options
+  const retentionMs = currentOptions.retentionDays * 24 * 60 * 60 * 1000
   const state = createHupuState({ retentionMs })
   const expandCollapse = createExpandCollapse()
   let authorTagMap: AuthorTagMap = {}
@@ -83,7 +84,9 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
   return {
     id: 'hupu',
     title: '虎扑热帖',
-    ttlMs: options.ttlMinutes * 60_000,
+    get ttlMs() {
+      return currentOptions.ttlMinutes * 60_000
+    },
     groupId: 'browse',
     order: 4,
     RenderHeader: (_props: SourceHeaderProps<HupuRenderData>) => {
@@ -100,11 +103,11 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
       )
     },
     async fetch(runtime, _prevData) {
-      const fresh = await loadFreshHupuOptions(runtime, options)
-      console.debug('[gm-dashboard] hupu.fetch start boards=', fresh.boards)
+      currentOptions = await loadFreshHupuOptions(runtime, currentOptions)
+      console.debug('[gm-dashboard] hupu.fetch start boards=', currentOptions.boards)
       await state.loadFromStorage(runtime)
       await loadAuthorTags(runtime)
-      const fetchResult = await fetchHupu(runtime, fresh)
+      const fetchResult = await fetchHupu(runtime, currentOptions)
       console.debug(
         '[gm-dashboard] hupu.fetch ok boards=',
         fetchResult.boards.map((p) => p.board),
@@ -119,7 +122,7 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
       }
       const merged = mergeBoardPosts(fetchResult.boards, prevById)
       const now = Date.now()
-      const selected = selectPostsPerBoard(merged, { ...fresh, now })
+      const selected = selectPostsPerBoard(merged, { ...currentOptions, now })
       // 见 v2ex/source.tsx：refreshSource 用本结果覆盖 pruneExpiredCache 的裁剪快照，
       // 因此过期帖子必须从返回值里剔除，否则缓存永不裁剪、已读状态却被反复清掉。
       const visible: HupuRenderData = {}
@@ -150,7 +153,7 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
       await loadAuthorTags(runtime)
     },
     createEditor(settings: SourceSettings) {
-      return createHupuEditor(options, settings)
+      return createHupuEditor(currentOptions, settings)
     },
   }
 }

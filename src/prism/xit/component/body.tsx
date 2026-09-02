@@ -79,7 +79,7 @@ export function XitBody({
   }
 
   function openEditor(lineIndex?: number) {
-    if (root && runtime && createEditor) {
+    if (root instanceof ShadowRoot && runtime && createEditor) {
       showEditorDialog(
         root,
         <a href="https://xit.jotaen.net/" target="_blank" rel="noopener">

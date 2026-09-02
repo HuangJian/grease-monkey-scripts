@@ -17,7 +17,7 @@ export function renderNovels(
   render(
     <NovelsComponent
       data={data}
-      root={undefined as any}
+      root={container}
       runtime={ctx.runtime}
       onMarkSeen={ctx.onMarkSeen}
     />,

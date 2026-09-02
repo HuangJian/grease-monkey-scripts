@@ -20,7 +20,8 @@ import type { RedditPost, RedditSourceOptions } from './types'
 export type RedditRenderData = Record<string, RedditPost[]>
 
 export function createRedditSource(options: RedditSourceOptions): Source<RedditRenderData> {
-  const retentionMs = options.retentionDays * 24 * 60 * 60 * 1000
+  let currentOptions = options
+  const retentionMs = currentOptions.retentionDays * 24 * 60 * 60 * 1000
   const state = createRedditState({ retentionMs })
   const expandCollapse = createExpandCollapse()
   let authorTagMap: AuthorTagMap = {}
@@ -83,7 +84,9 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
   return {
     id: 'reddit',
     title: 'Reddit 热帖',
-    ttlMs: options.ttlMinutes * 60_000,
+    get ttlMs() {
+      return currentOptions.ttlMinutes * 60_000
+    },
     groupId: 'browse',
     order: 3,
     RenderHeader: (_props: SourceHeaderProps<RedditRenderData>) => {
@@ -100,11 +103,11 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
       )
     },
     async fetch(runtime, _prevData) {
-      const fresh = await loadFreshRedditOptions(runtime, options)
-      console.debug('[gm-dashboard] reddit.fetch start subs=', fresh.subreddits)
+      currentOptions = await loadFreshRedditOptions(runtime, currentOptions)
+      console.debug('[gm-dashboard] reddit.fetch start subs=', currentOptions.subreddits)
       await state.loadFromStorage(runtime)
       await loadAuthorTags(runtime)
-      const fetchResult = await fetchReddit(runtime, fresh)
+      const fetchResult = await fetchReddit(runtime, currentOptions)
       console.debug(
         '[gm-dashboard] reddit.fetch ok subs=',
         fetchResult.posts.map((p) => p.sub),
@@ -119,7 +122,7 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
       }
       const merged = mergeSubPosts(fetchResult.posts, prevById)
       const now = Date.now()
-      const selected = selectPostsPerSub(merged, { ...fresh, now })
+      const selected = selectPostsPerSub(merged, { ...currentOptions, now })
       // 见 v2ex/source.tsx：refreshSource 用本结果覆盖 pruneExpiredCache 的裁剪快照，
       // 因此过期帖子必须从返回值里剔除，否则缓存永不裁剪、已读状态却被反复清掉。
       const visible: RedditRenderData = {}
@@ -150,7 +153,7 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
       await loadAuthorTags(runtime)
     },
     createEditor(settings: SourceSettings) {
-      return createRedditEditor(options, settings)
+      return createRedditEditor(currentOptions, settings)
     },
   }
 }

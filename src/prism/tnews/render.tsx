@@ -13,13 +13,7 @@ export function renderTnews(
 ): void {
   render(null, container)
   render(
-    <TnewsComponent
-      data={items}
-      root={undefined as any}
-      runtime={runtime}
-      state={state}
-      now={now}
-    />,
+    <TnewsComponent data={items} root={container} runtime={runtime} state={state} now={now} />,
     container,
   )
 }

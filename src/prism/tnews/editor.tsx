@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
-import { numberOrDefault } from '../../utils'
-import { loadConfigSection, validateConfig } from '../config'
+import { validateConfig } from '../config'
 import { createEditorFactory } from '../editor-helpers/createEditorFactory'
+import { loadFreshTnewsOptions } from './options'
 import {
   readNumberFields,
   saveConfigSection,
@@ -13,7 +13,6 @@ import {
 import { SourceSettingsFields } from '../editor-ui'
 import type { SourceEditorContext, SourceEditorResult, SourceSettings } from '../types'
 import type { TnewsSourceOptions } from './types'
-import type { Runtime } from '../../runtime'
 
 const TTL_FIELD: NumberFieldDef = {
   prop: 'ttlMinutes',
@@ -21,22 +20,6 @@ const TTL_FIELD: NumberFieldDef = {
   unit: '分钟',
   min: 1,
   integer: true,
-}
-
-function coerceTnewsOptions(
-  raw: Record<string, unknown>,
-  fallback: TnewsSourceOptions,
-): TnewsSourceOptions {
-  return {
-    ttlMinutes: numberOrDefault(raw['ttlMinutes'], fallback.ttlMinutes),
-  }
-}
-
-async function loadFreshOptions(
-  runtime: Runtime,
-  fallback: TnewsSourceOptions,
-): Promise<TnewsSourceOptions> {
-  return loadConfigSection(runtime, 'tnews', fallback, (raw) => coerceTnewsOptions(raw, fallback))
 }
 
 type TnewsEditorFormProps = {
@@ -118,7 +101,7 @@ function TnewsEditorForm({ fresh, settings, ctx, handleRef }: TnewsEditorFormPro
 
 export function createTnewsEditor(options: TnewsSourceOptions, settings: SourceSettings) {
   return createEditorFactory(
-    (runtime) => loadFreshOptions(runtime, options),
+    (runtime) => loadFreshTnewsOptions(runtime, options),
     TnewsEditorForm,
     (fresh) => ({ fresh, settings }),
   )

@@ -131,7 +131,11 @@ export type SourceSettings = {
 
 export type SourceComponentProps<T> = {
   data: T | null
-  root: ShadowRoot
+  /**
+   * Element to query for DOM lookups (scroll-into-view in expandable lists).
+   * A ShadowRoot when mounted in the card chrome; a plain container in previews.
+   */
+  root: ShadowRoot | HTMLElement
   runtime: Runtime
   onNotify?: () => void
 }

@@ -16,7 +16,7 @@ export function renderV2ex(
   render(
     <V2exComponent
       data={data}
-      root={undefined as any}
+      root={container}
       runtime={runtime}
       state={state}
       authorTagMap={authorTagMap}

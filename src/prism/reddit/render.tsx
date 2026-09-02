@@ -20,7 +20,7 @@ export function renderReddit(
   render(
     <RedditComponent
       data={data}
-      root={undefined as any}
+      root={container}
       runtime={runtime}
       state={state}
       expandCollapse={expandCollapse}

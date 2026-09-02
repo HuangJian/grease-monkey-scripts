@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
-import { numberOrDefault } from '../../utils'
-import { loadConfigSection, validateConfig } from '../config'
+import { validateConfig } from '../config'
 import { createEditorFactory } from '../editor-helpers/createEditorFactory'
+import { loadFreshXueqiuOptions } from './options'
 import {
   saveConfigSection,
   saveSourceSettings,
@@ -18,7 +18,6 @@ import {
   type XueqiuSourceOptions,
 } from './types'
 import { loadAiConfig, saveAiConfig } from './ai/config'
-import type { Runtime } from '../../runtime'
 
 const TTL_FIELD: NumberFieldDef = {
   prop: 'ttlMinutes',
@@ -34,23 +33,6 @@ const RETENTION_FIELD: NumberFieldDef = {
   min: 1,
   max: 90,
   integer: true,
-}
-
-function coerceXueqiuOptions(
-  raw: Record<string, unknown>,
-  fallback: XueqiuSourceOptions,
-): XueqiuSourceOptions {
-  return {
-    ttlMinutes: numberOrDefault(raw['ttlMinutes'], fallback.ttlMinutes),
-    retentionDays: numberOrDefault(raw['retentionDays'], fallback.retentionDays),
-  }
-}
-
-async function loadFreshOptions(
-  runtime: Runtime,
-  fallback: XueqiuSourceOptions,
-): Promise<XueqiuSourceOptions> {
-  return loadConfigSection(runtime, 'xueqiu', fallback, (raw) => coerceXueqiuOptions(raw, fallback))
 }
 
 type XueqiuEditorFormProps = {
@@ -240,7 +222,7 @@ export function createXueqiuEditor(
   settings: SourceSettings,
 ) {
   return createEditorFactory(
-    (runtime) => loadFreshOptions(runtime, options),
+    (runtime) => loadFreshXueqiuOptions(runtime, options),
     XueqiuEditorForm,
     (fresh) => ({ fresh, sourceId, settings }),
   )

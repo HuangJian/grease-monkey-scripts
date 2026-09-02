@@ -1,4 +1,3 @@
-import { useState, useLayoutEffect } from 'preact/hooks'
 import type { Runtime } from '../../runtime'
 import type {
   Source,
@@ -15,6 +14,7 @@ import { DateFilterGroup } from '../date-filter'
 import { ListIcon, SparklesIcon } from '../card/icons'
 import { XueqiuComponent } from './component'
 import { createXueqiuEditor } from './editor'
+import { loadFreshXueqiuOptions } from './options'
 import { fetchXueqiu } from './fetcher'
 import { rankHotPosts } from './scoring/ranking'
 import { createXueqiuState, type XueqiuState } from './state'
@@ -38,7 +38,8 @@ const MAIN_SOURCE_ID = 'xueqiu-news'
 const HOT_SOURCE_ID = 'xueqiu-hot'
 
 export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle {
-  const retentionMs = options.retentionDays * 24 * 60 * 60 * 1000
+  let currentOptions = options
+  const retentionMs = currentOptions.retentionDays * 24 * 60 * 60 * 1000
   const state: XueqiuState = createXueqiuState({ retentionMs })
   const mainHeaderStore = createHeaderState<{
     dateFilter: DateFilter
@@ -57,7 +58,9 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
   const mainSource: Source<XueqiuRenderData> = {
     id: MAIN_SOURCE_ID,
     title: '雪球news',
-    ttlMs: options.ttlMinutes * 60_000,
+    get ttlMs() {
+      return currentOptions.ttlMinutes * 60_000
+    },
     groupId: 'browse',
     order: 4,
     getTabLabel(data) {
@@ -97,6 +100,7 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
       )
     },
     async fetch(runtime, _prevData) {
+      currentOptions = await loadFreshXueqiuOptions(runtime, currentOptions)
       const host = runtime.location.hostname
       if (host !== 'xueqiu.com' && !host.endsWith('.xueqiu.com')) {
         // Throw SkipRefreshError so refreshSource skips the cache update
@@ -107,7 +111,7 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
         throw new SkipRefreshError('请访问 xueqiu.com 首页刷新数据')
       }
       await state.loadFromStorage(runtime)
-      const fresh = await fetchXueqiu(runtime, options)
+      const fresh = await fetchXueqiu(runtime, currentOptions)
       await saveXueqiuCache(runtime, fresh)
       await pruneExpiredCache(runtime)
       const merged = await loadXueqiuCache(runtime)
@@ -165,15 +169,21 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
         />
       )
     },
-    async fetch(runtime) {
-      // HotPosts are persisted only under MAIN_SOURCE_ID to avoid duplication.
-      // This source returns empty data — RenderComponent loads from shared cache.
+    async fetch(runtime, _prevData) {
+      // hotPosts live in the shared xueqiu-news cache (single source of truth).
+      // Derive + rank here so the fetch→cache→render flow fills the hot cache
+      // instead of the old empty payload (which refreshSource stamped fresh).
       await state.loadFromStorage(runtime)
       const cached = await loadXueqiuCache(runtime)
       if (!cached) {
-        throw new Error('请先刷新雪球news获取数据')
+        // Nothing to derive yet — skip so refreshSource leaves the hot cache
+        // untouched instead of writing an error + backoff (same semantics as
+        // mainSource on a non-xueqiu host).
+        throw new SkipRefreshError('请先刷新雪球news获取数据')
       }
-      return { news: [], hotPosts: [] }
+      const visible = cached.hotPosts.filter((it) => !state.isHidden(String(it.id)))
+      const ranked = rankHotPosts(visible, Date.now(), DEFAULT_RANKING_OPTIONS)
+      return { news: [], hotPosts: ranked }
     },
     async loadState(runtime) {
       await state.loadFromStorage(runtime)
@@ -243,6 +253,7 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
 }
 
 function HotRankedView({
+  data,
   root,
   runtime,
   onNotify,
@@ -252,20 +263,7 @@ function HotRankedView({
   state: XueqiuState
   hotHeaderStore: HeaderStateStore<{ dateFilter: DateFilter; filterUnread: boolean }>
 }) {
-  const [data, setData] = useState<XueqiuRenderData | null>(null)
   const hs = useHeaderState(hotHeaderStore)
-
-  useLayoutEffect(() => {
-    loadCache<XueqiuRenderData>(runtime, MAIN_SOURCE_ID).then((cached) => {
-      if (!cached?.data) {
-        setData({ news: [], hotPosts: [] })
-        return
-      }
-      const filtered = cached.data.hotPosts.filter((it) => !state.isHidden(String(it.id)))
-      const ranked = rankHotPosts(filtered, Date.now(), DEFAULT_RANKING_OPTIONS)
-      setData({ news: [], hotPosts: ranked })
-    })
-  }, [runtime])
 
   return (
     <XueqiuComponent

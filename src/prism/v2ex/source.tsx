@@ -8,6 +8,7 @@ import type { DateFilter } from '../date-filter'
 import { DateFilterGroup } from '../date-filter'
 import { V2exComponent } from './component'
 import { createV2exEditor } from './editor'
+import { loadFreshV2exOptions } from './options'
 import { fetchV2ex } from './fetcher'
 import { loadCache, saveCache } from '../cache'
 import { createV2exState } from './state'
@@ -15,7 +16,8 @@ import { isRetentionExpired } from '../shared-utils'
 import type { V2exSourceOptions, V2exTopic } from './types'
 
 export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]> {
-  const retentionMs = options.retentionDays * 24 * 60 * 60 * 1000
+  let currentOptions = options
+  const retentionMs = currentOptions.retentionDays * 24 * 60 * 60 * 1000
   const state = createV2exState({ retentionMs })
   let authorTagMap: AuthorTagMap = {}
   const headerStore = createHeaderState<{ dateFilter: DateFilter; filterUnread: boolean }>({
@@ -73,7 +75,9 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
   return {
     id: 'v2ex',
     title: 'V2EX 热议',
-    ttlMs: options.ttlMinutes * 60_000,
+    get ttlMs() {
+      return currentOptions.ttlMinutes * 60_000
+    },
     groupId: 'browse',
     order: 0,
     RenderHeader: (_props: SourceHeaderProps<V2exTopic[]>) => {
@@ -102,6 +106,7 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
       )
     },
     async fetch(runtime, _prevData) {
+      currentOptions = await loadFreshV2exOptions(runtime, currentOptions)
       await state.loadFromStorage(runtime)
       await loadAuthorTags(runtime)
       const prevById = new Map<number, V2exTopic>()
@@ -111,9 +116,9 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
       const allTopics = await fetchV2ex(
         runtime,
         {
-          todayMinReplies: options.todayMinReplies,
-          olderMinReplies: options.olderMinReplies,
-          ageHalfLifeDays: options.ageHalfLifeDays,
+          todayMinReplies: currentOptions.todayMinReplies,
+          olderMinReplies: currentOptions.olderMinReplies,
+          ageHalfLifeDays: currentOptions.ageHalfLifeDays,
         },
         new runtime.DOMParser(),
         state,
@@ -136,7 +141,7 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
       await loadAuthorTags(runtime)
     },
     createEditor(settings: SourceSettings) {
-      return createV2exEditor(options, settings)
+      return createV2exEditor(currentOptions, settings)
     },
   }
 }
