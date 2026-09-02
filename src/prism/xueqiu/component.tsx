@@ -82,7 +82,7 @@ export function XueqiuComponent({
   const news = data?.news ?? []
   const hotPosts = data?.hotPosts ?? []
   const rawItems = mode === 'news' ? news : hotPosts
-  const dateFiltered = applyDateFilter(rawItems, dateFilter, (it) => it.created_at)
+  const dateFiltered = applyDateFilter(rawItems, dateFilter, (it) => it.created_at, runtime.now)
   const items = filterUnread
     ? dateFiltered.filter((it) => {
         const id = String(it.id)
@@ -178,11 +178,11 @@ export function XueqiuComponent({
   }
 
   function startTimer() {
-    genStartRef.current = Date.now()
+    genStartRef.current = runtime.now()
     setElapsedSec(0)
     if (timerRef.current) clearInterval(timerRef.current)
     timerRef.current = setInterval(() => {
-      setElapsedSec(Math.floor((Date.now() - genStartRef.current) / 1000))
+      setElapsedSec(Math.floor((runtime.now() - genStartRef.current) / 1000))
     }, 1000)
   }
 
@@ -199,7 +199,7 @@ export function XueqiuComponent({
     setAiError(null)
     try {
       const result = await summarize(runtime, summaryItems, config)
-      const entry = buildSummaryEntry(result)
+      const entry = buildSummaryEntry(result, runtime.now)
       await saveSummary(runtime, entry)
       const all = await loadSummaries(runtime, retentionMs)
       setSummaries(all)
@@ -230,7 +230,7 @@ export function XueqiuComponent({
   }
 
   function handleTopicRead(itemIds: number[]) {
-    const now = Date.now()
+    const now = runtime.now()
     for (const id of itemIds) {
       state.markRead(String(id), now)
     }
@@ -247,7 +247,7 @@ export function XueqiuComponent({
   }
 
   function handleBulkReadAll() {
-    const now = Date.now()
+    const now = runtime.now()
     dateFiltered.forEach((it) => {
       const id = String(it.id)
       if (!state.isRead(id)) state.markRead(id, now)
@@ -288,7 +288,7 @@ export function XueqiuComponent({
     const hoveredId = String(hoveredItem.id)
     const idx = items.findIndex((it) => String(it.id) === hoveredId)
     if (idx < 0) return
-    const now = Date.now()
+    const now = runtime.now()
     items.slice(0, idx + 1).forEach((it) => {
       const id = String(it.id)
       if (!state.isRead(id)) {

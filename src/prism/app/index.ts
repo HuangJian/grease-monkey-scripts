@@ -33,15 +33,15 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
   const activeTabByGroup = new Map<string, string>()
   let handle: OverlayHandle | null = null
   let cleanupDashboard: (() => void) | null = null
-  let refreshIntervalId: ReturnType<typeof setInterval> | null = null
-  let backgroundTimerId: ReturnType<typeof setTimeout> | null = null
+  let refreshIntervalId: number | null = null
+  let backgroundTimerId: number | null = null
   let visibilityHandler: (() => void) | null = null
 
   /** One-shot background timer with per-arm jitter, re-armed after each fire. */
   function scheduleBackgroundRefresh(): void {
-    if (backgroundTimerId !== null) clearTimeout(backgroundTimerId)
+    if (backgroundTimerId !== null) runtime.clearTimeout(backgroundTimerId)
     const delay = BACKGROUND_REFRESH_BASE_MS + Math.random() * BACKGROUND_REFRESH_JITTER_MS
-    backgroundTimerId = setTimeout(() => {
+    backgroundTimerId = runtime.setTimeout(() => {
       backgroundTimerId = null
       // Skip if the panel is open — the foreground interval handles refresh.
       if (!handle) {
@@ -53,7 +53,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
 
   function clearBackgroundRefresh(): void {
     if (backgroundTimerId !== null) {
-      clearTimeout(backgroundTimerId)
+      runtime.clearTimeout(backgroundTimerId)
       backgroundTimerId = null
     }
   }
@@ -139,7 +139,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
       }
     }
     runtime.document.addEventListener('visibilitychange', visibilityHandler)
-    refreshIntervalId = setInterval(
+    refreshIntervalId = runtime.setInterval(
       () => void doRunOpportunisticRefresh(),
       FOREGROUND_REFRESH_INTERVAL_MS,
     )
@@ -148,7 +148,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
   function close(): void {
     if (!handle) return
     if (refreshIntervalId !== null) {
-      clearInterval(refreshIntervalId)
+      runtime.clearInterval(refreshIntervalId)
       refreshIntervalId = null
     }
     if (visibilityHandler) {

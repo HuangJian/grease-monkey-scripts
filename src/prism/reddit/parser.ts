@@ -9,14 +9,17 @@ export function normalizeSubredditName(raw: string): string {
     .replace(/[^a-z0-9_]/g, '')
 }
 
-export function parseRedditListing(json: unknown, maxItems: number): RedditPost[] {
+export function parseRedditListing(
+  json: unknown,
+  maxItems: number,
+  now: () => number = Date.now,
+): RedditPost[] {
   if (!json || typeof json !== 'object') return []
   const data = (json as { data?: unknown }).data
   if (!data || typeof data !== 'object') return []
   const children = (data as { children?: unknown }).children
   if (!Array.isArray(children)) return []
   const out: RedditPost[] = []
-  const now = Date.now()
   children.some((child) => {
     if (!child || typeof child !== 'object') return false
     const c = child as { kind?: unknown; data?: unknown }
@@ -46,7 +49,7 @@ export function parseRedditListing(json: unknown, maxItems: number): RedditPost[
     if (typeof createdUtc === 'number' && Number.isFinite(createdUtc) && createdUtc > 0) {
       created = Math.floor(createdUtc * 1000)
     } else {
-      created = now
+      created = now()
     }
     out.push({
       id,

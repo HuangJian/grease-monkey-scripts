@@ -182,7 +182,7 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
         throw new SkipRefreshError('请先刷新雪球news获取数据')
       }
       const visible = cached.hotPosts.filter((it) => !state.isHidden(String(it.id)))
-      const ranked = rankHotPosts(visible, Date.now(), DEFAULT_RANKING_OPTIONS)
+      const ranked = rankHotPosts(visible, runtime.now(), DEFAULT_RANKING_OPTIONS)
       return { news: [], hotPosts: ranked }
     },
     async loadState(runtime) {
@@ -213,7 +213,7 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
   async function pruneExpiredCache(runtime: Runtime): Promise<void> {
     const cached = await loadCache<XueqiuRenderData>(runtime, MAIN_SOURCE_ID)
     if (!cached?.data) return
-    const now = Date.now()
+    const now = runtime.now()
     const news = pruneItems({
       items: cached.data.news,
       getId: (it) => String(it.id),
@@ -287,7 +287,7 @@ async function saveXueqiuCache(runtime: Runtime, data: XueqiuRenderData): Promis
   }
   await saveCache(runtime, MAIN_SOURCE_ID, {
     data: merged,
-    fetchedAt: Date.now(),
+    fetchedAt: runtime.now(),
     error: '',
   })
 }

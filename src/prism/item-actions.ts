@@ -32,7 +32,7 @@ export function createItemHandlers<T extends { id: string | number }>(opts: {
     const visible = getVisible()
     const idx = visible.findIndex((it) => it.id === hovered.id)
     if (idx < 0) return
-    const now = Date.now()
+    const now = runtime.now()
     visible
       .slice(0, idx + 1)
       .filter((it) => !state.isRead(it.id))
@@ -75,7 +75,7 @@ export function createGroupedItemHandlers<
     const posts = getVisibleInSub(sub)
     const idx = posts.findIndex((p) => p.id === hovered.id)
     if (idx < 0) return
-    const now = Date.now()
+    const now = runtime.now()
     posts
       .slice(0, idx + 1)
       .filter((p) => !state.isRead(p.id))

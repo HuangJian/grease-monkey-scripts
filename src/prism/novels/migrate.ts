@@ -32,7 +32,7 @@ function isMigrated(raw: unknown): raw is NovelBook {
  * migrated books are returned as-is (idempotent). Books without a usable url
  * yield undefined and are dropped by `normalizeBooks`.
  */
-export function normalizeBook(raw: unknown): NovelBook | undefined {
+export function normalizeBook(raw: unknown, now: () => number = Date.now): NovelBook | undefined {
   if (!isPlainObject(raw)) return undefined
   if (isMigrated(raw)) return raw as NovelBook
 
@@ -83,7 +83,7 @@ export function normalizeBook(raw: unknown): NovelBook | undefined {
     sources: [source],
     latestChapters: chapters,
     lastSeenChapterKey: deriveSeenKey(legacyChapters, lastSeenUrl),
-    fetchedAt: num(raw.fetchedAt) || Date.now(),
+    fetchedAt: num(raw.fetchedAt) || now(),
     error,
   }
 }
@@ -96,11 +96,11 @@ export function deriveSeenKey(chapters: Record<string, unknown>[], seenUrl: stri
   return chapterKey(str(seen.title))
 }
 
-export function normalizeBooks(raw: unknown): NovelBook[] {
+export function normalizeBooks(raw: unknown, now: () => number = Date.now): NovelBook[] {
   if (!Array.isArray(raw)) return []
   const out: NovelBook[] = []
   for (const item of raw) {
-    const book = normalizeBook(item)
+    const book = normalizeBook(item, now)
     if (book) out.push(book)
   }
   return out

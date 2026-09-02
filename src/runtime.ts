@@ -51,6 +51,14 @@ export type Runtime = {
   pageFetch(url: string): Promise<unknown>
   /** Open a URL in a new tab. */
   openTab(url: string): void
+  /** Current time in ms. Tests override this via the runtime's fake clock. */
+  now(): number
+  /** Schedule `callback` after `delayMs`; returns a numeric handle. */
+  setTimeout(callback: () => void, delayMs?: number): number
+  clearTimeout(id: number): void
+  /** Schedule `callback` every `delayMs`; returns a numeric handle. */
+  setInterval(callback: () => void, delayMs?: number): number
+  clearInterval(id: number): void
 }
 
 declare const GM: {
@@ -134,5 +142,10 @@ export function createBrowserRuntime(): Runtime {
       return res.json()
     },
     openTab: (url) => window.open(url, '_blank'),
+    now: () => Date.now(),
+    setTimeout: (callback, delayMs) => setTimeout(callback, delayMs) as unknown as number,
+    clearTimeout: (id) => clearTimeout(id),
+    setInterval: (callback, delayMs) => setInterval(callback, delayMs) as unknown as number,
+    clearInterval: (id) => clearInterval(id),
   }
 }

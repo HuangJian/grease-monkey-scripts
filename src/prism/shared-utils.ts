@@ -7,9 +7,11 @@ export function formatReplyCount(current: number, readReplies: number | undefine
   return `${readReplies}+${current - readReplies}`
 }
 
-export function sourceBadge(created: number): { icon: string; title: string } {
-  const now = Date.now()
-  const isToday = new Date(created).toDateString() === new Date(now).toDateString()
+export function sourceBadge(
+  created: number,
+  now: () => number = Date.now,
+): { icon: string; title: string } {
+  const isToday = new Date(created).toDateString() === new Date(now()).toDateString()
   return isToday ? { icon: '🌅', title: '今日主题' } : { icon: '⏳', title: '历史主题' }
 }
 
@@ -68,8 +70,9 @@ export function applyDateFilter<T>(
   items: T[],
   filter: DateFilter,
   getCreated: (item: T) => number,
+  now: () => number = Date.now,
 ): T[] {
-  const bounds = dateFilterBounds(filter, Date.now())
+  const bounds = dateFilterBounds(filter, now())
   if (!bounds) return items
   return items.filter((item) => matchesDateBounds(getCreated(item), bounds))
 }
@@ -78,8 +81,9 @@ export function applyGroupedDateFilter<T>(
   data: Record<string, T[]>,
   filter: DateFilter,
   getCreated: (item: T) => number,
+  now: () => number = Date.now,
 ): Record<string, T[]> {
-  const bounds = dateFilterBounds(filter, Date.now())
+  const bounds = dateFilterBounds(filter, now())
   if (!bounds) return data
   return Object.entries(data).reduce<Record<string, T[]>>((result, [key, items]) => {
     const filtered = items.filter((item) => matchesDateBounds(getCreated(item), bounds))

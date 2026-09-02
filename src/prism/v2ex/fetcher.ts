@@ -96,14 +96,14 @@ export async function fetchV2ex(
 ): Promise<V2exTopic[]> {
   // 早于本次抓取起始时刻的 created 才是上游给的真实时间戳；等于/晚于它的
   // 一律是「抓取时刻近似」（页面源 created=Date.now()，或 API 缺 created 的回落）。
-  const fetchStartMs = Date.now()
+  const fetchStartMs = runtime.now()
   const [apiResult, pageResult] = await Promise.all([
-    fetchFromEndpoint(runtime, `${HOT_API_BASE}?_t=${Date.now()}`, (body) => {
+    fetchFromEndpoint(runtime, `${HOT_API_BASE}?_t=${runtime.now()}`, (body) => {
       const json: unknown = JSON.parse(body)
-      return parseV2ex(json, Number.POSITIVE_INFINITY)
+      return parseV2ex(json, Number.POSITIVE_INFINITY, runtime.now)
     }),
     fetchFromEndpoint(runtime, HOT_PAGE_URL, (body) =>
-      parseV2exHotPage(body, Number.POSITIVE_INFINITY, domParser),
+      parseV2exHotPage(body, Number.POSITIVE_INFINITY, domParser, runtime.now),
     ),
   ])
 
@@ -152,7 +152,7 @@ export async function fetchV2ex(
   }
 
   const todayStartMs = getTodayStart().getTime()
-  const now = Date.now()
+  const now = runtime.now()
 
   full = full.filter((t) => {
     if (t.created > 0 && t.created < todayStartMs) {

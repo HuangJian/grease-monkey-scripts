@@ -82,6 +82,7 @@ export function TabsCard({
           cached={headerProps.cached}
           now={now}
           ttlMs={activeTab.ttlMs}
+          runtime={runtime}
           onRefresh={() => onRefreshCallback(activeTab.id)}
           onEdit={onEdit}
         />

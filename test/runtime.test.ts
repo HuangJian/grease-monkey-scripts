@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from 'bun:test'
+import { afterAll, afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createDom, createRuntime, closeAllWindows, TestRuntimeBuilder } from './runtime'
@@ -134,5 +134,80 @@ describe('CSS regression: v2ex index.css', () => {
 
   test('imports shared tag-panel CSS', () => {
     expect(css).toContain("@import '../shared/tag-panel/tag-panel.css'")
+  })
+})
+
+describe('TestRuntime fake clock', () => {
+  let runtime: ReturnType<typeof createRuntime>
+
+  beforeEach(() => {
+    runtime = createRuntime()
+  })
+
+  afterEach(() => {
+    runtime.setClock(null)
+  })
+
+  test('now() defaults to Date.now() and setClock overrides it', () => {
+    expect(runtime.now()).toBeGreaterThan(1_000_000_000_000)
+
+    runtime.setClock(1_234)
+    expect(runtime.now()).toBe(1_234)
+
+    runtime.setClock(0)
+    expect(runtime.now()).toBe(0)
+
+    runtime.setClock(null)
+    expect(runtime.now()).toBeGreaterThan(1_000_000_000_000)
+  })
+
+  test('setTimeout records into the registry and runTimeout fires it once', () => {
+    let fired = 0
+    const id = runtime.setTimeout(() => {
+      fired++
+    }, 50)
+
+    expect(runtime.activeTimeouts().length).toBe(1)
+    expect(runtime.activeTimeouts(50).length).toBe(1)
+    expect(runtime.activeTimeouts(100).length).toBe(0)
+
+    runtime.runTimeout(id)
+    expect(fired).toBe(1)
+    expect(runtime.activeTimeouts().length).toBe(0)
+
+    runtime.runTimeout(id)
+    expect(fired).toBe(1)
+  })
+
+  test('clearTimeout removes the pending timer from active set', () => {
+    const id = runtime.setTimeout(() => {}, 10)
+    expect(runtime.activeTimeouts().length).toBe(1)
+
+    runtime.clearTimeout(id)
+    expect(runtime.activeTimeouts().length).toBe(0)
+  })
+
+  test('setInterval records and clearInterval removes it', () => {
+    const id = runtime.setInterval(() => {}, 60_000)
+    expect(runtime.activeIntervals().length).toBe(1)
+    expect(runtime.activeIntervals().filter((t) => t.delay === 60_000).length).toBe(1)
+
+    runtime.clearInterval(id)
+    expect(runtime.activeIntervals().length).toBe(0)
+  })
+
+  test('runTimeout is a no-op for interval ids', () => {
+    const id = runtime.setInterval(() => {}, 1_000)
+    runtime.runTimeout(id)
+    expect(runtime.activeIntervals().length).toBe(1)
+  })
+
+  test('callbacks do not auto-fire under the fake clock', () => {
+    let fired = 0
+    runtime.setTimeout(() => {
+      fired++
+    }, 0)
+    expect(fired).toBe(0)
+    expect(runtime.activeTimeouts().length).toBe(1)
   })
 })

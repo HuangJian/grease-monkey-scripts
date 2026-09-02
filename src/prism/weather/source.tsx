@@ -63,7 +63,7 @@ export function createWeatherSource(options: WeatherSourceOptions): Source<Weath
       const result = await fetchWeatherAll(runtime, cities)
       if (!prevData) return result
       const prevByLabel = new Map(prevData.entries.map((e) => [e.cityLabel, e]))
-      const now = Date.now()
+      const now = runtime.now()
       return {
         ...result,
         entries: result.entries.map((entry) =>

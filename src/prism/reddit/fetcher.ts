@@ -72,7 +72,7 @@ function fetchOneSub(runtime: Runtime, subreddit: string): Promise<FetchOutcome>
           }
           try {
             const json: unknown = JSON.parse(response.responseText)
-            const posts = parseRedditListing(json, 100)
+            const posts = parseRedditListing(json, 100, runtime.now)
             settle({ ok: true, posts })
           } catch (e) {
             settle({

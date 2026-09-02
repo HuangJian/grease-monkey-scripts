@@ -30,7 +30,7 @@ export function RedditComponent({
 }: RedditComponentProps) {
   const [, forceRender] = useReducer<number, void>((n) => n + 1, 0)
 
-  const dateFiltered = applyGroupedDateFilter(data ?? {}, dateFilter, (t) => t.created)
+  const dateFiltered = applyGroupedDateFilter(data ?? {}, dateFilter, (t) => t.created, runtime.now)
   const filtered: RedditRenderData = filterUnread
     ? Object.entries(dateFiltered).reduce<RedditRenderData>((acc, [sub, posts]) => {
         const unread = posts.filter((p) => !state.isRead(p.id))
@@ -49,7 +49,7 @@ export function RedditComponent({
   const active = expandCollapse.activeCategories(allSubs, totalPosts)
 
   function handleMarkRead(postId: string, numComments: number) {
-    state.markRead(postId, Date.now(), numComments)
+    state.markRead(postId, runtime.now(), numComments)
     void state.saveToStorage(runtime)
     forceRender()
   }
@@ -92,7 +92,7 @@ export function RedditComponent({
             </h3>
             <ol class="gm-sp-list">
               {visiblePosts.map((post) => {
-                const badge = sourceBadge(post.created)
+                const badge = sourceBadge(post.created, runtime.now)
                 const author = post.author
                 const authorTags = author ? authorTagMap[author] : undefined
                 const hasTags = !!authorTags && Object.keys(authorTags).length > 0

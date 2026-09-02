@@ -15,7 +15,12 @@ export function buildBoardUrl(slug: string): string {
   return `${HUPU_BASE_URL}/${slug}`
 }
 
-export function parseHupuDataJson(json: unknown, board: string, maxItems: number): HupuPost[] {
+export function parseHupuDataJson(
+  json: unknown,
+  board: string,
+  maxItems: number,
+  now: () => number = Date.now,
+): HupuPost[] {
   if (!json || typeof json !== 'object') return []
   const root = json as Record<string, unknown>
   const topic = root['topic'] as Record<string, unknown> | undefined
@@ -23,7 +28,6 @@ export function parseHupuDataJson(json: unknown, board: string, maxItems: number
   const list = threads?.['list']
   if (!Array.isArray(list)) return []
   const out: HupuPost[] = []
-  const now = Date.now()
   list.some((item) => {
     if (!item || typeof item !== 'object') return false
     const d = item as Record<string, unknown>
@@ -53,7 +57,7 @@ export function parseHupuDataJson(json: unknown, board: string, maxItems: number
       authorUrl,
       board,
       topicName,
-      created: Number.isFinite(createdAt) && createdAt > 0 ? createdAt : now,
+      created: Number.isFinite(createdAt) && createdAt > 0 ? createdAt : now(),
     })
     return out.length >= maxItems
   })
@@ -65,12 +69,12 @@ export function parseHupuDom(
   board: string,
   maxItems: number,
   domParser: DOMParser,
+  now: () => number = Date.now,
 ): HupuPost[] {
   if (!html) return []
   const doc = htmlToDocument(html, domParser)
   const items = doc.querySelectorAll('.bbs-sl-web-post-body')
   const out: HupuPost[] = []
-  const now = Date.now()
   Array.from(items).some((item) => {
     const titleEl = item.querySelector('.post-title a.p-title')
     if (!titleEl) return false
@@ -90,7 +94,7 @@ export function parseHupuDom(
     const authorUrl = authorEl?.getAttribute('href') ?? ''
     const timeEl = item.querySelector('.post-time')
     const timeText = (timeEl?.textContent ?? '').trim()
-    const created = parseRelativeTime(timeText, now)
+    const created = parseRelativeTime(timeText, now())
     out.push({
       id,
       title,

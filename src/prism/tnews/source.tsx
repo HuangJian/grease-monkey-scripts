@@ -27,7 +27,9 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
     },
     groupId: 'browse',
     order: 1,
-    RenderComponent: (props) => <TnewsComponent {...props} state={state} now={Date.now()} />,
+    RenderComponent: (props) => (
+      <TnewsComponent {...props} state={state} now={props.runtime.now()} />
+    ),
     getTabLabel(data) {
       return tnewsTabLabel(data, state)
     },
@@ -48,7 +50,7 @@ export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
       console.debug('[gm-tnews] merged count=', merged.length)
 
       // 清理缓存中过期的新闻数据，与 state.ttlMs 保持一致
-      const recent = filterByRetention(merged, Date.now(), RETENTION_MS)
+      const recent = filterByRetention(merged, runtime.now(), RETENTION_MS)
       console.debug(
         '[gm-tnews] retention count=',
         recent.length,

@@ -24,7 +24,7 @@ export async function refreshSource(runtime: Runtime, source: Source<unknown>): 
     let next: Omit<CachedSource<unknown>, 'schemaVersion'> | null = null
     try {
       const data = await source.fetch(runtime, oldCache?.data)
-      next = { data, fetchedAt: Date.now(), error: '' }
+      next = { data, fetchedAt: runtime.now(), error: '' }
     } catch (e) {
       if (e instanceof SkipRefreshError) {
         // Source cannot fetch on this host (e.g. xueqiu on github.com).
@@ -44,11 +44,11 @@ export async function refreshSource(runtime: Runtime, source: Source<unknown>): 
       const failureCount = (oldCache?.failureCount ?? 0) + 1
       next = {
         data: oldCache?.data,
-        fetchedAt: oldCache?.fetchedAt ?? Date.now(),
+        fetchedAt: oldCache?.fetchedAt ?? runtime.now(),
         error: message,
-        attemptedAt: Date.now(),
+        attemptedAt: runtime.now(),
         failureCount,
-        nextRetryAt: Date.now() + computeBackoffMs(failureCount),
+        nextRetryAt: runtime.now() + computeBackoffMs(failureCount),
       }
     }
     if (next) {
@@ -64,7 +64,7 @@ export async function runOpportunisticRefresh(
   sources: Source<unknown>[],
   refreshOne: (source: Source<unknown>) => Promise<void>,
 ): Promise<void> {
-  const now = Date.now()
+  const now = runtime.now()
   const stale = (
     await Promise.all(
       sources.map(async (source) => {

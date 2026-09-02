@@ -56,7 +56,7 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
   async function pruneExpiredCache(runtime: Runtime): Promise<void> {
     const cached = await loadCache<HupuRenderData>(runtime, 'hupu')
     if (!cached?.data || typeof cached.data !== 'object') return
-    const now = Date.now()
+    const now = runtime.now()
     const { kept, removedIds, changed } = pruneGroups(
       cached.data,
       (p) => String(p.id),
@@ -116,7 +116,7 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
         }
       }
       const merged = mergeBoardPosts(fetchResult.boards, prevById)
-      const now = Date.now()
+      const now = runtime.now()
       const selected = selectPostsPerBoard(merged, { ...currentOptions, now })
       // 见 v2ex/source.tsx：refreshSource 用本结果覆盖 pruneExpiredCache 的裁剪快照，
       // 因此过期帖子必须从返回值里剔除，否则缓存永不裁剪、已读状态却被反复清掉。

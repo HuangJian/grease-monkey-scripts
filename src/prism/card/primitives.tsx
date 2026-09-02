@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'preact/hooks'
 import type { ComponentChildren } from 'preact'
 import type { CachedSource } from '../types'
+import type { Runtime } from '../../runtime'
 import { VERY_STALE_MULTIPLIER } from '../types'
 import { RefreshIcon, ConfigIcon } from './icons'
 
@@ -28,9 +29,10 @@ export type RefreshTimeProps = {
   cached: CachedSource<unknown> | null
   now: number
   ttlMs: number
+  runtime: Runtime
 }
 
-export function RefreshTime({ cached, now, ttlMs }: RefreshTimeProps) {
+export function RefreshTime({ cached, now, ttlMs, runtime }: RefreshTimeProps) {
   // Self-ticking clock so relative-time labels ("5 分钟前") stay fresh
   // without waiting for a tab switch or data refresh to re-render.
   const [tick, setTick] = useState(now)
@@ -38,7 +40,7 @@ export function RefreshTime({ cached, now, ttlMs }: RefreshTimeProps) {
     setTick(now)
   }, [now])
   useEffect(() => {
-    const id = setInterval(() => setTick(Date.now()), 30_000)
+    const id = setInterval(() => setTick(runtime.now()), 30_000)
     return () => clearInterval(id)
   }, [])
   const isStale = cached != null && tick - cached.fetchedAt > ttlMs * VERY_STALE_MULTIPLIER
@@ -56,14 +58,15 @@ export type CardActionsProps = {
   cached: CachedSource<unknown> | null
   now: number
   ttlMs: number
+  runtime: Runtime
   onRefresh: () => Promise<void>
   onEdit?: () => Promise<void>
 }
 
-export function CardActions({ cached, now, ttlMs, onRefresh, onEdit }: CardActionsProps) {
+export function CardActions({ cached, now, ttlMs, runtime, onRefresh, onEdit }: CardActionsProps) {
   return (
     <span class="gm-sp-card-actions">
-      <RefreshTime cached={cached} now={now} ttlMs={ttlMs} />
+      <RefreshTime cached={cached} now={now} ttlMs={ttlMs} runtime={runtime} />
       <RefreshButton onRefresh={onRefresh} />
       {onEdit && <ConfigButton onClick={onEdit} />}
     </span>

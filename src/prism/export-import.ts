@@ -127,7 +127,7 @@ export async function applyImportData(runtime: Runtime, data: ExportData): Promi
     const cached = data[XIT_CACHE_STORAGE_KEY] as CachedSource<XitData>
     await saveCache(runtime, XIT_CACHE_KEY, {
       data: cached.data,
-      fetchedAt: cached.fetchedAt ?? Date.now(),
+      fetchedAt: cached.fetchedAt ?? runtime.now(),
       error: '',
     })
   }

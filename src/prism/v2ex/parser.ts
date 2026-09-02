@@ -4,10 +4,13 @@ import { htmlToDocument, toAbsoluteUrl } from '../../utils'
 import { HOT_PAGE_URL, MEMBER_PATH_RE, TOPIC_PATH_RE } from './constants'
 import type { V2exTopic } from './types'
 
-export function parseV2ex(json: unknown, maxItems: number): V2exTopic[] {
+export function parseV2ex(
+  json: unknown,
+  maxItems: number,
+  now: () => number = Date.now,
+): V2exTopic[] {
   if (!Array.isArray(json)) return []
   const topics: V2exTopic[] = []
-  const now = Date.now()
   json.some((item) => {
     if (!item || typeof item !== 'object') return false
     const t = item as Record<string, unknown>
@@ -36,7 +39,7 @@ export function parseV2ex(json: unknown, maxItems: number): V2exTopic[] {
       sources: [],
       // 上游没给创建时间时用抓取时刻近似（与页面源、reddit、hupu 一致）。
       // 绝不能写 0：0 会被当成 1970，把主题错误地塞进「早」这一档。
-      created: hasKnownTimestamp(created) ? created : now,
+      created: hasKnownTimestamp(created) ? created : now(),
     })
     return topics.length >= maxItems
   })
@@ -53,6 +56,7 @@ export function parseV2exHotPage(
   html: string,
   maxItems: number,
   domParser: DOMParser,
+  now: () => number = Date.now,
 ): V2exTopic[] {
   if (!html) return []
   const doc = htmlToDocument(html, domParser)
@@ -85,7 +89,7 @@ export function parseV2exHotPage(
       member: { username },
       node: { title: nodeTitle },
       sources: [],
-      created: Date.now(),
+      created: now(),
     })
     return topics.length >= maxItems
   })

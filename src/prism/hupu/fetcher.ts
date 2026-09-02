@@ -36,9 +36,9 @@ function fetchOneBoard(
           let jsonPosts: HupuPost[] = []
           if (dataJsonMatch) {
             const json: unknown = JSON.parse(dataJsonMatch[1])
-            jsonPosts = parseHupuDataJson(json, board, 100)
+            jsonPosts = parseHupuDataJson(json, board, 100, runtime.now)
           }
-          const domPosts = parseHupuDom(html, board, 100, domParser)
+          const domPosts = parseHupuDom(html, board, 100, domParser, runtime.now)
           const merged = mergeHupuPosts(jsonPosts, domPosts)
           settle({ posts: merged })
         } catch (e) {

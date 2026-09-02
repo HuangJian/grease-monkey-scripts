@@ -29,7 +29,7 @@ type ApiResponse = {
 
 // ---- API item to XueqiuNewsItem mapping ----
 
-function toNewsItem(item: ApiItem): XueqiuNewsItem {
+function toNewsItem(item: ApiItem, now: () => number = Date.now): XueqiuNewsItem {
   const createdAt = Number(item.created_at)
   return {
     id: item.id,
@@ -39,7 +39,7 @@ function toNewsItem(item: ApiItem): XueqiuNewsItem {
     target: String(item.target ?? `/status/${item.id}`),
     // 上游没给时间戳时用抓取时刻近似。绝不能写 0：0 会被当成 1970，
     // 既污染「早」这一档，又会被保留期清理当成早已过期而反复删掉已读状态。
-    created_at: hasKnownTimestamp(createdAt) ? createdAt : Date.now(),
+    created_at: hasKnownTimestamp(createdAt) ? createdAt : now(),
     status_id: Number(item.status_id ?? item.id),
     reply_count: Number(item.reply_count ?? 0),
     like_count: Number(item.like_count ?? item.fav_count ?? 0),
@@ -61,7 +61,11 @@ const PAGE_FETCH_TIMEOUT_MS = 20_000
 
 // ---- Fetch helpers ----
 
-function waitJitter(baseMs: number, variance = REQUEST_DELAY_VARIANCE): Promise<void> {
+function waitJitter(
+  runtime: Runtime,
+  baseMs: number,
+  variance = REQUEST_DELAY_VARIANCE,
+): Promise<void> {
   const ms = baseMs * (1 - variance + Math.random() * variance * 2)
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -164,7 +168,7 @@ async function fetchSource(
     if (batch.length === 0) break
 
     // Convert and filter out already-known IDs
-    const asNewsItems = batch.map(toNewsItem)
+    const asNewsItems = batch.map((item) => toNewsItem(item, runtime.now))
     const newItems: XueqiuNewsItem[] = []
     const seen = new Set<number>()
     asNewsItems.forEach((item) => {
@@ -191,7 +195,7 @@ async function fetchSource(
       break
     }
 
-    await waitJitter(REQUEST_DELAY_MS)
+    await waitJitter(runtime, REQUEST_DELAY_MS)
   }
 
   return dedupById(all)

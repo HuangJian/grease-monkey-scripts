@@ -28,7 +28,7 @@ export async function tryAcquireLock(
 ): Promise<string | null> {
   const ttlMs = options.ttlMs ?? LOCK_TTL_MS
   const verifyDelayMs = options.verifyDelayMs ?? LOCK_VERIFY_DELAY_MS
-  const now = options.now ?? Date.now
+  const now = options.now ?? (() => runtime.now())
   const newId = options.newId ?? (() => crypto.randomUUID())
 
   const key = LOCK_KEY(sourceId)

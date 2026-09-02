@@ -15,7 +15,7 @@ export async function loadSummaries(
   try {
     const raw = await runtime.getValue<unknown>(SUMMARIES_KEY, null)
     if (!Array.isArray(raw)) return []
-    const now = Date.now()
+    const now = runtime.now()
     const entries = (raw as SummaryEntry[]).filter((e) => now - e.generatedAt < retentionMs)
     // Persist pruned list if entries were removed
     if (entries.length !== (raw as SummaryEntry[]).length) {
@@ -142,7 +142,7 @@ export async function summarize(
     response_format: { type: 'json_object' },
   }
 
-  const startMs = Date.now()
+  const startMs = runtime.now()
   let resp = await gmRequest(runtime, config, body)
 
   // Fallback: some providers reject response_format
@@ -172,17 +172,19 @@ export async function summarize(
   for (const topic of topics) {
     topic.items = topic.items.map((idx) => items[idx]?.id ?? -1).filter((id) => id >= 0)
   }
-  return { topics, elapsedMs: Date.now() - startMs, itemCount: items.length }
+  return { topics, elapsedMs: runtime.now() - startMs, itemCount: items.length }
 }
 
 /** Build a SummaryEntry from summarize result. */
-export function buildSummaryEntry(result: SummarizeResult): SummaryEntry {
+export function buildSummaryEntry(
+  result: SummarizeResult,
+  now: () => number = Date.now,
+): SummaryEntry {
   const allItems = new Set<number>()
   for (const t of result.topics) for (const i of t.items) allItems.add(i)
-  const now = Date.now()
   return {
-    id: String(now),
-    generatedAt: now,
+    id: String(now()),
+    generatedAt: now(),
     topics: result.topics,
     newsCount: allItems.size,
     itemCount: result.itemCount,

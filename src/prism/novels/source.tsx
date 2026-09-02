@@ -35,7 +35,7 @@ export function createNovelsSource(
     },
     async fetch(runtimeArg, prevData) {
       const configs = await loadFreshBooks(runtimeArg, options.books)
-      const prevBooks = normalizeBooks(prevData?.books)
+      const prevBooks = normalizeBooks(prevData?.books, runtimeArg.now)
       const books = await fetchNovels(runtimeArg, configs, prevBooks, {
         initialNewChapters: options.initialNewChapters,
         maxLatestWindow: options.maxLatestWindow,
@@ -125,7 +125,7 @@ async function persistFetchedTitles(
 async function loadCachedTitleMap(runtime: Runtime): Promise<Map<string, string>> {
   const cached = await loadCache<NovelData>(runtime, 'novels')
   const map = new Map<string, string>()
-  for (const book of normalizeBooks(cached?.data?.books)) {
+  for (const book of normalizeBooks(cached?.data?.books, runtime.now)) {
     if (!book.title) continue
     map.set(book.id, book.title)
     for (const s of book.sources) map.set(s.url, book.title)
@@ -141,7 +141,7 @@ async function loadCachedTitleMap(runtime: Runtime): Promise<Map<string, string>
 export async function markSeen(runtime: Runtime, id: string): Promise<void> {
   const cached = await loadCache<NovelData>(runtime, 'novels')
   if (!cached?.data?.books) return
-  const cachedBooks = normalizeBooks(cached.data.books)
+  const cachedBooks = normalizeBooks(cached.data.books, runtime.now)
   const current = cachedBooks.find((b) => b.id === id)
   if (!current) return
   const newSeen = current.latestChapters.find((c) => !c.omittedCount)?.key
@@ -164,7 +164,7 @@ async function mergeLatestSeen(runtime: Runtime, books: NovelBook[]): Promise<vo
   const cached = await loadCache<NovelData>(runtime, 'novels')
   if (!cached?.data?.books) return
   const seenById = new Map(
-    normalizeBooks(cached.data.books).map((b) => [b.id, b.lastSeenChapterKey]),
+    normalizeBooks(cached.data.books, runtime.now).map((b) => [b.id, b.lastSeenChapterKey]),
   )
   for (const book of books) {
     const seen = seenById.get(book.id)

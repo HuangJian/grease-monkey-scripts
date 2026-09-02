@@ -13,10 +13,10 @@ export type NovelsComponentProps = SourceComponentProps<NovelData> & {
   onMarkSeen: (bookId: string) => void
 }
 
-export function NovelsComponent({ data, onMarkSeen }: NovelsComponentProps) {
+export function NovelsComponent({ data, onMarkSeen, runtime }: NovelsComponentProps) {
   // Normalize at the read path so legacy cached data (without `sources`) and
   // freshly-fetched books both render through the same component.
-  const books = normalizeBooks(data?.books ?? [])
+  const books = normalizeBooks(data?.books ?? [], runtime.now)
 
   if (books.length === 0) {
     return (

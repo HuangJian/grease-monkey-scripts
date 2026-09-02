@@ -26,7 +26,11 @@ export type CmaPageData = {
   hourlyDayDates: string[]
 }
 
-export function parseCmaPage(html: string, DOMParserCtor: typeof DOMParser): CmaPageData | null {
+export function parseCmaPage(
+  html: string,
+  DOMParserCtor: typeof DOMParser,
+  now: () => number = Date.now,
+): CmaPageData | null {
   const parser = new DOMParserCtor()
   const doc = parser.parseFromString(html, 'text/html') as Document
   const dayNodes = doc.querySelectorAll('#dayList .pull-left.day')
@@ -45,7 +49,7 @@ export function parseCmaPage(html: string, DOMParserCtor: typeof DOMParser): Cma
 
   dayNodes.forEach((dayEl) => {
     const dateLabel = dayEl.querySelector('.day-item')?.textContent ?? ''
-    const dateStr = parseDateLabelToStr(dateLabel, Date.now())
+    const dateStr = parseDateLabelToStr(dateLabel, now())
     if (!dateStr) return
     dailyDates.push(dateStr)
 

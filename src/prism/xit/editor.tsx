@@ -54,7 +54,7 @@ function XitEditorForm({ initialText, targetLine, ctx, handleRef }: XitEditorFor
         cancelAnimationFrame(rafRef.current)
         await saveCache(ctx.runtime, 'xit', {
           data: { text: textRef.current },
-          fetchedAt: Date.now(),
+          fetchedAt: ctx.runtime.now(),
           error: '',
         })
         ctx.close()

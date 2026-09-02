@@ -56,7 +56,7 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
   async function pruneExpiredCache(runtime: Runtime): Promise<void> {
     const cached = await loadCache<V2exTopic[]>(runtime, 'v2ex')
     if (!cached?.data || !Array.isArray(cached.data)) return
-    const now = Date.now()
+    const now = runtime.now()
     const { kept, removedIds } = pruneItems({
       items: cached.data,
       getId: (t) => t.id,
@@ -130,7 +130,7 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
       // 写回的裁剪快照：只要结果里仍带过期主题，缓存就永远不会被真正裁剪，而
       // pruneExpiredCache 里的 removeEntries 却在每次刷新删掉它们的已读状态——
       // 表现就是「已读主题刷新后又变回未读」。
-      const now = Date.now()
+      const now = runtime.now()
       const visible = state.filterVisible(
         allTopics.filter((t) => !isRetentionExpired(t.created, now, retentionMs)),
       )

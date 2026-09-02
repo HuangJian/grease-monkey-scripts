@@ -171,7 +171,7 @@ async function fetchCmaCity(runtime: Runtime, city: WeatherCity): Promise<Weathe
   let cmaNowOk = false
 
   if (pageHtml.status === 'fulfilled') {
-    const parsed = parseCmaPage(pageHtml.value, runtime.DOMParser)
+    const parsed = parseCmaPage(pageHtml.value, runtime.DOMParser, runtime.now)
     if (parsed) {
       data.daily = parsed.daily
       cmaPageOk = true
@@ -237,7 +237,7 @@ async function fetchCmaCity(runtime: Runtime, city: WeatherCity): Promise<Weathe
   data.cmaUrl = cmaUrl
   data.cmaFailed = !cmaPageOk || !cmaNowOk
   if (!data.cmaFailed) {
-    data.cmaFetchedAt = Date.now()
+    data.cmaFetchedAt = runtime.now()
   }
 
   console.debug(

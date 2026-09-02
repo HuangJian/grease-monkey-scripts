@@ -46,8 +46,7 @@ export function createItemState<T extends string | number = string>(
   const readReplies = new Map<string, number>()
   const hiddenAt = new Map<string, number>()
 
-  function expireNow(map: Map<string, number>): void {
-    const now = Date.now()
+  function expireNow(map: Map<string, number>, now: number): void {
     Array.from(map)
       .filter(([, ts]) => now - ts >= ttlMs)
       .forEach(([k]) => map.delete(k))
@@ -83,7 +82,7 @@ export function createItemState<T extends string | number = string>(
       }
     },
     async loadFromStorage(runtime) {
-      const now = Date.now()
+      const now = runtime.now()
 
       async function loadFrom(key: string, isMinFormat: boolean): Promise<boolean> {
         const stored = await runtime.getValue<Record<string, StoredEntry> | null>(key, null)
@@ -114,11 +113,11 @@ export function createItemState<T extends string | number = string>(
         }
       }
 
-      expireNow(readAt)
-      expireNow(hiddenAt)
+      expireNow(readAt, now)
+      expireNow(hiddenAt, now)
     },
     async saveToStorage(runtime) {
-      const now = Date.now()
+      const now = runtime.now()
       const obj: Record<string, StoredEntry> = {}
       Array.from(readAt)
         .filter(([, ts]) => now - ts < ttlMs)

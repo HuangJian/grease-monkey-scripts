@@ -35,7 +35,7 @@ export async function fetchNovels(
   options: FetchNovelsOptions = { initialNewChapters: 3, maxLatestWindow: DEFAULT_MAX_WINDOW },
   resolveAdapter: (url: string) => NovelAdapter | undefined = adapterByUrl,
 ): Promise<NovelBook[]> {
-  const prevList = normalizeBooks(prevBooks)
+  const prevList = normalizeBooks(prevBooks, runtime.now)
   const prevById = new Map(prevList.map((b) => [b.id, b]))
   const prevByUrl = new Map<string, NovelBook>()
   prevList.forEach((b) => b.sources.forEach((s) => prevByUrl.set(s.url, b)))
@@ -178,7 +178,7 @@ async function fetchOneBook(
       sources,
       latestChapters: merged,
       lastSeenChapterKey: seenKey,
-      fetchedAt: Date.now(),
+      fetchedAt: runtime.now(),
       error,
     }
   }
@@ -189,7 +189,7 @@ async function fetchOneBook(
     sources,
     latestChapters: prev?.latestChapters ?? [],
     lastSeenChapterKey: seenKey,
-    fetchedAt: prev?.fetchedAt ?? Date.now(),
+    fetchedAt: prev?.fetchedAt ?? runtime.now(),
     error: !anyResolved ? '未知站点，暂不支持' : '所有源加载失败',
   }
 }
@@ -202,7 +202,7 @@ async function fetchSourceChapters(
   prevMirrorHost: string | undefined,
   seenKey: string,
 ): Promise<{ chapters: RawChapter[]; title?: string; mirrorHost?: string; chapterCount: number }> {
-  const now = Date.now()
+  const now = runtime.now()
   const hosts = orderedMirrorHosts(url, adapter.hostnames, prevMirrorHost)
   const homeResult = await fetchWithFallback(runtime, url, hosts)
   let usedHost = homeResult.host

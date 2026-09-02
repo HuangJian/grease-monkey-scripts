@@ -72,6 +72,7 @@ export function RenderCard<T>({
           cached={headerProps.cached}
           now={now}
           ttlMs={ttlMs}
+          runtime={runtime}
           onRefresh={onRefresh}
           onEdit={onEdit}
         />
@@ -84,6 +85,7 @@ export function RenderCard<T>({
         cached={headerProps.cached}
         now={now}
         ttlMs={ttlMs}
+        runtime={runtime}
         onRefresh={onRefresh}
         onEdit={onEdit}
       />

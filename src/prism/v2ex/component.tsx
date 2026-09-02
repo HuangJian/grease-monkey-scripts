@@ -43,13 +43,13 @@ export function V2exComponent({
 }: V2exComponentProps) {
   const [, forceRender] = useReducer<number, void>((n) => n + 1, 0)
 
-  const dateFiltered = applyDateFilter(data ?? [], dateFilter, (t) => t.created)
+  const dateFiltered = applyDateFilter(data ?? [], dateFilter, (t) => t.created, runtime.now)
   const visible = filterUnread
     ? dateFiltered.filter((t) => !state.isRead(t.id))
     : state.filterVisible(dateFiltered)
 
   function handleMarkRead(topic: V2exTopic) {
-    state.markRead(topic.id, Date.now(), topic.replies)
+    state.markRead(topic.id, runtime.now(), topic.replies)
     void state.saveToStorage(runtime)
     forceRender()
   }

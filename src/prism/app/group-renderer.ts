@@ -57,7 +57,7 @@ export async function renderGroup(
         // "now" is captured at render time for freshness display — this is
         // intentional, not a purity violation. The value only affects relative
         // time labels ("5 minutes ago") and is not used for data fetching.
-        now: Date.now(),
+        now: deps.runtime.now(),
         runtime: deps.runtime,
         root,
         activeTabId,
@@ -87,7 +87,7 @@ export async function renderGroup(
         cached,
         ttlMs: source.ttlMs,
         // "now" is captured at render time for freshness display — see above.
-        now: Date.now(),
+        now: deps.runtime.now(),
         runtime: deps.runtime,
         root,
         onRefresh: () => deps.refreshSource(source.id),

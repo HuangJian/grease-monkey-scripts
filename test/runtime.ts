@@ -55,6 +55,16 @@ export function closeAllWindows(): void {
 
 export type MenuCommand = { id: number; name: string; fn: () => void }
 
+/** A scheduled timer recorded by the test runtime's fake clock. */
+export type FakeTimer = {
+  id: number
+  delay: number
+  cb: () => void
+  type: 'timeout' | 'interval'
+  cleared: boolean
+  fired: boolean
+}
+
 export type TestRuntime = Runtime & {
   stores: Record<string, unknown>
   listeners: Map<string, ValueChangeListener[]>
@@ -70,6 +80,15 @@ export type TestRuntime = Runtime & {
   queueResponse(url: string, text: string, status?: number, responseHeaders?: string): void
   simulateRemoteChange(key: string, newValue: unknown): void
   runMenuCommand(name: string): boolean
+  // ── Fake clock / timer registry (test-only) ──
+  /** Override the value returned by `now()`. Pass nothing to restore Date.now(). */
+  setClock(ms: number | null): void
+  /** Active (not cleared/fired) setTimeout entries with delay >= minDelay. */
+  activeTimeouts(minDelay?: number): FakeTimer[]
+  /** Active (not cleared) setInterval entries. */
+  activeIntervals(): FakeTimer[]
+  /** Fire a specific recorded timeout callback once (intervals are not supported). */
+  runTimeout(id: number): void
 }
 
 if (
@@ -119,6 +138,8 @@ export function createRuntime(dom?: Window): TestRuntime {
   const injectedStyles: string[] = []
   let lastRequest: TestRuntime['lastRequest'] = null
   let nextId = 1
+  let clock: number | null = null
+  const timers = new Map<number, FakeTimer>()
   const runtime: TestRuntime = {
     document: doc,
     location: loc,
@@ -197,6 +218,54 @@ export function createRuntime(dom?: Window): TestRuntime {
       return JSON.parse(r.text)
     },
     openTab: () => {},
+    now: () => (clock === null ? Date.now() : clock),
+    setTimeout: (cb, delayMs) => {
+      const id = nextId++
+      timers.set(id, {
+        id,
+        delay: delayMs ?? 0,
+        cb,
+        type: 'timeout',
+        cleared: false,
+        fired: false,
+      })
+      return id
+    },
+    clearTimeout: (id) => {
+      const t = timers.get(id)
+      if (t) t.cleared = true
+    },
+    setInterval: (cb, delayMs) => {
+      const id = nextId++
+      timers.set(id, {
+        id,
+        delay: delayMs ?? 0,
+        cb,
+        type: 'interval',
+        cleared: false,
+        fired: false,
+      })
+      return id
+    },
+    clearInterval: (id) => {
+      const t = timers.get(id)
+      if (t) t.cleared = true
+    },
+    setClock: (ms) => {
+      clock = ms
+    },
+    activeTimeouts: (minDelay = 0) =>
+      [...timers.values()].filter(
+        (t) => t.type === 'timeout' && !t.cleared && !t.fired && t.delay >= minDelay,
+      ),
+    activeIntervals: () => [...timers.values()].filter((t) => t.type === 'interval' && !t.cleared),
+    runTimeout: (id) => {
+      const t = timers.get(id)
+      if (t && t.type === 'timeout' && !t.fired && !t.cleared) {
+        t.fired = true
+        t.cb()
+      }
+    },
     queueResponse(url, text, status, responseHeaders) {
       responses.set(url, { text, status: status ?? 200, responseHeaders: responseHeaders ?? '' })
     },
