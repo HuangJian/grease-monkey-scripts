@@ -13,6 +13,7 @@ import { fetchV2ex } from './fetcher'
 import { loadCache, saveCache } from '../cache'
 import { createV2exState } from './state'
 import { isRetentionExpired } from '../shared-utils'
+import { pruneItems } from '../shared/prune'
 import type { V2exSourceOptions, V2exTopic } from './types'
 
 export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]> {
@@ -56,17 +57,18 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
     const cached = await loadCache<V2exTopic[]>(runtime, 'v2ex')
     if (!cached?.data || !Array.isArray(cached.data)) return
     const now = Date.now()
-    const pruned = cached.data.filter((t) => !isRetentionExpired(t.created, now, retentionMs))
-    if (pruned.length === cached.data.length) return
-    const removedIds = cached.data
-      .filter((t) => isRetentionExpired(t.created, now, retentionMs))
-      .map((t) => t.id)
-    if (removedIds.length > 0) {
-      state.removeEntries(removedIds)
-      await state.saveToStorage(runtime)
-    }
+    const { kept, removedIds } = pruneItems({
+      items: cached.data,
+      getId: (t) => t.id,
+      getCreated: (t) => t.created,
+      now,
+      retentionMs,
+    })
+    if (removedIds.length === 0) return
+    state.removeEntries(removedIds)
+    await state.saveToStorage(runtime)
     await saveCache(runtime, 'v2ex', {
-      data: pruned,
+      data: kept,
       fetchedAt: cached.fetchedAt,
       error: '',
     })

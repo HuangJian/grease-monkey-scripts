@@ -18,7 +18,7 @@ import { loadFreshXueqiuOptions } from './options'
 import { fetchXueqiu } from './fetcher'
 import { rankHotPosts } from './scoring/ranking'
 import { createXueqiuState, type XueqiuState } from './state'
-import { isRetentionExpired } from '../shared-utils'
+import { pruneItems } from '../shared/prune'
 import {
   DEFAULT_RANKING_OPTIONS,
   type XueqiuNewsItem,
@@ -214,29 +214,29 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
     const cached = await loadCache<XueqiuRenderData>(runtime, MAIN_SOURCE_ID)
     if (!cached?.data) return
     const now = Date.now()
-    const removedIds: string[] = []
-    const prune = (items: XueqiuNewsItem[]) =>
-      items.filter((it) => {
-        if (isRetentionExpired(it.created_at, now, retentionMs)) {
-          removedIds.push(String(it.id))
-          return false
-        }
-        return true
-      })
-    const pruned: XueqiuRenderData = {
-      news: prune(cached.data.news),
-      hotPosts: prune(cached.data.hotPosts),
-    }
-    if (
-      pruned.news.length === cached.data.news.length &&
-      pruned.hotPosts.length === cached.data.hotPosts.length
-    )
-      return
+    const news = pruneItems({
+      items: cached.data.news,
+      getId: (it) => String(it.id),
+      getCreated: (it) => it.created_at,
+      now,
+      retentionMs,
+    })
+    const hot = pruneItems({
+      items: cached.data.hotPosts,
+      getId: (it) => String(it.id),
+      getCreated: (it) => it.created_at,
+      now,
+      retentionMs,
+    })
+    const removedIds = [...news.removedIds, ...hot.removedIds]
+    if (removedIds.length === 0) return
     if (removedIds.length > 0) {
+      // NOTE: xueqiu intentionally does NOT saveToStorage here. The caller's
+      // fetch persists state after prune (see comment on this function above).
       state.removeEntries(removedIds)
     }
     await saveCache(runtime, MAIN_SOURCE_ID, {
-      data: pruned,
+      data: { news: news.kept, hotPosts: hot.kept },
       fetchedAt: cached.fetchedAt,
       error: '',
     })

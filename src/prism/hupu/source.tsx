@@ -15,6 +15,7 @@ import { loadFreshHupuOptions } from './options'
 import { mergeBoardPosts, selectPostsPerBoard } from './scoring'
 import { createHupuState } from './state'
 import { isRetentionExpired } from '../shared-utils'
+import { pruneGroups } from '../shared/prune'
 import type { HupuPost, HupuSourceOptions } from './types'
 
 export type HupuRenderData = Record<string, HupuPost[]>
@@ -56,26 +57,20 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
     const cached = await loadCache<HupuRenderData>(runtime, 'hupu')
     if (!cached?.data || typeof cached.data !== 'object') return
     const now = Date.now()
-    const pruned: HupuRenderData = {}
-    let changed = false
-    const removedIds: string[] = []
-    for (const [board, posts] of Object.entries(cached.data)) {
-      const kept = posts.filter((p) => !isRetentionExpired(p.created, now, retentionMs))
-      if (kept.length !== posts.length) {
-        changed = true
-        posts
-          .filter((p) => isRetentionExpired(p.created, now, retentionMs))
-          .forEach((p) => removedIds.push(p.id))
-      }
-      if (kept.length > 0) pruned[board] = kept
-    }
+    const { kept, removedIds, changed } = pruneGroups(
+      cached.data,
+      (p) => String(p.id),
+      (p) => p.created,
+      now,
+      retentionMs,
+    )
     if (!changed) return
     if (removedIds.length > 0) {
       state.removeEntries(removedIds)
       await state.saveToStorage(runtime)
     }
     await saveCache(runtime, 'hupu', {
-      data: pruned,
+      data: kept,
       fetchedAt: cached.fetchedAt,
       error: '',
     })

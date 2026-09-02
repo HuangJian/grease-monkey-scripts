@@ -15,6 +15,7 @@ import { loadFreshRedditOptions } from './options'
 import { mergeSubPosts, selectPostsPerSub } from './scoring'
 import { createRedditState } from './state'
 import { isRetentionExpired } from '../shared-utils'
+import { pruneGroups } from '../shared/prune'
 import type { RedditPost, RedditSourceOptions } from './types'
 
 export type RedditRenderData = Record<string, RedditPost[]>
@@ -56,26 +57,20 @@ export function createRedditSource(options: RedditSourceOptions): Source<RedditR
     const cached = await loadCache<RedditRenderData>(runtime, 'reddit')
     if (!cached?.data || typeof cached.data !== 'object') return
     const now = Date.now()
-    const pruned: RedditRenderData = {}
-    let changed = false
-    const removedIds: string[] = []
-    for (const [sub, posts] of Object.entries(cached.data)) {
-      const kept = posts.filter((p) => !isRetentionExpired(p.created, now, retentionMs))
-      if (kept.length !== posts.length) {
-        changed = true
-        posts
-          .filter((p) => isRetentionExpired(p.created, now, retentionMs))
-          .forEach((p) => removedIds.push(p.id))
-      }
-      if (kept.length > 0) pruned[sub] = kept
-    }
+    const { kept, removedIds, changed } = pruneGroups(
+      cached.data,
+      (p) => String(p.id),
+      (p) => p.created,
+      now,
+      retentionMs,
+    )
     if (!changed) return
     if (removedIds.length > 0) {
       state.removeEntries(removedIds)
       await state.saveToStorage(runtime)
     }
     await saveCache(runtime, 'reddit', {
-      data: pruned,
+      data: kept,
       fetchedAt: cached.fetchedAt,
       error: '',
     })
