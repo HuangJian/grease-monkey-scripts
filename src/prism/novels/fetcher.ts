@@ -73,7 +73,7 @@ async function fetchOneBook(
   cfg: NovelBookConfig,
   prevById: Map<string, NovelBook>,
   prevByUrl: Map<string, NovelBook>,
-  _options: FetchNovelsOptions,
+  options: FetchNovelsOptions,
   resolveAdapter: (url: string) => NovelAdapter | undefined,
 ): Promise<NovelBook> {
   const primaryUrl = cfg.urls[0] ?? ''
@@ -119,6 +119,7 @@ async function fetchOneBook(
           prevPostedAt,
           prevSource?.mirrorHost,
           seenKey,
+          options.maxLatestWindow,
         )
         return {
           source: {
@@ -165,7 +166,7 @@ async function fetchOneBook(
   }
 
   if (anyInput) {
-    const merged = mergeSourceChapters(inputs, seenKey)
+    const merged = mergeSourceChapters(inputs, seenKey, { maxWindow: options.maxLatestWindow })
     const title = cfg.title || fetchedTitles[0] || prev?.title || hostnameFallback(primaryUrl)
     const error = !anyResolved
       ? '未知站点，暂不支持'
@@ -201,6 +202,7 @@ async function fetchSourceChapters(
   prevPostedAt: Map<string, number>,
   prevMirrorHost: string | undefined,
   seenKey: string,
+  maxLatestWindow: number,
 ): Promise<{ chapters: RawChapter[]; title?: string; mirrorHost?: string; chapterCount: number }> {
   const now = runtime.now()
   const hosts = orderedMirrorHosts(url, adapter.hostnames, prevMirrorHost)
@@ -218,7 +220,13 @@ async function fetchSourceChapters(
     // Tail pages hold only chapters older than the home page. If the read
     // marker is already on the home page, there is nothing older to fetch.
     const seenInHome = seenKey && home.homeChapters.some((c) => chapterKey(c.title) === seenKey)
-    if (home.lastPageNumber > 1 && !seenInHome) {
+    // If the home page already fills the latest-window, no tail fetch is needed.
+    const homeFillsWindow =
+      Number.isFinite(maxLatestWindow) && home.homeChapters.length >= maxLatestWindow
+    if (home.lastPageNumber > 1 && !seenInHome && !homeFillsWindow) {
+      // Collect tail pages, then reverse+flat once (avoids O(pages²) per-page
+      // array rebuild). Stop early once we have enough to cover the window.
+      const collected: RawChapter[][] = []
       for (let p = 2; p <= home.lastPageNumber; p++) {
         const tailUrl = adapter.buildTailUrl(url, p)
         const tailResult = await fetchWithFallback(
@@ -228,8 +236,18 @@ async function fetchSourceChapters(
         )
         usedHost = tailResult.host
         const tailChapters = adapter.parseChapterList(tailResult.html, tailUrl, domParser)
-        chapters = [...tailChapters.reverse(), ...chapters]
+        // Reverse each page (oldest→newest within a page → newest→oldest) to
+        // match the original per-page `[...tailChapters.reverse(), ...]` order.
+        collected.push(tailChapters.slice().reverse())
+        if (
+          Number.isFinite(maxLatestWindow) &&
+          home.homeChapters.length + collected.reduce((n, t) => n + t.length, 0) >= maxLatestWindow
+        ) {
+          break
+        }
       }
+      const tailAll = collected.reverse().flat()
+      chapters = [...tailAll, ...chapters]
     }
     overlayTimestamps(chapters, prevPostedAt)
   } else if (home.lastPageNumber > 1) {

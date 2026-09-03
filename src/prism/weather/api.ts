@@ -97,7 +97,11 @@ async function fetchCmaTextWithWaf(
   }
 
   console.debug('[gm-dashboard] cma.waf: solving PoW', challenge)
-  const suffix = solveSafelinePow(challenge.prefix, challenge.leadingZeroBits)
+  const suffix = await solveSafelinePow(challenge.prefix, challenge.leadingZeroBits, {
+    // Yield to the browser event loop periodically so the dashboard stays responsive
+    // while the (sync) SHA-1 loop runs (see S5 §3.4 / S4 Runtime timer boundary).
+    yield: () => new Promise<void>((res) => runtime.setTimeout(res, 0)),
+  })
   console.debug('[gm-dashboard] cma.waf: PoW solved, suffix', suffix)
 
   const { text: retryText } = await requestTextWithHeaders(runtime, url, {

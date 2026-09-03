@@ -3,6 +3,7 @@ import type { Source, CachedSource } from '../types'
 import { BACKOFF_DELAYS_MS } from '../types'
 import { isInBackoff, isStale, isStaleOnDayBoundary, loadCache, saveCache } from '../cache'
 import { releaseLock, tryAcquireLock } from '../lock'
+import { mapLimit } from '../shared/concurrency'
 import { SkipRefreshError } from '../errors'
 
 /** Returns the backoff delay for the given consecutive failure count (1-based). */
@@ -86,5 +87,8 @@ export async function runOpportunisticRefresh(
       }),
     )
   ).filter((s): s is Source<unknown> => s !== null)
-  await Promise.all(stale.map((s) => refreshOne(s)))
+  await mapLimit(stale, refreshOne, MAX_REFRESH_CONCURRENCY)
 }
+
+/** Bound cold-start refresh fan-out (see frontend.refactor.md §3.3). */
+const MAX_REFRESH_CONCURRENCY = 4

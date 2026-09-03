@@ -99,7 +99,7 @@ async function fetchWithWaf(
   }
 
   console.log(`  [WAF] Challenge: ${JSON.stringify(challenge)}`)
-  const suffix = solveSafelinePow(challenge.prefix, challenge.leadingZeroBits)
+  const suffix = await solveSafelinePow(challenge.prefix, challenge.leadingZeroBits)
   console.log(`  [WAF] PoW solved, suffix=${suffix}`)
 
   const retryRes = await fetch(url, {

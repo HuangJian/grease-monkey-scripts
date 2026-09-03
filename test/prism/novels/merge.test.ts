@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'bun:test'
-import { collapseChapters, mergeSourceChapters } from '../../../src/prism/novels/merge'
-import type { NovelChapterVariant } from '../../../src/prism/novels/types'
+import {
+  collapseChapters,
+  mergeSourceChapters,
+  windowLatestChapters,
+} from '../../../src/prism/novels/merge'
+import type { NovelChapter, NovelChapterVariant } from '../../../src/prism/novels/types'
 
 function src(siteId: string, titles: string[], postedAts: number[] = []): NovelChapterVariant[] {
   return titles.map((title, i) => ({
@@ -132,6 +136,67 @@ describe('mergeSourceChapters', () => {
     const merged = mergeSourceChapters([src('a', numbered(1, 30))], '')
     expect(merged).toHaveLength(21)
     expect(merged[10]!.omittedCount).toBe(10)
+  })
+
+  test('maxWindow option truncates the merged output newest-first', () => {
+    const merged = mergeSourceChapters([src('a', numbered(1, 30))], '', { maxWindow: 10 })
+    expect(merged.map((c) => c.key)).toEqual([
+      'n:30',
+      'n:29',
+      'n:28',
+      'n:27',
+      'n:26',
+      'n:25',
+      'n:24',
+      'n:23',
+      'n:22',
+      'n:21',
+    ])
+  })
+
+  test('merges large inputs correctly (findIndex → Map, no O(n²) regression)', () => {
+    // 2 sources × 500 numbered chapters = 1000 nodes. Verifies the variant→nodeIdx
+    // map keeps merge correct at scale (and does not time out). Collapse is
+    // disabled so we assert on the raw merged stream length.
+    const merged = mergedRaw([src('a', numbered(1, 500)), src('b', numbered(1, 500))])
+    expect(merged).toHaveLength(500)
+    expect(merged[0]!.key).toBe('n:500')
+    expect(merged[0]!.variants.map((v) => v.siteId).sort()).toEqual(['a', 'b'])
+    expect(merged[499]!.key).toBe('n:1')
+  })
+})
+
+describe('windowLatestChapters', () => {
+  function ch(key: string): NovelChapter {
+    return { key, number: undefined, title: key, postedAt: 0, variants: [] }
+  }
+
+  test('Infinity leaves the list unchanged', () => {
+    const list = [ch('n:3'), ch('n:2'), ch('n:1')]
+    expect(windowLatestChapters(list, '', Number.POSITIVE_INFINITY)).toBe(list)
+  })
+
+  test('finite window truncates newest-first', () => {
+    const list = [ch('n:5'), ch('n:4'), ch('n:3'), ch('n:2'), ch('n:1')]
+    const out = windowLatestChapters(list, '', 3)
+    expect(out.map((c) => c.key)).toEqual(['n:5', 'n:4', 'n:3'])
+  })
+
+  test('empty seenKey windows without preserving anything', () => {
+    const list = [ch('n:5'), ch('n:4'), ch('n:3'), ch('n:2'), ch('n:1')]
+    expect(windowLatestChapters(list, '', 2).map((c) => c.key)).toEqual(['n:5', 'n:4'])
+  })
+
+  test('seen boundary outside the window is preserved at the end', () => {
+    const list = [ch('n:5'), ch('n:4'), ch('n:3'), ch('n:2'), ch('n:1')]
+    const out = windowLatestChapters(list, 'n:1', 3)
+    expect(out.map((c) => c.key)).toEqual(['n:5', 'n:4', 'n:3', 'n:1'])
+  })
+
+  test('seen boundary inside the window needs no extra append', () => {
+    const list = [ch('n:5'), ch('n:4'), ch('n:3'), ch('n:2'), ch('n:1')]
+    const out = windowLatestChapters(list, 'n:4', 3)
+    expect(out.map((c) => c.key)).toEqual(['n:5', 'n:4', 'n:3'])
   })
 })
 

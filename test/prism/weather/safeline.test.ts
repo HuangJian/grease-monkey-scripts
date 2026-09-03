@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import {
   sha1Hex,
+  sha1Digest,
   hasLeadingZeroBits,
+  hasLeadingZeroBitsBytes,
   isSafelineChallenge,
   parseSafelineChallenge,
   solveSafelinePow,
@@ -140,31 +142,57 @@ describe('parseSafelineChallenge', () => {
 // ---------------------------------------------------------------------------
 
 describe('solveSafelinePow', () => {
-  test('finds a suffix that produces leading zero bits', () => {
+  test('finds a suffix that produces leading zero bits', async () => {
     const prefix = 'testprefix'
     const bits = 8
-    const suffix = solveSafelinePow(prefix, bits)
+    const suffix = await solveSafelinePow(prefix, bits)
     const hash = sha1Hex(prefix + suffix)
     expect(hasLeadingZeroBits(hash, bits)).toBe(true)
   })
 
-  test('9-bit difficulty (typical CMA value)', () => {
+  test('9-bit difficulty (typical CMA value)', async () => {
     const prefix = 'eszldtokzdzgzkburcru'
-    const suffix = solveSafelinePow(prefix, 9)
+    const suffix = await solveSafelinePow(prefix, 9)
     const hash = sha1Hex(prefix + suffix)
     expect(hasLeadingZeroBits(hash, 9)).toBe(true)
   })
 
-  test('suffix is a valid hex string', () => {
-    const suffix = solveSafelinePow('abc', 4)
+  test('suffix is a valid hex string', async () => {
+    const suffix = await solveSafelinePow('abc', 4)
     expect(suffix).toMatch(/^[0-9a-f]+$/)
   })
 
-  test('low difficulty solves quickly', () => {
-    const suffix = solveSafelinePow('quick', 4)
+  test('low difficulty solves quickly', async () => {
+    const suffix = await solveSafelinePow('quick', 4)
     // With 4 bits, ~16 iterations on average, suffix should be small
     const cnt = parseInt(suffix, 16)
     expect(cnt).toBeLessThan(100)
+  })
+
+  test('gives up (throws) when difficulty exceeds the guard', async () => {
+    await expect(solveSafelinePow('eszldtokzdzgzkburcru', 25)).rejects.toThrow()
+  })
+
+  test('throws (instead of returning a doomed suffix) when iterations are exhausted', async () => {
+    // maxIterations:1 only tries cnt=0; for 9-bit difficulty it will not solve,
+    // so the solver must throw and let the caller degrade.
+    await expect(
+      solveSafelinePow('eszldtokzdzgzkburcru', 9, { maxIterations: 1 }),
+    ).rejects.toThrow()
+  })
+})
+
+describe('hasLeadingZeroBitsBytes', () => {
+  test('agrees with hasLeadingZeroBits on hex output', () => {
+    const input = 'eszldtokzdzgzkburcru0'
+    const bytes = new TextEncoder().encode(input)
+    const digest = sha1Digest(bytes)
+    expect(hasLeadingZeroBitsBytes(digest, 9)).toBe(hasLeadingZeroBits(sha1Hex(input), 9))
+  })
+
+  test('8 bits = first byte is 0x00', () => {
+    expect(hasLeadingZeroBitsBytes(new Uint8Array([0x00, 0xab, 0xcd]), 8)).toBe(true)
+    expect(hasLeadingZeroBitsBytes(new Uint8Array([0x01, 0xab]), 8)).toBe(false)
   })
 })
 

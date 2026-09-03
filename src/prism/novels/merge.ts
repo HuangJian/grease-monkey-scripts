@@ -11,7 +11,7 @@ function textKeyOf(title: string): string {
   return normalizeTitle(title.replace(PREFIX_RE, ''))
 }
 
-type MergeOptions = { collapseThreshold?: number; collapseKeep?: number }
+type MergeOptions = { collapseThreshold?: number; collapseKeep?: number; maxWindow?: number }
 
 type Node = {
   sourceIndex: number
@@ -47,10 +47,15 @@ export function mergeSourceChapters(
 ): NovelChapter[] {
   const collapseThreshold = options.collapseThreshold ?? DEFAULT_THRESHOLD
   const collapseKeep = options.collapseKeep ?? DEFAULT_KEEP
+  const maxWindow = options.maxWindow ?? Number.POSITIVE_INFINITY
 
   if (sources.length === 0 || sources.every((s) => s.length === 0)) return []
 
   const nodes = toNodes(sources)
+  // Flat variant→nodeIdx map (each variant appears in exactly one node),
+  // replacing the O(n²) nodes.findIndex scans below (see §3.2).
+  const nodeByVariant = new Map<NovelChapterVariant, number>()
+  for (let i = 0; i < nodes.length; i++) nodeByVariant.set(nodes[i]!.variant, i)
   const parent = nodes.map((_, i) => i)
   const find = (x: number): number => {
     let r = x
@@ -82,6 +87,10 @@ export function mergeSourceChapters(
   const textMap = new Map<string, number[]>()
   for (let i = 0; i < nodes.length; i++) {
     const n = nodes[i]!
+    // Pure numbered titles (e.g. "第3章") normalize to an empty textKey; skip
+    // them so they don't form one giant bucket whose pairwise union is O(k²).
+    // Numbered chapters already merge by number above, so this is safe.
+    if (!n.textKey) continue
     const arr = textMap.get(n.textKey) ?? []
     arr.push(i)
     textMap.set(n.textKey, arr)
@@ -136,7 +145,7 @@ export function mergeSourceChapters(
   const out: NovelChapter[] = []
   const emitted = new Set<number>()
   for (const v of sources[spineIdx]!) {
-    const nodeIdx = nodes.findIndex((n) => n.sourceIndex === spineIdx && n.variant === v)
+    const nodeIdx = nodeByVariant.get(v)!
     const root = find(nodeIdx)
     if (emitted.has(root)) continue
     emitted.add(root)
@@ -149,7 +158,7 @@ export function mergeSourceChapters(
   for (let si = 0; si < sources.length; si++) {
     if (si === spineIdx) continue
     for (const v of sources[si]!) {
-      const nodeIdx = nodes.findIndex((n) => n.sourceIndex === si && n.variant === v)
+      const nodeIdx = nodeByVariant.get(v)!
       const root = find(nodeIdx)
       if (emitted.has(root)) continue
       emitted.add(root)
@@ -165,12 +174,17 @@ export function mergeSourceChapters(
   // internal (newest-first) order; per-element unshift would reverse them.
   out.unshift(...extras.map((e) => e.chapter))
 
+  // Collapse the unread run first (display optimization), then apply the user's
+  // explicit latest-window cap on top (see §3.1). Capping after collapse keeps
+  // the oldest boundary chapters visible when the window is wider than the
+  // collapsed list (and matches the editor's "章节窗口" semantics).
   let trimmed = out
   if (seenKey) {
     const idx = out.findIndex((c) => c.key === seenKey)
     if (idx >= 0) trimmed = out.slice(0, idx + 1)
   }
-  return collapseChapters(trimmed, seenKey, { collapseThreshold, collapseKeep })
+  const collapsed = collapseChapters(trimmed, seenKey, { collapseThreshold, collapseKeep })
+  return windowLatestChapters(collapsed, seenKey, maxWindow)
 }
 
 /**
@@ -195,4 +209,26 @@ export function collapseChapters(
   const result: NovelChapter[] = [...latest, gap, ...earliest]
   if (seenIdx >= 0) result.push(chapters[seenIdx]!)
   return result
+}
+
+/**
+ * Cap a newest-first chapter list to at most `maxWindow` chapters.
+ *
+ * The list is assumed newest-first (as produced by `mergeSourceChapters`).
+ * `Infinity` (or a window >= length) returns the list unchanged. When a
+ * last-read (`seenKey`) boundary chapter falls outside the window it is
+ * preserved by appending it at the end, so the UI can still anchor "read up
+ * to here" — matching `collapseChapters`' own boundary-append convention.
+ */
+export function windowLatestChapters(
+  chapters: NovelChapter[],
+  seenKey: string,
+  maxWindow: number,
+): NovelChapter[] {
+  if (!Number.isFinite(maxWindow) || chapters.length <= maxWindow) return chapters
+  if (!seenKey) return chapters.slice(0, maxWindow)
+  const seenIdx = chapters.findIndex((c) => c.key === seenKey)
+  if (seenIdx < 0) return chapters.slice(0, maxWindow)
+  if (seenIdx < maxWindow) return chapters.slice(0, maxWindow)
+  return [...chapters.slice(0, maxWindow), chapters[seenIdx]!]
 }

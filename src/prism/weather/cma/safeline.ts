@@ -33,27 +33,51 @@ function rotl(x: number, n: number): number {
  *
  * Input is always short ASCII (prefix ~20 chars + hex suffix ~4 chars), so
  * the 32-bit length field is safe. This mirrors the WAF's own implementation
- * (chrsz=8, each char = 1 byte).
+ * (chrsz=8, each char = 1 byte). Implemented in terms of `sha1Digest`.
  */
-export function sha1Hex(input: string): string {
-  // Convert string to byte array (ASCII — prefix and suffix are always < 128)
-  const msg: number[] = []
-  for (let i = 0; i < input.length; i++) {
-    msg.push(input.charCodeAt(i) & 0xff)
-  }
-  const originalBitLen = msg.length * 8
+function asciiBytes(input: string): Uint8Array {
+  const out = new Uint8Array(input.length)
+  for (let i = 0; i < input.length; i++) out[i] = input.charCodeAt(i) & 0xff
+  return out
+}
 
+function bytesToHex(bytes: Uint8Array): string {
+  let s = ''
+  for (let i = 0; i < bytes.length; i++) {
+    s += (bytes[i]! >> 4).toString(16) + (bytes[i]! & 0xf).toString(16)
+  }
+  return s
+}
+
+function writeUint32(out: Uint8Array, off: number, v: number): void {
+  out[off] = (v >>> 24) & 0xff
+  out[off + 1] = (v >>> 16) & 0xff
+  out[off + 2] = (v >>> 8) & 0xff
+  out[off + 3] = v & 0xff
+}
+
+// Reused across digest calls (single-threaded; the solve loop awaits yields so
+// there is no reentrancy). Avoids a fresh allocation per SHA-1 call.
+const W = new Uint32Array(80)
+
+/**
+ * Core SHA-1 over arbitrary bytes. Returns the 20-byte big-endian digest.
+ * Exposed for tests and reused by the PoW solver to skip the hex round-trip.
+ */
+export function sha1Digest(msg: Uint8Array): Uint8Array {
+  const originalBitLen = msg.length * 8
   // Pad: 0x80, then zeros until length ≡ 56 (mod 64), then 8-byte big-endian length
-  msg.push(0x80)
-  while (msg.length % 64 !== 56) msg.push(0)
-  // High 32 bits of length = 0 (input is short); low 32 bits = bit length
-  msg.push(0, 0, 0, 0)
-  msg.push(
-    (originalBitLen >>> 24) & 0xff,
-    (originalBitLen >>> 16) & 0xff,
-    (originalBitLen >>> 8) & 0xff,
-    originalBitLen & 0xff,
-  )
+  let paddedLen = msg.length + 1
+  while (paddedLen % 64 !== 56) paddedLen++
+  paddedLen += 8
+  const m = new Uint8Array(paddedLen)
+  m.set(msg)
+  m[msg.length] = 0x80
+  // High 32 bits of length = 0 (inputs are short); low 32 bits = bit length
+  m[paddedLen - 4] = (originalBitLen >>> 24) & 0xff
+  m[paddedLen - 3] = (originalBitLen >>> 16) & 0xff
+  m[paddedLen - 2] = (originalBitLen >>> 8) & 0xff
+  m[paddedLen - 1] = originalBitLen & 0xff
 
   // Initial hash values (FIPS 180-4)
   let h0 = 0x67452301
@@ -63,17 +87,15 @@ export function sha1Hex(input: string): string {
   let h4 = 0xc3d2e1f0
 
   // Process each 512-bit (64-byte) block
-  for (let offset = 0; offset < msg.length; offset += 64) {
-    const w = new Uint32Array(80)
-
+  for (let offset = 0; offset < m.length; offset += 64) {
     // First 16 words from the block (big-endian)
     for (let i = 0; i < 16; i++) {
       const j = offset + i * 4
-      w[i] = (msg[j]! << 24) | (msg[j + 1]! << 16) | (msg[j + 2]! << 8) | msg[j + 3]!
+      W[i] = (m[j]! << 24) | (m[j + 1]! << 16) | (m[j + 2]! << 8) | m[j + 3]!
     }
     // Extend to 80 words
     for (let i = 16; i < 80; i++) {
-      w[i] = rotl(w[i - 3]! ^ w[i - 8]! ^ w[i - 14]! ^ w[i - 16]!, 1)
+      W[i] = rotl(W[i - 3]! ^ W[i - 8]! ^ W[i - 14]! ^ W[i - 16]!, 1)
     }
 
     let a = h0
@@ -99,7 +121,7 @@ export function sha1Hex(input: string): string {
         k = 0xca62c1d6
       }
 
-      const temp = (rotl(a, 5) + f + e + k + w[i]!) | 0
+      const temp = (rotl(a, 5) + f + e + k + W[i]!) | 0
       e = d
       d = c
       c = rotl(b, 30)
@@ -114,7 +136,40 @@ export function sha1Hex(input: string): string {
     h4 = (h4 + e) | 0
   }
 
-  return [h0, h1, h2, h3, h4].map((h) => (h >>> 0).toString(16).padStart(8, '0')).join('')
+  const out = new Uint8Array(20)
+  writeUint32(out, 0, h0)
+  writeUint32(out, 4, h1)
+  writeUint32(out, 8, h2)
+  writeUint32(out, 12, h3)
+  writeUint32(out, 16, h4)
+  return out
+}
+
+export function sha1Hex(input: string): string {
+  return bytesToHex(sha1Digest(asciiBytes(input)))
+}
+
+/**
+ * Check if a raw 20-byte SHA-1 digest has at least `bits` leading zero bits.
+ * Used by the PoW solver so the hot loop never builds a hex string.
+ */
+export function hasLeadingZeroBitsBytes(bytes: Uint8Array, bits: number): boolean {
+  let total = 0
+  for (let i = 0; i < bytes.length && total < bits; i++) {
+    const b = bytes[i]!
+    if (b === 0) {
+      total += 8
+      continue
+    }
+    let z = 0
+    for (let mask = 0x80; mask !== 0; mask >>= 1) {
+      if ((b & mask) === 0) z++
+      else break
+    }
+    total += z
+    break
+  }
+  return total >= bits
 }
 
 // ---------------------------------------------------------------------------
@@ -182,30 +237,55 @@ export function parseSafelineChallenge(html: string): SafelineChallenge | null {
 const MAX_POW_ITERATIONS = 1_000_000
 
 /**
+ * Above this difficulty we give up immediately rather than burn CPU: a misconfigured
+ * or malicious server asking for >20 bits would otherwise attempt ~1M SHA-1 calls.
+ */
+const MAX_DIFFICULTY_BITS = 20
+
+/** A function the solver awaits periodically to yield the main thread. */
+export type PowYield = () => Promise<void>
+
+/**
  * Solve the SafeLine proof-of-work: find a hex suffix such that
  * SHA1(prefix + suffix) has `leadingZeroBits` leading zero bits.
  *
- * With the typical difficulty of 9 bits, this completes in <100ms (~512
- * iterations on average).
+ * Async so it can yield the main thread every `yieldEvery` iterations (the
+ * caller passes a `runtime.setTimeout`-based yield). With the typical
+ * difficulty of 9 bits this completes in <100ms (~512 iterations on average)
+ * and never yields; only high difficulty approaches the yield boundary.
+ *
+ * Throws instead of returning a doomed `'0'` on failure, so the caller's
+ * `Promise.allSettled` can degrade to the open-meteo fallback.
  */
-export function solveSafelinePow(prefix: string, leadingZeroBits: number): string {
-  let cnt = 0
-  while (cnt < MAX_POW_ITERATIONS) {
-    const suffix = cnt.toString(16)
-    if (hasLeadingZeroBits(sha1Hex(prefix + suffix), leadingZeroBits)) {
-      return suffix
-    }
-    cnt++
+export async function solveSafelinePow(
+  prefix: string,
+  leadingZeroBits: number,
+  options: { yieldEvery?: number; maxIterations?: number; yield?: PowYield } = {},
+): Promise<string> {
+  if (leadingZeroBits > MAX_DIFFICULTY_BITS) {
+    throw new Error(
+      `[gm-dashboard] safeline.solveSafelinePow: difficulty ${leadingZeroBits} bits exceeds guard ${MAX_DIFFICULTY_BITS}, giving up`,
+    )
   }
-  console.warn(
-    '[gm-dashboard] safeline.solveSafelinePow: exceeded max iterations',
-    MAX_POW_ITERATIONS,
-    'prefix',
-    prefix,
-    'bits',
-    leadingZeroBits,
+  const yieldEvery = options.yieldEvery ?? 4096
+  const maxIterations = options.maxIterations ?? MAX_POW_ITERATIONS
+  const yieldFn = options.yield ?? (() => Promise.resolve())
+
+  const prefixBytes = asciiBytes(prefix)
+  let cnt = 0
+  while (cnt < maxIterations) {
+    const suffix = cnt.toString(16)
+    const full = new Uint8Array(prefixBytes.length + suffix.length)
+    full.set(prefixBytes)
+    for (let i = 0; i < suffix.length; i++)
+      full[prefixBytes.length + i] = suffix.charCodeAt(i) & 0xff
+    if (hasLeadingZeroBitsBytes(sha1Digest(full), leadingZeroBits)) return suffix
+    cnt++
+    if (yieldEvery > 0 && cnt % yieldEvery === 0) await yieldFn()
+  }
+  throw new Error(
+    `[gm-dashboard] safeline.solveSafelinePow: exceeded max iterations ${maxIterations}`,
   )
-  return '0'
 }
 
 // ---------------------------------------------------------------------------

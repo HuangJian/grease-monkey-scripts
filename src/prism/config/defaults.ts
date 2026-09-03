@@ -35,7 +35,7 @@ export const DEFAULT_CONFIG: Config = {
     ttlMinutes: 60,
     initialNewChapters: 3,
     maxNewChaptersPerBook: 5,
-    maxLatestWindow: Number.POSITIVE_INFINITY,
+    maxLatestWindow: 200,
   },
   tnews: {
     ttlMinutes: 30,
