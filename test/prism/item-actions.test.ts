@@ -134,7 +134,7 @@ describe('createGroupedItemHandlers', () => {
   }
 
   beforeEach(() => {
-    state = createMockState([...grouped.a, ...grouped.b])
+    state = createMockState([...grouped.a!, ...grouped.b!])
     forceUpdateCallCount = 0
   })
 
@@ -167,7 +167,7 @@ describe('createGroupedItemHandlers', () => {
         getVisibleInSub,
         repliesOf: (item) => item.replies,
       })
-      handlers.handleBulkRead(grouped.a[1]!)
+      handlers.handleBulkRead(grouped.a![1]!)
       expect(state.isRead('a1')).toBe(true)
       expect(state.isRead('a2')).toBe(true)
       expect(state.isRead('b1')).toBe(false)

@@ -74,7 +74,7 @@ export function parseCmaPage(
     const dayIndexMap = new Map<string, number>()
     dailyDates.forEach((d, i) => dayIndexMap.set(d, i))
     allHourly.hourly.precipitation_amount.forEach((p, i) => {
-      const dayDate = allHourly.dayDates[i]
+      const dayDate = allHourly.dayDates[i]!
       const idx = dayIndexMap.get(dayDate)
       if (idx != null && p > 0) {
         precipSum[idx] = (precipSum[idx] ?? 0) + p

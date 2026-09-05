@@ -392,7 +392,7 @@ function transformShape(
       if (typeof grouped !== 'object') return data
       const out: Record<string, unknown[]> = {}
       for (const key of Object.keys(grouped)) {
-        out[key] = grouped[key].map((v) => fn(v as Record<string, unknown>))
+        out[key] = grouped[key]!.map((v) => fn(v as Record<string, unknown>))
       }
       return out
     }

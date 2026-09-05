@@ -26,11 +26,11 @@ describe('codec round-trip: v2ex', () => {
       },
     ]
     const result = roundTrip('v2ex', data)
-    expect(result[0].id).toBe('1')
-    expect(result[0].title).toBe('Hello')
-    expect(result[0].replies).toBe(5)
-    expect(result[0].member.username).toBe('alice')
-    expect(result[0].node.title).toBe('jobs')
+    expect(result[0]!.id).toBe('1')
+    expect(result[0]!.title).toBe('Hello')
+    expect(result[0]!.replies).toBe(5)
+    expect(result[0]!.member.username).toBe('alice')
+    expect(result[0]!.node.title).toBe('jobs')
   })
 
   test('strips domain from URLs', () => {
@@ -46,7 +46,7 @@ describe('codec round-trip: v2ex', () => {
     ]
     const compressed = compressForStorage('v2ex', { data, fetchedAt: Date.now(), error: '' })
     const items = compressed.data as Record<string, unknown>[]
-    expect(items[0].u).toBe('/t/1')
+    expect(items[0]!.u).toBe('/t/1')
   })
 
   test('handles empty array', () => {
@@ -71,11 +71,11 @@ describe('codec round-trip: reddit', () => {
       ],
     }
     const result = roundTrip('reddit', data)
-    expect(result.javascript[0].id).toBe('abc')
-    expect(result.javascript[0].title).toBe('Post')
-    expect(result.javascript[0].score).toBe(100)
-    expect(result.javascript[0].numComments).toBe(25)
-    expect(result.javascript[0].author).toBe('bob')
+    expect(result.javascript[0]!.id).toBe('abc')
+    expect(result.javascript[0]!.title).toBe('Post')
+    expect(result.javascript[0]!.score).toBe(100)
+    expect(result.javascript[0]!.numComments).toBe(25)
+    expect(result.javascript[0]!.author).toBe('bob')
   })
 
   test('drops url from storage and computes on expand', () => {
@@ -94,9 +94,9 @@ describe('codec round-trip: reddit', () => {
     }
     const compressed = compressForStorage('reddit', { data, fetchedAt: Date.now(), error: '' })
     const groups = compressed.data as Record<string, Record<string, unknown>[]>
-    expect(groups.test[0].u).toBeUndefined()
+    expect(groups.test![0]!.u).toBeUndefined()
     const result = roundTrip('reddit', data)
-    expect(result.test[0].url).toBe('https://www.reddit.com/comments/x/')
+    expect(result.test[0]!.url).toBe('https://www.reddit.com/comments/x/')
   })
 })
 
@@ -116,10 +116,10 @@ describe('codec round-trip: hupu', () => {
       ],
     }
     const result = roundTrip('hupu', data)
-    expect(result['vote-hot'][0].id).toBe('h1')
-    expect(result['vote-hot'][0].title).toBe('Topic')
-    expect(result['vote-hot'][0].lights).toBe(50)
-    expect(result['vote-hot'][0].replies).toBe(10)
+    expect(result['vote-hot'][0]!.id).toBe('h1')
+    expect(result['vote-hot'][0]!.title).toBe('Topic')
+    expect(result['vote-hot'][0]!.lights).toBe(50)
+    expect(result['vote-hot'][0]!.replies).toBe(10)
   })
 })
 
@@ -139,11 +139,11 @@ describe('codec round-trip: xueqiu-news', () => {
       ],
     }
     const result = roundTrip('xueqiu-news', data)
-    expect(result.news[0].id).toBe(123)
-    expect(result.news[0].title).toBe('Market up')
-    expect(result.news[0].text).toBe('Details here')
-    expect(result.news[0].reply_count).toBe(5)
-    expect(result.news[0].like_count).toBe(10)
+    expect(result.news[0]!.id).toBe(123)
+    expect(result.news[0]!.title).toBe('Market up')
+    expect(result.news[0]!.text).toBe('Details here')
+    expect(result.news[0]!.reply_count).toBe(5)
+    expect(result.news[0]!.like_count).toBe(10)
   })
 
   test('strips domain from target', () => {
@@ -161,7 +161,7 @@ describe('codec round-trip: xueqiu-news', () => {
     }
     const compressed = compressForStorage('xueqiu-news', { data, fetchedAt: Date.now(), error: '' })
     const groups = compressed.data as Record<string, Record<string, unknown>[]>
-    expect(groups.news[0].u).toBe('/1')
+    expect(groups.news![0]!.u).toBe('/1')
   })
 })
 
@@ -177,10 +177,10 @@ describe('codec round-trip: tnews', () => {
       },
     ]
     const result = roundTrip('tnews', data)
-    expect(result[0].id).toBe('t1')
-    expect(result[0].title).toBe('News')
-    expect(result[0].link).toBe('https://example.com')
-    expect(result[0].descriptionHtml).toBe('<p>Hello</p>')
+    expect(result[0]!.id).toBe('t1')
+    expect(result[0]!.title).toBe('News')
+    expect(result[0]!.link).toBe('https://example.com')
+    expect(result[0]!.descriptionHtml).toBe('<p>Hello</p>')
   })
 })
 
@@ -205,7 +205,6 @@ describe('codec round-trip: novels', () => {
                   title: 'Chapter 1',
                   postedAt: 1700000000000,
                   siteId: 'sudugu',
-                  host: undefined,
                 },
               ],
             },
@@ -308,14 +307,12 @@ describe('codec round-trip: novels', () => {
                   title: '第5章',
                   postedAt: 0,
                   siteId: 'sudugu',
-                  host: undefined,
                 },
                 {
                   url: 'https://b.example/166/c5.html',
                   title: '第5章',
                   postedAt: 0,
                   siteId: 'site-b',
-                  host: undefined,
                 },
               ],
             },
@@ -340,8 +337,8 @@ describe('codec: short item passthrough', () => {
     const data = [{ id: '1', t: 'short' }]
     const compressed = compressForStorage('v2ex', { data, fetchedAt: Date.now(), error: '' })
     const items = compressed.data as Record<string, unknown>[]
-    expect(items[0].t).toBe('short')
-    expect(items[0].id).toBe('1')
+    expect(items[0]!.t).toBe('short')
+    expect(items[0]!.id).toBe('1')
   })
 })
 

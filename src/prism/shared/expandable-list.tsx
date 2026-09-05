@@ -88,7 +88,7 @@ export type ExpandableListProps<T> = {
   /** Renders action buttons (bulk-read, hide) — typically `<ItemActions />`. */
   renderActions?: (item: T) => ComponentChildren
   /** Renders extra content in the row (e.g. reply/like stats for hot mode). */
-  renderExtra?: (item: T) => ComponentChildren
+  renderExtra?: ((item: T) => ComponentChildren) | undefined
   containerClassName: string
   emptyMessage?: string
   /** ARIA role for the clickable row (default: none). */

@@ -5,14 +5,14 @@ export type NovelChapterVariant = {
   postedAt: number
   siteId: string
   /** Host that actually served this source's pages (mirror), for link rewriting. */
-  host?: string
+  host?: string | undefined
 }
 
 export type NovelChapter = {
   /** Cross-site identity: `n:<num>` or `t:<normalized title>`. */
   key: string
   /** Chapter number when derivable, else undefined. */
-  number?: number
+  number?: number | undefined
   /** Display title, taken from the highest-priority variant that has this chapter. */
   title: string
   /** Best-known timestamp across variants (0 = unknown). */
@@ -28,7 +28,7 @@ export type NovelSourceState = {
   url: string
   siteId: string
   /** Host that served this source's pages, for link rewriting. */
-  mirrorHost?: string
+  mirrorHost?: string | undefined
   /** Total chapters the site listed (progress indicator), 0 when unavailable. */
   chapterCount: number
   /** Empty on success. */

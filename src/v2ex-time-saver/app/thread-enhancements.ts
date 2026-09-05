@@ -68,7 +68,7 @@ export function highlightCommentsAndTopics(runtime: Runtime, authorTagMap: Autho
       if (isSamePage) {
         tagLink.addEventListener('click', (e) => {
           e.preventDefault()
-          const num = tag.url.split('#')[1]
+          const num = tag.url.split('#')[1] ?? ''
           scrollToComment(num, runtime)
         })
       }

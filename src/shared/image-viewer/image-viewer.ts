@@ -134,7 +134,7 @@ export function setupImageViewer(runtime: Runtime, options: ImageViewerOptions =
   function showImage(index: number): void {
     if (index < 0 || index >= imageList.length) return
     currentIndex = index
-    const entry = imageList[index]
+    const entry = imageList[index]!
     currentUrl = entry.url
     const imgEl = overlay?.querySelector('.gm-img-overlay__img') as HTMLImageElement | null
     if (imgEl) imgEl.src = entry.url

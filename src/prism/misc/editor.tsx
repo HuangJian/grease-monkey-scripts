@@ -55,7 +55,7 @@ function MiscEditorForm({ fresh, settings, ctx, handleRef }: MiscEditorFormProps
           setError(msg),
         )
         if (nums === null) return
-        const misc: MiscOptions = { ttlMinutes: Math.round(nums[0]) }
+        const misc: MiscOptions = { ttlMinutes: Math.round(nums[0]!) }
         void saveConfigSection({
           runtime: ctx.runtime,
           sectionKey: 'misc',

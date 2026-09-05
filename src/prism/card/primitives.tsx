@@ -60,7 +60,7 @@ export type CardActionsProps = {
   ttlMs: number
   runtime: Runtime
   onRefresh: () => Promise<void>
-  onEdit?: () => Promise<void>
+  onEdit?: (() => Promise<void>) | undefined
 }
 
 export function CardActions({ cached, now, ttlMs, runtime, onRefresh, onEdit }: CardActionsProps) {

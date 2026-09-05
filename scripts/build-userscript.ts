@@ -7,8 +7,8 @@
  *
  * SWC replaces Terser. Its `pure_funcs` option removes console.log/console.debug
  * while keeping console.warn/console.error. Post-minification micro-optimizations
- * strip dev-only JSX arguments, replace `void 0` with `0[0]`, and convert
- * simple wrapper functions to arrow functions.
+ * strip dev-only JSX arguments and convert simple wrapper functions to arrow
+ * functions.
  *
  * Scripts that ship _preact-shim.ts + _preact-hooks-shim.ts externalize
  * Preact via Tampermonkey @require — a Bun.build plugin redirects every
@@ -110,15 +110,12 @@ const SWC_OPTIONS: JsMinifyOptions = {
     passes: 3,
     drop_debugger: true,
     pure_funcs: ['console.log', 'console.debug'],
-    unsafe: true,
     toplevel: true,
     join_vars: true,
-    hoist_props: true,
     reduce_vars: true,
     unused: true,
     dead_code: true,
     sequences: true,
-    properties: true,
     conditionals: true,
     comparisons: true,
     evaluate: true,
@@ -434,6 +431,22 @@ async function main() {
     }),
   )
 
+  // Phase 3: Purge orphaned dist scripts whose src entry no longer exists.
+  // The build only writes files for the live entries discovered above; any
+  // dist/*.user.js / dist/*.debug.js not backed by src/<name>/index.user.ts
+  // is a stale artifact (e.g. a deleted script) and must be removed so users
+  // can't install dead scripts still carrying old console.log.
+  const liveNames = new Set(entries.map((e) => basename(dirname(e))))
+  const distFiles = await readdir('dist')
+  for (const f of distFiles) {
+    const ext = ['.user.js', '.debug.js'].find((e) => f.endsWith(e))
+    if (!ext) continue
+    const base = f.slice(0, -ext.length)
+    if (liveNames.has(base)) continue
+    await unlink(join('dist', f))
+    console.log(`  🧹 purged orphan dist/${f}`)
+  }
+
   // Update built entries with actual file sizes
   for (const entrypoint of entries) {
     const name = basename(dirname(entrypoint))
@@ -442,9 +455,9 @@ async function main() {
     const prodSize = (await stat(`dist/${name}.user.js`)).size
     const debugSize = (await stat(`dist/${name}.debug.js`)).size
     const hash = hashes.get(name)!
-    built[idx].prodSize = prodSize
-    built[idx].debugSize = debugSize
-    built[idx].hash = hash
+    built[idx]!.prodSize = prodSize
+    built[idx]!.debugSize = debugSize
+    built[idx]!.hash = hash
   }
 
   if (built.length > 0) {

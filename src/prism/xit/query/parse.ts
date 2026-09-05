@@ -202,7 +202,7 @@ class Parser {
     return { type: 'dateKeyword', ...kw }
   }
 
-  private parseDateKeywordValue(raw: string): { value: DateKeyword; offset?: number } {
+  private parseDateKeywordValue(raw: string): { value: DateKeyword; offset?: number | undefined } {
     const match =
       /^(today|thisweek|thismonth|thisyear|overdue|nodue|everyday|sunday|monday|tuesday|wednesday|thursday|friday|saturday)([+-]\d+)?$/.exec(
         raw,

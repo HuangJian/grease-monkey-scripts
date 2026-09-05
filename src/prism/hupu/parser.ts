@@ -82,7 +82,7 @@ export function parseHupuDom(
     const title = (titleEl.textContent ?? '').trim()
     if (!title || !href) return false
     const idMatch = href.match(/\/(\d+)\.html/)
-    const id = idMatch ? idMatch[1] : href
+    const id = idMatch ? idMatch[1]! : href
     const fullUrl = toAbsoluteUrl(href, HUPU_BASE_URL) || `${HUPU_BASE_URL}${href}`
     const datumEl = item.querySelector('.post-datum')
     const datumText = (datumEl?.textContent ?? '').trim()

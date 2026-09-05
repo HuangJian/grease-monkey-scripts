@@ -197,7 +197,7 @@ describe('selectPostsPerBoard', () => {
       const p = posts.find((pp) => pp.id === id)!
       return computeHupuDecayedScore(p, NOW, DEFAULT_COUNT_OPTS)
     })
-    expect(scores[0]).toBeGreaterThanOrEqual(scores[1])
+    expect(scores[0]!).toBeGreaterThanOrEqual(scores[1]!)
   })
   test('no truncation: returns all posts after filtering', () => {
     const posts = Array.from({ length: 50 }, (_, i) =>

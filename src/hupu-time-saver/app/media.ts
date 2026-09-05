@@ -54,7 +54,7 @@ function deriveGifUrls(src: string): GifUrls | null {
     }
 
     if (!hasFormat) {
-      if (filtered.length === 0 || !filtered[0].startsWith('image/')) {
+      if (filtered.length === 0 || !filtered[0]!.startsWith('image/')) {
         filtered.unshift('image')
       }
       filtered.push('format,jpg')

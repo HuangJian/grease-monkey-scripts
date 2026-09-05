@@ -44,7 +44,7 @@ export function computeRedditDecayedScore(
 
 function subFromUrl(url: string): string | undefined {
   const m = url.match(/\/r\/([^/]+)\/comments\//)
-  return m ? m[1].toLowerCase() : undefined
+  return m ? m[1]!.toLowerCase() : undefined
 }
 
 export function mergeSubPosts(

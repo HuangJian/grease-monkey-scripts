@@ -169,16 +169,16 @@ export function NovelsEditorForm({
         setError('')
         const inputList = advancedRefs.current.filter(Boolean) as HTMLInputElement[]
         const nums = readNumberFields(
-          ADVANCED_FIELDS.map((f, i) => toFieldRule(inputList[i], f)),
+          ADVANCED_FIELDS.map((f, i) => toFieldRule(inputList[i]!, f)),
           (msg) => setError(msg),
         )
         if (nums === null) return
         const novels: NovelSourceOptions = {
           books: books.map((b) => ({ title: b.title, urls: [...b.urls] })),
-          ttlMinutes: Math.round(nums[0]),
-          initialNewChapters: Math.round(nums[1]),
-          maxNewChaptersPerBook: Math.round(nums[2]),
-          maxLatestWindow: Math.round(nums[3]),
+          ttlMinutes: Math.round(nums[0]!),
+          initialNewChapters: Math.round(nums[1]!),
+          maxNewChaptersPerBook: Math.round(nums[2]!),
+          maxLatestWindow: Math.round(nums[3]!),
         }
         void saveConfigSection({
           runtime: ctx.runtime,

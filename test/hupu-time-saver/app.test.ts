@@ -151,7 +151,7 @@ describe('createHupuApp', () => {
     const tags = app.getTags('200')
     expect(tags).toBeDefined()
     expect(tags?.['串子']).toBeDefined()
-    expect(tags?.['串子'].score).toBe(-1)
+    expect(tags?.['串子']!.score).toBe(-1)
   })
 
   test('getTags 对不存在的作者返回 undefined', async () => {
@@ -199,7 +199,7 @@ describe('createHupuApp', () => {
     app.tagAuthor('200', '222', '串子', -1)
 
     const tags = app.getTags('200')
-    expect(tags?.['串子'].score).toBe(-2)
+    expect(tags?.['串子']!.score).toBe(-2)
   })
 
   test('getAuthorTagMap 返回深拷贝', async () => {
@@ -217,8 +217,8 @@ describe('createHupuApp', () => {
 
     expect(map1['200']).toBeDefined()
     expect(map2['200']).toBeDefined()
-    expect(Object.keys(map1['200']).length).toBe(1)
-    expect(Object.keys(map2['200']).length).toBe(2)
+    expect(Object.keys(map1['200']!).length).toBe(1)
+    expect(Object.keys(map2['200']!).length).toBe(2)
   })
 
   test('bugfix: tagging with observer active does not cause infinite loop', async () => {

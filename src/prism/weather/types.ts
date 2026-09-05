@@ -54,7 +54,7 @@ export type WeatherCityData = {
   cmaUrl: string
   cmaFailed: boolean
   /** Timestamp (ms) of the last successful CMA fetch. Undefined if CMA never succeeded. */
-  cmaFetchedAt?: number
+  cmaFetchedAt?: number | undefined
 }
 
 export type WeatherCityEntry =

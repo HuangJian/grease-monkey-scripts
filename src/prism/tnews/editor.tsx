@@ -47,7 +47,7 @@ function TnewsEditorForm({ fresh, settings, ctx, handleRef }: TnewsEditorFormPro
         )
         if (nums === null) return
         const tnews: TnewsSourceOptions = {
-          ttlMinutes: Math.round(nums[0]),
+          ttlMinutes: Math.round(nums[0]!),
         }
         void saveConfigSection({
           runtime: ctx.runtime,

@@ -28,12 +28,12 @@ function parseFailures(output: string): { file: string; testName: string }[] {
     if (/^\d+ pass|^\d+ test.* failed/.test(t)) break
     const fm = t.match(fileRe)
     if (fm) {
-      currentFile = fm[1]
+      currentFile = fm[1]!
       continue
     }
     const xm = t.match(failRe)
     if (xm && currentFile) {
-      const full = xm[1]
+      const full = xm[1]!
       const testName = full.includes('>') ? full.split('>').pop()!.trim() : full
       failures.push({ file: `test/${currentFile}`, testName })
     }

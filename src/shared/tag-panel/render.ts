@@ -66,15 +66,15 @@ export function buildTagPanel(
     list.querySelectorAll<HTMLElement>('.gm-tag-row').forEach((row) => {
       const tagName = row.dataset['tagName']!
       const [incBtn, decBtn, delBtn] = row.querySelectorAll('button')
-      incBtn.addEventListener('click', () => {
+      incBtn!.addEventListener('click', () => {
         callbacks.onTagAuthor(authorId, commentNumber, tagName, 1)
         renderTags()
       })
-      decBtn.addEventListener('click', () => {
+      decBtn!.addEventListener('click', () => {
         callbacks.onTagAuthor(authorId, commentNumber, tagName, -1)
         renderTags()
       })
-      delBtn.addEventListener('click', () => {
+      delBtn!.addEventListener('click', () => {
         callbacks.onUnsetTag(authorId, tagName)
         renderTags()
       })

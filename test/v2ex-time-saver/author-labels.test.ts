@@ -55,19 +55,19 @@ describe('addTag / removeTag / incrementTagScore', () => {
   test('addTag overwrites an existing tag of the same name', () => {
     const map: AuthorTagMap = { alice: { 若婴: { url: 't/1', score: -1 } } }
     addTag(map, 'alice', '若婴', 't/2', -2)
-    expect(map.alice.若婴).toEqual({ url: 't/2', score: -2 })
+    expect(map.alice!.若婴).toEqual({ url: 't/2', score: -2 })
   })
 
   test('incrementTagScore adds delta to existing tag', () => {
     const map: AuthorTagMap = { alice: { 智者: { url: 't/1', score: 1 } } }
     incrementTagScore(map, 'alice', '智者', 't/1', 1)
-    expect(map.alice.智者.score).toBe(2)
+    expect(map.alice!.智者!.score).toBe(2)
   })
 
   test('incrementTagScore creates a new tag if missing', () => {
     const map: AuthorTagMap = {}
     incrementTagScore(map, 'alice', '智者', 't/1', 1)
-    expect(map.alice.智者).toEqual({ url: 't/1', score: 1 })
+    expect(map.alice!.智者).toEqual({ url: 't/1', score: 1 })
   })
 
   test('removeTag deletes the tag and the author entry if no tags remain', () => {

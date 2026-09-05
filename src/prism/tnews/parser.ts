@@ -18,14 +18,14 @@ function parsePubDateMs(raw: string | undefined): number {
 }
 
 function parseItem(item: Element, domParser: DOMParser): TnewsItem | null {
-  const linkEl = item.getElementsByTagName('link')[0]
+  const linkEl = item.getElementsByTagName('link')[0] ?? null
   const link = textOf(linkEl)
   if (!link) return null
 
-  const guid = textOf(item.getElementsByTagName('guid')[0]) || link
-  const rawTitle = textOf(item.getElementsByTagName('title')[0])
-  const descriptionRaw = textOf(item.getElementsByTagName('description')[0])
-  const pubDate = parsePubDateMs(textOf(item.getElementsByTagName('pubDate')[0]))
+  const guid = textOf(item.getElementsByTagName('guid')[0] ?? null) || link
+  const rawTitle = textOf(item.getElementsByTagName('title')[0] ?? null)
+  const descriptionRaw = textOf(item.getElementsByTagName('description')[0] ?? null)
+  const pubDate = parsePubDateMs(textOf(item.getElementsByTagName('pubDate')[0] ?? null))
 
   if (!pubDate) return null
 

@@ -1,7 +1,7 @@
 export type NumericRule = {
   min: number
-  max?: number
-  integer?: boolean
+  max?: number | undefined
+  integer?: boolean | undefined
   errorMessage: string
 }
 
@@ -19,8 +19,8 @@ export function validateNumberInput(raw: string, rule: NumericRule): NumericVali
 export type NumberFieldRule = {
   input: HTMLInputElement
   min: number
-  max?: number
-  integer?: boolean
+  max?: number | undefined
+  integer?: boolean | undefined
   errorMessage: string
 }
 

@@ -45,9 +45,9 @@ describe('computeBackoffMs', () => {
   })
   test('caps at last delay for excessive failure count', () => {
     expect(computeBackoffMs(BACKOFF_DELAYS_MS.length + 1)).toBe(
-      BACKOFF_DELAYS_MS[BACKOFF_DELAYS_MS.length - 1],
+      BACKOFF_DELAYS_MS[BACKOFF_DELAYS_MS.length - 1]!,
     )
-    expect(computeBackoffMs(100)).toBe(BACKOFF_DELAYS_MS[BACKOFF_DELAYS_MS.length - 1])
+    expect(computeBackoffMs(100)).toBe(BACKOFF_DELAYS_MS[BACKOFF_DELAYS_MS.length - 1]!)
   })
 })
 

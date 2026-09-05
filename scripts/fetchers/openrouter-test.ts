@@ -26,7 +26,7 @@ function extractParameterSize(description: string): string {
     /(\d+(?:\.\d+)?[BKMT])\s*(?:active|total)?\s*(?:parameters?|params?)\s*(?:out of\s*(\d+(?:\.\d+)?[BKMT]))?/i
   const m = re.exec(description)
   if (!m) return '?'
-  const a = m[1]
+  const a = m[1]!
   const b = m[2]
   if (b && b !== a) return `${a}/${b}`
   return a

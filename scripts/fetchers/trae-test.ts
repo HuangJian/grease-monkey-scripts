@@ -55,8 +55,8 @@ const rX = Buffer.from([
 
 function deriveSalt(version: number): Buffer {
   return version === 2
-    ? Buffer.from(eX.map((b, i) => b ^ tX[i]))
-    : Buffer.from(iX.map((b, i) => b ^ rX[i]))
+    ? Buffer.from(eX.map((b, i) => b ^ tX[i]!))
+    : Buffer.from(iX.map((b, i) => b ^ rX[i]!))
 }
 
 function sha512(data: Buffer): Buffer {
@@ -67,7 +67,7 @@ function sha512(data: Buffer): Buffer {
 function decryptByteCrypto(encoded: string): string {
   const raw = Buffer.from(encoded, 'base64')
   const hex = raw.subarray(0, 16).toString('hex')
-  const version = raw[4]
+  const version = raw[4]!
   const keyMaterial = raw.subarray(HEADER_LEN, HEADER_LEN + KEY_LEN)
   const ciphertext = raw.subarray(HEADER_LEN + KEY_LEN)
   console.error(

@@ -99,7 +99,7 @@ describe('createWeatherEditor', () => {
         weather: { cities: { cityLabel: string; latitude: number }[]; ttlMinutes: number }
       }
       expect(stored.weather.cities).toHaveLength(2)
-      expect(stored.weather.cities[1].cityLabel).toBe('SH')
+      expect(stored.weather.cities[1]!.cityLabel).toBe('SH')
       expect(stored.weather.ttlMinutes).toBe(60)
     })
   })

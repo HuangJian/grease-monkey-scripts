@@ -40,7 +40,7 @@ export function addWiseCommentNavigator(runtime: Runtime, authorTagMap: AuthorTa
 
   function scrollTo(index: number): void {
     currentIndex = index
-    wiseComments[currentIndex].scrollIntoView({ behavior: 'smooth', block: 'center' })
+    wiseComments[currentIndex]!.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
   function goUp(): void {

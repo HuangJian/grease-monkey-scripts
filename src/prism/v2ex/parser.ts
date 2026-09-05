@@ -75,7 +75,7 @@ export function parseV2exHotPage(
     const url = toAbsoluteUrl(href, HOT_PAGE_URL) || href
     const authorLink = row.querySelector('a[href^="/member/"]')
     const usernameMatch = authorLink?.getAttribute('href')?.match(MEMBER_PATH_RE)
-    const username = usernameMatch ? usernameMatch[1] : ''
+    const username = usernameMatch ? usernameMatch[1]! : ''
     const nodeLink = row.querySelector('a.node[href^="/go/"]')
     const nodeTitle = (nodeLink?.textContent ?? '').trim()
     const countEl = row.querySelector('[class^="count_"]')

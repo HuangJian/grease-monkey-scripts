@@ -58,18 +58,18 @@ export function HupuEditorForm({ fresh, settings, ctx, handleRef }: HupuEditorFo
         }
         const inputList = advancedRefs.current.filter(Boolean) as HTMLInputElement[]
         const nums = readNumberFields(
-          FORM_FIELDS.map((f, i) => toFieldRule(inputList[i], f)),
+          FORM_FIELDS.map((f, i) => toFieldRule(inputList[i]!, f)),
           (msg) => setError(msg),
         )
         if (nums === null) return
         const hupu: HupuSourceOptions = {
-          ttlMinutes: Math.round(nums[0]),
-          retentionDays: Math.round(nums[1]),
-          todayMinReplies: Math.round(nums[2]),
-          olderMinReplies: Math.round(nums[3]),
-          ageHalfLifeDays: nums[4],
-          lightsWeight: nums[5],
-          repliesWeight: nums[6],
+          ttlMinutes: Math.round(nums[0]!),
+          retentionDays: Math.round(nums[1]!),
+          todayMinReplies: Math.round(nums[2]!),
+          olderMinReplies: Math.round(nums[3]!),
+          ageHalfLifeDays: nums[4]!,
+          lightsWeight: nums[5]!,
+          repliesWeight: nums[6]!,
           boards: [...boards],
         }
         void saveConfigSection({

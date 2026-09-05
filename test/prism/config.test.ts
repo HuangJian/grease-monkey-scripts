@@ -74,8 +74,8 @@ describe('loadConfig', () => {
       weather: { cities: [{ latitude: 31.2, longitude: 121.5, cityLabel: 'SH' }] },
     }
     const cfg = await loadConfig(runtime)
-    expect(cfg.weather.cities[0].cityLabel).toBe('SH')
-    expect(cfg.weather.cities[0].latitude).toBe(31.2)
+    expect(cfg.weather.cities[0]!.cityLabel).toBe('SH')
+    expect(cfg.weather.cities[0]!.latitude).toBe(31.2)
     expect(cfg.v2ex.ttlMinutes).toBe(DEFAULT_CONFIG.v2ex.ttlMinutes)
   })
   test('falls back to DEFAULT_CONFIG when stored config is invalid', async () => {

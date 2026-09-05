@@ -24,7 +24,7 @@ export function weekKey(d: Date): string {
 /** Parses a YYYY-MM-DD string into a local Date. */
 function parseDateKey(key: string): Date {
   const [y, m, d] = key.split('-').map(Number)
-  return new Date(y, m - 1, d)
+  return new Date(y!, m! - 1, d)
 }
 
 export type RecurringResetResult = {

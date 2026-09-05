@@ -129,9 +129,7 @@ export function stripJsxDevArgs(code: string): string {
  * Apply byte-saving transformations to the SWC-minified output.
  *
  * 1. Strip dev-only JSX call arguments (saves ~8 KB across ~650 call sites).
- * 2. Replace `void 0` with `0[0]` (3 bytes shorter per occurrence, same
- *    semantics — both evaluate to `undefined`).
- * 3. Simple wrapper functions → arrow functions:
+ * 2. Simple wrapper functions → arrow functions:
  *    `function foo(a,b){return bar(a,b)}` → `let foo=(a,b)=>bar(a,b)`
  *    saves ~7 bytes per function.
  */
@@ -139,10 +137,7 @@ export function postSwcOptimize(code: string): string {
   // 1. Strip dev-only JSX call arguments
   code = stripJsxDevArgs(code)
 
-  // 2. void 0 → 0[0] (3 bytes shorter per occurrence, same semantics)
-  code = code.replaceAll('void 0', '0[0]')
-
-  // 3. Simple wrapper functions → arrow functions
+  // 2. Simple wrapper functions → arrow functions
   //    Pattern: [async] function name(params){return expr}
   //    Only matches single-return-statement functions with no this/arguments use.
   //    Trailing ; is required: function declarations don't need semicolons

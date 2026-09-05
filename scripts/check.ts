@@ -124,7 +124,7 @@ interface Result {
   ok: boolean
   ms: number
   output: string
-  showOutput?: boolean
+  showOutput?: boolean | undefined
 }
 
 function run(step: Step): Promise<Result> {

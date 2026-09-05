@@ -60,7 +60,7 @@ export function mergeSourceChapters(
   const find = (x: number): number => {
     let r = x
     while (parent[r] !== r) {
-      parent[r] = parent[parent[r]]!
+      parent[r] = parent[parent[r]!]!
       r = parent[r]!
     }
     return r

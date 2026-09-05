@@ -35,7 +35,7 @@ function fetchOneBoard(
           const dataJsonMatch = html.match(/window\.\$\$data\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/)
           let jsonPosts: HupuPost[] = []
           if (dataJsonMatch) {
-            const json: unknown = JSON.parse(dataJsonMatch[1])
+            const json: unknown = JSON.parse(dataJsonMatch[1]!)
             jsonPosts = parseHupuDataJson(json, board, 100, runtime.now)
           }
           const domPosts = parseHupuDom(html, board, 100, domParser, runtime.now)

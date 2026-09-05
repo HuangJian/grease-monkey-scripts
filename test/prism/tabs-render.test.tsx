@@ -39,7 +39,7 @@ function makeSource(opts: {
     },
     getTabLabel: opts.getTabLabel,
     createEditor: opts.createEditor as Source<unknown>['createEditor'],
-  }
+  } as Source<unknown>
 }
 
 function browseGroup(tabs: Source<unknown>[]): CardGroup {
@@ -103,8 +103,8 @@ describe('renderTabsCard', () => {
     expect(container.dataset['source']).toBe('browse')
     const tabs = within(container).getAllByRole('tab')
     expect(tabs.length).toBe(2)
-    expect(within(tabs[0]).getByText('V2EX 热议')).not.toBeNull()
-    expect(within(tabs[1]).getByText('网文更新')).not.toBeNull()
+    expect(within(tabs[0]!).getByText('V2EX 热议')).not.toBeNull()
+    expect(within(tabs[1]!).getByText('网文更新')).not.toBeNull()
   })
 
   test('marks the active tab and shows only the active panel by default', () => {

@@ -123,7 +123,7 @@ export function extractEuid(href: string): string {
   const start = protoEnd >= 0 ? protoEnd + 3 : 0
   const idx = href.lastIndexOf('/')
   if (idx < start) return ''
-  return href.slice(idx + 1).split(/[?#]/)[0]
+  return href.slice(idx + 1).split(/[?#]/)[0] ?? ''
 }
 
 export function buildPageUrl(tid: string, page: number): string {

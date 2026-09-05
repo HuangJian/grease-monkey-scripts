@@ -49,9 +49,9 @@ describe('parseV2ex', () => {
   test('parses valid array', () => {
     const topics = parseV2ex(FIXTURE, 10)
     expect(topics).toHaveLength(3)
-    expect(topics[0].title).toBe('A')
-    expect(topics[0].member.username).toBe('alice')
-    expect(topics[0].sources).toEqual([])
+    expect(topics[0]!.title).toBe('A')
+    expect(topics[0]!.member.username).toBe('alice')
+    expect(topics[0]!.sources).toEqual([])
   })
   test('limits to maxItems', () => {
     expect(parseV2ex(FIXTURE, 2)).toHaveLength(2)
@@ -72,7 +72,7 @@ describe('parseV2ex', () => {
     const seconds = 1_700_000_000
     const topics = parseV2ex([{ ...FIXTURE[0], created: seconds }], 10)
     expect(topics).toHaveLength(1)
-    expect(topics[0].created).toBe(seconds * 1000)
+    expect(topics[0]!.created).toBe(seconds * 1000)
   })
   test('returns empty for non-array', () => {
     expect(parseV2ex({}, 10)).toEqual([])
@@ -188,9 +188,9 @@ describe('mergeV2exTopics', () => {
     const page = [topic({ id: 1, replies: 5, title: 'A-page' })]
     const merged = mergeV2exTopics(api, page)
     expect(merged).toHaveLength(1)
-    expect(merged[0].id).toBe(1)
-    expect(merged[0].replies).toBe(10)
-    expect(merged[0].sources).toEqual(['api', 'page'])
+    expect(merged[0]!.id).toBe(1)
+    expect(merged[0]!.replies).toBe(10)
+    expect(merged[0]!.sources).toEqual(['api', 'page'])
   })
   test('preserves sources when the two sides are disjoint', () => {
     // Regression: the recovery path calls mergeV2exTopics(recovered, full, false)
@@ -211,14 +211,14 @@ describe('mergeV2exTopics', () => {
   test('takes max replies when both sources differ', () => {
     const api = [topic({ id: 1, replies: 5 })]
     const page = [topic({ id: 1, replies: 50 })]
-    expect(mergeV2exTopics(api, page)[0].replies).toBe(50)
+    expect(mergeV2exTopics(api, page)[0]!.replies).toBe(50)
   })
   test('keeps api title when both present', () => {
     const api = [topic({ id: 1, title: 'api-title', node: { title: 'api-node' } })]
     const page = [topic({ id: 1, title: 'page-title', node: { title: 'page-node' } })]
     const merged = mergeV2exTopics(api, page)
-    expect(merged[0].title).toBe('api-title')
-    expect(merged[0].node.title).toBe('api-node')
+    expect(merged[0]!.title).toBe('api-title')
+    expect(merged[0]!.node.title).toBe('api-node')
   })
   test('sorts by replies descending', () => {
     const api = [topic({ id: 1, replies: 5 }), topic({ id: 2, replies: 100 })]
@@ -231,22 +231,22 @@ describe('mergeV2exTopics', () => {
     const page: V2exTopic[] = []
     const merged = mergeV2exTopics(api, page, false)
     expect(merged).toHaveLength(1)
-    expect(merged[0].id).toBe(1)
-    expect(merged[0].sources).toEqual(['api'])
+    expect(merged[0]!.id).toBe(1)
+    expect(merged[0]!.sources).toEqual(['api'])
   })
   test('cross-source items win ties at same reply count', () => {
     const api = [topic({ id: 1, replies: 10 })]
     const page = [topic({ id: 1, replies: 10 }), topic({ id: 2, replies: 10 })]
     const merged = mergeV2exTopics(api, page)
-    expect(merged[0].id).toBe(1)
-    expect(merged[0].sources).toEqual(['api', 'page'])
+    expect(merged[0]!.id).toBe(1)
+    expect(merged[0]!.sources).toEqual(['api', 'page'])
   })
   test('api-only topics are filtered out', () => {
     const api = [topic({ id: 1, replies: 10 })]
     const page = [topic({ id: 2, replies: 10 })]
     const merged = mergeV2exTopics(api, page)
     expect(merged.map((t) => t.id)).toEqual([2])
-    expect(merged[0].sources).toEqual(['page'])
+    expect(merged[0]!.sources).toEqual(['page'])
   })
   test('api index breaks page-only ties', () => {
     const api: V2exTopic[] = []
@@ -262,23 +262,23 @@ describe('mergeV2exTopics', () => {
   test('handles empty inputs', () => {
     expect(mergeV2exTopics([], [])).toEqual([])
     const page = [topic({ id: 1, replies: 5 })]
-    expect(mergeV2exTopics([], page)).toEqual([{ ...page[0], sources: ['page'] }])
+    expect(mergeV2exTopics([], page)).toEqual([{ ...page[0]!, sources: ['page'] }])
   })
   test('filters out API-only topics', () => {
     const api = [topic({ id: 1, replies: 100 })]
     const page = [topic({ id: 2, replies: 10 })]
     const merged = mergeV2exTopics(api, page)
     expect(merged).toHaveLength(1)
-    expect(merged[0].id).toBe(2)
-    expect(merged[0].sources).toEqual(['page'])
+    expect(merged[0]!.id).toBe(2)
+    expect(merged[0]!.sources).toEqual(['page'])
   })
   test('keeps cross-source topics', () => {
     const api = [topic({ id: 1, replies: 100 })]
     const page = [topic({ id: 1, replies: 50 })]
     const merged = mergeV2exTopics(api, page)
     expect(merged).toHaveLength(1)
-    expect(merged[0].id).toBe(1)
-    expect(merged[0].sources).toEqual(['api', 'page'])
+    expect(merged[0]!.id).toBe(1)
+    expect(merged[0]!.sources).toEqual(['api', 'page'])
   })
   test('page-only items carry page index in tiebreaker', () => {
     const api: V2exTopic[] = []
@@ -421,7 +421,7 @@ describe('sortByDecayedScore', () => {
       },
     ]
     const sorted = sortByDecayedScore(topics, now, 2)
-    expect(sorted[0].id).toBe(2)
+    expect(sorted[0]!.id).toBe(2)
   })
   test('cross-source topics win ties', () => {
     const now = Date.now()
@@ -448,6 +448,6 @@ describe('sortByDecayedScore', () => {
       },
     ]
     const sorted = sortByDecayedScore(topics, now, 2)
-    expect(sorted[0].id).toBe(2)
+    expect(sorted[0]!.id).toBe(2)
   })
 })

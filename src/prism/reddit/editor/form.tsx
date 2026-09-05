@@ -58,16 +58,16 @@ export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEdit
         }
         const inputList = advancedRefs.current.filter(Boolean) as HTMLInputElement[]
         const nums = readNumberFields(
-          FORM_FIELDS.map((f, i) => toFieldRule(inputList[i], f)),
+          FORM_FIELDS.map((f, i) => toFieldRule(inputList[i]!, f)),
           (msg) => setError(msg),
         )
         if (nums === null) return
         const reddit: RedditSourceOptions = {
-          ttlMinutes: Math.round(nums[0]),
-          retentionDays: Math.round(nums[1]),
-          todayMinComments: Math.round(nums[2]),
-          olderMinComments: Math.round(nums[3]),
-          ageHalfLifeDays: nums[4],
+          ttlMinutes: Math.round(nums[0]!),
+          retentionDays: Math.round(nums[1]!),
+          todayMinComments: Math.round(nums[2]!),
+          olderMinComments: Math.round(nums[3]!),
+          ageHalfLifeDays: nums[4]!,
           subreddits: [...subs],
         }
         void saveConfigSection({

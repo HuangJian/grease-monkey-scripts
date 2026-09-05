@@ -11,7 +11,7 @@ function isSvgString(text: string): boolean {
 export type TabsItem = {
   id: string
   text: string
-  badge?: string | number | null
+  badge?: string | number | null | undefined
 }
 
 export type TabsProps = {

@@ -88,10 +88,10 @@ describe('parseReplyList', () => {
   test('从有效 replies.list 提取 pid、author', () => {
     const result = parseReplyList(validNextDataJson())
     expect(result).toHaveLength(1)
-    expect(result[0].pid).toBe('53100')
-    expect(result[0].authorPuid).toBe('37171872')
-    expect(result[0].authorEuid).toBe('263977037421524')
-    expect(result[0].authorPuname).toBe('骑士热火湖人詹')
+    expect(result[0]!.pid).toBe('53100')
+    expect(result[0]!.authorPuid).toBe('37171872')
+    expect(result[0]!.authorEuid).toBe('263977037421524')
+    expect(result[0]!.authorPuname).toBe('骑士热火湖人詹')
   })
 
   test('list 为空时返回空数组', () => {
@@ -111,7 +111,7 @@ describe('parseReplyList', () => {
     }
     const result = parseReplyList(data)
     expect(result).toHaveLength(1)
-    expect(result[0].pid).toBe('1')
+    expect(result[0]!.pid).toBe('1')
   })
 
   test('输入非对象时返回空数组', () => {

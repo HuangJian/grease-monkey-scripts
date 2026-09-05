@@ -69,7 +69,7 @@ export function getExplicitMentionedComment(
     return null
   }
 
-  return commentByNumber.get(numberMatch[1]) || null
+  return commentByNumber.get(numberMatch[1]!) || null
 }
 
 export function getMentionedComments(
@@ -152,7 +152,7 @@ export function embedDiscussions(runtime: Runtime): void {
 
     const [primaryComment, ...secondaryComments] = sortedByHearts
 
-    primaryComment
+    primaryComment!
       .querySelector(SELECTORS.cellTable)
       ?.insertAdjacentElement('afterend', currentComment)
     currentComment.setAttribute('data-is-embedded', 'true')

@@ -39,7 +39,7 @@ type OverlayMountProps = {
   handleRef: OverlayHandleRef
   root: ShadowRoot
   runtime: Runtime
-  onClose?: () => void
+  onClose?: (() => void) | undefined
 }
 
 function OverlayMount({ host, handleRef, root, runtime, onClose }: OverlayMountProps) {
@@ -228,7 +228,7 @@ function OverlayMount({ host, handleRef, root, runtime, onClose }: OverlayMountP
 export function mountOverlay(
   document: Document,
   runtime: Runtime,
-  onClose?: () => void,
+  onClose?: (() => void) | undefined,
 ): OverlayHandle {
   const host = document.createElement('div')
   host.id = 'gm-dashboard'

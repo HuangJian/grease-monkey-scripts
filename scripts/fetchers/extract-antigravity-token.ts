@@ -21,7 +21,7 @@ function readVarint(data: Buffer, offset: number) {
     shift = 0,
     pos = offset
   while (pos < data.length) {
-    const byte = data[pos++]
+    const byte = data[pos++]!
     result |= (byte & 0x7f) << shift
     if ((byte & 0x80) === 0) break
     shift += 7

@@ -375,7 +375,7 @@ describe('loadChapter', () => {
     const navLinks = Array.from(resultDom.window.document.querySelectorAll('.prenext a'))
     const nextLinks = navLinks.filter((a) => a.textContent?.trim() === '下一章')
     expect(nextLinks).toHaveLength(1)
-    expect(nextLinks[0].getAttribute('href')).toBe('https://www.sudugu.org/chapter/4')
+    expect(nextLinks[0]!.getAttribute('href')).toBe('https://www.sudugu.org/chapter/4')
     const continuationLinks = navLinks.filter((a) => a.textContent?.trim() === '下一页')
     expect(continuationLinks).toHaveLength(0)
   })

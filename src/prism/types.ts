@@ -27,7 +27,7 @@ export type CachedSource<T> = {
   /** Timestamp of the last fetch attempt (set on failure; on success fetchedAt suffices). */
   attemptedAt?: number
   /** Earliest time an automatic refresh should retry after consecutive failures. */
-  nextRetryAt?: number
+  nextRetryAt?: number | undefined
   /** Number of consecutive fetch failures (reset on success). */
   failureCount?: number
 }
@@ -137,7 +137,7 @@ export type SourceComponentProps<T> = {
    */
   root: ShadowRoot | HTMLElement
   runtime: Runtime
-  onNotify?: () => void
+  onNotify?: (() => void) | undefined
 }
 
 export type SourceHeaderProps<T> = {
@@ -148,7 +148,7 @@ export type SourceHeaderProps<T> = {
   runtime: Runtime
   root: ShadowRoot
   onRefresh: () => Promise<void>
-  onEdit?: () => void
+  onEdit?: (() => void) | undefined
 }
 
 export type Source<T> = {
@@ -165,7 +165,7 @@ export type Source<T> = {
   readonly placement?: 'main' | 'side'
   readonly groupId?: string
   readonly order?: number
-  readonly getTabLabel?: (data: T | null) => TabLabel
+  readonly getTabLabel?: ((data: T | null) => TabLabel) | undefined
   readonly dialogTitle?: string | VNode
   readonly hideHeaderActions?: boolean
   readonly RenderHeader?: ComponentType<SourceHeaderProps<T>>

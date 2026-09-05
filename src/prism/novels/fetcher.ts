@@ -203,7 +203,12 @@ async function fetchSourceChapters(
   prevMirrorHost: string | undefined,
   seenKey: string,
   maxLatestWindow: number,
-): Promise<{ chapters: RawChapter[]; title?: string; mirrorHost?: string; chapterCount: number }> {
+): Promise<{
+  chapters: RawChapter[]
+  title?: string | undefined
+  mirrorHost?: string | undefined
+  chapterCount: number
+}> {
   const now = runtime.now()
   const hosts = orderedMirrorHosts(url, adapter.hostnames, prevMirrorHost)
   const homeResult = await fetchWithFallback(runtime, url, hosts)

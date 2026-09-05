@@ -6,11 +6,16 @@ export type QueryNode =
   | { type: 'not'; child: QueryNode }
   | { type: 'status'; value: XitItemStatus }
   | { type: 'priority'; op: '=' | '>' | '>=' | '<' | '<=' | 'any'; value?: number }
-  | { type: 'date'; op: '>' | '<' | '>=' | '<=' | '=' | '~'; value: string; offset?: number }
+  | {
+      type: 'date'
+      op: '>' | '<' | '>=' | '<=' | '=' | '~'
+      value: string
+      offset?: number | undefined
+    }
   | {
       type: 'dateKeyword'
       value: DateKeyword
-      offset?: number
+      offset?: number | undefined
     }
   | { type: 'tag'; name: string; value?: string }
   | { type: 'text'; value: string }

@@ -122,16 +122,13 @@ describe('xit parser', () => {
     const first = parsed[0] as XitItem
     expect(first.dueDate).toBe('2026-06-09')
     expect(first.tags).toEqual([
-      { name: 'work', value: undefined },
+      { name: 'work' },
       { name: 'priority', value: 'high' },
       { name: 'project', value: 'Antigravity' },
     ])
 
     const second = parsed[1] as XitItem
-    expect(second.tags).toEqual([
-      { name: '学习', value: undefined },
-      { name: '代办', value: '重要' },
-    ])
+    expect(second.tags).toEqual([{ name: '学习' }, { name: '代办', value: '重要' }])
   })
 
   it('should parse ->everyday due date', () => {
@@ -140,7 +137,7 @@ describe('xit parser', () => {
     expect(parsed.length).toBe(1)
     const item = parsed[0] as XitItem
     expect(item.dueDate).toBe('everyday')
-    expect(item.tags).toEqual([{ name: 'daily', value: undefined }])
+    expect(item.tags).toEqual([{ name: 'daily' }])
   })
 
   it('should parse -> everyday with space', () => {

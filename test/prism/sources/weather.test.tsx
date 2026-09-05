@@ -203,11 +203,11 @@ describe('fetchWeatherAll', () => {
     })
     const result = await fetchWeatherAll(runtime, cities)
     expect(result.entries).toHaveLength(2)
-    expect(result.entries[0].status).toBe('ok')
-    expect(result.entries[1].status).toBe('ok')
-    if (result.entries[0].status === 'ok') {
-      expect(result.entries[0].cityLabel).toBe('BJ')
-      expect(result.entries[0].data.current.air_quality?.us_aqi).toBe(42)
+    expect(result.entries[0]!.status).toBe('ok')
+    expect(result.entries[1]!.status).toBe('ok')
+    if (result.entries[0]!.status === 'ok') {
+      expect(result.entries[0]!.cityLabel).toBe('BJ')
+      expect(result.entries[0]!.data.current.air_quality?.us_aqi).toBe(42)
     }
   })
   test('marks failed city as error and keeps order', async () => {
@@ -223,11 +223,11 @@ describe('fetchWeatherAll', () => {
       }
     })
     const result = await fetchWeatherAll(runtime, cities)
-    expect(result.entries[0].status).toBe('ok')
-    expect(result.entries[1].status).toBe('error')
-    if (result.entries[1].status === 'error') {
-      expect(result.entries[1].error).toBe('network error')
-      expect(result.entries[1].cityLabel).toBe('SH')
+    expect(result.entries[0]!.status).toBe('ok')
+    expect(result.entries[1]!.status).toBe('error')
+    if (result.entries[1]!.status === 'error') {
+      expect(result.entries[1]!.error).toBe('network error')
+      expect(result.entries[1]!.cityLabel).toBe('SH')
     }
     expect(seen.some((u) => u.includes('latitude=31.2'))).toBe(true)
     expect(seen.some((u) => u.includes('latitude=39.9'))).toBe(true)
@@ -258,8 +258,8 @@ describe('fetchWeatherAll', () => {
       { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ', cmaStationId: '54511' },
     ])
     expect(result.entries).toHaveLength(1)
-    if (result.entries[0]?.status !== 'ok') throw new Error('expected ok')
-    const data = result.entries[0].data
+    if (result.entries[0]!.status !== 'ok') throw new Error('expected ok')
+    const data = result.entries[0]!.data
     expect(data.current.source).toBe('cma')
     expect(data.current.temperature_2m).toBe(27.5)
     expect(data.current.humidity).toBe(62)
@@ -308,8 +308,8 @@ describe('fetchWeatherAll', () => {
     const result = await fetchWeatherAll(runtime, [
       { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ', cmaStationId: '54511' },
     ])
-    if (result.entries[0]?.status !== 'ok') throw new Error('expected ok')
-    const data = result.entries[0].data
+    if (result.entries[0]!.status !== 'ok') throw new Error('expected ok')
+    const data = result.entries[0]!.data
     expect(data.current.wind_speed_10m).toBeCloseTo(9.0, 1)
   })
 
@@ -328,8 +328,8 @@ describe('fetchWeatherAll', () => {
     const result = await fetchWeatherAll(runtime, [
       { latitude: 39.9, longitude: 116.4, cityLabel: 'BJ', cmaStationId: '54511' },
     ])
-    if (result.entries[0]?.status !== 'ok') throw new Error('expected ok')
-    expect(result.entries[0].data.current.source).toBe('open-meteo')
+    if (result.entries[0]!.status !== 'ok') throw new Error('expected ok')
+    expect(result.entries[0]!.data.current.source).toBe('open-meteo')
   })
 })
 

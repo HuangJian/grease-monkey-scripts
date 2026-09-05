@@ -31,5 +31,5 @@ export function checkAndDoSignIn(runtime: Runtime): void {
 
 export function extractRedeemUrl(html: string): string | null {
   const match = /location\.href\s*=\s*'(\/mission\/daily\/redeem[^']+)'/.exec(html)
-  return match ? match[1] : null
+  return match ? (match[1] ?? null) : null
 }

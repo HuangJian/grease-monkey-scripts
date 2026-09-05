@@ -281,7 +281,7 @@ describe('removeItemFromCache', () => {
     await removeItemFromCache(runtime, 'test', '1')
     const after = runtime.stores[key] as CachedSource<{ id: string }[]>
     expect(after.data).toHaveLength(1)
-    expect(after.data![0].id).toBe('2')
+    expect(after.data![0]!.id).toBe('2')
   })
 
   test('removes item from grouped cache', async () => {
@@ -296,7 +296,7 @@ describe('removeItemFromCache', () => {
     await removeItemFromCache(runtime, 'test', '1')
     const after = runtime.stores[key] as CachedSource<Record<string, { id: string }[]>>
     expect(after.data!.group1).toHaveLength(1)
-    expect(after.data!.group1[0].id).toBe('2')
+    expect(after.data!.group1![0]!.id).toBe('2')
     expect(after.data!.group2).toHaveLength(1)
   })
 

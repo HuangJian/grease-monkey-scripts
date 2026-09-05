@@ -163,7 +163,7 @@ describe('createRedditApp', () => {
     expect(tag?.textContent).toBe('低质')
     expect((tag as unknown as unknown as HTMLElement)?.style.color).toBe('red')
     const bobMd = dom.document.querySelectorAll('.md')[1]
-    expect(bobMd.classList.contains('gm-highlight-n1')).toBe(false)
+    expect(bobMd!.classList.contains('gm-highlight-n1')).toBe(false)
   })
 
   test('highlights with score-based background intensity', async () => {

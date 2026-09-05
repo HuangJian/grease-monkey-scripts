@@ -262,7 +262,7 @@ describe('v2ex app unit flows', () => {
     const comments = app.getCommentElementsFromHtmlString(threadHtml())
 
     expect(comments).toHaveLength(3)
-    expect(comments[0].id).toBe('r_1')
+    expect(comments[0]!.id).toBe('r_1')
   })
 
   test('collapses sibling replies individually without affecting other sibling replies', async () => {

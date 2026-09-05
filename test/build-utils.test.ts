@@ -176,8 +176,8 @@ describe('stripJsxDevArgs', () => {
 })
 
 describe('postSwcOptimize', () => {
-  test('replaces void 0 with 0[0]', () => {
-    expect(postSwcOptimize('var x=void 0')).toBe('var x=0[0]')
+  test('no longer rewrites void 0 to 0[0] (hack removed in S6 §5.2)', () => {
+    expect(postSwcOptimize('var x=void 0')).toBe('var x=void 0')
   })
 
   test('converts simple wrapper function to arrow', () => {

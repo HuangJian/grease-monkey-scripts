@@ -5,7 +5,7 @@ export function getAuthorName(authorLink: Element): string {
   const match = href.match(/\/user\/([^/]+)/i)
   if (!match) return ''
   try {
-    return decodeURIComponent(match[1])
+    return decodeURIComponent(match[1]!)
   } catch {
     return ''
   }

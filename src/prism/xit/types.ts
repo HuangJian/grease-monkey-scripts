@@ -2,7 +2,7 @@ export type XitItemStatus = 'open' | 'checked' | 'ongoing' | 'obsolete' | 'in-qu
 
 export type XitTag = {
   name: string
-  value?: string
+  value?: string | undefined
 }
 
 export type XitItem = {

@@ -139,7 +139,7 @@ describe('createV2exState', () => {
       await state.removeFromCache(runtime, 1)
       const after = runtime.stores[cacheKey] as CachedSource<V2exTopic[]>
       expect(after.data).toHaveLength(1)
-      expect(after.data![0].id).toBe(2)
+      expect(after.data![0]!.id).toBe(2)
     })
     test('no-op when cache missing', async () => {
       await state.removeFromCache(runtime, 1)

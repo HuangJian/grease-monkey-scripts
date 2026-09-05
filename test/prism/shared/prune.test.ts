@@ -71,7 +71,7 @@ describe('shared/prune', () => {
       RET,
     )
     expect(Object.keys(kept)).toEqual(['alive'])
-    expect(kept.alive.map((t) => t.id)).toEqual([1])
+    expect(kept.alive!.map((t) => t.id)).toEqual([1])
     expect(removedIds).toEqual(['2', '3'])
     expect(changed).toBe(true)
   })

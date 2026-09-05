@@ -70,7 +70,7 @@ export function WeatherHeader({
 }: {
   data?: WeatherData | null
   activeIndex?: number
-  onTabChange?: (index: number) => void
+  onTabChange?: ((index: number) => void) | undefined
 }) {
   const entries = data?.entries ?? []
   if (entries.length === 0) return null
@@ -85,7 +85,7 @@ export function WeatherTabs({
 }: {
   entries: WeatherCityEntry[]
   activeIndex: number
-  onTabChange?: (index: number) => void
+  onTabChange?: ((index: number) => void) | undefined
 }) {
   if (entries.length === 0) return null
   return (

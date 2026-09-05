@@ -74,8 +74,8 @@ export type TestRuntime = Runtime & {
   lastRequest: {
     url: string
     method: string
-    headers?: Record<string, string>
-    data?: string
+    headers?: Record<string, string> | undefined
+    data?: string | undefined
   } | null
   queueResponse(url: string, text: string, status?: number, responseHeaders?: string): void
   simulateRemoteChange(key: string, newValue: unknown): void
@@ -304,8 +304,8 @@ export class TestRuntimeBuilder {
   #responses: Array<{
     url: string
     text: string
-    status?: number
-    responseHeaders?: string
+    status?: number | undefined
+    responseHeaders?: string | undefined
   }> = []
 
   withDom(dom: Window): this {

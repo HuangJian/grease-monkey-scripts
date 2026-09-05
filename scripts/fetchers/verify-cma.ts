@@ -165,7 +165,7 @@ async function main() {
       if (parsed.daily.precipitation_sum) {
         console.log('\n  Daily precipitation breakdown:')
         parsed.daily.time.forEach((date, i) => {
-          const sum = parsed.daily.precipitation_sum![i]
+          const sum = parsed.daily.precipitation_sum![i]!
           console.log(`    ${date}: ${sum > 0 ? sum.toFixed(1) + 'mm' : '无降水'}`)
         })
       }
@@ -188,7 +188,7 @@ async function main() {
           parsed.hourly.time.forEach((t, i) => {
             const day = t.slice(0, 10)
             if (!byDay.has(day)) byDay.set(day, [])
-            byDay.get(day)!.push({ time: t, precip: parsed.hourly!.precipitation_amount![i] })
+            byDay.get(day)!.push({ time: t, precip: parsed.hourly!.precipitation_amount![i]! })
           })
           for (const [day, items] of byDay) {
             console.log(`    ${day}:`)

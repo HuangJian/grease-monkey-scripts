@@ -42,11 +42,11 @@ export function formatDueDateDisplay(dateStr: string): string {
   }
   const yq = /^(\d{4})-(Q[1-4])$/.exec(dateStr)
   if (yq) {
-    return Number(yq[1]) === currentYear ? yq[2] : dateStr
+    return Number(yq[1]) === currentYear ? yq[2]! : dateStr
   }
   const yw = /^(\d{4})-(W\d{1,2})$/.exec(dateStr)
   if (yw) {
-    return Number(yw[1]) === currentYear ? yw[2] : dateStr
+    return Number(yw[1]) === currentYear ? yw[2]! : dateStr
   }
   return dateStr
 }

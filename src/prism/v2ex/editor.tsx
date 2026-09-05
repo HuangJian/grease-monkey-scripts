@@ -65,16 +65,16 @@ function V2exEditorForm({ fresh, settings, ctx, handleRef }: V2exEditorFormProps
         setError('')
         const inputList = inputRefs.current.filter(Boolean) as HTMLInputElement[]
         const nums = readNumberFields(
-          FORM_FIELDS.map((f, i) => toFieldRule(inputList[i], f)),
+          FORM_FIELDS.map((f, i) => toFieldRule(inputList[i]!, f)),
           (msg) => setError(msg),
         )
         if (nums === null) return
         const v2ex: V2exSourceOptions = {
-          ttlMinutes: Math.round(nums[0]),
-          retentionDays: Math.round(nums[1]),
-          todayMinReplies: Math.round(nums[2]),
-          olderMinReplies: Math.round(nums[3]),
-          ageHalfLifeDays: nums[4],
+          ttlMinutes: Math.round(nums[0]!),
+          retentionDays: Math.round(nums[1]!),
+          todayMinReplies: Math.round(nums[2]!),
+          olderMinReplies: Math.round(nums[3]!),
+          ageHalfLifeDays: nums[4]!,
         }
         void saveConfigSection({
           runtime: ctx.runtime,

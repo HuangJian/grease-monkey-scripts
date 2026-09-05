@@ -131,15 +131,15 @@ describe('applyDateFilter', () => {
 
     const todayResult = applyDateFilter(freshItems, '今', (i) => i.created)
     expect(todayResult.length).toBe(1)
-    expect(todayResult[0].id).toBe('1')
+    expect(todayResult[0]!.id).toBe('1')
 
     const yesterdayResult = applyDateFilter(freshItems, '昨', (i) => i.created)
     expect(yesterdayResult.length).toBe(1)
-    expect(yesterdayResult[0].id).toBe('2')
+    expect(yesterdayResult[0]!.id).toBe('2')
 
     const olderResult = applyDateFilter(freshItems, '早', (i) => i.created)
     expect(olderResult.length).toBe(1)
-    expect(olderResult[0].id).toBe('3')
+    expect(olderResult[0]!.id).toBe('3')
   })
 
   test('returns empty array for empty input', () => {
@@ -164,8 +164,8 @@ describe('applyGroupedDateFilter', () => {
 
     const result = applyGroupedDateFilter(grouped, '今', (i) => i.created)
     expect(Object.keys(result)).toEqual(['a'])
-    expect(result['a'].length).toBe(1)
-    expect(result['a'][0].id).toBe('1')
+    expect(result['a']!.length).toBe(1)
+    expect(result['a']![0]!.id).toBe('1')
   })
 
   test('drops all groups when nothing matches', () => {

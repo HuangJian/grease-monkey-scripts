@@ -312,7 +312,7 @@ describe('createDashboard', () => {
     const stored = runtime.stores[CACHE_KEY('v2ex')] as CachedSource<unknown>
     expect(stored.error).toMatch(/network error/)
     expect(stored.fetchedAt).toBe(1000)
-    expect((stored.data as { t: string }[])[0].t).toBe('old')
+    expect((stored.data as { t: string }[])[0]!.t).toBe('old')
   })
 
   test('refreshSource re-renders the open card after writing (no listener needed)', async () => {
