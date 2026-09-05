@@ -14,10 +14,13 @@ export function createNovelsSource(
   options: NovelSourceOptions,
   runtime: Runtime,
 ): Source<NovelData> {
+  let currentOptions = options
   return {
     id: 'novels',
     title: '网文更新',
-    ttlMs: options.ttlMinutes * 60_000,
+    get ttlMs() {
+      return currentOptions.ttlMinutes * 60_000
+    },
     groupId: 'browse',
     order: 2,
     RenderComponent: ({ data, root }) => (
@@ -34,11 +37,12 @@ export function createNovelsSource(
       return novelsTabLabel(data)
     },
     async fetch(runtimeArg, prevData) {
-      const configs = await loadFreshBooks(runtimeArg, options.books)
+      currentOptions = await loadFreshNovelsOptions(runtimeArg, currentOptions)
+      const configs = currentOptions.books
       const prevBooks = normalizeBooks(prevData?.books, runtimeArg.now)
       const books = await fetchNovels(runtimeArg, configs, prevBooks, {
-        initialNewChapters: options.initialNewChapters,
-        maxLatestWindow: options.maxLatestWindow,
+        initialNewChapters: currentOptions.initialNewChapters,
+        maxLatestWindow: currentOptions.maxLatestWindow,
       })
       // Pick up lastSeenChapterKey updates that markSeen may have written
       // to the cache while the fetch was in flight. Without this, a
@@ -52,11 +56,11 @@ export function createNovelsSource(
     createEditor(settings: SourceSettings) {
       return createNovelsEditor(
         {
-          books: options.books,
-          ttlMinutes: options.ttlMinutes,
-          maxNewChaptersPerBook: options.maxNewChaptersPerBook,
-          initialNewChapters: options.initialNewChapters,
-          maxLatestWindow: options.maxLatestWindow,
+          books: currentOptions.books,
+          ttlMinutes: currentOptions.ttlMinutes,
+          maxNewChaptersPerBook: currentOptions.maxNewChaptersPerBook,
+          initialNewChapters: currentOptions.initialNewChapters,
+          maxLatestWindow: currentOptions.maxLatestWindow,
           getCachedTitles: () => loadCachedTitleMap(runtime),
         },
         settings,
@@ -72,16 +76,34 @@ export function novelsTabLabel(data: NovelData | null): TabLabel {
   return { label: '网文更新', badge: updated > 0 ? updated : null }
 }
 
-async function loadFreshBooks(
+export async function loadFreshNovelsOptions(
   runtime: Runtime,
-  fallback: NovelBookConfig[],
-): Promise<NovelBookConfig[]> {
+  fallback: NovelSourceOptions,
+): Promise<NovelSourceOptions> {
   try {
     const stored = await runtime.getValue<Record<string, unknown> | null>(CONFIG_KEY, null)
-    const books = coerceNovelBooks(stored?.['novels'] as Record<string, unknown> | undefined, [])
-    if (books.length > 0) return books
+    const raw = stored?.['novels']
+    if (raw && typeof raw === 'object') {
+      const r = raw as Record<string, unknown>
+      return {
+        books: coerceNovelBooks(r, fallback.books),
+        ttlMinutes: typeof r['ttlMinutes'] === 'number' ? r['ttlMinutes'] : fallback.ttlMinutes,
+        maxNewChaptersPerBook:
+          typeof r['maxNewChaptersPerBook'] === 'number'
+            ? r['maxNewChaptersPerBook']
+            : fallback.maxNewChaptersPerBook,
+        initialNewChapters:
+          typeof r['initialNewChapters'] === 'number'
+            ? r['initialNewChapters']
+            : fallback.initialNewChapters,
+        maxLatestWindow:
+          typeof r['maxLatestWindow'] === 'number'
+            ? r['maxLatestWindow']
+            : fallback.maxLatestWindow,
+      }
+    }
   } catch (e) {
-    console.debug('[gm-dashboard] novels loadFreshBooks error', e)
+    console.debug('[gm-dashboard] novels loadFreshNovelsOptions error', e)
   }
   return fallback
 }

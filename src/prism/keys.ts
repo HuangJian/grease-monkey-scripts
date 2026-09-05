@@ -17,3 +17,11 @@ export const XIT_LAST_RESET_KEY = `${KEY_PREFIX}:xit-last-reset`
 
 /** Namespace prefix for Prism-owned GM/localStorage keys. */
 export const GM_PREFIX = 'gm:'
+
+// Non-Prism keys that still live under the `gm:` namespace, consolidated here
+// so every storage key has a single source of truth (was §2.2 residue:
+// `gm:misc:openrouter:cache`, `gm:xueqiu:ai-summaries`, reddit author tags).
+export const OPENROUTER_CACHE_KEY = 'gm:misc:openrouter:cache'
+export const XUEQIU_SUMMARIES_KEY = 'gm:xueqiu:ai-summaries'
+export const REDDIT_AUTHOR_TAGS_KEY = 'reddit_author_tags'
+export const REDDIT_AUTHOR_TAGS_LS_KEY = 'gm:reddit:author-tags'

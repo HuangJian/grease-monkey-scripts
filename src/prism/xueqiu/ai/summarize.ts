@@ -1,8 +1,7 @@
 import type { Runtime } from '../../../runtime'
 import type { SummaryEntry, SummaryTopic, XueqiuAiConfig, XueqiuNewsItem } from '../types'
 import { buildSystemPrompt, buildUserPrompt } from './prompt'
-
-const SUMMARIES_KEY = 'gm:xueqiu:ai-summaries'
+import { XUEQIU_SUMMARIES_KEY } from '../../keys'
 
 // ---------------------------------------------------------------------------
 // Summary storage (history list with expiry)
@@ -13,13 +12,13 @@ export async function loadSummaries(
   retentionMs: number,
 ): Promise<SummaryEntry[]> {
   try {
-    const raw = await runtime.getValue<unknown>(SUMMARIES_KEY, null)
+    const raw = await runtime.getValue<unknown>(XUEQIU_SUMMARIES_KEY, null)
     if (!Array.isArray(raw)) return []
     const now = runtime.now()
     const entries = (raw as SummaryEntry[]).filter((e) => now - e.generatedAt < retentionMs)
     // Persist pruned list if entries were removed
     if (entries.length !== (raw as SummaryEntry[]).length) {
-      void runtime.setValue(SUMMARIES_KEY, entries)
+      void runtime.setValue(XUEQIU_SUMMARIES_KEY, entries)
     }
     return entries.sort((a, b) => b.generatedAt - a.generatedAt)
   } catch {
@@ -30,13 +29,13 @@ export async function loadSummaries(
 export async function saveSummary(runtime: Runtime, entry: SummaryEntry): Promise<void> {
   let existing: SummaryEntry[] = []
   try {
-    const raw = await runtime.getValue<unknown>(SUMMARIES_KEY, null)
+    const raw = await runtime.getValue<unknown>(XUEQIU_SUMMARIES_KEY, null)
     if (Array.isArray(raw)) existing = raw as SummaryEntry[]
   } catch {
     /* ignore */
   }
   const updated = [entry, ...existing].slice(0, 100)
-  void runtime.setValue(SUMMARIES_KEY, updated)
+  void runtime.setValue(XUEQIU_SUMMARIES_KEY, updated)
 }
 
 // ---------------------------------------------------------------------------

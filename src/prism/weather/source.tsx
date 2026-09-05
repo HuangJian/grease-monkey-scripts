@@ -8,13 +8,18 @@ import { fetchWeatherAll } from './api'
 import { CMA_RETENTION_MS } from './constants'
 import type { WeatherCity, WeatherCityEntry, WeatherData, WeatherSourceOptions } from './types'
 
-async function loadFreshWeatherCities(
+export async function loadFreshWeatherOptions(
   runtime: Runtime,
-  fallback: WeatherCity[],
-): Promise<WeatherCity[]> {
+  fallback: WeatherSourceOptions,
+): Promise<WeatherSourceOptions> {
   return loadConfigSection(runtime, 'weather', fallback, (raw) => {
-    const cities = raw['cities']
-    return Array.isArray(cities) && cities.length > 0 ? (cities as WeatherCity[]) : fallback
+    const cities =
+      Array.isArray(raw['cities']) && raw['cities'].length > 0
+        ? (raw['cities'] as WeatherCity[])
+        : fallback.cities
+    const ttlMinutes =
+      typeof raw['ttlMinutes'] === 'number' ? raw['ttlMinutes'] : fallback.ttlMinutes
+    return { cities, ttlMinutes }
   })
 }
 
@@ -51,15 +56,19 @@ export function reconcileEntry(
 }
 
 export function createWeatherSource(options: WeatherSourceOptions): Source<WeatherData> {
+  let currentOptions = options
   const headerStore = createHeaderState({ activeCityIndex: 0 })
 
   const source: Source<WeatherData> = {
     id: 'weather',
     title: '\u5929\u6C14',
-    ttlMs: options.ttlMinutes * 60_000,
+    get ttlMs() {
+      return currentOptions.ttlMinutes * 60_000
+    },
     placement: 'side',
     async fetch(runtime, prevData) {
-      const cities = await loadFreshWeatherCities(runtime, options.cities)
+      currentOptions = await loadFreshWeatherOptions(runtime, currentOptions)
+      const cities = currentOptions.cities
       const result = await fetchWeatherAll(runtime, cities)
       if (!prevData) return result
       const prevByLabel = new Map(prevData.entries.map((e) => [e.cityLabel, e]))
@@ -91,8 +100,8 @@ export function createWeatherSource(options: WeatherSourceOptions): Source<Weath
     },
     createEditor(_settings: SourceSettings) {
       return createWeatherEditor({
-        cities: options.cities,
-        ttlMinutes: options.ttlMinutes,
+        cities: currentOptions.cities,
+        ttlMinutes: currentOptions.ttlMinutes,
       })
     },
   }

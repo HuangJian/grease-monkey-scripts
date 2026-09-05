@@ -5,6 +5,7 @@ import {
   incrementTagScore,
   parseAuthorTagMap,
   removeTag,
+  REDDIT_AUTHOR_TAGS_KEY,
   REDDIT_AUTHOR_TAGS_LS_KEY,
 } from '../../shared/author-labels'
 import { applyHighlights } from './highlight'
@@ -15,7 +16,7 @@ import type { RedditApp } from '../types'
 
 export type { RedditApp }
 
-export const STORAGE_KEY = 'reddit_author_tags'
+export const STORAGE_KEY = REDDIT_AUTHOR_TAGS_KEY
 
 const BTN_CLASS = 'gm-tag-btn'
 const PROCESSED_CLASS = 'gm-processed'

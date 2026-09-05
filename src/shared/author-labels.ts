@@ -2,10 +2,8 @@
 export const V2EX_AUTHOR_TAGS_KEY = 'v2ex_author_tags'
 /** localStorage key shared across scripts for v2ex author tag data */
 export const V2EX_AUTHOR_TAGS_LS_KEY = 'gm:v2ex:author-tags'
-/** GM storage key for reddit author tag data */
-export const REDDIT_AUTHOR_TAGS_KEY = 'reddit_author_tags'
-/** localStorage key shared across scripts for reddit author tag data */
-export const REDDIT_AUTHOR_TAGS_LS_KEY = 'gm:reddit:author-tags'
+// Reddit author-tag keys are defined once in prism/keys.ts (single source of truth).
+export { REDDIT_AUTHOR_TAGS_KEY, REDDIT_AUTHOR_TAGS_LS_KEY } from '../prism/keys'
 /** GM storage key for hupu author tag data */
 export const HUPU_AUTHOR_TAGS_KEY = 'hupu_author_tags'
 /** localStorage key shared across scripts for hupu author tag data */

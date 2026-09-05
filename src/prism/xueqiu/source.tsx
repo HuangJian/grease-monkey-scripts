@@ -150,7 +150,9 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
   const hotSource: Source<XueqiuRenderData> = {
     id: HOT_SOURCE_ID,
     title: '雪球热议',
-    ttlMs: options.ttlMinutes * 60_000,
+    get ttlMs() {
+      return currentOptions.ttlMinutes * 60_000
+    },
     groupId: 'browse',
     order: 5,
     getTabLabel() {
@@ -170,6 +172,7 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
       )
     },
     async fetch(runtime, _prevData) {
+      currentOptions = await loadFreshXueqiuOptions(runtime, currentOptions)
       // hotPosts live in the shared xueqiu-news cache (single source of truth).
       // Derive + rank here so the fetch→cache→render flow fills the hot cache
       // instead of the old empty payload (which refreshSource stamped fresh).

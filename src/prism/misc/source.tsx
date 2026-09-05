@@ -4,8 +4,7 @@ import type { MiscData, MiscOptions } from './types'
 import { fetchOpenRouterModels } from './openrouter/fetcher'
 import { OpenRouterWidget } from './openrouter/widget'
 import { createMiscEditor, loadFreshMiscOptions } from './editor'
-
-const CACHE_KEY_OPENROUTER = 'gm:misc:openrouter:cache'
+import { OPENROUTER_CACHE_KEY } from '../keys'
 
 const DEFAULT_MISC_OPTIONS: MiscOptions = { ttlMinutes: 10 }
 
@@ -62,7 +61,7 @@ export function createMiscSource(runtime: Runtime): Source<MiscData> {
     async fetch(_runtime, _prevData) {
       const r = runtime
       await loadMiscOptions()
-      const openrouter = await fetchWithCache(fetchOpenRouterModels, r, CACHE_KEY_OPENROUTER)
+      const openrouter = await fetchWithCache(fetchOpenRouterModels, r, OPENROUTER_CACHE_KEY)
       return { openrouter }
     },
     createEditor(settings: SourceSettings) {
