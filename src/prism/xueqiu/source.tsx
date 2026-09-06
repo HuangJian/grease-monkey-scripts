@@ -28,8 +28,8 @@ import {
 } from './types'
 
 export type XueqiuHandle = {
-  mainSource: Source<XueqiuRenderData>
-  hotSource: Source<XueqiuRenderData>
+  mainSource: Source<XueqiuRenderData, 'xueqiu-news'>
+  hotSource: Source<XueqiuRenderData, 'xueqiu-hot'>
   state: XueqiuState
   initRuntime(runtime: Runtime): Promise<void>
 }
@@ -55,7 +55,7 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
     filterUnread: false,
   })
 
-  const mainSource: Source<XueqiuRenderData> = {
+  const mainSource: Source<XueqiuRenderData, 'xueqiu-news'> = {
     id: MAIN_SOURCE_ID,
     title: '雪球news',
     get ttlMs() {
@@ -147,7 +147,7 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
     },
   }
 
-  const hotSource: Source<XueqiuRenderData> = {
+  const hotSource: Source<XueqiuRenderData, 'xueqiu-hot'> = {
     id: HOT_SOURCE_ID,
     title: '雪球热议',
     get ttlMs() {

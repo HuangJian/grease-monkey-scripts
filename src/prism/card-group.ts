@@ -1,4 +1,4 @@
-import type { Source, SourceSettings } from './types'
+import type { AnySource, Source, SourceSettings } from './types'
 
 export type CardGroup = {
   id: string
@@ -7,12 +7,17 @@ export type CardGroup = {
 }
 
 export function buildCardGroups(
-  sources: Source<unknown>[],
+  sources: AnySource[],
   sourceSettings?: Record<string, SourceSettings>,
 ): CardGroup[] {
+  // The registry holds the typed `AnySource` discriminated union (§2.6); the
+  // render loop needs a homogeneous `Source<unknown>[]`, so the single
+  // sanctioned erasure from the union back to `unknown` happens HERE — not in
+  // the registry (which stays free of `as unknown as`).
+  const erased = sources as unknown as Source<unknown>[]
   const groupMap = new Map<string, CardGroup>()
   const singletons: Source<unknown>[] = []
-  sources.forEach((source) => {
+  erased.forEach((source) => {
     if (source.groupId) {
       let group = groupMap.get(source.groupId)
       if (!group) {

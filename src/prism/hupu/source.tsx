@@ -20,7 +20,7 @@ import type { HupuPost, HupuSourceOptions } from './types'
 
 export type HupuRenderData = Record<string, HupuPost[]>
 
-export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderData> {
+export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderData, 'hupu'> {
   let currentOptions = options
   const retentionMs = currentOptions.retentionDays * 24 * 60 * 60 * 1000
   const state = createHupuState({ retentionMs })

@@ -1,7 +1,7 @@
 import type { Runtime } from '../../runtime'
-import type { Source } from '../types'
+import type { AnySource } from '../types'
 
-export function bootstrapSync(runtime: Runtime, sources: Source<unknown>[]): void {
+export function bootstrapSync(runtime: Runtime, sources: AnySource[]): void {
   const syncDomains: Array<{ hostMatch: (h: string) => boolean; id: string }> = [
     {
       hostMatch: (h) => h === 'v2ex.com' || h.endsWith('.v2ex.com'),

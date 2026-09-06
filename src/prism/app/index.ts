@@ -102,7 +102,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
 
   async function doRefreshSource(sourceId: string): Promise<void> {
     console.debug('[gm-dashboard] refreshSource enter sourceId=', sourceId)
-    const source = findSource(reg.sources, sourceId)
+    const source = findSource(reg.sources, sourceId) as Source<unknown> | undefined
     if (!source) {
       console.debug('[gm-dashboard] refreshSource source-not-found sourceId=', sourceId)
       return
@@ -111,7 +111,9 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
   }
 
   async function doRunOpportunisticRefresh(): Promise<void> {
-    await runOpportunisticRefresh(runtime, reg.sources, (source) => refreshAndRerender(source))
+    await runOpportunisticRefresh(runtime, reg.sources as Source<unknown>[], (source) =>
+      refreshAndRerender(source),
+    )
   }
 
   async function open(): Promise<void> {

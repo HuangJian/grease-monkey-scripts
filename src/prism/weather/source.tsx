@@ -55,11 +55,11 @@ export function reconcileEntry(
   return entry
 }
 
-export function createWeatherSource(options: WeatherSourceOptions): Source<WeatherData> {
+export function createWeatherSource(options: WeatherSourceOptions): Source<WeatherData, 'weather'> {
   let currentOptions = options
   const headerStore = createHeaderState({ activeCityIndex: 0 })
 
-  const source: Source<WeatherData> = {
+  const source: Source<WeatherData, 'weather'> = {
     id: 'weather',
     title: '\u5929\u6C14',
     get ttlMs() {

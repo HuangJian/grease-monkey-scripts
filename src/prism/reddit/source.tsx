@@ -20,7 +20,9 @@ import type { RedditPost, RedditSourceOptions } from './types'
 
 export type RedditRenderData = Record<string, RedditPost[]>
 
-export function createRedditSource(options: RedditSourceOptions): Source<RedditRenderData> {
+export function createRedditSource(
+  options: RedditSourceOptions,
+): Source<RedditRenderData, 'reddit'> {
   let currentOptions = options
   const retentionMs = currentOptions.retentionDays * 24 * 60 * 60 * 1000
   const state = createRedditState({ retentionMs })

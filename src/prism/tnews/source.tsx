@@ -11,7 +11,7 @@ import { createTnewsState, type TnewsState } from './state'
 import type { TnewsItem, TnewsSourceOptions } from './types'
 
 export type TnewsHandle = {
-  source: Source<TnewsItem[]>
+  source: Source<TnewsItem[], 'tnews'>
   state: TnewsState
   initRuntime(runtime: Runtime): Promise<void>
 }
@@ -19,7 +19,7 @@ export type TnewsHandle = {
 export function createTnewsSource(options: TnewsSourceOptions): TnewsHandle {
   let currentOptions = options
   const state: TnewsState = createTnewsState({ retentionMs: RETENTION_MS })
-  const source: Source<TnewsItem[]> = {
+  const source: Source<TnewsItem[], 'tnews'> = {
     id: 'tnews',
     title: '竹新社',
     get ttlMs() {

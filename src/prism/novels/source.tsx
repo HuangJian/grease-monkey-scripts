@@ -13,7 +13,7 @@ import type { NovelBook, NovelBookConfig, NovelData, NovelSourceOptions } from '
 export function createNovelsSource(
   options: NovelSourceOptions,
   runtime: Runtime,
-): Source<NovelData> {
+): Source<NovelData, 'novels'> {
   let currentOptions = options
   return {
     id: 'novels',

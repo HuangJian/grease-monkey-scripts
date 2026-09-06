@@ -16,7 +16,7 @@ import { isRetentionExpired } from '../shared-utils'
 import { pruneItems } from '../shared/prune'
 import type { V2exSourceOptions, V2exTopic } from './types'
 
-export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]> {
+export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[], 'v2ex'> {
   let currentOptions = options
   const retentionMs = currentOptions.retentionDays * 24 * 60 * 60 * 1000
   const state = createV2exState({ retentionMs })

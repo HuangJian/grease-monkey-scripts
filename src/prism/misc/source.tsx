@@ -31,7 +31,7 @@ async function fetchWithCache<TData>(
   }
 }
 
-export function createMiscSource(runtime: Runtime): Source<MiscData> {
+export function createMiscSource(runtime: Runtime): Source<MiscData, 'misc'> {
   let miscOptions: MiscOptions = { ...DEFAULT_MISC_OPTIONS }
 
   async function loadMiscOptions(): Promise<void> {

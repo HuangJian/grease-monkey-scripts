@@ -7,7 +7,7 @@ import { TabsCard } from '../../src/prism/card/tabs-card'
 import type { CardGroup } from '../../src/prism/card-group'
 import { CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/prism/types'
 import { createRuntime } from '../runtime'
-import type { Source, TabLabel } from '../../src/prism/types'
+import type { AnySource, Source, TabLabel } from '../../src/prism/types'
 
 function cached<T>(data: T | null, fetchedAt = 1_000_000, error = ''): CachedSource<T> {
   return { schemaVersion: CACHE_SCHEMA_VERSION, data, fetchedAt, error }
@@ -19,7 +19,7 @@ function makeSource(opts: {
   render?: (container: HTMLElement, data: unknown) => void
   getTabLabel?: (data: any) => TabLabel
   createEditor?: () => (container: HTMLElement, ctx: { onRevert: () => void }) => void
-}): Source<unknown> {
+}): AnySource {
   const renderFn =
     opts.render ??
     ((container: HTMLElement, data: unknown) => {
@@ -39,11 +39,11 @@ function makeSource(opts: {
     },
     getTabLabel: opts.getTabLabel,
     createEditor: opts.createEditor as Source<unknown>['createEditor'],
-  } as Source<unknown>
+  } as unknown as AnySource
 }
 
-function browseGroup(tabs: Source<unknown>[]): CardGroup {
-  return { id: 'browse', placement: 'main', tabs }
+function browseGroup(tabs: AnySource[]): CardGroup {
+  return { id: 'browse', placement: 'main', tabs: tabs as unknown as Source<unknown>[] }
 }
 
 function renderOnce(opts: {

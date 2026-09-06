@@ -12,7 +12,7 @@ import type { XitData } from './types'
 export function createXitSource(
   options: { placement?: 'main' | 'side' } | undefined,
   _runtime: Runtime,
-): Source<XitData> {
+): Source<XitData, 'xit'> {
   const placement = options?.placement ?? 'main'
 
   const headerStore: HeaderStateStore<XitHeaderState> = createHeaderState<XitHeaderState>({
@@ -24,7 +24,7 @@ export function createXitSource(
     editFilter: null,
   })
 
-  const source: Source<XitData> = {
+  const source: Source<XitData, 'xit'> = {
     id: 'xit',
     title: 'xit',
     ttlMs: 24 * 3600 * 1000,

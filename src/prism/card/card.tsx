@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact'
 import type { Runtime } from '../../runtime'
 import type { CachedSource, Source } from '../types'
+import { readSourceData } from '../types'
 import { CardTitle, CardActions } from './primitives'
 import { createEditHandler } from '../shell/editor'
 
@@ -43,7 +44,7 @@ export function RenderCard<T>({
 }: CardOptions<T>) {
   const Comp = source.RenderComponent
   const HeaderComp = source.RenderHeader
-  const data = (cached?.data ?? null) as T | null
+  const data = readSourceData(source, cached)
 
   const onEdit = createEditHandler({
     source: source as Source<unknown>,

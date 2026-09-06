@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { buildCardGroups } from '../../src/prism/card-group'
-import type { Source } from '../../src/prism/types'
+import type { AnySource, Source } from '../../src/prism/types'
 
-function source(id: string, overrides: Partial<Source<unknown>> = {}): Source<unknown> {
+function source(id: string, overrides: Partial<Source<unknown>> = {}): AnySource {
   return {
     id,
     title: id,
@@ -10,7 +10,7 @@ function source(id: string, overrides: Partial<Source<unknown>> = {}): Source<un
     fetch: () => Promise.resolve(null),
     RenderComponent: () => null,
     ...overrides,
-  }
+  } as unknown as AnySource
 }
 
 describe('buildCardGroups', () => {
