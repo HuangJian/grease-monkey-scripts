@@ -1,6 +1,7 @@
 import { isPlainObject } from './merge'
 import { VALID_BADGE_TYPES } from '../types'
-import type { Config, SourceSettings } from '../types'
+import type { Config } from '../config/types'
+import type { SourceSettings } from '../types'
 
 export type ConfigValidation = { ok: true } | { ok: false; error: string }
 

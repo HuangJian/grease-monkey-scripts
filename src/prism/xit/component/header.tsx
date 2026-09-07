@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'preact/hooks'
 import type { SourceHeaderProps } from '../../types'
-import { useHeaderState, type HeaderStateStore } from '../../header-state'
+import { createHeaderState, useHeaderState, type HeaderStateStore } from '../../header-state'
 import { parseXitText } from '../parser'
 import { getTagCounts } from '../tag-counts'
 import {
@@ -14,7 +14,7 @@ import {
 import { parseQuery } from '../query'
 import type { XitData, NamedFilterStore, NamedFilter } from '../types'
 import { FilterForm, type FilterFormMode } from './filter-form'
-import { EditIcon, DeleteIcon, SaveIcon } from '../../card/icons'
+import { EditIcon, DeleteIcon, SaveIcon } from '../../shared/icons'
 
 export type XitHeaderState = {
   query: string
@@ -23,6 +23,20 @@ export type XitHeaderState = {
   showFilters: boolean
   saveForm: FilterFormMode | null
   editFilter: NamedFilter | null
+}
+
+// Single source of truth for the xit header store's initial 6 fields.
+// Replaces the duplicated inline initializer in xit/source.tsx and
+// xit/render/index.tsx (§4.6).
+export function createXitHeaderState(): HeaderStateStore<XitHeaderState> {
+  return createHeaderState<XitHeaderState>({
+    query: '',
+    queryError: null,
+    filterStore: null,
+    showFilters: false,
+    saveForm: null,
+    editFilter: null,
+  })
 }
 
 export function XitHeaderControls({

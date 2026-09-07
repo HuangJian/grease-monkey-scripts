@@ -1,5 +1,5 @@
 import type { Runtime } from '../../runtime'
-import type { Config } from '../types'
+import type { Config } from '../config/types'
 import { CONFIG_KEY } from '../types'
 import { DEFAULT_CONFIG } from './defaults'
 import { deepMerge, isPlainObject } from './merge'

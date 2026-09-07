@@ -11,7 +11,7 @@ import { createHeaderState, useHeaderState, type HeaderStateStore } from '../hea
 import { loadCache, saveCache } from '../cache'
 import type { DateFilter } from '../date-filter'
 import { DateFilterGroup } from '../date-filter'
-import { ListIcon, SparklesIcon } from '../card/icons'
+import { ListIcon, SparklesIcon } from '../shared/icons'
 import { XueqiuComponent } from './component'
 import { createXueqiuEditor } from './editor'
 import { loadFreshXueqiuOptions } from './options'

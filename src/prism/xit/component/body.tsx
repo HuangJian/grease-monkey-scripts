@@ -1,7 +1,6 @@
 import { useMemo } from 'preact/hooks'
 import type { SourceComponentProps, SourceEditor } from '../../types'
 import { useHeaderState, type HeaderStateStore } from '../../header-state'
-import { showEditorDialog } from '../../shell/editor'
 import { parseQuery, filterItems } from '../query'
 import { parseXitText } from '../parser'
 import { getDueDateStatus } from '../render/due-date'
@@ -39,6 +38,7 @@ export function XitBody({
   runtime,
   headerStore,
   createEditor,
+  showEditorDialog,
 }: SourceComponentProps<XitData> & {
   headerStore: HeaderStateStore<XitHeaderState>
   createEditor?: (targetLine: number | null) => SourceEditor
@@ -79,7 +79,7 @@ export function XitBody({
   }
 
   function openEditor(lineIndex?: number) {
-    if (root instanceof ShadowRoot && runtime && createEditor) {
+    if (root instanceof ShadowRoot && runtime && createEditor && showEditorDialog) {
       showEditorDialog(
         root,
         <a href="https://xit.jotaen.net/" target="_blank" rel="noopener">

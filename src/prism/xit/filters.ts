@@ -4,8 +4,6 @@ import type { NamedFilter, NamedFilterStore } from './types'
 const OLD_KEY = 'dashboard:v1:xit-filters'
 const STORAGE_KEY = 'dashboard:v2:xit-filters'
 
-let nextId = 1
-
 async function migrateOldKey(runtime: Runtime): Promise<void> {
   const raw = await runtime.getValue<unknown>(OLD_KEY, null)
   if (raw !== null && raw !== undefined) {
@@ -14,22 +12,25 @@ async function migrateOldKey(runtime: Runtime): Promise<void> {
   }
 }
 
-function bumpNextId(store: NamedFilterStore): void {
-  store.filters.forEach((f) => {
+// Highest numeric id matching the `f<number>` convention, or 0 when none.
+// Replaces a module-level counter so filter-id assignment is pure/idempotent
+// (no global mutable state shared across calls).
+function highestFilterNum(store: NamedFilterStore): number {
+  let max = 0
+  for (const f of store.filters) {
     const m = /^f(\d+)$/.exec(f.id)
-    if (m) {
-      const n = Number(m[1]) + 1
-      if (n > nextId) nextId = n
-    }
-  })
+    if (m) max = Math.max(max, Number(m[1]))
+  }
+  return max
 }
 
 function deduplicateIds(store: NamedFilterStore): boolean {
   const seen = new Set<string>()
+  let max = highestFilterNum(store)
   let changed = false
   store.filters.forEach((f) => {
     if (seen.has(f.id)) {
-      f.id = `f${nextId++}`
+      f.id = `f${++max}`
       changed = true
     }
     seen.add(f.id)
@@ -45,7 +46,6 @@ export async function loadFilters(runtime: Runtime): Promise<NamedFilterStore> {
   await migrateOldKey(runtime)
   const raw = await runtime.getValue<NamedFilterStore | null>(STORAGE_KEY, null)
   if (!raw || !Array.isArray(raw.filters)) return emptyStore()
-  bumpNextId(raw)
   const changed = deduplicateIds(raw)
   if (changed) await saveFilters(runtime, raw)
   return raw
@@ -62,7 +62,7 @@ export async function addFilter(
 ): Promise<NamedFilter> {
   const store = await loadFilters(runtime)
   const filter: NamedFilter = {
-    id: `f${nextId++}`,
+    id: `f${highestFilterNum(store) + 1}`,
     name,
     query,
     isDefault: false,

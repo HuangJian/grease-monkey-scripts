@@ -1,5 +1,6 @@
 import type { Runtime } from '../../runtime'
-import { CACHE_KEY, type Config, type Source } from '../types'
+import { CACHE_KEY, type Source } from '../types'
+import type { Config } from '../config/types'
 import { loadConfig } from '../config'
 import { createSourceRegistry, findSource } from './source-registry'
 import { renderAllGroups, renderGroupById, type GroupRendererDeps } from './group-renderer'
@@ -8,6 +9,7 @@ import { mountDashboard } from './lifecycle'
 import { bootstrapShortcut } from './shortcut-bootstrap'
 import { bootstrapSync } from './sync-bootstrap'
 import type { OverlayHandle } from '../shell/mount'
+import { showEditorDialog } from '../shell/editor'
 
 export { isHostAllowed } from './host-allowlist'
 
@@ -17,7 +19,7 @@ export type DashboardOptions = {
 
 export type Dashboard = {
   start: () => void
-  open: () => Promise<void>
+  open: () => Promise<OverlayHandle>
   close: () => void
   toggle: () => void
   refreshSource: (sourceId: string) => Promise<void>
@@ -70,6 +72,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
         if (!handle) return
         void renderGroupById(groupId, reg.groupById, reg.groupForSource, getRendererDeps()!)
       },
+      showEditorDialog,
     }
   }
 
@@ -116,8 +119,8 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     )
   }
 
-  async function open(): Promise<void> {
-    if (handle) return
+  async function open(): Promise<OverlayHandle> {
+    if (handle) return handle
     const mounted = mountDashboard({
       runtime,
       cardGroups: reg.cardGroups,
@@ -145,6 +148,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
       () => void doRunOpportunisticRefresh(),
       FOREGROUND_REFRESH_INTERVAL_MS,
     )
+    return handle
   }
 
   function close(): void {

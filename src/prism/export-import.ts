@@ -1,5 +1,6 @@
 import type { Runtime } from '../runtime'
-import { CONFIG_KEY, type Config } from './types'
+import { CONFIG_KEY } from './types'
+import type { Config } from './config/types'
 import { XIT_CACHE_KEY, XIT_CACHE_STORAGE_KEY, XIT_FILTERS_KEY } from './keys'
 import { loadCache, saveCache } from './cache'
 import { deepMerge } from './config'

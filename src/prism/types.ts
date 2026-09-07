@@ -32,79 +32,6 @@ export type CachedSource<T> = {
   failureCount?: number
 }
 
-import type { WeatherCity } from './weather/types'
-import type { NovelBookConfig } from './novels/types'
-import type { TnewsConfig } from './tnews/types'
-import type { MiscOptions } from './misc/types'
-import type { XueqiuSourceOptions } from './xueqiu/types'
-
-// Data types for the §2.6 `AnySource` discriminated union (single source of truth).
-import type { V2exTopic } from './v2ex/types'
-import type { WeatherData } from './weather/types'
-import type { NovelData } from './novels/types'
-import type { RedditRenderData } from './reddit/source'
-import type { HupuRenderData } from './hupu/source'
-import type { TnewsItem } from './tnews/types'
-import type { XueqiuRenderData } from './xueqiu/types'
-import type { XitData } from './xit/types'
-import type { MiscData } from './misc/types'
-
-export type RedditConfig = {
-  ttlMinutes: number
-  retentionDays: number
-  todayMinComments: number
-  olderMinComments: number
-  ageHalfLifeDays: number
-  subreddits: string[]
-}
-
-export type HupuConfig = {
-  ttlMinutes: number
-  retentionDays: number
-  boards: string[]
-  todayMinReplies: number
-  olderMinReplies: number
-  ageHalfLifeDays: number
-  lightsWeight: number
-  repliesWeight: number
-}
-
-export type Config = {
-  weather: {
-    cities: WeatherCity[]
-    ttlMinutes: number
-  }
-  v2ex: {
-    ttlMinutes: number
-    retentionDays: number
-    todayMinReplies: number
-    olderMinReplies: number
-    ageHalfLifeDays: number
-  }
-  reddit: RedditConfig
-  hupu: HupuConfig
-  novels: {
-    books: NovelBookConfig[]
-    ttlMinutes: number
-    initialNewChapters: number
-    maxNewChaptersPerBook: number
-    maxLatestWindow: number
-  }
-  tnews: TnewsConfig
-  xueqiu: XueqiuSourceOptions
-  misc?: MiscOptions
-  xit: {
-    enabled: boolean
-    placement: 'main' | 'side'
-  }
-  shortcut: {
-    doublePressWindowMs: number
-    enabled: boolean
-  }
-  hostAllowlist: string[]
-  sourceSettings: Record<string, SourceSettings>
-}
-
 export type SourceEditorContext = {
   runtime: Runtime
   onRevert: () => void
@@ -140,6 +67,22 @@ export type SourceSettings = {
   badgeType: BadgeType
 }
 
+/**
+ * Structural type for opening the shared editor dialog. Defined here (not in
+ * `shell/editor`) so feature/card modules can depend on it without importing
+ * shell — the concrete implementation is injected at the app composition root
+ * and threaded down through `SourceComponentProps`.
+ */
+export type ShowEditorDialog = (
+  root: ShadowRoot,
+  title: string | VNode,
+  runtime: Runtime,
+  renderEditor: (
+    container: HTMLElement,
+    close: () => void,
+  ) => SourceEditorResult | Promise<SourceEditorResult>,
+) => () => void
+
 export type SourceComponentProps<T> = {
   data: T | null
   /**
@@ -149,6 +92,8 @@ export type SourceComponentProps<T> = {
   root: ShadowRoot | HTMLElement
   runtime: Runtime
   onNotify?: (() => void) | undefined
+  /** Injected at the composition root; opens the shared editor dialog. */
+  showEditorDialog?: ShowEditorDialog
 }
 
 export type SourceHeaderProps<T> = {
@@ -186,25 +131,6 @@ export type Source<T, Id extends string = string> = {
   createEditor?: (settings: SourceSettings) => SourceEditor
 }
 
-/**
- * §2.6 discriminated union: the registry holds one of these per source, each
- * member keeping its concrete data type `T` and literal `id`. Unlike the old
- * `Source<unknown>[]` (which erased `T` at the registry boundary), a consumer
- * can recover `T` by narrowing on `source.id`. `Id` defaults to `string` so
- * every other `Source<X>` usage in the codebase is unchanged.
- */
-export type AnySource =
-  | Source<V2exTopic[], 'v2ex'>
-  | Source<WeatherData, 'weather'>
-  | Source<NovelData, 'novels'>
-  | Source<RedditRenderData, 'reddit'>
-  | Source<HupuRenderData, 'hupu'>
-  | Source<TnewsItem[], 'tnews'>
-  | Source<XueqiuRenderData, 'xueqiu-news'>
-  | Source<XueqiuRenderData, 'xueqiu-hot'>
-  | Source<XitData, 'xit'>
-  | Source<MiscData, 'misc'>
-
 export const DEFAULT_SOURCE_SETTINGS: SourceSettings = {
   tabTitle: '',
   priority: 0,
@@ -216,20 +142,4 @@ export function getSourceSettings(
   sourceId: string,
 ): SourceSettings {
   return all?.[sourceId] ?? DEFAULT_SOURCE_SETTINGS
-}
-
-/**
- * Single, type-safe cache-read erasure point (§2.6). Given a (possibly
- * narrowed) `Source<T>`, recovers `T | null` from a `CachedSource<unknown>`
- * without scattering `as T | null` / `as unknown` across the render layer.
- * When `source` is a discriminated-union member (e.g. after `findSource` +
- * `id` narrowing), `T` is the source's real data type; in a heterogeneous
- * `CardGroup` loop `T` degenerates to the union and the cast degrades to
- * `as unknown` — which is the inherent erasure documented in S8.plan.md §1.7.
- */
-export function readSourceData<T, Id extends string>(
-  _source: Source<T, Id>,
-  cached: CachedSource<unknown> | null,
-): T | null {
-  return (cached?.data ?? null) as T | null
 }

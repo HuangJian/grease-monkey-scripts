@@ -1,9 +1,9 @@
 import type { ComponentChildren } from 'preact'
 import type { Runtime } from '../../runtime'
-import type { CachedSource, Source } from '../types'
-import { readSourceData } from '../types'
+import type { CachedSource, ShowEditorDialog, Source } from '../types'
+import { readSourceData } from '../source-types'
 import { CardTitle, CardActions } from './primitives'
-import { createEditHandler } from '../shell/editor'
+import { createEditHandler } from './edit-handler'
 
 export type CardProps = {
   header?: ComponentChildren
@@ -30,6 +30,7 @@ export type CardOptions<T> = {
   root: ShadowRoot
   onRefresh: () => Promise<void>
   onRevert: () => void
+  showEditorDialog: ShowEditorDialog
 }
 
 export function RenderCard<T>({
@@ -41,6 +42,7 @@ export function RenderCard<T>({
   root,
   onRefresh,
   onRevert,
+  showEditorDialog,
 }: CardOptions<T>) {
   const Comp = source.RenderComponent
   const HeaderComp = source.RenderHeader
@@ -52,6 +54,7 @@ export function RenderCard<T>({
     root,
     onRevert: () => onRevert(),
     onRefresh: () => onRefresh(),
+    showEditorDialog,
   })
 
   const headerProps = {
@@ -95,7 +98,7 @@ export function RenderCard<T>({
 
   return (
     <Card header={header} error={cached?.error ?? ''}>
-      <Comp data={data} root={root} runtime={runtime} />
+      <Comp data={data} root={root} runtime={runtime} showEditorDialog={showEditorDialog} />
     </Card>
   )
 }

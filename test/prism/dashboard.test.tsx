@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { cleanup, within } from '@testing-library/preact'
-import { createDashboard, isHostAllowed } from '../../src/prism/app'
+import { createDashboard, isHostAllowed, type Dashboard } from '../../src/prism/app'
 import { DEFAULT_CONFIG, validateConfig } from '../../src/prism/config'
-import { getMountedRoot } from '../../src/prism/shell/mount'
+import type { OverlayHandle } from '../../src/prism/shell/mount'
 import {
   CACHE_KEY,
   CACHE_SCHEMA_VERSION,
@@ -11,11 +11,19 @@ import {
 } from '../../src/prism/types'
 import { createRuntime, type TestRuntime } from '../runtime'
 
-function shadowOf(id = 'gm-dashboard'): ShadowRoot {
-  const host = document.getElementById(id) as HTMLElement
-  const root = host.shadowRoot ?? getMountedRoot(host)
-  if (!root) throw new Error(`no shadow root for #${id}`)
-  return root
+// open() returns the OverlayHandle; its `.root` is the (closed) shadow root.
+// Capture it here so tests don't need the removed module-level root registry.
+let currentRoot: ShadowRoot | null = null
+
+async function openDashboard(dashboard: Dashboard): Promise<OverlayHandle> {
+  const handle = await dashboard.open()
+  currentRoot = handle.root
+  return handle
+}
+
+function shadowOf(): ShadowRoot {
+  if (!currentRoot) throw new Error('dashboard not opened')
+  return currentRoot
 }
 
 describe('createDashboard', () => {
@@ -44,7 +52,7 @@ describe('createDashboard', () => {
     }
     const dashboard = createDashboard(runtime, { config })
     dashboard.start()
-    await dashboard.open()
+    await openDashboard(dashboard)
     const host = document.getElementById('gm-dashboard')
     expect(host).not.toBeNull()
     expect(host!.shadowRoot).toBeNull()
@@ -75,7 +83,7 @@ describe('createDashboard', () => {
     runtime.stores[CACHE_KEY('v2ex')] = v2exCache
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
-    await dashboard.open()
+    await openDashboard(dashboard)
     const shadow = shadowOf()
     const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
     const v2exPanel = browseCard.querySelector(
@@ -117,7 +125,7 @@ describe('createDashboard', () => {
     runtime.stores[STATE_KEY('v2ex')] = { '1': { r: now } }
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
-    await dashboard.open()
+    await openDashboard(dashboard)
     const shadow = shadowOf()
     const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
     const v2exPanel = browseCard.querySelector(
@@ -151,7 +159,7 @@ describe('createDashboard', () => {
     runtime.stores[CACHE_KEY('reddit')] = redditCache
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
-    await dashboard.open()
+    await openDashboard(dashboard)
     const shadow = shadowOf()
     const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
     const redditPanel = browseCard.querySelector(
@@ -184,7 +192,7 @@ describe('createDashboard', () => {
     runtime.stores[CACHE_KEY('novels')] = novelsCache
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
-    await dashboard.open()
+    await openDashboard(dashboard)
     const shadow = shadowOf()
     const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
     const tabs = within(browseCard).getAllByRole('tab')
@@ -196,7 +204,7 @@ describe('createDashboard', () => {
   test('clicking the novels tab activates its panel', async () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
-    await dashboard.open()
+    await openDashboard(dashboard)
     const shadow = shadowOf()
     const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
     ;(within(browseCard).getAllByRole('tab')[1] as HTMLButtonElement).click()
@@ -208,7 +216,7 @@ describe('createDashboard', () => {
   test('close() removes the host element', async () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
-    await dashboard.open()
+    await openDashboard(dashboard)
     dashboard.close()
     expect(document.getElementById('gm-dashboard')).toBeNull()
   })
@@ -222,7 +230,7 @@ describe('createDashboard', () => {
     }
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
-    await dashboard.open()
+    await openDashboard(dashboard)
     dashboard.close()
     const stored = runtime.stores[tnewsStateKey] as Record<string, { r?: number }>
     expect(stored['https://t.me/tnews365/100']).toBeDefined()
@@ -232,7 +240,7 @@ describe('createDashboard', () => {
   test('clicking backdrop closes the overlay', async () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
-    await dashboard.open()
+    await openDashboard(dashboard)
     const shadow = shadowOf()
     const backdrop = shadow.querySelector('.gm-sp-backdrop')!
     backdrop.dispatchEvent(new MouseEvent('click', { bubbles: true }))
@@ -242,7 +250,7 @@ describe('createDashboard', () => {
   test('remote change listener re-renders the matching card', async () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
-    await dashboard.open()
+    await openDashboard(dashboard)
     const topic = {
       id: 9,
       title: 'live-update',
@@ -320,7 +328,7 @@ describe('createDashboard', () => {
       d.onload({ responseText: '[]', status: 200, responseHeaders: '' })) as typeof runtime.request
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
-    await dashboard.open()
+    await openDashboard(dashboard)
     await dashboard.refreshSource('v2ex')
     const shadow = shadowOf()
     const browseCard = shadow.querySelector('[data-source="browse"]') as HTMLElement
@@ -414,7 +422,7 @@ describe('createDashboard', () => {
   test('Esc closes the overlay', async () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
-    await dashboard.open()
+    await openDashboard(dashboard)
     document.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
     )

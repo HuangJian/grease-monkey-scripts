@@ -1,4 +1,4 @@
-import type { Config } from '../types'
+import type { Config } from '../config/types'
 
 export function isHostAllowed(config: Config, hostname: string): boolean {
   if (config.hostAllowlist.length === 0) return true

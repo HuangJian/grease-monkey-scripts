@@ -3,7 +3,7 @@ import type { ComponentChildren } from 'preact'
 import type { CachedSource } from '../types'
 import type { Runtime } from '../../runtime'
 import { VERY_STALE_MULTIPLIER } from '../types'
-import { RefreshIcon, ConfigIcon } from './icons'
+import { RefreshIcon, ConfigIcon } from '../shared/icons'
 
 export function formatRelativeTime(fetchedAt: number | null, now: number): string {
   if (fetchedAt == null) return '\u4ECE\u672A\u66F4\u65B0'

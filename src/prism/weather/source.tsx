@@ -66,6 +66,7 @@ export function createWeatherSource(options: WeatherSourceOptions): Source<Weath
       return currentOptions.ttlMinutes * 60_000
     },
     placement: 'side',
+    // 省略 loadState：无预载状态（AGENTS.md 可选字段省略约定；exactOptionalPropertyTypes 下不显式赋值 undefined）
     async fetch(runtime, prevData) {
       currentOptions = await loadFreshWeatherOptions(runtime, currentOptions)
       const cities = currentOptions.cities

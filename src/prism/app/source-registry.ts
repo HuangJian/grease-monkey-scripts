@@ -8,10 +8,21 @@ import { createTnewsSource } from '../tnews'
 import { createXueqiuSources } from '../xueqiu'
 import { createXitSource } from '../xit/source'
 import { createMiscSource } from '../misc'
-import type { AnySource, Config } from '../types'
+import type { AnySource } from '../source-types'
+import type { Config } from '../config/types'
+import type { Source } from '../types'
 import { buildCardGroups, type CardGroup } from '../card-group'
 
 export type SourceRegistry = ReturnType<typeof createSourceRegistry>
+
+// §4.7 interface-completeness guard: `AnySource` must remain a union of
+// `Source<T>` members. If a registry source ever stops satisfying `Source`
+// (e.g. drops `fetch` or `title`), `SourceShapeSatisfied` becomes `false` and
+// `RequireSourceShape<SourceShapeSatisfied>` fails to compile, preventing silent
+// drift of the `Source` contract that the render layer relies on.
+type RequireSourceShape<T extends true> = T
+type SourceShapeSatisfied = AnySource extends Source<any, any> ? true : false
+export type SourceShape = RequireSourceShape<SourceShapeSatisfied>
 
 export function createSourceRegistry(config: Config, runtime: Runtime) {
   const tnews = createTnewsSource(config.tnews)

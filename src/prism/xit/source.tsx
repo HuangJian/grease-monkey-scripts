@@ -1,8 +1,8 @@
 import type { Runtime } from '../../runtime'
 import type { Source, SourceHeaderProps, SourceSettings } from '../types'
-import { createHeaderState, type HeaderStateStore } from '../header-state'
+import type { HeaderStateStore } from '../header-state'
 import { loadCache, saveCache } from '../cache'
-import { XitHeaderControls, type XitHeaderState } from './component/header'
+import { XitHeaderControls, createXitHeaderState, type XitHeaderState } from './component/header'
 import { XitBody } from './component/body'
 import { createXitEditor } from './editor'
 import { DEFAULT_XIT_TEXT } from './constants'
@@ -15,14 +15,7 @@ export function createXitSource(
 ): Source<XitData, 'xit'> {
   const placement = options?.placement ?? 'main'
 
-  const headerStore: HeaderStateStore<XitHeaderState> = createHeaderState<XitHeaderState>({
-    query: '',
-    queryError: null,
-    filterStore: null,
-    showFilters: false,
-    saveForm: null,
-    editFilter: null,
-  })
+  const headerStore: HeaderStateStore<XitHeaderState> = createXitHeaderState()
 
   const source: Source<XitData, 'xit'> = {
     id: 'xit',

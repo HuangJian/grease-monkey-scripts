@@ -305,8 +305,9 @@ status 校验分裂：`>=400` 拦截只有 tnews/reddit/hupu/misc 有；v2ex/nov
 
 ### 4.12 死代码 + 死配置（接线或删除）
 
-- `novels/state.ts:11 isNewChapter`、`xit/source.tsx:25 getTagCounts`、`novels/state.ts:4 initialSeenKey` 全仓 0 调用。
-- 连带 `initialNewChapters`（`types.ts:78`）、`maxNewChaptersPerBook`（`types.ts:79`）在运行时**完全无效**——折叠阈值硬编码在 `novels/merge.ts:4-5`，但 UI 暴露了"折叠阈值"输入框。→ 要么把 `maxNewChaptersPerBook` 传进 `mergeSourceChapters`，要么从 `novels/editor/types.ts` 删掉这两项。
+- **勘误（S9.1 复核）**：`xit/source.tsx:25 getTagCounts` **非死代码**——定义在 `xit/tag-counts.ts:3`，有调用方 `xit/component/header.tsx:5,41`，存活，保留。
+- **真正死代码（S9.1 已删）**：`novels/state.ts:11 isNewChapter`、`novels/state.ts:4 initialSeenKey` 全仓 0 调用，已从 `novels/state.ts` 删除；保留 `newChapters`/`newChapterCount`（有调用方）。
+- **勘误（S9.1 复核）**：`initialNewChapters`（`types.ts:78`）、`maxNewChaptersPerBook`（`types.ts:79`）**非无效**——被 `config/defaults.ts`、`config/validate.ts`、`novels/editor/*`、`novels/source.tsx`、`novels/fetcher.ts` 等多处活跃使用。`novels/merge.ts:4-5` 的 `20/10` 是**展示折叠**独立阈值，与编辑器"折叠阈值"是两回事，非 bug，留作后续观察（不纳入 S9）。
 
 ### 4.13 兼容性与细节
 

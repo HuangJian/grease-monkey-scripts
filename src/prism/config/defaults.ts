@@ -1,4 +1,4 @@
-import type { Config } from '../types'
+import type { Config } from '../config/types'
 
 export const DEFAULT_CONFIG: Config = {
   weather: {

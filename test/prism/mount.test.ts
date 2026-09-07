@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { mountOverlay, getMountedRoot } from '../../src/prism/shell/mount'
+import { mountOverlay } from '../../src/prism/shell/mount'
 import { createRuntime, type TestRuntime } from '../runtime'
 
 describe('mountOverlay', () => {
@@ -18,7 +18,7 @@ describe('mountOverlay', () => {
     const host = document.getElementById('gm-dashboard') as HTMLElement
     expect(host).not.toBeNull()
     expect(host.parentElement).toBe(document.body)
-    expect(handle.root).toBe(getMountedRoot(host)!)
+    expect(handle.root).not.toBeNull()
   })
 
   test('uses closed shadow root (host.shadowRoot is null)', () => {

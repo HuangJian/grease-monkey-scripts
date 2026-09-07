@@ -12,6 +12,7 @@
  */
 import { loadCache } from '../cache'
 import { hasKnownTimestamp } from '../shared-utils'
+import { requestTextWithHeaders } from '../shared/request'
 import type { Runtime } from '../../runtime'
 import type { XueqiuRenderData, XueqiuNewsItem, XueqiuSourceOptions } from './types'
 
@@ -70,27 +71,17 @@ function waitJitter(
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-/** GM_xmlhttpRequest wrapper — for NEWS endpoint (no WAF). */
+/** GM_xmlhttpRequest wrapper — for NEWS endpoint (no WAF).
+ *  Retries on HTTP 429 (rate limit) up to twice via shared/request. */
 function gmFetchJson(runtime: Runtime, url: string): Promise<ApiResponse> {
-  return new Promise((resolve, reject) => {
-    runtime.request({
-      method: 'GET',
-      url,
-      timeout: 15000,
-      onload: (res) => {
-        if (res.status !== 200) {
-          reject(new Error(`HTTP ${res.status} for ${url}`))
-          return
-        }
-        try {
-          resolve(JSON.parse(res.responseText) as ApiResponse)
-        } catch (e) {
-          reject(new Error(`JSON parse failed for ${url}: ${(e as Error).message}`))
-        }
-      },
-      onerror: () => reject(new Error(`Network error for ${url}`)),
-      ontimeout: () => reject(new Error(`Timeout for ${url}`)),
-    })
+  return requestTextWithHeaders(runtime, url, {
+    retry: { statuses: [429], max: 2 },
+  }).then((res) => {
+    try {
+      return JSON.parse(res.text) as ApiResponse
+    } catch (e) {
+      throw new Error(`JSON parse failed for ${url}: ${(e as Error).message}`, { cause: e })
+    }
   })
 }
 

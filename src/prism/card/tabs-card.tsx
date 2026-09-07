@@ -1,10 +1,10 @@
 import type { Runtime } from '../../runtime'
 import type { CardGroup } from '../card-group'
-import type { CachedSource, SourceSettings } from '../types'
+import type { CachedSource, ShowEditorDialog, SourceSettings } from '../types'
 import { getSourceSettings } from '../types'
 import { Tabs, type TabsItem } from './tabs'
 import { CardActions } from './primitives'
-import { createEditHandler } from '../shell/editor'
+import { createEditHandler } from './edit-handler'
 import { Card } from './card'
 
 export type TabsCardProps = {
@@ -18,6 +18,7 @@ export type TabsCardProps = {
   onTabChange: (tabId: string) => void
   onRefresh: (sourceId: string) => Promise<void>
   onEdit: (sourceId: string) => void
+  showEditorDialog: ShowEditorDialog
 }
 
 export function TabsCard({
@@ -31,6 +32,7 @@ export function TabsCard({
   onTabChange,
   onRefresh: onRefreshCallback,
   onEdit: onEditCallback,
+  showEditorDialog,
 }: TabsCardProps) {
   const activeTab = group.tabs.find((t) => t.id === activeTabId) ?? group.tabs[0]!
   const activeCached = caches.get(activeTab.id) ?? null
@@ -42,6 +44,7 @@ export function TabsCard({
     root,
     onRevert: (id) => onEditCallback(id),
     onRefresh: (id) => onRefreshCallback(id),
+    showEditorDialog,
   })
 
   const tabItems: TabsItem[] = group.tabs.map((tab) => {
@@ -103,7 +106,13 @@ export function TabsCard({
         data-tab-id={tab.id}
         hidden={!isActive}
       >
-        <Comp data={data} root={root} runtime={runtime} onNotify={() => onTabChange(tab.id)} />
+        <Comp
+          data={data}
+          root={root}
+          runtime={runtime}
+          onNotify={() => onTabChange(tab.id)}
+          showEditorDialog={showEditorDialog}
+        />
       </div>
     )
   })

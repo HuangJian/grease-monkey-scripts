@@ -1,16 +1,23 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { createDashboard } from '../../src/prism/app'
+import { createDashboard, type Dashboard } from '../../src/prism/app'
 import { DEFAULT_CONFIG } from '../../src/prism/config'
-import { getMountedRoot } from '../../src/prism/shell/mount'
+import type { OverlayHandle } from '../../src/prism/shell/mount'
 import { CACHE_KEY, CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/prism/types'
 import { createRuntime, type TestRuntime } from '../runtime'
 
-function shadowOf(id = 'gm-dashboard'): ShadowRoot {
-  const host = document.getElementById(id) as HTMLElement
-  if (!host) throw new Error('host not mounted')
-  const root = getMountedRoot(host)
-  if (!root) throw new Error(`no shadow root for #${id}`)
-  return root
+// open() returns the OverlayHandle; its `.root` is the (closed) shadow root.
+// Capture it here so tests don't need the removed module-level root registry.
+let currentRoot: ShadowRoot | null = null
+
+async function openDashboard(dashboard: Dashboard): Promise<OverlayHandle> {
+  const handle = await dashboard.open()
+  currentRoot = handle.root
+  return handle
+}
+
+function shadowOf(): ShadowRoot {
+  if (!currentRoot) throw new Error('dashboard not opened')
+  return currentRoot
 }
 
 describe('cross-tab broadcast', () => {
@@ -48,7 +55,7 @@ describe('cross-tab broadcast', () => {
       d.onload({ responseText: '[]', status: 200, responseHeaders: '' })) as typeof runtime.request
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
-    await dashboard.open()
+    await openDashboard(dashboard)
     const shadow = shadowOf()
     // The dashboard's own listener is registered, but setValue (called inside
     // refreshSource) must not fire it. We assert the card updates *anyway*
@@ -63,7 +70,7 @@ describe('cross-tab broadcast', () => {
   test('remote change from another tab re-renders the open card', async () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
-    await dashboard.open()
+    await openDashboard(dashboard)
     const topic = {
       id: 1,
       title: 'from-other-tab',
@@ -92,7 +99,7 @@ describe('cross-tab broadcast', () => {
   test('remote change to reddit cache re-renders the open card', async () => {
     const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
     dashboard.start()
-    await dashboard.open()
+    await openDashboard(dashboard)
     const newCache: CachedSource<unknown> = {
       schemaVersion: CACHE_SCHEMA_VERSION,
       data: {

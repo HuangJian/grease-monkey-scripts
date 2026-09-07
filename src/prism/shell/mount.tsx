@@ -26,12 +26,6 @@ export type OverlayHandle = {
   unmount: () => void
 }
 
-const roots = new WeakMap<HTMLElement, ShadowRoot>()
-
-export function getMountedRoot(host: HTMLElement): ShadowRoot | null {
-  return roots.get(host) ?? null
-}
-
 type OverlayHandleRef = { current: OverlayHandle | null }
 
 type OverlayMountProps = {
@@ -53,7 +47,6 @@ function OverlayMount({ host, handleRef, root, runtime, onClose }: OverlayMountP
   const [hovered, setHovered] = useState(false)
 
   useLayoutEffect(() => {
-    roots.set(host, root)
     handleRef.current = {
       root,
       backdrop: backdropRef.current!,

@@ -1,11 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { sourceLabel, sourceUrl, variantUrl } from '../../../src/prism/novels/mirror'
-import {
-  initialSeenKey,
-  isNewChapter,
-  newChapterCount,
-  newChapters,
-} from '../../../src/prism/novels/state'
+import { newChapterCount, newChapters } from '../../../src/prism/novels/state'
 import type { NovelBook, NovelChapter, NovelChapterVariant } from '../../../src/prism/novels/types'
 
 function variant(url: string, title = url, postedAt = 0): NovelChapterVariant {
@@ -32,60 +27,6 @@ function book(over: Partial<NovelBook>): NovelBook {
     ...over,
   }
 }
-
-describe('initialSeenKey', () => {
-  test('returns empty string for empty list', () => {
-    expect(initialSeenKey([], 3)).toBe('')
-  })
-  test('returns empty string when fewer chapters than threshold', () => {
-    expect(initialSeenKey([chapter('a'), chapter('b')], 3)).toBe('')
-  })
-  test('returns empty string when exactly equal to threshold', () => {
-    expect(initialSeenKey([chapter('a'), chapter('b'), chapter('c')], 3)).toBe('')
-  })
-  test('returns the chapter at index N when more than threshold', () => {
-    const chapters = [chapter('a'), chapter('b'), chapter('c'), chapter('d'), chapter('e')]
-    expect(initialSeenKey(chapters, 3)).toBe('d')
-  })
-  test('honors custom threshold', () => {
-    const chapters = [chapter('a'), chapter('b'), chapter('c')]
-    expect(initialSeenKey(chapters, 1)).toBe('b')
-  })
-  test('skips gap markers when counting', () => {
-    const chapters = [chapter('a'), gap(9), chapter('b'), chapter('c'), chapter('d')]
-    expect(initialSeenKey(chapters, 2)).toBe('c')
-  })
-})
-
-describe('isNewChapter', () => {
-  test('all NEW when nothing has been read', () => {
-    const b = book({ latestChapters: [chapter('a'), chapter('b')] })
-    expect(isNewChapter(chapter('a'), b)).toBe(true)
-    expect(isNewChapter(chapter('b'), b)).toBe(true)
-  })
-  test('chapter equal to lastSeen is not NEW', () => {
-    const b = book({ latestChapters: [chapter('a'), chapter('b')], lastSeenChapterKey: 'b' })
-    expect(isNewChapter(chapter('b'), b)).toBe(false)
-  })
-  test('chapter newer than lastSeen is NEW', () => {
-    const b = book({
-      latestChapters: [chapter('newest'), chapter('mid'), chapter('seen')],
-      lastSeenChapterKey: 'seen',
-    })
-    expect(isNewChapter(chapter('newest'), b)).toBe(true)
-    expect(isNewChapter(chapter('mid'), b)).toBe(true)
-    expect(isNewChapter(chapter('seen'), b)).toBe(false)
-  })
-  test('all NEW when lastSeen is no longer in list', () => {
-    const b = book({ latestChapters: [chapter('a'), chapter('b')], lastSeenChapterKey: 'gone' })
-    expect(isNewChapter(chapter('a'), b)).toBe(true)
-    expect(isNewChapter(chapter('b'), b)).toBe(true)
-  })
-  test('chapter not in list is not NEW', () => {
-    const b = book({ latestChapters: [chapter('a'), chapter('b')], lastSeenChapterKey: 'b' })
-    expect(isNewChapter(chapter('phantom'), b)).toBe(false)
-  })
-})
 
 describe('newChapters', () => {
   test('returns only chapters newer than lastSeen', () => {

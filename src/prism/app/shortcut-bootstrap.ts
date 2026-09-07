@@ -1,7 +1,7 @@
 import type { Runtime } from '../../runtime'
 import { createDoubleShiftHandler, isEditableTarget } from '../shortcut'
 import { isHostAllowed } from './host-allowlist'
-import type { Config } from '../types'
+import type { Config } from '../config/types'
 
 export type ShortcutBootstrapDeps = {
   runtime: Runtime

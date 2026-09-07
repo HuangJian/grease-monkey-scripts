@@ -1,4 +1,5 @@
-import type { AnySource, Source, SourceSettings } from './types'
+import type { AnySource } from './source-types'
+import type { Source, SourceSettings } from './types'
 
 export type CardGroup = {
   id: string

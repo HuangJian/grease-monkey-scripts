@@ -7,6 +7,7 @@ import { RenderCard } from '../../src/prism/card/card'
 import type { Source } from '../../src/prism/types'
 import { CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/prism/types'
 import type { CardOptions } from '../../src/prism/card/card'
+import { showEditorDialog } from '../../src/prism/shell/editor'
 import { createRuntime } from '../runtime'
 
 function stubSource(): Source<unknown> {
@@ -38,8 +39,14 @@ function suppressConsoleError(fn: () => void): void {
   }
 }
 
-function renderCard(opts: CardOptions<unknown>): HTMLElement {
-  const { container } = render(<RenderCard {...opts} />)
+function renderCard(
+  opts: Omit<CardOptions<unknown>, 'showEditorDialog'> & {
+    showEditorDialog?: CardOptions<unknown>['showEditorDialog']
+  },
+): HTMLElement {
+  const { container } = render(
+    <RenderCard {...opts} showEditorDialog={opts.showEditorDialog ?? showEditorDialog} />,
+  )
   const el = container as unknown as HTMLElement
   el.dataset['source'] = opts.source.id
   return el

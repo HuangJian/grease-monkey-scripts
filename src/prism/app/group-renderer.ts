@@ -2,7 +2,7 @@ import { render } from 'preact'
 import { h } from 'preact'
 import type { Runtime } from '../../runtime'
 import { loadCache } from '../cache'
-import type { CachedSource, SourceSettings } from '../types'
+import type { CachedSource, ShowEditorDialog, SourceSettings } from '../types'
 import type { CardGroup } from '../card-group'
 import { RenderCard } from '../card/card'
 import { TabsCard } from '../card/tabs-card'
@@ -15,6 +15,8 @@ export type GroupRendererDeps = {
   sourceSettings: Record<string, SourceSettings>
   refreshSource: (sourceId: string) => Promise<void>
   revertGroup: (groupId: string) => void
+  /** Injected at the composition root (shell/editor's showEditorDialog). */
+  showEditorDialog: ShowEditorDialog
 }
 
 export function isTabsGroup(group: CardGroup): boolean {
@@ -75,6 +77,7 @@ export async function renderGroup(
             deps,
           )
         },
+        showEditorDialog: deps.showEditorDialog,
       }),
       card,
     )
@@ -92,6 +95,7 @@ export async function renderGroup(
         root,
         onRefresh: () => deps.refreshSource(source.id),
         onRevert: () => deps.revertGroup(group.id),
+        showEditorDialog: deps.showEditorDialog,
       }),
       card,
     )

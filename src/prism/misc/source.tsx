@@ -47,6 +47,7 @@ export function createMiscSource(runtime: Runtime): Source<MiscData, 'misc'> {
     },
     groupId: 'browse',
     order: 10,
+    // 省略 loadState：无预载状态（AGENTS.md 可选字段省略约定；exactOptionalPropertyTypes 下不显式赋值 undefined）
     RenderComponent: ({ data }) => {
       const openrouter = data?.openrouter ?? { data: null, error: null }
 

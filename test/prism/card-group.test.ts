@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { buildCardGroups } from '../../src/prism/card-group'
-import type { AnySource, Source } from '../../src/prism/types'
+import type { AnySource } from '../../src/prism/source-types'
+import type { Source } from '../../src/prism/types'
 
 function source(id: string, overrides: Partial<Source<unknown>> = {}): AnySource {
   return {

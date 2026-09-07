@@ -23,6 +23,7 @@ export function createNovelsSource(
     },
     groupId: 'browse',
     order: 2,
+    // 无 loadState：本地阅读进度等状态在 fetch 内经 mergeLatestSeen 派生，无需预载（AGENTS.md 可选字段省略约定）
     RenderComponent: ({ data, root }) => (
       <NovelsComponent
         data={data}

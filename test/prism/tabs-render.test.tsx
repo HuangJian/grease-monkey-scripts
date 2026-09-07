@@ -7,7 +7,9 @@ import { TabsCard } from '../../src/prism/card/tabs-card'
 import type { CardGroup } from '../../src/prism/card-group'
 import { CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/prism/types'
 import { createRuntime } from '../runtime'
-import type { AnySource, Source, TabLabel } from '../../src/prism/types'
+import { showEditorDialog } from '../../src/prism/shell/editor'
+import type { AnySource } from '../../src/prism/source-types'
+import type { Source, TabLabel } from '../../src/prism/types'
 
 function cached<T>(data: T | null, fetchedAt = 1_000_000, error = ''): CachedSource<T> {
   return { schemaVersion: CACHE_SCHEMA_VERSION, data, fetchedAt, error }
@@ -56,6 +58,7 @@ function renderOnce(opts: {
   onRefresh?: (id: string) => Promise<void>
   onEdit?: (id: string) => void
   now?: number
+  showEditorDialog?: typeof showEditorDialog
 }) {
   let tabChanges: string[] = []
   let refreshes: string[] = []
@@ -81,6 +84,7 @@ function renderOnce(opts: {
         edits.push(id)
         opts.onEdit?.(id)
       }}
+      showEditorDialog={opts.showEditorDialog ?? showEditorDialog}
     />,
   )
   const el = container as unknown as HTMLElement
@@ -284,6 +288,7 @@ describe('renderTabsCard', () => {
         onTabChange={() => {}}
         onRefresh={async () => {}}
         onEdit={() => {}}
+        showEditorDialog={showEditorDialog}
       />,
       { container },
     )

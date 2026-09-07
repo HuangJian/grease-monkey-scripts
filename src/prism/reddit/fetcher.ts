@@ -1,15 +1,8 @@
 import type { Runtime } from '../../runtime'
 import { MAX_RETRIES_ON_429, REDDIT_API_URL, REDDIT_HOSTS, REDDIT_USER_AGENT } from './constants'
+import { computeRetryDelayMs } from '../shared/request'
 import { normalizeSubredditName, parseRedditListing } from './parser'
 import type { RedditFetchResult, RedditPost, RedditSourceOptions } from './types'
-
-function parseRetryAfter(headers: string): number {
-  if (!headers) return 0
-  const match = headers.match(/^retry-after:\s*(\d+)/im)
-  if (!match) return 0
-  const n = Number(match[1])
-  return Number.isFinite(n) && n > 0 ? n : 0
-}
 
 type FetchOutcome =
   | { ok: true; posts: RedditPost[] }
@@ -53,8 +46,9 @@ function fetchOneSub(runtime: Runtime, subreddit: string): Promise<FetchOutcome>
         onload(response) {
           if (response.status === 429 && retriesLeft > 0) {
             retriesLeft--
-            const waitSec = parseRetryAfter(response.responseHeaders)
-            setTimeout(() => attempt(), Math.max(0, waitSec * 1000))
+            const attemptIndex = MAX_RETRIES_ON_429 - retriesLeft
+            const waitMs = computeRetryDelayMs(attemptIndex, response.responseHeaders)
+            runtime.setTimeout(() => attempt(), waitMs)
             return
           }
           if (response.status === 403) {
