@@ -209,7 +209,7 @@ function findTokensCss(dir: string): string | null {
 
 /**
  * Read the build hash from an existing output file.
- * Expects the last line to be "// build <hash>".
+ * Expects the last line to be "// <name>:build <hash>" (prod comment marker; legacy console.debug form also parsed).
  */
 function readExistingHash(file: string): string | null {
   try {
@@ -424,7 +424,7 @@ async function main() {
 
       try {
         const bundle = await buildUserScript(entrypoint, BUILD_MODES[1])
-        await writeFile(prodFile, `${bundle}\nconsole.debug('${name}:build ${hash}')`)
+        await writeFile(prodFile, `${bundle}\n// ${name}:build ${hash}`)
       } catch (error) {
         errors.push(`${name} prod: ${error}`)
       }

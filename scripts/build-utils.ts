@@ -165,10 +165,10 @@ export function computeHash(content: string): string {
 
 /**
  * Parse the build hash from file content.
- * Expects the last line to be "console.debug('<name>:build <hash>')".
+ * Expects the last line to be "// <name>:build <hash>" (prod comment marker; legacy console.debug form also accepted).
  */
 export function parseBuildHash(content: string): string | null {
   const lastLine = content.trimEnd().split('\n').pop()!
-  const match = lastLine.match(/^.+?build ([a-f0-9]+)'\)\s*$/)
+  const match = lastLine.match(/build ([a-f0-9]{8})/)
   return match ? match[1]! : null
 }

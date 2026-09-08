@@ -226,6 +226,11 @@ describe('parseBuildHash', () => {
     expect(parseBuildHash(content)).toBe('abcdef12')
   })
 
+  test('parses hash from prod build comment marker', () => {
+    const content = '// some code\n// reddit-time-saver:build abcdef12'
+    expect(parseBuildHash(content)).toBe('abcdef12')
+  })
+
   test('returns null for missing build line', () => {
     expect(parseBuildHash('// some code')).toBeNull()
   })
