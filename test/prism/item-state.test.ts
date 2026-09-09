@@ -5,7 +5,7 @@ import {
   type CachedSource,
   STATE_KEY,
 } from '../../src/prism/types'
-import { createItemState } from '../../src/prism/item-state'
+import { createExpandedState, createItemState } from '../../src/prism/item-state'
 import { removeItemFromCache } from '../../src/prism/browse-state'
 import { createRuntime, type TestRuntime } from '../runtime'
 
@@ -259,6 +259,42 @@ describe('createItemState (number IDs)', () => {
     const b = makeNumItem({ id: 2 })
     state.markHidden(2)
     expect(state.filterVisible([a, b])).toEqual([a])
+  })
+})
+
+describe('createExpandedState (S13 now seam)', () => {
+  test('toggleExpanded routes through the injected now()', () => {
+    const calls: number[] = []
+    const seam = (): number => {
+      calls.push(1_700_000_000_000)
+      return calls[calls.length - 1]!
+    }
+    const expanded = createExpandedState(seam)
+    expect(calls).toHaveLength(0) // seam not read at construction
+    expect(expanded.toggleExpanded('x')).toBe(true)
+    expect(calls).toHaveLength(1) // read once, on expand
+    expect(expanded.isExpanded('x')).toBe(true)
+    expect(expanded.toggleExpanded('x')).toBe(false) // collapse clears, no read
+    expect(calls).toHaveLength(1)
+  })
+
+  test('setExpanded(true) routes through the injected now()', () => {
+    let called = 0
+    const expanded = createExpandedState(() => {
+      called++
+      return 1_700_000_000_000
+    })
+    expanded.setExpanded('y', true)
+    expect(called).toBe(1)
+    expect(expanded.isExpanded('y')).toBe(true)
+    expanded.setExpanded('y', false)
+    expect(expanded.isExpanded('y')).toBe(false)
+  })
+
+  test('defaults to the wall clock when no seam is supplied', () => {
+    const expanded = createExpandedState()
+    expect(expanded.toggleExpanded('z')).toBe(true)
+    expect(expanded.isExpanded('z')).toBe(true)
   })
 })
 

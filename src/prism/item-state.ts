@@ -150,7 +150,7 @@ export type Expandable = {
   clear(): void
 }
 
-export function createExpandedState(): Expandable {
+export function createExpandedState(now: () => number = Date.now): Expandable {
   const expandedAt = new Map<string, number>()
   return {
     isExpanded(id) {
@@ -161,11 +161,11 @@ export function createExpandedState(): Expandable {
         expandedAt.delete(id)
         return false
       }
-      expandedAt.set(id, Date.now())
+      expandedAt.set(id, now())
       return true
     },
     setExpanded(id, expanded) {
-      if (expanded) expandedAt.set(id, Date.now())
+      if (expanded) expandedAt.set(id, now())
       else expandedAt.delete(id)
     },
     clear() {

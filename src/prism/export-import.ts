@@ -138,8 +138,8 @@ export async function applyImportData(runtime: Runtime, data: ExportData): Promi
   }
 }
 
-export function formatExportFilename(): string {
-  const d = new Date()
+export function formatExportFilename(now: number = Date.now()): string {
+  const d = new Date(now)
   const yyyy = d.getFullYear()
   const mm = String(d.getMonth() + 1).padStart(2, '0')
   const dd = String(d.getDate()).padStart(2, '0')

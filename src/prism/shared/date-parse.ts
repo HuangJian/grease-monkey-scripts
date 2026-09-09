@@ -62,7 +62,7 @@ export function parseRelativeTime(text: string, now: number): number {
   const mdMatch = text.match(/^(\d{2})-(\d{2})\s+(\d{2}):(\d{2})$/)
   if (mdMatch) {
     const [, m, d, h, min] = mdMatch
-    const year = new Date().getFullYear()
+    const year = new Date(now).getFullYear()
     const ts = new Date(`${year}-${m}-${d}T${h}:${min}:00+08:00`).getTime()
     if (Number.isFinite(ts) && ts > 0) return ts
   }

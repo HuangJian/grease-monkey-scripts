@@ -315,16 +315,18 @@ function ReadChapterItem({
   )
 }
 
-function formatPostedAt(ts: number): string {
+function formatPostedAt(ts: number, now: number = Date.now()): string {
   const d = new Date(ts)
-  const now = new Date()
+  const nowDate = new Date(now)
   const pad = (n: number) => String(n).padStart(2, '0')
-  if (sameDay(d, now)) {
+  if (sameDay(d, nowDate)) {
     return `${pad(d.getHours())}:${pad(d.getMinutes())}`
   }
   const m = pad(d.getMonth() + 1)
   const day = pad(d.getDate())
-  return d.getFullYear() === now.getFullYear() ? `${m}-${day}` : `${d.getFullYear()}-${m}-${day}`
+  return d.getFullYear() === nowDate.getFullYear()
+    ? `${m}-${day}`
+    : `${d.getFullYear()}-${m}-${day}`
 }
 
 function sameDay(a: Date, b: Date): boolean {

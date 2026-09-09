@@ -130,5 +130,5 @@ export async function fetchOpenRouterModels(runtime: Runtime): Promise<OpenRoute
     if (b.rank != null) return 1
     return a.id.localeCompare(b.id)
   })
-  return { models: free, fetchedAt: new Date().toISOString() }
+  return { models: free, fetchedAt: new Date(runtime.now()).toISOString() }
 }

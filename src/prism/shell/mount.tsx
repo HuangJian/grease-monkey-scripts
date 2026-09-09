@@ -63,7 +63,7 @@ function OverlayMount({ host, handleRef, root, runtime, onClose }: OverlayMountP
 
   const handleExport = (): void => {
     void buildExportData(runtime).then((data) => {
-      downloadJson(runtime, data, formatExportFilename())
+      downloadJson(runtime, data, formatExportFilename(runtime.now()))
     })
   }
 

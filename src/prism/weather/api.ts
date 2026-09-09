@@ -216,7 +216,7 @@ async function fetchCmaCity(runtime: Runtime, city: WeatherCity): Promise<Weathe
   }
 
   if (nowJson.status === 'fulfilled') {
-    const nowParsed = parseCmaNow(nowJson.value)
+    const nowParsed = parseCmaNow(nowJson.value, runtime.now())
     if (nowParsed) {
       data.current = {
         ...data.current,

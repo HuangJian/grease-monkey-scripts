@@ -12,7 +12,7 @@ export type CmaNow = {
   lastUpdate: string
 }
 
-export function parseCmaNow(json: unknown): CmaNow | null {
+export function parseCmaNow(json: unknown, nowMs: number = Date.now()): CmaNow | null {
   if (!json || typeof json !== 'object') {
     console.debug('[gm-dashboard] cma.parseCmaNow: json is not an object')
     return null
@@ -44,7 +44,7 @@ export function parseCmaNow(json: unknown): CmaNow | null {
     time:
       typeof data['lastUpdate'] === 'string'
         ? (data['lastUpdate'] as string)
-        : new Date().toISOString(),
+        : new Date(nowMs).toISOString(),
     temperature_2m: temperature ?? 0,
     apparent_temperature: temperature ?? 0,
     weather_code: WMO_OVERCAST,

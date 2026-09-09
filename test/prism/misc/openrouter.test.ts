@@ -60,3 +60,21 @@ describe('fetchOpenRouterModels retry wiring (§4.9)', () => {
     await expect(p).rejects.toThrow('http 429')
   })
 })
+
+describe('fetchOpenRouterModels fetchedAt clock (S13)', () => {
+  it('stamps fetchedAt from the runtime clock, not the wall clock', async () => {
+    const runtime = createRuntime()
+    const FIXED = 1_700_000_000_000 // 2023-11-14T22:13:20.000Z
+    runtime.setClock(FIXED)
+    scriptByUrl(runtime, {
+      [MODELS_URL]: { statuses: [200], text: EMPTY_BODY },
+      [RANKINGS_URL]: { statuses: [200], text: EMPTY_BODY },
+    })
+    const p = fetchOpenRouterModels(runtime)
+    drainTimeouts(runtime)
+    await expect(p).resolves.toEqual({
+      models: [],
+      fetchedAt: new Date(FIXED).toISOString(),
+    })
+  })
+})

@@ -31,8 +31,8 @@ const CATEGORY_LABELS: Record<KeyCategory, string> = {
 
 const CATEGORY_ORDER: KeyCategory[] = ['cache', 'state', 'tags']
 
-function formatSaveFilename(): string {
-  const d = new Date()
+function formatSaveFilename(now: number = Date.now()): string {
+  const d = new Date(now)
   const yyyy = d.getFullYear()
   const mm = String(d.getMonth() + 1).padStart(2, '0')
   const dd = String(d.getDate()).padStart(2, '0')
@@ -143,7 +143,7 @@ function SaveDialog({ root, runtime, onClose }: SaveDialogProps) {
       }
 
       const data = buildSaveData(selectedKeys, values, filter, filterUnread, readStates)
-      downloadJson(runtime, data, formatSaveFilename())
+      downloadJson(runtime, data, formatSaveFilename(runtime.now()))
       onClose()
     } catch (e) {
       runtime.alert('\u4FDD\u5B58\u5931\u8D25\uFF1A' + (e instanceof Error ? e.message : String(e)))
