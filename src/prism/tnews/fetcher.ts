@@ -1,4 +1,5 @@
 import type { Runtime } from '../../runtime'
+import { requestText } from '../shared/request'
 import { TNEWS_FEED_URL, USER_AGENT } from './constants'
 import { parseRssItems } from './parser'
 import type { TnewsFetchResult, TnewsItem } from './types'
@@ -6,26 +7,14 @@ import type { TnewsFetchResult, TnewsItem } from './types'
 type FeedOutcome = { items: TnewsItem[]; error: string | null }
 
 function fetchOnce(runtime: Runtime, url: string): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
-    runtime.request({
-      url,
-      method: 'GET',
-      timeout: 15000,
-      anonymous: false,
-      headers: {
-        'User-Agent': USER_AGENT,
-        Accept: 'application/rss+xml, application/xml, text/xml, */*',
-      },
-      onload(response) {
-        if (response.status >= 400) {
-          reject(new Error(`http ${response.status}`))
-          return
-        }
-        resolve(response.responseText)
-      },
-      onerror: () => reject(new Error('network error')),
-      ontimeout: () => reject(new Error('timeout')),
-    })
+  // shared/request rejects on status>=400 / network error / timeout (15s default),
+  // matching the previous inline behavior.
+  return requestText(runtime, url, {
+    anonymous: false,
+    headers: {
+      'User-Agent': USER_AGENT,
+      Accept: 'application/rss+xml, application/xml, text/xml, */*',
+    },
   })
 }
 

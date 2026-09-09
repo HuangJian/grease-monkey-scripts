@@ -1,6 +1,6 @@
 import type { NovelChapterVariant, NovelSourceState } from './types'
 
-function rewriteHost(url: string, newHost: string): string {
+export function rewriteHost(url: string, newHost: string): string {
   try {
     const u = new URL(url)
     u.hostname = newHost

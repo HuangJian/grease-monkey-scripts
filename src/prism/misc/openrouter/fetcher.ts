@@ -7,6 +7,7 @@
  *   Run: bun scripts/fetchers/openrouter-test.ts
  */
 import type { Runtime } from '../../../runtime'
+import { requestJson } from '../../shared/request'
 import type { OpenRouterData, OpenRouterFreeModel } from './types'
 
 const MODELS_URL = 'https://openrouter.ai/api/v1/models?category=programming'
@@ -22,27 +23,14 @@ type RankEntry = {
 }
 
 function req<T>(runtime: Runtime, url: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    runtime.request({
-      url,
-      method: 'GET',
-      timeout: 20000,
-      headers: { accept: 'application/json' },
-      onload(response) {
-        if (response.status >= 400) {
-          reject(new Error(`openrouter: http ${response.status}`))
-          return
-        }
-        try {
-          resolve(JSON.parse(response.responseText))
-        } catch {
-          reject(new Error('openrouter: invalid JSON response'))
-        }
-      },
-      onerror: () => reject(new Error('openrouter: network error')),
-      ontimeout: () => reject(new Error('openrouter: timeout')),
-    })
-  })
+  // shared/request rejects on status>=400 / network error / timeout; default 15s,
+  // overridden to 20s here to preserve the previous per-site timeout. Error text
+  // differs slightly from the old `openrouter:`-prefixed messages but callers
+  // only care about success/failure, not the exact string.
+  return requestJson(runtime, url, {
+    timeout: 20_000,
+    headers: { accept: 'application/json' },
+  }) as Promise<T>
 }
 
 function extractParameterSize(description: string): string {

@@ -24,6 +24,7 @@ export type Dashboard = {
   toggle: () => void
   refreshSource: (sourceId: string) => Promise<void>
   runOpportunisticRefresh: () => Promise<void>
+  destroy: () => void
 }
 
 const FOREGROUND_REFRESH_INTERVAL_MS = 60_000
@@ -38,6 +39,10 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
   let refreshIntervalId: number | null = null
   let backgroundTimerId: number | null = null
   let visibilityHandler: (() => void) | null = null
+  /** Ids returned by `addValueChangeListener`, removed in `destroy()`. */
+  const valueChangeIds: number[] = []
+  let started = false
+  let destroyed = false
 
   /** One-shot background timer with per-arm jitter, re-armed after each fire. */
   function scheduleBackgroundRefresh(): void {
@@ -176,16 +181,22 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
 
   const dashboard: Dashboard = {
     start: () => {
+      if (started || destroyed) return
+      started = true
       runtime.registerMenuCommand('打开仪表盘', () => {
         void dashboard.open()
       })
       reg.sources.forEach((source) => {
-        runtime.addValueChangeListener(CACHE_KEY(source.id), (_key, _oldValue, _newValue) => {
-          if (!handle) return
-          const group = reg.groupForSource.get(source.id)
-          if (!group) return
-          void renderGroupById(group.id, reg.groupById, reg.groupForSource, getRendererDeps()!)
-        })
+        const id = runtime.addValueChangeListener(
+          CACHE_KEY(source.id),
+          (_key, _oldValue, _newValue) => {
+            if (!handle) return
+            const group = reg.groupForSource.get(source.id)
+            if (!group) return
+            void renderGroupById(group.id, reg.groupById, reg.groupForSource, getRendererDeps()!)
+          },
+        )
+        valueChangeIds.push(id)
       })
       bootstrapShortcut({
         runtime,
@@ -207,6 +218,16 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     toggle,
     refreshSource: doRefreshSource,
     runOpportunisticRefresh: doRunOpportunisticRefresh,
+    destroy: () => {
+      if (destroyed) return
+      destroyed = true
+      for (const id of valueChangeIds) {
+        runtime.removeValueChangeListener(id)
+      }
+      valueChangeIds.length = 0
+      clearBackgroundRefresh()
+      close()
+    },
   }
   return dashboard
 }

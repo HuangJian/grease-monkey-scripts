@@ -1,54 +1,42 @@
 import type { Runtime } from '../../runtime'
+import { requestText } from '../shared/request'
 import { HUPU_USER_AGENT } from './constants'
 import { buildBoardUrl, mergeHupuPosts, parseHupuDataJson, parseHupuDom } from './parser'
 import type { HupuFetchResult, HupuPost, HupuSourceOptions } from './types'
 
 type FetchOutcome = { posts: HupuPost[]; error?: string }
 
-function fetchOneBoard(
+async function fetchOneBoard(
   runtime: Runtime,
   board: string,
   domParser: DOMParser,
 ): Promise<FetchOutcome> {
-  return new Promise<FetchOutcome>((resolve) => {
-    let settled = false
-    const settle = (outcome: FetchOutcome) => {
-      if (settled) return
-      settled = true
-      resolve(outcome)
-    }
-    const url = buildBoardUrl(board)
-    console.debug('[gm-dashboard] hupu.fetchOneBoard board=', board, 'url=', url)
-    runtime.request({
-      url,
-      method: 'GET',
-      timeout: 15000,
+  const url = buildBoardUrl(board)
+  console.debug('[gm-dashboard] hupu.fetchOneBoard board=', board, 'url=', url)
+  let html: string
+  try {
+    // shared/request rejects on status>=400 / network error / timeout (15s default),
+    // surfacing them as a failed outcome — identical to the prior inline behavior.
+    html = await requestText(runtime, url, {
       anonymous: true,
       headers: { 'User-Agent': HUPU_USER_AGENT },
-      onload(response) {
-        if (response.status >= 400) {
-          settle({ posts: [], error: `http ${response.status}` })
-          return
-        }
-        try {
-          const html = response.responseText
-          const dataJsonMatch = html.match(/window\.\$\$data\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/)
-          let jsonPosts: HupuPost[] = []
-          if (dataJsonMatch) {
-            const json: unknown = JSON.parse(dataJsonMatch[1]!)
-            jsonPosts = parseHupuDataJson(json, board, 100, runtime.now)
-          }
-          const domPosts = parseHupuDom(html, board, 100, domParser, runtime.now)
-          const merged = mergeHupuPosts(jsonPosts, domPosts)
-          settle({ posts: merged })
-        } catch (e) {
-          settle({ posts: [], error: e instanceof Error ? e.message : String(e) })
-        }
-      },
-      onerror: () => settle({ posts: [], error: 'network error' }),
-      ontimeout: () => settle({ posts: [], error: 'timeout' }),
     })
-  })
+  } catch (e) {
+    return { posts: [], error: e instanceof Error ? e.message : String(e) }
+  }
+  try {
+    const dataJsonMatch = html.match(/window\.\$\$data\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/)
+    let jsonPosts: HupuPost[] = []
+    if (dataJsonMatch) {
+      const json: unknown = JSON.parse(dataJsonMatch[1]!)
+      jsonPosts = parseHupuDataJson(json, board, 100, runtime.now)
+    }
+    const domPosts = parseHupuDom(html, board, 100, domParser, runtime.now)
+    const merged = mergeHupuPosts(jsonPosts, domPosts)
+    return { posts: merged }
+  } catch (e) {
+    return { posts: [], error: e instanceof Error ? e.message : String(e) }
+  }
 }
 
 export async function fetchHupu(

@@ -428,6 +428,30 @@ describe('createDashboard', () => {
     )
     expect(document.getElementById('gm-dashboard')).toBeNull()
   })
+
+  const countListeners = (): number =>
+    [...runtime.listeners.values()].reduce((n, arr) => n + arr.length, 0)
+
+  test('destroy() unregisters value-change listeners and closes the panel', async () => {
+    const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
+    dashboard.start()
+    const before = countListeners()
+    expect(before).toBeGreaterThan(0)
+    await openDashboard(dashboard)
+    dashboard.destroy()
+    // All addValueChangeListener handles removed via removeValueChangeListener.
+    expect(countListeners()).toBe(0)
+    // Panel unmounted.
+    expect(document.getElementById('gm-dashboard')).toBeNull()
+  })
+
+  test('destroy() is idempotent and safe before open()', () => {
+    const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
+    dashboard.start()
+    expect(() => dashboard.destroy()).not.toThrow()
+    expect(() => dashboard.destroy()).not.toThrow()
+    expect(countListeners()).toBe(0)
+  })
 })
 
 describe('isHostAllowed', () => {

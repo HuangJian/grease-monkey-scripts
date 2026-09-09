@@ -132,6 +132,7 @@ export function createRuntime(dom?: Window): TestRuntime {
     globalThis.MutationObserver) as typeof MutationObserver
   const stores: Record<string, unknown> = {}
   const listeners: Map<string, ValueChangeListener[]> = new Map()
+  const listenerById: Map<number, { key: string; listener: ValueChangeListener }> = new Map()
   const menuCommands: MenuCommand[] = []
   const responses: Map<string, { text: string; status: number; responseHeaders: string }> =
     new Map()
@@ -196,7 +197,18 @@ export function createRuntime(dom?: Window): TestRuntime {
       const arr = listeners.get(key) ?? []
       arr.push(listener)
       listeners.set(key, arr)
-      return nextId++
+      const id = nextId++
+      listenerById.set(id, { key, listener })
+      return id
+    },
+    removeValueChangeListener: (id) => {
+      const entry = listenerById.get(id)
+      if (!entry) return
+      listenerById.delete(id)
+      const arr = listeners.get(entry.key)
+      if (!arr) return
+      const idx = arr.indexOf(entry.listener)
+      if (idx >= 0) arr.splice(idx, 1)
     },
     requestIdleCallback: (cb) => {
       cb()

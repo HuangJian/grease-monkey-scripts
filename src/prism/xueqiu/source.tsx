@@ -18,7 +18,7 @@ import { loadFreshXueqiuOptions } from './options'
 import { fetchXueqiu } from './fetcher'
 import { rankHotPosts } from './scoring/ranking'
 import { createXueqiuState, type XueqiuState } from './state'
-import { pruneItems } from '../shared/prune'
+import { makePruneExpiredCache, pruneItems } from '../shared/prune'
 import {
   DEFAULT_RANKING_OPTIONS,
   type XueqiuNewsItem,
@@ -199,51 +199,31 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
     },
   }
 
-  /**
-   * 清理缓存中过期的雪球数据。
-   * 每次 fetch 后调用，删除 created_at 时间早于 retentionMs 的条目，
-   * 并同步清理对应 state（readAt/hiddenAt/readReplies），避免孤儿 state。
-   * created_at 未知（0）的条目永不过期，否则其 state 会在每次刷新时被清掉。
-   *
-   * 注意：state.ttlMs = retentionMs + 1天，状态比数据多保留 1 天，
-   * 防止 fetch 失败时 pruneExpiredCache 未执行导致状态早于数据消失。
-   * prune 在 saveToStorage 之前执行，清理 state 后会随后被持久化。
-   *
-   * 存量孤儿 state：此修复前可能已产生了孤儿 state（cache 数据被 prune
-   * 但 state 仍在 ttlMs 内未被清理）。这些存量孤儿 state 会在自身 ttlMs
-   * 到期后自然清除，不会被读到（因为对应 cache 数据已不存在），影响不大。
-   */
-  async function pruneExpiredCache(runtime: Runtime): Promise<void> {
-    const cached = await loadCache<XueqiuRenderData>(runtime, MAIN_SOURCE_ID)
-    if (!cached?.data) return
-    const now = runtime.now()
-    const news = pruneItems({
-      items: cached.data.news,
-      getId: (it) => String(it.id),
-      getCreated: (it) => it.created_at,
-      now,
-      retentionMs,
-    })
-    const hot = pruneItems({
-      items: cached.data.hotPosts,
-      getId: (it) => String(it.id),
-      getCreated: (it) => it.created_at,
-      now,
-      retentionMs,
-    })
-    const removedIds = [...news.removedIds, ...hot.removedIds]
-    if (removedIds.length === 0) return
-    if (removedIds.length > 0) {
-      // NOTE: xueqiu intentionally does NOT saveToStorage here. The caller's
-      // fetch persists state after prune (see comment on this function above).
-      state.removeEntries(removedIds)
-    }
-    await saveCache(runtime, MAIN_SOURCE_ID, {
-      data: { news: news.kept, hotPosts: hot.kept },
-      fetchedAt: cached.fetchedAt,
-      error: '',
-    })
-  }
+  // Shared prune tail (see shared/prune.ts makePruneExpiredCache). xueqiu
+  // intentionally OMITS persistState: its fetch persists state after prune.
+  const pruneExpiredCache = makePruneExpiredCache<XueqiuRenderData, string>({
+    load: (rt) => loadCache<XueqiuRenderData>(rt, MAIN_SOURCE_ID),
+    save: (rt, data, fetchedAt) => saveCache(rt, MAIN_SOURCE_ID, { data, fetchedAt, error: '' }),
+    prune: (data, now) => {
+      const news = pruneItems({
+        items: data.news,
+        getId: (it) => String(it.id),
+        getCreated: (it) => it.created_at,
+        now,
+        retentionMs,
+      })
+      const hot = pruneItems({
+        items: data.hotPosts,
+        getId: (it) => String(it.id),
+        getCreated: (it) => it.created_at,
+        now,
+        retentionMs,
+      })
+      const removedIds = [...news.removedIds, ...hot.removedIds]
+      return { kept: { news: news.kept, hotPosts: hot.kept }, removedIds }
+    },
+    removeEntries: (ids) => state.removeEntries(ids),
+  })
 
   return {
     mainSource,

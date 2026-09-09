@@ -26,7 +26,7 @@ type DescriptionToken =
 type RawMatch = { start: number; end: number; token: DescriptionToken }
 
 const LINK_RE = /\[([^\]]+)\]\(([^)]+)\)/g
-const TAG_RE = /(?<=\s|^)#([\w\d\u4e00-\u9fa5_-]+)(?:=([^\s#]+|"[^"]*"|'[^']*'))?/g
+const TAG_RE = /(^|\s)#([\w\d\u4e00-\u9fa5_-]+)(?:=([^\s#]+|"[^"]*"|'[^']*'))?/g
 const DUE_RE =
   /->\s*(everyday|sunday|monday|tuesday|wednesday|thursday|friday|saturday|\d{4}(?:-\d{2}-\d{2}|-\d{2}|-Q[1-4]|-W\d{1,2})?)/g
 
@@ -46,10 +46,13 @@ function parseDescriptionTokens(line: XitItem): DescriptionToken[] {
 
   for (const m of desc.matchAll(TAG_RE)) {
     if (m.index === undefined) continue
+    const leadLen = m[1]!.length
+    const hashIndex = m.index + leadLen
+    const tagText = '#' + m[2]! + (m[3] !== undefined ? '=' + m[3] : '')
     matches.push({
-      start: m.index,
-      end: m.index + m[0].length,
-      token: { type: 'tag', text: m[0] },
+      start: hashIndex,
+      end: hashIndex + tagText.length,
+      token: { type: 'tag', text: tagText },
     })
   }
 

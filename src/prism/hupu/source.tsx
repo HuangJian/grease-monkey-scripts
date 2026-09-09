@@ -15,7 +15,7 @@ import { loadFreshHupuOptions } from './options'
 import { mergeBoardPosts, selectPostsPerBoard } from './scoring'
 import { createHupuState } from './state'
 import { isRetentionExpired } from '../shared-utils'
-import { pruneGroups } from '../shared/prune'
+import { makePruneExpiredCache, pruneGroups } from '../shared/prune'
 import type { HupuPost, HupuSourceOptions } from './types'
 
 export type HupuRenderData = Record<string, HupuPost[]>
@@ -40,41 +40,25 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
     })
   }
 
-  /**
-   * 清理缓存中过期的帖子数据。
-   * 每次 fetch 后调用，删除 created 时间早于 retentionMs 的条目，
-   * 并同步清理对应 state（readAt/hiddenAt/readReplies），避免孤儿 state。
-   * created 未知（0）的条目永不过期，否则其 state 会在每次刷新时被清掉。
-   *
-   * 注意：state.ttlMs = retentionMs + 1天，状态比数据多保留 1 天，
-   * 防止 fetch 失败时 pruneExpiredCache 未执行导致状态早于数据消失。
-   *
-   * 存量孤儿 state：此修复前可能已产生了孤儿 state（cache 数据被 prune
-   * 但 state 仍在 ttlMs 内未被清理）。这些存量孤儿 state 会在自身 ttlMs
-   * 到期后自然清除，不会被读到（因为对应 cache 数据已不存在），影响不大。
-   */
-  async function pruneExpiredCache(runtime: Runtime): Promise<void> {
-    const cached = await loadCache<HupuRenderData>(runtime, 'hupu')
-    if (!cached?.data || typeof cached.data !== 'object') return
-    const now = runtime.now()
-    const { kept, removedIds, changed } = pruneGroups(
-      cached.data,
-      (p) => String(p.id),
-      (p) => p.created,
-      now,
-      retentionMs,
-    )
-    if (!changed) return
-    if (removedIds.length > 0) {
-      state.removeEntries(removedIds)
-      await state.saveToStorage(runtime)
-    }
-    await saveCache(runtime, 'hupu', {
-      data: kept,
-      fetchedAt: cached.fetchedAt,
-      error: '',
-    })
-  }
+  // Shared prune tail (see shared/prune.ts makePruneExpiredCache). The
+  // typeof-object guard mirrors the old wrapper: skip malformed cache silently.
+  const pruneExpiredCache = makePruneExpiredCache<HupuRenderData, string>({
+    load: (rt) => loadCache<HupuRenderData>(rt, 'hupu'),
+    save: (rt, data, fetchedAt) => saveCache(rt, 'hupu', { data, fetchedAt, error: '' }),
+    prune: (data, now) => {
+      if (typeof data !== 'object' || data === null) return { kept: data, removedIds: [] }
+      const { kept, removedIds } = pruneGroups(
+        data,
+        (p) => String(p.id),
+        (p) => p.created,
+        now,
+        retentionMs,
+      )
+      return { kept, removedIds }
+    },
+    removeEntries: (ids) => state.removeEntries(ids),
+    persistState: (rt) => state.saveToStorage(rt),
+  })
 
   return {
     id: 'hupu',

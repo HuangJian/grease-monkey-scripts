@@ -13,7 +13,7 @@ import { fetchV2ex } from './fetcher'
 import { loadCache, saveCache } from '../cache'
 import { createV2exState } from './state'
 import { isRetentionExpired } from '../shared-utils'
-import { pruneItems } from '../shared/prune'
+import { makePruneExpiredCache, pruneItems } from '../shared/prune'
 import type { V2exSourceOptions, V2exTopic } from './types'
 
 export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[], 'v2ex'> {
@@ -40,39 +40,25 @@ export function createV2exSource(options: V2exSourceOptions): Source<V2exTopic[]
     })
   }
 
-  /**
-   * 清理缓存中过期的主题数据。
-   * 每次 fetch 后调用，删除 created 时间早于 retentionMs 的条目，
-   * 并同步清理对应 state（readAt/hiddenAt/readReplies），避免孤儿 state。
-   * created 未知（0）的条目永不过期，否则其 state 会在每次刷新时被清掉。
-   *
-   * 注意：state.ttlMs = retentionMs + 1天，状态比数据多保留 1 天，
-   * 防止 fetch 失败时 pruneExpiredCache 未执行导致状态早于数据消失。
-   *
-   * 存量孤儿 state：此修复前可能已产生了孤儿 state（cache 数据被 prune
-   * 但 state 仍在 ttlMs 内未被清理）。这些存量孤儿 state 会在自身 ttlMs
-   * 到期后自然清除，不会被读到（因为对应 cache 数据已不存在），影响不大。
-   */
-  async function pruneExpiredCache(runtime: Runtime): Promise<void> {
-    const cached = await loadCache<V2exTopic[]>(runtime, 'v2ex')
-    if (!cached?.data || !Array.isArray(cached.data)) return
-    const now = runtime.now()
-    const { kept, removedIds } = pruneItems({
-      items: cached.data,
-      getId: (t) => t.id,
-      getCreated: (t) => t.created,
-      now,
-      retentionMs,
-    })
-    if (removedIds.length === 0) return
-    state.removeEntries(removedIds)
-    await state.saveToStorage(runtime)
-    await saveCache(runtime, 'v2ex', {
-      data: kept,
-      fetchedAt: cached.fetchedAt,
-      error: '',
-    })
-  }
+  // Shared prune tail (see shared/prune.ts makePruneExpiredCache). The
+  // !Array.isArray guard mirrors the old wrapper: skip malformed cache silently.
+  const pruneExpiredCache = makePruneExpiredCache<V2exTopic[], number>({
+    load: (rt) => loadCache<V2exTopic[]>(rt, 'v2ex'),
+    save: (rt, data, fetchedAt) => saveCache(rt, 'v2ex', { data, fetchedAt, error: '' }),
+    prune: (data, now) => {
+      if (!Array.isArray(data)) return { kept: data, removedIds: [] }
+      const { kept, removedIds } = pruneItems({
+        items: data,
+        getId: (t) => t.id,
+        getCreated: (t) => t.created,
+        now,
+        retentionMs,
+      })
+      return { kept, removedIds }
+    },
+    removeEntries: (ids) => state.removeEntries(ids),
+    persistState: (rt) => state.saveToStorage(rt),
+  })
 
   return {
     id: 'v2ex',

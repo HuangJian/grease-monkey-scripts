@@ -44,6 +44,8 @@ export type Runtime = {
     options?: AddEventListenerOptions,
   ): void
   addValueChangeListener(key: string, listener: ValueChangeListener): number
+  /** Remove a previously registered value-change listener by its id. */
+  removeValueChangeListener(id: number): void
   addElement(parentNode: Element, tagName: string, attributes: Record<string, string>): HTMLElement
   requestIdleCallback(cb: () => void, options?: { timeout: number }): void
   registerMenuCommand(name: string, fn: () => void): number
@@ -92,6 +94,8 @@ declare function GM_addValueChangeListener(
   callback: (name: string, oldValue: unknown, newValue: unknown, remote: boolean) => void,
 ): number
 
+declare function GM_removeValueChangeListener(id: number): void
+
 declare function GM_registerMenuCommand(name: string, fn: () => void): number
 
 declare const unsafeWindow: Window
@@ -115,6 +119,7 @@ export function createBrowserRuntime(): Runtime {
       target.addEventListener(type, listener as EventListener, options)
     },
     addValueChangeListener: (key, listener) => GM_addValueChangeListener(key, listener),
+    removeValueChangeListener: (id) => GM_removeValueChangeListener(id),
     requestIdleCallback: (cb, options) => {
       const w = window as Window & {
         requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => void

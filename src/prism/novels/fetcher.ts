@@ -5,6 +5,7 @@ import type { NovelBook, NovelBookConfig, NovelChapterVariant, NovelSourceState 
 import { bookId, normalizeBooks } from './migrate'
 import { chapterKey } from './chapter-key'
 import { mergeSourceChapters } from './merge'
+import { rewriteHost } from './mirror'
 import { requestText } from '../shared/request'
 import { mapLimit } from '../shared/concurrency'
 
@@ -345,16 +346,6 @@ async function fetchWithFallback(
 
 function stripWww(host: string): string {
   return host.startsWith('www.') ? host.slice(4) : host
-}
-
-function rewriteHost(url: string, newHost: string): string {
-  try {
-    const u = new URL(url)
-    u.hostname = newHost
-    return u.href
-  } catch {
-    return url
-  }
 }
 
 /** Ordered candidate hosts: preferred mirror, original host, then other mirrors (one per site). */
