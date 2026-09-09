@@ -7,8 +7,10 @@ import type { HupuPost } from './hupu/types'
 import type { TnewsItem } from './tnews/types'
 import type { XueqiuNewsItem, XueqiuRenderData } from './xueqiu/types'
 import {
-  KEY_PREFIX,
   CONFIG_KEY,
+  CACHE_KEY_PREFIX,
+  STATE_KEY_PREFIX,
+  LOCK_KEY_PREFIX,
   XIT_CACHE_STORAGE_KEY,
   XIT_FILTERS_KEY,
   XUEQIU_NEWS_CACHE_KEY,
@@ -30,10 +32,8 @@ export type KeyDescription = {
 }
 
 // ── Key classification ──
-
-const CACHE_KEY_PREFIX = `${KEY_PREFIX}:`
-const STATE_KEY_PREFIX = `${KEY_PREFIX}:state:`
-const LOCK_KEY_PREFIX = `${KEY_PREFIX}:lock:`
+// Prefixes are imported from `./keys` (CACHE_KEY_PREFIX / STATE_KEY_PREFIX /
+// LOCK_KEY_PREFIX) so the key layout has a single source of truth (§2.2).
 
 const TAG_KEY_LABELS: Record<string, string> = {
   v2ex_author_tags: 'V2EX 作者标签',

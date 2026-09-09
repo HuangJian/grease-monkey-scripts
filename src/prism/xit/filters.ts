@@ -1,8 +1,9 @@
 import type { Runtime } from '../../runtime'
 import type { NamedFilter, NamedFilterStore } from './types'
+import { XIT_FILTERS_KEY } from '../keys'
 
 const OLD_KEY = 'dashboard:v1:xit-filters'
-const STORAGE_KEY = 'dashboard:v2:xit-filters'
+const STORAGE_KEY = XIT_FILTERS_KEY
 
 async function migrateOldKey(runtime: Runtime): Promise<void> {
   const raw = await runtime.getValue<unknown>(OLD_KEY, null)

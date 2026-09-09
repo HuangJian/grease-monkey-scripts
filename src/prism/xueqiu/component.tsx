@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, useEffect, useReducer } from 'preact/hooks'
-import { ItemActions } from '../card/primitives'
+import { ItemActions } from '../shared/item-actions'
 import type { DateFilter } from '../date-filter'
 import { applyDateFilter } from '../shared-utils'
 import { isEditableTarget } from '../shortcut'

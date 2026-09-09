@@ -1,5 +1,5 @@
 import { useReducer } from 'preact/hooks'
-import { ItemActions } from '../card/primitives'
+import { ItemActions } from '../shared/item-actions'
 import { createItemHandlers } from '../item-actions'
 import { ExpandableList, useExpandScroll } from '../shared/expandable-list'
 import type { SourceComponentProps } from '../types'

@@ -6,37 +6,37 @@
 
 ## 结论速览
 
-| §        | 主题                                             | 状态 | 关键证据                                                                                                                |
-| -------- | ------------------------------------------------ | ---- | ----------------------------------------------------------------------------------------------------------------------- |
-| 1.1      | xueqiu 黑名单 sanitizer / ReDoS                  | ✅   | `xueqiu/component.tsx:6` 改引 `shared/sanitize`，`:347`/`:360` 用白名单；`unescapeHtml` 已删                            |
-| 1.2      | JSX 双重转义                                     | ⚠️   | **残留 1 处**：`editor-ui/ChipList.tsx:92`                                                                              |
-| 2.1      | loadConfig 不校验                                | ✅   | `config/load.ts:11-17` merge→validate→warn 回落，返回 `Config`                                                          |
-| 2.2      | 键空间 4 套漂移                                  | ⚠️   | **残留 2 处**：`save-filter.ts:34-36`、`xit/filters.ts:5`                                                               |
-| 2.3      | validate 白名单/excess-key                       | ✅   | 各 section `X_FIELDS ... as const satisfies (keyof Config[x])[]` + `rejectUnknownKeys`；`cmaStationId` 已校验（`:123`） |
-| 2.4      | codec 无迁移                                     | ✅   | `cache.ts:16` 改为 `migrateCache`，`:17-19` 不可迁移才 warn 丢弃                                                        |
-| 2.5      | deepMerge `as T`                                 | —    | 未逐项复核（优先级低于其余项）                                                                                          |
-| 2.6      | source-registry 抹泛型                           | ⚠️   | 11 处 → 1 处（`card-group.ts:18`，有授权注释）；`match.ts:12` 残留 1 处 `as any`                                        |
-| 2.7      | 预览 `undefined as any`                          | ✅   | 全仓 `undefined as any` **0 处**                                                                                        |
-| 2.8      | xueqiu hotSource 空 fetch                        | ✅   | 已实现真实取数（`xueqiu/fetcher.test.ts` 有 SkipRefreshError / 排序用例）                                               |
-| 2.9      | 配置构造期快照                                   | ✅   | 9 个 source 全部 `get ttlMs()`（v2ex/tnews/reddit/hupu/xueqiu×2/weather/novels/misc）                                   |
-| 3.1      | novels 翻页无上限                                | ✅   | `defaults.ts:38` = 200；`fetcher.ts:231/249` 消费且有 `Number.isFinite` 守卫                                            |
-| 3.2      | merge O(n²)                                      | ✅   | `nodeByVariant` Map 取代全量扫描（`:56-57`）；空 textKey 跳过（`:93`）                                                  |
-| 3.3      | 全局并发                                         | ✅   | `shared/concurrency.ts` + `app/refresh.ts:6` 接入                                                                       |
-| 3.4      | SafeLine PoW                                     | ✅   | `MAX_DIFFICULTY_BITS=20` 护栏（`:265-267`）＋超限 `throw`（`:286`），`return '0'` 已无                                  |
-| 3.5      | hupu 惰性正则 / tnews 二次处理                   | ✅   | **已修（本次）**：hupu 改 `extractDataJson()` 线性扫描；`stripImgSizeAttrs` 删除，尺寸控制移入 CSS              |
-| 4.1      | 7 个导入环 + 无门禁                              | ✅   | `.oxlintrc.json:20` `import/no-cycle: error`                                                                            |
-| 4.2      | 定时器 / 时钟                                    | ⚠️   | 定时器 ✅（S12）；**时钟 ❌**（S13 待做）                                                                               |
-| 4.4      | feature→shell/card 反向依赖                      | ⚠️   | **残留 5 处** feature→`card/primitives`                                                                                 |
-| 4.5      | 模块级可变状态                                   | ✅   | `let nextId` / `new WeakMap` 均无命中                                                                                   |
-| 4.6      | xit 双份 header state                            | ✅   | `createXitHeaderState()` 工厂（header.tsx:31），source 与 render 共用                                                   |
-| 4.7      | Source 接口不齐                                  | ⚠️   | 编译期 `SourceShape` 清单 ✅；显式 `loadState: undefined` 未做                                                          |
-| 4.8–4.13 | 抓取层 / 重试 / GBK / 重复实现 / 死代码 / 兼容性 | ✅   | S11 + S12 全部闭环                                                                                                      |
-| 5.1      | dist 孤儿                                        | ✅   | dist 仅剩 6 个脚本，与 6 个 src 入口一一对应                                                                            |
-| 5.2      | SWC 过激进                                       | ✅   | `unsafe`/`properties`/`hoist_props` 已移除（`passes:3`、`inline:2` 保留）                                               |
-| 5.3      | prod 含 console.debug                            | ✅   | `:407` 属 **Phase 1 debug 产物**；prod 改注释标记（`:212`），实测 prod 计数 0                                           |
-| 5.4      | oxlint 规则面                                    | ✅   | `import/no-cycle: error` + `perf: warn`                                                                                 |
-| 5.5      | tsconfig 收紧                                    | ✅   | `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` 均已开                                                        |
-| 5.6      | 测试缺口                                         | ⚠️   | 仍缺 8 个模块，见下                                                                                                     |
+| §        | 主题                                             | 状态 | 关键证据                                                                                                                  |
+| -------- | ------------------------------------------------ | ---- | ------------------------------------------------------------------------------------------------------------------------- |
+| 1.1      | xueqiu 黑名单 sanitizer / ReDoS                  | ✅   | `xueqiu/component.tsx:6` 改引 `shared/sanitize`，`:347`/`:360` 用白名单；`unescapeHtml` 已删                              |
+| 1.2      | JSX 双重转义                                     | ✅   | `editor-ui/ChipList.tsx:92` 改 `name`（去 `escapeHtml`，JSX 子节点二次编码已消）                                          |
+| 2.1      | loadConfig 不校验                                | ✅   | `config/load.ts:11-17` merge→validate→warn 回落，返回 `Config`                                                            |
+| 2.2      | 键空间 4 套漂移                                  | ✅   | `keys.ts` 导出 `CACHE/STATE/LOCK_KEY_PREFIX`；`save-filter.ts:34-36`、`xit/filters.ts:5` 改引，单一真源                   |
+| 2.3      | validate 白名单/excess-key                       | ✅   | 各 section `X_FIELDS ... as const satisfies (keyof Config[x])[]` + `rejectUnknownKeys`；`cmaStationId` 已校验（`:123`）   |
+| 2.4      | codec 无迁移                                     | ✅   | `cache.ts:16` 改为 `migrateCache`，`:17-19` 不可迁移才 warn 丢弃                                                          |
+| 2.5      | deepMerge `as T`                                 | —    | 未逐项复核（优先级低于其余项）                                                                                            |
+| 2.6      | source-registry 抹泛型                           | ✅   | 擦除点 11 → 1（`card-group.ts:18`，授权注释）；`match.ts` `as any` 已改 `RELATIVE_DATE_KEYWORDS.includes(value)`          |
+| 2.7      | 预览 `undefined as any`                          | ✅   | 全仓 `undefined as any` **0 处**                                                                                          |
+| 2.8      | xueqiu hotSource 空 fetch                        | ✅   | 已实现真实取数（`xueqiu/fetcher.test.ts` 有 SkipRefreshError / 排序用例）                                                 |
+| 2.9      | 配置构造期快照                                   | ✅   | 9 个 source 全部 `get ttlMs()`（v2ex/tnews/reddit/hupu/xueqiu×2/weather/novels/misc）                                     |
+| 3.1      | novels 翻页无上限                                | ✅   | `defaults.ts:38` = 200；`fetcher.ts:231/249` 消费且有 `Number.isFinite` 守卫                                              |
+| 3.2      | merge O(n²)                                      | ✅   | `nodeByVariant` Map 取代全量扫描（`:56-57`）；空 textKey 跳过（`:93`）                                                    |
+| 3.3      | 全局并发                                         | ✅   | `shared/concurrency.ts` + `app/refresh.ts:6` 接入                                                                         |
+| 3.4      | SafeLine PoW                                     | ✅   | `MAX_DIFFICULTY_BITS=20` 护栏（`:265-267`）＋超限 `throw`（`:286`），`return '0'` 已无                                    |
+| 3.5      | hupu 惰性正则 / tnews 二次处理                   | ✅   | **已修（本次）**：hupu 改 `extractDataJson()` 线性扫描；`stripImgSizeAttrs` 删除，尺寸控制移入 CSS                        |
+| 4.1      | 7 个导入环 + 无门禁                              | ✅   | `.oxlintrc.json:20` `import/no-cycle: error`                                                                              |
+| 4.2      | 定时器 / 时钟                                    | ⚠️   | 定时器 ✅（S12）；**时钟 ❌**（S13 待做）                                                                                 |
+| 4.4      | feature→shell/card 反向依赖                      | ✅   | `ItemActions` 下沉 `shared/item-actions.tsx`；5 处 import 改 `../shared/item-actions`（`tnews/v2ex/xueqiu/hupu/reddit`）  |
+| 4.5      | 模块级可变状态                                   | ✅   | `let nextId` / `new WeakMap` 均无命中                                                                                     |
+| 4.6      | xit 双份 header state                            | ✅   | `createXitHeaderState()` 工厂（header.tsx:31），source 与 render 共用                                                     |
+| 4.7      | Source 接口不齐                                  | ⚠️   | 编译期 `SourceShape` 清单 ✅；显式 `loadState: undefined` 未做                                                            |
+| 4.8–4.13 | 抓取层 / 重试 / GBK / 重复实现 / 死代码 / 兼容性 | ✅   | S11 + S12 全部闭环                                                                                                        |
+| 5.1      | dist 孤儿                                        | ✅   | dist 仅剩 6 个脚本，与 6 个 src 入口一一对应                                                                              |
+| 5.2      | SWC 过激进                                       | ✅   | `unsafe`/`properties`/`hoist_props` 已移除（`passes:3`、`inline:2` 保留）                                                 |
+| 5.3      | prod 含 console.debug                            | ✅   | `:407` 属 **Phase 1 debug 产物**；prod 改注释标记（`:212`），实测 prod 计数 0                                             |
+| 5.4      | oxlint 规则面                                    | ✅   | `import/no-cycle: error` + `perf: warn`                                                                                   |
+| 5.5      | tsconfig 收紧                                    | ✅   | `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` 均已开                                                          |
+| 5.6      | 测试缺口                                         | ⚠️   | 高风险 2 模块已补：`source-registry`(`createSourceRegistry` 真实构建) + `header-state`(已有)；余 6 模块见 §五（低优先级） |
 
 ---
 
@@ -135,3 +135,19 @@
 5. **S13（§4.2 时钟）**：已出计划，与上述互不阻塞。
 
 > 若只挑一件事做：**§3.5** 是唯一"文档明确要求、至今一项都没动"的 P2 条目，且是性能悬崖（1MB HTML 上的回溯型正则）。
+
+---
+
+## 六、审计残留闭环记录（本次）
+
+上述"建议的下一步"第 1–4 项（C1 / C2 / C3 / §4.4 / §5.6 优先级项）已全部实施并验证，第 5 项（S13 时钟）为独立阶段，未纳入本次。
+
+| 项      | 改动                                                                                                                                                                                                                                            | 验证                                                                                 |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| C1 §1.2 | `editor-ui/ChipList.tsx:92` 改为 `{renderLabel ? renderLabel(name) : name}`，删 `import { escapeHtml }`                                                                                                                                         | typecheck / lint 0 error；相关组件测试通过                                           |
+| C2 §2.2 | `keys.ts` 新增 `CACHE/STATE/LOCK_KEY_PREFIX` 并让 `CACHE/STATE/LOCK_KEY` 复用；`save-filter.ts:34-36`、`xit/filters.ts:5` 改引 `keys.ts`（单一真源）                                                                                            | typecheck / lint 0 error；`save-filter.test.ts` 通过                                 |
+| C3 §2.6 | `xit/query/match.ts` 新增 `RELATIVE_DATE_KEYWORDS: readonly string[]`，`matchDate` 内改 `RELATIVE_DATE_KEYWORDS.includes(value)`，消除 `as any`                                                                                                 | typecheck / lint 0 error；`xit/query.test.ts` 通过                                   |
+| R1 §4.4 | `ItemActions` 从 `card/primitives.tsx` 下沉到 `shared/item-actions.tsx`（纯展示组件，无循环依赖）；改 5 处 import（`tnews/v2ex/xueqiu/hupu/reddit` → `../shared/item-actions`）                                                                 | typecheck / lint 0 error；`import/no-cycle: error` 通过；`xueqiu/tnews` 组件测试通过 |
+| I2 §5.6 | 新增 `test/prism/app/source-registry.test.ts`：`createSourceRegistry` 真实构建（DEFAULT_CONFIG + 测试 runtime），断言 10/9 source、groupForSource 完整性、xit 开关；`header-state` 已由 `test/prism/header-state.test.tsx` 覆盖（store + hook） | 4 例新测试全绿；相关 144 例无回归                                                    |
+
+**未做（按审计自身优先级，非本次范围）**：§5.6 余下 6 个零测试模块（`app/lifecycle.ts`、`app/sync-bootstrap.ts`、`app/shortcut-bootstrap.ts`、`xit/component/header.tsx`、`xit/editor.tsx`、`shell/editor.tsx`）——均为 DOM/GM 集成的 UI 或引导模块，审计 §五 仅将 `source-registry` + `header-state` 列为优先项，故未补。§4.2 时钟（S13）独立待做。

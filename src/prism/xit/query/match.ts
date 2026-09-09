@@ -3,15 +3,22 @@ import type { XitItem, XitLine } from '../types'
 import type { DateKeyword, QueryNode } from './types'
 import { resolveDateKeyword, parseDateValue } from './date-math'
 
+/** Relative date keywords accepted by `matchDate` (kept as `readonly string[]`
+ * so `includes` needs no `as any` escape — see the §2.6 audit note). */
+const RELATIVE_DATE_KEYWORDS: readonly string[] = [
+  'today',
+  'thisweek',
+  'thismonth',
+  'thisyear',
+  'everyday',
+]
+
 function matchDate(item: XitItem, op: string, value: string, offset?: number): boolean {
   if (!item.dueDate) return false
   const itemDate = parseDueDate(item.dueDate)
   if (!itemDate) return false
 
-  if (
-    (['today', 'thisweek', 'thismonth', 'thisyear', 'everyday'] as const).includes(value as any) ||
-    isWeekdayName(value)
-  ) {
+  if (RELATIVE_DATE_KEYWORDS.includes(value) || isWeekdayName(value)) {
     const range = resolveDateKeyword(value as DateKeyword, offset)
     if (!range) return false
     const t = itemDate.getTime()

@@ -1,8 +1,17 @@
 export const KEY_PREFIX = 'dashboard:v2'
 
-export const CACHE_KEY = (sourceId: string): string => `${KEY_PREFIX}:${sourceId}`
-export const STATE_KEY = (sourceId: string): string => `${KEY_PREFIX}:state:${sourceId}`
-export const LOCK_KEY = (sourceId: string): string => `${KEY_PREFIX}:lock:${sourceId}`
+/**
+ * Key-space prefixes. Exported so consumers can classify / parse keys instead of
+ * re-deriving the format locally — `save-filter.ts` used to rebuild these three,
+ * which would silently desync if the key layout ever changed (§2.2).
+ */
+export const CACHE_KEY_PREFIX = `${KEY_PREFIX}:`
+export const STATE_KEY_PREFIX = `${KEY_PREFIX}:state:`
+export const LOCK_KEY_PREFIX = `${KEY_PREFIX}:lock:`
+
+export const CACHE_KEY = (sourceId: string): string => `${CACHE_KEY_PREFIX}${sourceId}`
+export const STATE_KEY = (sourceId: string): string => `${STATE_KEY_PREFIX}${sourceId}`
+export const LOCK_KEY = (sourceId: string): string => `${LOCK_KEY_PREFIX}${sourceId}`
 export const CONFIG_KEY = `${KEY_PREFIX}:config`
 
 /** Cache key for the pre-grouped xueqiu news aggregate. Duplicates the

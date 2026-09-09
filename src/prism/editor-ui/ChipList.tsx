@@ -1,6 +1,5 @@
 import { useCallback, useRef } from 'preact/hooks'
 import type { ComponentChildren } from 'preact'
-import { escapeHtml } from '../../utils'
 
 export type ChipListProps = {
   sectionLabel: string
@@ -89,7 +88,7 @@ export function ChipList({
                 </>
               )}
               <span class={`gm-sp-editor-chip-label${chipLabelClass ? ` ${chipLabelClass}` : ''}`}>
-                {renderLabel ? renderLabel(name) : escapeHtml(name)}
+                {renderLabel ? renderLabel(name) : name}
               </span>
               <button
                 type="button"
