@@ -6,6 +6,32 @@ import type { HupuFetchResult, HupuPost, HupuSourceOptions } from './types'
 
 type FetchOutcome = { posts: HupuPost[]; error?: string }
 
+/**
+ * Extract the inline `window.$$data = {…}` payload using plain index scans.
+ *
+ * The previous lazy regex `\{[\s\S]*?\}` re-tried its match at every `}` in the
+ * document — on ~1MB of board HTML that is a quadratic backtracking cliff
+ * (see frontend.refactor.md §3.5). `indexOf` scans are linear and native.
+ *
+ * @returns the JSON text, or `null` when the marker / script block is absent.
+ */
+function extractDataJson(html: string): string | null {
+  const marker = 'window.$$data'
+  const markerIdx = html.indexOf(marker)
+  if (markerIdx < 0) return null
+  const eqIdx = html.indexOf('=', markerIdx + marker.length)
+  if (eqIdx < 0) return null
+  const openIdx = html.indexOf('{', eqIdx)
+  if (openIdx < 0) return null
+  const scriptEnd = html.indexOf('</script>', openIdx)
+  if (scriptEnd < 0) return null
+  // The payload ends at the last `}` before `</script>` — this mirrors what the
+  // old lazy regex captured, including a trailing `;` outside the group.
+  const closeIdx = html.lastIndexOf('}', scriptEnd)
+  if (closeIdx <= openIdx) return null
+  return html.slice(openIdx, closeIdx + 1)
+}
+
 async function fetchOneBoard(
   runtime: Runtime,
   board: string,
@@ -25,10 +51,10 @@ async function fetchOneBoard(
     return { posts: [], error: e instanceof Error ? e.message : String(e) }
   }
   try {
-    const dataJsonMatch = html.match(/window\.\$\$data\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/)
+    const dataJson = extractDataJson(html)
     let jsonPosts: HupuPost[] = []
-    if (dataJsonMatch) {
-      const json: unknown = JSON.parse(dataJsonMatch[1]!)
+    if (dataJson) {
+      const json: unknown = JSON.parse(dataJson)
       jsonPosts = parseHupuDataJson(json, board, 100, runtime.now)
     }
     const domPosts = parseHupuDom(html, board, 100, domParser, runtime.now)

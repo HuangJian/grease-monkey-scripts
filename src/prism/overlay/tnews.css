@@ -4,8 +4,14 @@
   margin: 0 0 4px;
 }
 
-.gm-sp-tnews-body img {
+/* Scoped to `.gm-sp-tnews` (the real container): the old `.gm-sp-tnews-body`
+   selector matched nothing, because the shared body class is
+   `.gm-sp-expandable-body` — so these rules never applied.
+   `width:auto` neutralises the intrinsic width/height attributes that used to
+   be stripped in JS by `stripImgSizeAttrs` (frontend.refactor.md §3.5). */
+.gm-sp-tnews img {
   max-width: 100%;
+  width: auto;
   height: auto;
   border-radius: var(--gm-sp-radius-sm);
   display: block;

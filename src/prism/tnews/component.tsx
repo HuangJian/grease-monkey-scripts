@@ -19,10 +19,6 @@ function stripLeadingSymbols(s: string): string {
   return s.replace(/^[\p{S}\p{M}]+/u, '')
 }
 
-function stripImgSizeAttrs(html: string): string {
-  return html.replace(/\s+(?:width|height)="[^"]*"/gi, '')
-}
-
 export type TnewsComponentProps = SourceComponentProps<TnewsItem[]> & {
   state: TnewsState
   now: number
@@ -77,9 +73,7 @@ export function TnewsComponent({
       timeTitle={(item) => FULL_TIME_FMT.format(new Date(item.pubDate))}
       titleAttr={(item) => stripLeadingSymbols(item.title || '(无标题)')}
       renderTitle={(item) => stripLeadingSymbols(item.title || '(无标题)')}
-      renderBody={(item) => (
-        <div dangerouslySetInnerHTML={{ __html: stripImgSizeAttrs(item.descriptionHtml) }} />
-      )}
+      renderBody={(item) => <div dangerouslySetInnerHTML={{ __html: item.descriptionHtml }} />}
       renderActions={(item) => (
         <ItemActions onBulkRead={() => handleBulkRead(item)} onHide={() => handleHide(item.id)} />
       )}
