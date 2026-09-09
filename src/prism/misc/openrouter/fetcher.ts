@@ -7,7 +7,7 @@
  *   Run: bun scripts/fetchers/openrouter-test.ts
  */
 import type { Runtime } from '../../../runtime'
-import { requestJson } from '../../shared/request'
+import { RETRY_ON_429, requestJson } from '../../shared/request'
 import type { OpenRouterData, OpenRouterFreeModel } from './types'
 
 const MODELS_URL = 'https://openrouter.ai/api/v1/models?category=programming'
@@ -26,10 +26,13 @@ function req<T>(runtime: Runtime, url: string): Promise<T> {
   // shared/request rejects on status>=400 / network error / timeout; default 15s,
   // overridden to 20s here to preserve the previous per-site timeout. Error text
   // differs slightly from the old `openrouter:`-prefixed messages but callers
-  // only care about success/failure, not the exact string.
+  // only care about success/failure, not the exact string. Rate limiting (429)
+  // is plausible on this API, so retry once — `max: 1` keeps the worst case at
+  // ~2x the 20s timeout (see frontend.refactor.md §4.9).
   return requestJson(runtime, url, {
     timeout: 20_000,
     headers: { accept: 'application/json' },
+    retry: RETRY_ON_429,
   }) as Promise<T>
 }
 

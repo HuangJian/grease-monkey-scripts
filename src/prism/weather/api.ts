@@ -11,7 +11,7 @@
  */
 import type { Runtime } from '../../runtime'
 import { fetchAirQuality } from './air-quality'
-import { requestJson, requestTextWithHeaders } from '../shared/request'
+import { RETRY_ON_429, requestJson, requestTextWithHeaders } from '../shared/request'
 import { parseWeather } from './parser'
 import { parseCmaNow } from './cma/parse-now'
 import { parseCmaPage } from './cma/parse-page'
@@ -55,7 +55,9 @@ async function fetchOpenMeteoBase(
   latitude: number,
   longitude: number,
 ): Promise<WeatherCityData> {
-  const data = await requestJson(runtime, buildWeatherUrl(latitude, longitude)).then((json) => {
+  const data = await requestJson(runtime, buildWeatherUrl(latitude, longitude), {
+    retry: RETRY_ON_429,
+  }).then((json) => {
     const parsed = parseWeather(json)
     if (!parsed) throw new Error('invalid weather response')
     return parsed

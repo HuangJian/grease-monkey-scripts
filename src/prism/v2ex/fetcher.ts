@@ -9,7 +9,7 @@ import {
 } from './parser'
 import type { V2exState } from './state'
 import { earliestTimestamp } from '../shared-utils'
-import { requestText } from '../shared/request'
+import { RETRY_ON_429, requestText } from '../shared/request'
 import type { V2exCountOptions, V2exTopic } from './types'
 
 /**
@@ -76,7 +76,7 @@ async function fetchFromEndpoint(
 ): Promise<FetchOutcome> {
   let body: string
   try {
-    body = await requestText(runtime, url, { anonymous: true })
+    body = await requestText(runtime, url, { anonymous: true, retry: RETRY_ON_429 })
   } catch (e) {
     return { topics: [], error: e instanceof Error ? e.message : String(e) }
   }

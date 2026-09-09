@@ -77,7 +77,7 @@ export function XueqiuComponent({
   const [isBrowsingHistory, setIsBrowsingHistory] = useState(true)
   const aiInitRef = useRef(false)
   const genStartRef = useRef(0)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timerRef = useRef<number | null>(null)
 
   const news = data?.news ?? []
   const hotPosts = data?.hotPosts ?? []
@@ -118,7 +118,7 @@ export function XueqiuComponent({
   useEffect(() => {
     return () => {
       if (timerRef.current) {
-        clearInterval(timerRef.current)
+        runtime.clearInterval(timerRef.current)
         timerRef.current = null
       }
     }
@@ -180,15 +180,15 @@ export function XueqiuComponent({
   function startTimer() {
     genStartRef.current = runtime.now()
     setElapsedSec(0)
-    if (timerRef.current) clearInterval(timerRef.current)
-    timerRef.current = setInterval(() => {
+    if (timerRef.current) runtime.clearInterval(timerRef.current)
+    timerRef.current = runtime.setInterval(() => {
       setElapsedSec(Math.floor((runtime.now() - genStartRef.current) / 1000))
     }, 1000)
   }
 
   function stopTimer() {
     if (timerRef.current) {
-      clearInterval(timerRef.current)
+      runtime.clearInterval(timerRef.current)
       timerRef.current = null
     }
   }

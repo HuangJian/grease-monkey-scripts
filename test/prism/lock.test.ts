@@ -3,10 +3,17 @@ import { tryAcquireLock, releaseLock } from '../../src/prism/lock'
 import { LOCK_KEY, LOCK_TTL_MS, type Lock } from '../../src/prism/types'
 import { createRuntime } from '../runtime'
 
+/** Let the two internal awaits (getValue → setValue) run before we inspect. */
+async function flushMicrotasks(): Promise<void> {
+  await Promise.resolve()
+  await Promise.resolve()
+  await Promise.resolve()
+}
+
 describe('tryAcquireLock', () => {
   test('acquires lock when none exists and returns owner token', async () => {
     const runtime = createRuntime()
-    const token = await tryAcquireLock(runtime, 'v2ex', { newId: () => 'me' })
+    const token = await tryAcquireLock(runtime, 'v2ex', { newId: () => 'me', verifyDelayMs: 0 })
     expect(token).toBe('me')
     const stored = runtime.stores[LOCK_KEY('v2ex')] as Lock
     expect(stored.owner).toBe('me')
@@ -16,7 +23,11 @@ describe('tryAcquireLock', () => {
     const runtime = createRuntime()
     const now = 1_000_000
     runtime.stores[LOCK_KEY('v2ex')] = { owner: 'other', expiresAt: now + 60_000 }
-    const token = await tryAcquireLock(runtime, 'v2ex', { now: () => now, newId: () => 'me' })
+    const token = await tryAcquireLock(runtime, 'v2ex', {
+      now: () => now,
+      newId: () => 'me',
+      verifyDelayMs: 0,
+    })
     expect(token).toBeNull()
   })
 
@@ -24,7 +35,11 @@ describe('tryAcquireLock', () => {
     const runtime = createRuntime()
     const now = 1_000_000
     runtime.stores[LOCK_KEY('v2ex')] = { owner: 'other', expiresAt: now - 1 }
-    const token = await tryAcquireLock(runtime, 'v2ex', { now: () => now, newId: () => 'me' })
+    const token = await tryAcquireLock(runtime, 'v2ex', {
+      now: () => now,
+      newId: () => 'me',
+      verifyDelayMs: 0,
+    })
     expect(token).toBe('me')
   })
 
@@ -37,14 +52,19 @@ describe('tryAcquireLock', () => {
         runtime.stores[key] = { owner: 'sneaky', expiresAt: Date.now() + 60_000 }
       }
     }
-    const token = await tryAcquireLock(runtime, 'v2ex', { newId: () => 'me' })
+    const token = await tryAcquireLock(runtime, 'v2ex', { newId: () => 'me', verifyDelayMs: 0 })
     expect(token).toBeNull()
   })
 
   test('honors custom TTL', async () => {
     const runtime = createRuntime()
     const now = 1_000_000
-    await tryAcquireLock(runtime, 'v2ex', { ttlMs: 5000, now: () => now, newId: () => 'me' })
+    await tryAcquireLock(runtime, 'v2ex', {
+      ttlMs: 5000,
+      now: () => now,
+      newId: () => 'me',
+      verifyDelayMs: 0,
+    })
     const stored = runtime.stores[LOCK_KEY('v2ex')] as Lock
     expect(stored.expiresAt).toBe(now + 5000)
   })
@@ -53,16 +73,33 @@ describe('tryAcquireLock', () => {
     expect(LOCK_TTL_MS).toBe(180_000)
     const runtime = createRuntime()
     const now = 1_000_000
-    await tryAcquireLock(runtime, 'v2ex', { now: () => now, newId: () => 'me' })
+    await tryAcquireLock(runtime, 'v2ex', {
+      now: () => now,
+      newId: () => 'me',
+      verifyDelayMs: 0,
+    })
     const stored = runtime.stores[LOCK_KEY('v2ex')] as Lock
     expect(stored.expiresAt).toBe(now + 180_000)
+  })
+
+  test('schedules the verify delay on the Runtime, not the global timer (§4.2)', async () => {
+    const runtime = createRuntime()
+    expect(runtime.activeTimeouts()).toHaveLength(0)
+    const p = tryAcquireLock(runtime, 'v2ex', { verifyDelayMs: 50, newId: () => 'me' })
+    // The delay is registered two awaits deep (getValue → setValue).
+    await flushMicrotasks()
+    const pending = runtime.activeTimeouts()
+    expect(pending).toHaveLength(1)
+    expect(pending[0]!.delay).toBe(50)
+    runtime.runTimeout(pending[0]!.id)
+    await expect(p).resolves.toBe('me')
   })
 })
 
 describe('releaseLock (owner-safe)', () => {
   test('releases lock when token matches owner', async () => {
     const runtime = createRuntime()
-    const token = await tryAcquireLock(runtime, 'v2ex', { newId: () => 'me' })
+    const token = await tryAcquireLock(runtime, 'v2ex', { newId: () => 'me', verifyDelayMs: 0 })
     expect(token).toBe('me')
     await releaseLock(runtime, 'v2ex', token!)
     expect(runtime.stores[LOCK_KEY('v2ex')]).toBeNull()
@@ -75,6 +112,7 @@ describe('releaseLock (owner-safe)', () => {
     const tokenA = await tryAcquireLock(runtime, 'v2ex', {
       now: () => now,
       newId: () => 'tab-a',
+      verifyDelayMs: 0,
     })
     expect(tokenA).toBe('tab-a')
 

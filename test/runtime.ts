@@ -26,6 +26,16 @@ export class XmlDOMParser implements DOMParser {
 
 const windows: Window[] = []
 
+/**
+ * Delays at or below this are "sleep / yield to the event loop" semantics
+ * (e.g. the 50ms cross-tab lock verification delay, the 0ms PoW yield), not
+ * scheduling: they fire on the real clock so the code under test behaves as it
+ * does in production. Longer delays are scheduling (backoffs, refresh timers,
+ * self-ticking clocks) and stay under manual control via `activeTimeouts` /
+ * `runTimeout`.
+ */
+const AUTO_FIRE_MAX_DELAY_MS = 100
+
 export function createDom(html: string, url = 'https://www.v2ex.com/t/123'): Window {
   const win = new Window({ url })
   win.document.documentElement.innerHTML = html
@@ -233,14 +243,23 @@ export function createRuntime(dom?: Window): TestRuntime {
     now: () => (clock === null ? Date.now() : clock),
     setTimeout: (cb, delayMs) => {
       const id = nextId++
-      timers.set(id, {
+      const delay = delayMs ?? 0
+      const timer: FakeTimer = {
         id,
-        delay: delayMs ?? 0,
+        delay,
         cb,
         type: 'timeout',
         cleared: false,
         fired: false,
-      })
+      }
+      timers.set(id, timer)
+      if (delay <= AUTO_FIRE_MAX_DELAY_MS) {
+        globalThis.setTimeout(() => {
+          if (timer.cleared || timer.fired) return
+          timer.fired = true
+          timer.cb()
+        }, delay)
+      }
       return id
     },
     clearTimeout: (id) => {

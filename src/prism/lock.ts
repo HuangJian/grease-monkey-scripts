@@ -49,7 +49,9 @@ export async function tryAcquireLock(
   const me: Lock = { owner: newId(), expiresAt: ts + ttlMs }
   await runtime.setValue(key, me)
   if (verifyDelayMs > 0) {
-    await new Promise<void>((r) => setTimeout(r, verifyDelayMs))
+    // Routed through Runtime (not the global timer) so the host boundary stays
+    // the single source of scheduling — see frontend.refactor.md §4.2.
+    await new Promise<void>((r) => runtime.setTimeout(r, verifyDelayMs))
   }
   const after = await runtime.getValue<Lock>(key, me)
   if (after.owner !== me.owner) {

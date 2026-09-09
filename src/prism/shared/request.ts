@@ -1,16 +1,32 @@
 import type { Runtime } from '../../runtime'
-import { BACKOFF_DELAYS_MS } from '../types'
 
 export const DEFAULT_REQUEST_TIMEOUT_MS = 15_000
+
+/**
+ * Backoff ladder for HTTP-level retries (seconds).
+ *
+ * Distinct from `BACKOFF_DELAYS_MS` (minutes), which is the *source-level*
+ * refresh schedule used by `app/refresh.ts` — reusing it here meant a single
+ * request with no `Retry-After` would stall for 60s (180s at `max: 2`) while
+ * holding a concurrency slot. See `frontend.refactor.md` §4.9.
+ */
+export const HTTP_RETRY_DELAYS_MS = [1_000, 4_000, 10_000] as const
 
 export type RetryOptions = {
   /** HTTP statuses that should trigger a retry (e.g. [429]). */
   statuses: number[]
   /** Maximum number of additional attempts (beyond the first) on a retryable status. */
   max: number
-  /** Fixed backoff in ms; falls back to BACKOFF_DELAYS_MS when omitted and no Retry-After header. */
+  /** Fixed backoff in ms; falls back to HTTP_RETRY_DELAYS_MS when omitted and no Retry-After header. */
   baseDelayMs?: number
 }
+
+/**
+ * Shared 429-only policy for idempotent GETs against rate-limited JSON APIs.
+ * `max: 1` keeps the worst case bounded at `2 × timeout + ~1s` (see §4.9);
+ * a `Retry-After` header from the server is still honoured in full.
+ */
+export const RETRY_ON_429: RetryOptions = { statuses: [429], max: 1 }
 
 export type RequestOptions = {
   timeout?: number
@@ -39,7 +55,7 @@ function parseRetryAfterMs(header: string): number {
 
 /**
  * Backoff delay for retry attempt `attempt` (0-based).
- * Preference: explicit `Retry-After` header → `baseDelayMs` → `BACKOFF_DELAYS_MS[attempt]`.
+ * Preference: explicit `Retry-After` header → `baseDelayMs` → `HTTP_RETRY_DELAYS_MS[attempt]`.
  */
 export function computeRetryDelayMs(
   attempt: number,
@@ -49,8 +65,8 @@ export function computeRetryDelayMs(
   const fromHeader = parseRetryAfterMs(retryAfterHeader)
   if (fromHeader > 0) return fromHeader
   if (baseDelayMs && baseDelayMs > 0) return baseDelayMs
-  const idx = Math.min(attempt, BACKOFF_DELAYS_MS.length - 1)
-  return BACKOFF_DELAYS_MS[idx] ?? BACKOFF_DELAYS_MS[BACKOFF_DELAYS_MS.length - 1]!
+  const idx = Math.min(attempt, HTTP_RETRY_DELAYS_MS.length - 1)
+  return HTTP_RETRY_DELAYS_MS[idx] ?? HTTP_RETRY_DELAYS_MS[HTTP_RETRY_DELAYS_MS.length - 1]!
 }
 
 /**

@@ -68,7 +68,7 @@ function waitJitter(
   variance = REQUEST_DELAY_VARIANCE,
 ): Promise<void> {
   const ms = baseMs * (1 - variance + Math.random() * variance * 2)
-  return new Promise((resolve) => setTimeout(resolve, ms))
+  return new Promise((resolve) => runtime.setTimeout(resolve, ms))
 }
 
 /** GM_xmlhttpRequest wrapper — for NEWS endpoint (no WAF).
@@ -91,13 +91,20 @@ function gmFetchJson(runtime: Runtime, url: string): Promise<ApiResponse> {
  *  inflightRefreshes entry and makes the refresh button unresponsive. */
 async function pageFetchJson(runtime: Runtime, url: string): Promise<ApiResponse> {
   const fetchPromise = runtime.pageFetch(url) as Promise<ApiResponse>
+  let timerId = 0
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(
+    timerId = runtime.setTimeout(
       () => reject(new Error(`pageFetch timeout (${PAGE_FETCH_TIMEOUT_MS}ms) for ${url}`)),
       PAGE_FETCH_TIMEOUT_MS,
     )
   })
-  return Promise.race([fetchPromise, timeoutPromise])
+  try {
+    return await Promise.race([fetchPromise, timeoutPromise])
+  } finally {
+    // Drop the guard once the real fetch settles — previously the 20s timer was
+    // left dangling for the rest of the page's life.
+    runtime.clearTimeout(timerId)
+  }
 }
 
 // ---- Dedup ----

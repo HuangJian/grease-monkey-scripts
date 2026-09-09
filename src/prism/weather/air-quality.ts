@@ -1,6 +1,6 @@
 import type { Runtime } from '../../runtime'
 import { numberOrDefault } from '../../utils'
-import { requestJson } from '../shared/request'
+import { RETRY_ON_429, requestJson } from '../shared/request'
 import type { WeatherAirQuality } from './types'
 
 export function buildAirQualityUrl(latitude: number, longitude: number): string {
@@ -31,7 +31,9 @@ export function fetchAirQuality(
   latitude: number,
   longitude: number,
 ): Promise<WeatherAirQuality> {
-  return requestJson(runtime, buildAirQualityUrl(latitude, longitude)).then((json) => {
+  return requestJson(runtime, buildAirQualityUrl(latitude, longitude), {
+    retry: RETRY_ON_429,
+  }).then((json) => {
     const aq = parseAirQuality(json)
     if (!aq) throw new Error('invalid air quality response')
     return aq

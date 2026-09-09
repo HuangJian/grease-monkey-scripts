@@ -40,8 +40,8 @@ export function RefreshTime({ cached, now, ttlMs, runtime }: RefreshTimeProps) {
     setTick(now)
   }, [now])
   useEffect(() => {
-    const id = setInterval(() => setTick(runtime.now()), 30_000)
-    return () => clearInterval(id)
+    const id = runtime.setInterval(() => setTick(runtime.now()), 30_000)
+    return () => runtime.clearInterval(id)
   }, [])
   const isStale = cached != null && tick - cached.fetchedAt > ttlMs * VERY_STALE_MULTIPLIER
   const timeAgo = cached ? formatRelativeTime(cached.fetchedAt, tick) : null
