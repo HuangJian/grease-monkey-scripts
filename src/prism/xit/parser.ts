@@ -183,18 +183,17 @@ export function resolveWeekday(name: WeekdayName, now?: Date): Date {
 /**
  * Parses an xit due date string into a concrete Date object representing the end of that period.
  */
-export function parseDueDate(dateStr: string): Date | null {
+export function parseDueDate(dateStr: string, now: Date = new Date()): Date | null {
   const trimmed = dateStr.trim()
 
   // everyday — always resolves to today
   if (trimmed === 'everyday') {
-    const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), now.getDate())
   }
 
   // weekday names — resolve based on current day
   if (isWeekdayName(trimmed)) {
-    return resolveWeekday(trimmed)
+    return resolveWeekday(trimmed, now)
   }
 
   // YYYY-MM-DD

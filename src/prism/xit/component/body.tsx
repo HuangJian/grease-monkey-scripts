@@ -10,16 +10,16 @@ import type { XitHeaderState } from './header'
 
 const COMPLETED_STATUSES = new Set(['checked', 'obsolete'])
 
-export function computePinnedLines(displayLines: XitLine[]): XitLine[] {
+export function computePinnedLines(displayLines: XitLine[], now: Date = new Date()): XitLine[] {
   const pinned: XitLine[] = []
   const overdueItems = displayLines.filter(
     (l): l is XitItem =>
       l.type === 'item' &&
       !COMPLETED_STATUSES.has(l.status) &&
-      getDueDateStatus(l.dueDate ?? '') === 'overdue',
+      getDueDateStatus(l.dueDate ?? '', now) === 'overdue',
   )
   const todayItems = displayLines.filter(
-    (l): l is XitItem => l.type === 'item' && getDueDateStatus(l.dueDate ?? '') === 'today',
+    (l): l is XitItem => l.type === 'item' && getDueDateStatus(l.dueDate ?? '', now) === 'today',
   )
   if (overdueItems.length > 0) {
     overdueItems.sort((a, b) => b.priority - a.priority)
@@ -47,6 +47,7 @@ export function XitBody({
   const lines = useMemo(() => parseXitText(data?.text ?? ''), [data?.text])
   const query = hs.query
   const queryError = hs.queryError
+  const now = new Date(runtime.now())
 
   const isFiltering = query !== ''
   let displayLines: XitLine[] = []
@@ -55,7 +56,7 @@ export function XitBody({
   if (isFiltering) {
     const result = parseQuery(query)
     if (result.ok) {
-      displayLines = filterItems(lines, result.ast)
+      displayLines = filterItems(lines, result.ast, now)
       const enrichedLines: XitLine[] = []
       let lastHeading: XitLine | null = null
       lines.forEach((line) => {
@@ -70,7 +71,7 @@ export function XitBody({
         }
       })
       displayLines = enrichedLines
-      pinnedLines = computePinnedLines(displayLines)
+      pinnedLines = computePinnedLines(displayLines, now)
     } else {
       displayLines = lines.filter((l) => l.type !== 'blank')
     }
@@ -108,10 +109,10 @@ export function XitBody({
           <>
             {pinnedLines.length > 0 && (
               <div class="gm-sp-xit-pinned">
-                <ListContent lines={pinnedLines} openEditor={openEditor} />
+                <ListContent lines={pinnedLines} now={now} openEditor={openEditor} />
               </div>
             )}
-            <ListContent lines={displayLines} openEditor={openEditor} />
+            <ListContent lines={displayLines} now={now} openEditor={openEditor} />
           </>
         )}
       </div>
@@ -121,9 +122,11 @@ export function XitBody({
 
 function ListContent({
   lines,
+  now,
   openEditor,
 }: {
   lines: XitLine[]
+  now: Date
   openEditor?: (lineIndex?: number) => void
 }) {
   function handleDblClick(e: MouseEvent) {
@@ -136,7 +139,7 @@ function ListContent({
 
   return (
     <div class="gm-sp-xit-list" onDblClick={handleDblClick}>
-      <XitList lines={lines} />
+      <XitList lines={lines} now={now} />
     </div>
   )
 }

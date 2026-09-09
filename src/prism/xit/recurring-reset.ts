@@ -97,7 +97,7 @@ export function applyRecurringReset(
  */
 export async function resetRecurringTasks(runtime: Runtime, text: string): Promise<string> {
   const lastReset = await runtime.getValue<string | null>(LAST_RESET_KEY, null)
-  const result = applyRecurringReset(text, lastReset, new Date())
+  const result = applyRecurringReset(text, lastReset, new Date(runtime.now()))
   if (result.lastResetDate !== lastReset) {
     await runtime.setValue(LAST_RESET_KEY, result.lastResetDate)
   }

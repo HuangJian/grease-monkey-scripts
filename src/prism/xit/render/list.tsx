@@ -30,7 +30,7 @@ const TAG_RE = /(^|\s)#([\w\d\u4e00-\u9fa5_-]+)(?:=([^\s#]+|"[^"]*"|'[^']*'))?/g
 const DUE_RE =
   /->\s*(everyday|sunday|monday|tuesday|wednesday|thursday|friday|saturday|\d{4}(?:-\d{2}-\d{2}|-\d{2}|-Q[1-4]|-W\d{1,2})?)/g
 
-function parseDescriptionTokens(line: XitItem): DescriptionToken[] {
+function parseDescriptionTokens(line: XitItem, now: Date = new Date()): DescriptionToken[] {
   const desc = line.description
   const isCompleted = line.status === 'checked' || line.status === 'obsolete'
   const matches: RawMatch[] = []
@@ -67,8 +67,8 @@ function parseDescriptionTokens(line: XitItem): DescriptionToken[] {
       if (!isCompleted) icon = '\u23F0'
       dueClass = 'gm-sp-xit-due-today'
     } else {
-      const status = getDueDateStatus(dateStr)
-      display = formatDueDateDisplay(dateStr)
+      const status = getDueDateStatus(dateStr, now)
+      display = formatDueDateDisplay(dateStr, now)
       if (!isCompleted) {
         if (status === 'overdue') icon = '\u26A0\uFE0F'
         else if (status === 'today') icon = '\u23F0'
@@ -102,8 +102,8 @@ function parseDescriptionTokens(line: XitItem): DescriptionToken[] {
   return tokens
 }
 
-function renderDescription(line: XitItem): (VNode | string)[] {
-  const tokens = parseDescriptionTokens(line)
+function renderDescription(line: XitItem, now: Date = new Date()): (VNode | string)[] {
+  const tokens = parseDescriptionTokens(line, now)
   const elements: (VNode | string)[] = []
 
   for (const token of tokens) {
@@ -146,14 +146,15 @@ function renderDescription(line: XitItem): (VNode | string)[] {
 
 type XitItemProps = {
   line: XitItem
+  now: Date
 }
 
-function XitItem({ line }: XitItemProps) {
+function XitItem({ line, now }: XitItemProps) {
   const checkboxChar = getCheckboxChar(line.status)
   const isCompleted = line.status === 'checked' || line.status === 'obsolete'
   const completedClass = isCompleted ? ' gm-sp-xit-item-completed' : ''
   const dueToday =
-    !isCompleted && line.dueDate !== null && getDueDateStatus(line.dueDate) === 'today'
+    !isCompleted && line.dueDate !== null && getDueDateStatus(line.dueDate, now) === 'today'
   const boldClass = dueToday ? ' gm-sp-xit-content-bold' : ''
 
   return (
@@ -165,16 +166,17 @@ function XitItem({ line }: XitItemProps) {
       <span class="gm-sp-xit-checkbox" data-status={line.status}>
         {checkboxChar}
       </span>
-      <div class={`gm-sp-xit-content${boldClass}`}>{renderDescription(line)}</div>
+      <div class={`gm-sp-xit-content${boldClass}`}>{renderDescription(line, now)}</div>
     </div>
   )
 }
 
 type XitListProps = {
   lines: XitLine[]
+  now?: Date
 }
 
-export function XitList({ lines }: XitListProps) {
+export function XitList({ lines, now = new Date() }: XitListProps) {
   return (
     <>
       {lines.map((line) => {
@@ -195,7 +197,7 @@ export function XitList({ lines }: XitListProps) {
             </div>
           )
         }
-        return <XitItem key={line.lineIndex} line={line} />
+        return <XitItem key={line.lineIndex} line={line} now={now} />
       })}
     </>
   )

@@ -1,9 +1,8 @@
 import { parseDueDate, resolveWeekday, isWeekdayName } from '../parser'
 import type { DateKeyword } from './types'
 
-export function getTodayStart(): Date {
-  const d = new Date()
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate())
+export function getTodayStart(now: Date = new Date()): Date {
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate())
 }
 
 export function addDays(date: Date, n: number): Date {
@@ -25,8 +24,9 @@ function addYears(date: Date, n: number): Date {
 export function resolveDateKeyword(
   kw: DateKeyword,
   offset?: number,
+  now: Date = new Date(),
 ): { start: Date; end: Date } | null {
-  const today = getTodayStart()
+  const today = getTodayStart(now)
 
   switch (kw) {
     case 'today':
@@ -60,7 +60,7 @@ export function resolveDateKeyword(
     }
     default: {
       if (isWeekdayName(kw)) {
-        const d = resolveWeekday(kw)
+        const d = resolveWeekday(kw, now)
         return { start: d, end: addDays(d, 1) }
       }
       return null
@@ -68,7 +68,7 @@ export function resolveDateKeyword(
   }
 }
 
-export function parseDateValue(value: string): Date | null {
+export function parseDateValue(value: string, now: Date = new Date()): Date | null {
   if (/^\d{8}$/.test(value)) {
     const y = Number(value.slice(0, 4))
     const m = Number(value.slice(4, 6)) - 1
@@ -76,7 +76,7 @@ export function parseDateValue(value: string): Date | null {
     return new Date(y, m, d)
   }
   if (/^\d{4}$/.test(value)) {
-    const year = new Date().getFullYear()
+    const year = now.getFullYear()
     const m = Number(value.slice(0, 2)) - 1
     const d = Number(value.slice(2, 4))
     return new Date(year, m, d)

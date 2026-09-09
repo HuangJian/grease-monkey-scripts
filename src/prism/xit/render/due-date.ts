@@ -2,11 +2,12 @@ import { parseDueDate } from '../parser'
 
 export function getDueDateStatus(
   dateStr: string,
+  now: Date = new Date(),
 ): 'overdue' | 'today' | 'tomorrow' | 'soon' | 'future' | 'invalid' {
-  const d = parseDueDate(dateStr)
+  const d = parseDueDate(dateStr, now)
   if (!d) return 'invalid'
 
-  const today = new Date()
+  const today = now
   const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
   const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999)
 
@@ -29,9 +30,9 @@ export function getDueDateStatus(
   }
 }
 
-export function formatDueDateDisplay(dateStr: string): string {
+export function formatDueDateDisplay(dateStr: string, now: Date = new Date()): string {
   if (dateStr === 'everyday') return 'everyday'
-  const currentYear = new Date().getFullYear()
+  const currentYear = now.getFullYear()
   const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr)
   if (ymd) {
     return Number(ymd[1]) === currentYear ? `${ymd[2]}-${ymd[3]}` : dateStr

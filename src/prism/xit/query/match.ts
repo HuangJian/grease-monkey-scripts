@@ -13,13 +13,19 @@ const RELATIVE_DATE_KEYWORDS: readonly string[] = [
   'everyday',
 ]
 
-function matchDate(item: XitItem, op: string, value: string, offset?: number): boolean {
+function matchDate(
+  item: XitItem,
+  op: string,
+  value: string,
+  offset?: number,
+  now: Date = new Date(),
+): boolean {
   if (!item.dueDate) return false
-  const itemDate = parseDueDate(item.dueDate)
+  const itemDate = parseDueDate(item.dueDate, now)
   if (!itemDate) return false
 
   if (RELATIVE_DATE_KEYWORDS.includes(value) || isWeekdayName(value)) {
-    const range = resolveDateKeyword(value as DateKeyword, offset)
+    const range = resolveDateKeyword(value as DateKeyword, offset, now)
     if (!range) return false
     const t = itemDate.getTime()
     switch (op) {
@@ -38,7 +44,7 @@ function matchDate(item: XitItem, op: string, value: string, offset?: number): b
     }
   }
 
-  const targetDate = parseDateValue(value)
+  const targetDate = parseDateValue(value, now)
   if (!targetDate) return false
 
   const t = itemDate.getTime()
@@ -60,17 +66,21 @@ function matchDate(item: XitItem, op: string, value: string, offset?: number): b
   }
 }
 
-function matchDatePeriod(item: XitItem, periodSpec: string, offset?: number): boolean {
+function matchDatePeriod(
+  item: XitItem,
+  periodSpec: string,
+  offset?: number,
+  now: Date = new Date(),
+): boolean {
   if (!item.dueDate) return false
 
   // ~thisweek + ->weekday: match if weekday >= today's day-of-week (Sun=7)
   if (periodSpec === 'thisweek' && isWeekdayName(item.dueDate)) {
-    const today = new Date()
-    const todayDow = today.getDay() || 7
+    const todayDow = now.getDay() || 7
     return weekdayNumber(item.dueDate) >= todayDow
   }
 
-  const itemDate = parseDueDate(item.dueDate)
+  const itemDate = parseDueDate(item.dueDate, now)
   if (!itemDate) return false
 
   const t = itemDate.getTime()
@@ -79,14 +89,14 @@ function matchDatePeriod(item: XitItem, periodSpec: string, offset?: number): bo
     ['today', 'thisweek', 'thismonth', 'thisyear', 'everyday'].includes(periodSpec) ||
     isWeekdayName(periodSpec)
   ) {
-    const range = resolveDateKeyword(periodSpec as DateKeyword, offset)
+    const range = resolveDateKeyword(periodSpec as DateKeyword, offset, now)
     if (!range) return false
     return t >= range.start.getTime() && t < range.end.getTime()
   }
 
   const bareQ = /^[Qq]([1-4])$/.exec(periodSpec)
   if (bareQ) {
-    const year = new Date().getFullYear()
+    const year = now.getFullYear()
     const q = Number(bareQ[1])
     const start = new Date(year, (q - 1) * 3, 1)
     const end = new Date(year, q * 3, 1)
@@ -125,7 +135,7 @@ function matchDatePeriod(item: XitItem, periodSpec: string, offset?: number): bo
 
   const m = /^(\d{2})$/.exec(periodSpec)
   if (m) {
-    const year = new Date().getFullYear()
+    const year = now.getFullYear()
     const month = Number(m[1]) - 1
     const start = new Date(year, month, 1)
     const end = new Date(year, month + 1, 1)
@@ -143,7 +153,12 @@ function matchDatePeriod(item: XitItem, periodSpec: string, offset?: number): bo
   return false
 }
 
-function matchDateKeyword(item: XitItem, kw: DateKeyword, offset?: number): boolean {
+function matchDateKeyword(
+  item: XitItem,
+  kw: DateKeyword,
+  offset?: number,
+  now: Date = new Date(),
+): boolean {
   if (kw === 'nodue') {
     return item.dueDate === null
   }
@@ -153,25 +168,25 @@ function matchDateKeyword(item: XitItem, kw: DateKeyword, offset?: number): bool
     return false
   }
 
-  const range = resolveDateKeyword(kw, offset)
+  const range = resolveDateKeyword(kw, offset, now)
   if (!range) return false
 
   if (!item.dueDate) return false
-  const itemDate = parseDueDate(item.dueDate)
+  const itemDate = parseDueDate(item.dueDate, now)
   if (!itemDate) return false
 
   const t = itemDate.getTime()
   return t >= range.start.getTime() && t < range.end.getTime()
 }
 
-function matchItem(item: XitItem, ast: QueryNode): boolean {
+function matchItem(item: XitItem, ast: QueryNode, now: Date = new Date()): boolean {
   switch (ast.type) {
     case 'and':
-      return ast.children.every((child) => matchItem(item, child))
+      return ast.children.every((child) => matchItem(item, child, now))
     case 'or':
-      return ast.children.some((child) => matchItem(item, child))
+      return ast.children.some((child) => matchItem(item, child, now))
     case 'not':
-      return !matchItem(item, ast.child)
+      return !matchItem(item, ast.child, now)
     case 'status':
       return item.status === ast.value
     case 'priority': {
@@ -194,10 +209,10 @@ function matchItem(item: XitItem, ast: QueryNode): boolean {
       }
     }
     case 'date':
-      if (ast.op === '~') return matchDatePeriod(item, ast.value, ast.offset)
-      return matchDate(item, ast.op, ast.value, ast.offset)
+      if (ast.op === '~') return matchDatePeriod(item, ast.value, ast.offset, now)
+      return matchDate(item, ast.op, ast.value, ast.offset, now)
     case 'dateKeyword':
-      return matchDateKeyword(item, ast.value, ast.offset)
+      return matchDateKeyword(item, ast.value, ast.offset, now)
     case 'tag':
       return item.tags.some(
         (t) => t.name === ast.name && (ast.value === undefined || t.value === ast.value),
@@ -216,9 +231,9 @@ function matchItem(item: XitItem, ast: QueryNode): boolean {
   }
 }
 
-export function filterItems(lines: XitLine[], ast: QueryNode): XitLine[] {
+export function filterItems(lines: XitLine[], ast: QueryNode, now: Date = new Date()): XitLine[] {
   return lines.filter((line) => {
     if (line.type !== 'item') return false
-    return matchItem(line, ast)
+    return matchItem(line, ast, now)
   })
 }
