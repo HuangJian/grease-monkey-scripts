@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fetchReddit } from '../../../../src/prism/reddit/fetcher'
 import type { RedditSourceOptions } from '../../../../src/prism/reddit/types'
-import type { Runtime, RequestDetails } from '../../../../src/runtime'
-import { createRuntime } from '../../../runtime'
+import type { RequestDetails } from '../../../../src/runtime'
+import { createRuntime, type TestRuntime } from '../../../runtime'
 
 const DEFAULT_COUNT_OPTS = {
   todayMinComments: 10,
@@ -30,9 +30,27 @@ function loadFixture(): unknown {
   return JSON.parse(text)
 }
 
-function makeRuntime(handler: (d: RequestDetails) => void): Runtime {
+function makeRuntime(handler: (d: RequestDetails) => void): TestRuntime {
   const base = createRuntime()
   return { ...base, request: (d: RequestDetails) => handler(d) }
+}
+
+/**
+ * Fire the backoff scheduled by the 429 retry path.
+ *
+ * Delays above 100ms never auto-fire on the test runtime's fake clock
+ * (`AUTO_FIRE_MAX_DELAY_MS`), so a retry would otherwise stall until the
+ * runner's timeout. Poll for the scheduled timer and run it by hand.
+ */
+async function drainRetries(runtime: TestRuntime, attempt = 0): Promise<void> {
+  const pending = runtime.activeTimeouts(1)
+  if (pending.length > 0) {
+    pending.forEach((timer) => runtime.runTimeout(timer.id))
+    return
+  }
+  if (attempt >= 20) throw new Error('drainRetries: no retry was scheduled')
+  await new Promise((resolve) => globalThis.setTimeout(resolve, 0))
+  return drainRetries(runtime, attempt + 1)
 }
 
 describe('fetchReddit', () => {
@@ -158,7 +176,9 @@ describe('fetchReddit', () => {
         d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
       }
     })
-    const result = await fetchReddit(runtime, defaultRedditOpts())
+    const pending = fetchReddit(runtime, defaultRedditOpts())
+    await drainRetries(runtime)
+    const result = await pending
     expect(calls).toBe(2)
     expect(result.posts[0]!.posts.length).toBeGreaterThan(0)
   })
@@ -166,7 +186,9 @@ describe('fetchReddit', () => {
     const runtime = makeRuntime((d) => {
       d.onload({ responseText: '', status: 429, responseHeaders: 'retry-after: 0' })
     })
-    await expect(fetchReddit(runtime, defaultRedditOpts())).rejects.toThrow(/http 429/)
+    const pending = fetchReddit(runtime, defaultRedditOpts())
+    await drainRetries(runtime)
+    await expect(pending).rejects.toThrow(/http 429/)
   })
   test('http 500 on first call: no retry, throws', async () => {
     let calls = 0

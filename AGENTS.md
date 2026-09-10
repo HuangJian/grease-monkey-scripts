@@ -189,7 +189,8 @@ Key constraints:
 - Put pure logic in small functions and cover with unit tests.
 - Use jsdom/happy-dom integration tests for DOM transformations.
 - Mock Tampermonkey APIs through injected `Runtime` objects (see `test/runtime.ts`).
-- Avoid live network requests in tests.
+- **Never connect to a real website in tests.** Use fixed fixtures, or `runtime.queueResponse(...)` / `TestRuntimeBuilder.withResponse(...)`. Enforced in three layers — keep all of them: `happydom.ts` disables CSS/JS file loading and frame navigation (simulated clicks on `<a>` would otherwise download the target page), the same settings are applied to windows built by `createDom` / `createHappyDom`, and `globalThis.fetch` is stubbed to reject with `[test] real network is blocked`.
+- **Backoff timers never auto-fire.** On the test runtime, delays above `AUTO_FIRE_MAX_DELAY_MS` (100ms) are fake. Tests exercising retry paths must drain them explicitly — see `drainTimeouts` in `test/prism/shared/request-retry.test.ts`; otherwise the test stalls until the runner timeout instead of failing.
 - When a bug depends on real website HTML, fetch the page for investigation, then reduce the relevant DOM shape into a small fixture. Do not paste entire pages into tests.
 
 ### DOM Safety

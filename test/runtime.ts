@@ -36,8 +36,27 @@ const windows: Window[] = []
  */
 const AUTO_FIRE_MAX_DELAY_MS = 100
 
+/**
+ * Settings shared with the `happydom.ts` preload: windows created here get the
+ * same resource-loading switches, so injecting a real-site HTML fixture never
+ * triggers an HTTP request for its stylesheets or scripts.
+ */
+const WINDOW_SETTINGS = {
+  disableCSSFileLoading: true,
+  disableJavaScriptFileLoading: true,
+  handleDisabledFileLoadingAsSuccess: true,
+  // Simulated clicks on <a> would otherwise navigate and download the target
+  // page. Navigation is disabled but the URL fallback is left on, so a click
+  // still updates `location` without touching the network.
+  navigation: {
+    disableMainFrameNavigation: true,
+    disableChildFrameNavigation: true,
+    disableChildPageNavigation: true,
+  },
+} as const
+
 export function createDom(html: string, url = 'https://www.v2ex.com/t/123'): Window {
-  const win = new Window({ url })
+  const win = new Window({ url, settings: { ...WINDOW_SETTINGS } })
   win.document.documentElement.innerHTML = html
   windows.push(win)
   return win
@@ -45,7 +64,7 @@ export function createDom(html: string, url = 'https://www.v2ex.com/t/123'): Win
 
 /** Create a happy-dom Window for isolated DOM snippets (no URL). */
 export function createHappyDom(html: string, url?: string): Window {
-  const win = new Window({ url: url ?? 'http://localhost' })
+  const win = new Window({ url: url ?? 'http://localhost', settings: { ...WINDOW_SETTINGS } })
   win.document.documentElement.innerHTML = html
   windows.push(win)
   return win
