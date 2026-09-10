@@ -14,8 +14,22 @@ import {
   type KeyDescription,
   type ReadState,
 } from './save-filter'
+import { formatByteSize, utf8ByteLength } from './shared-utils'
 
-type KeyEntry = KeyDescription & { key: string }
+/**
+ * `size` is the UTF-8 byte length of the stored value — the number that matters
+ * for the GM quota. Absent for the virtual xueqiu-hot entry, whose bytes are
+ * already counted under xueqiu-news.
+ */
+type KeyEntry = KeyDescription & { key: string; size?: number | undefined }
+
+/** Approximate the stored footprint of one key, so the inspector can show it. */
+async function measureKey(runtime: Runtime, key: string): Promise<number | undefined> {
+  if (key === XUEQIU_HOT_CACHE_KEY) return undefined
+  const value = await runtime.getValue<unknown>(key, null)
+  if (value === null || value === undefined) return undefined
+  return utf8ByteLength(JSON.stringify(value))
+}
 
 type SaveDialogProps = {
   root: ShadowRoot
@@ -52,7 +66,8 @@ function SaveDialog({ root, runtime, onClose }: SaveDialogProps) {
   }, [])
 
   useLayoutEffect(() => {
-    void runtime.listValues().then((keys) => {
+    void (async () => {
+      const keys = await runtime.listValues()
       const entries: KeyEntry[] = []
       const seenKeys = new Set<string>()
       for (const key of keys) {
@@ -70,9 +85,14 @@ function SaveDialog({ root, runtime, onClose }: SaveDialogProps) {
           entries.push({ key: XUEQIU_HOT_CACHE_KEY, ...hotDesc })
         }
       }
-      setAllKeys(entries)
-      setSelected(new Set(entries.map((e) => e.key)))
-    })
+      // Sizes are measured for every key so the user can see what a source
+      // actually costs (e.g. the RSS cache) before deciding what to export.
+      const sized = await Promise.all(
+        entries.map(async (entry) => ({ ...entry, size: await measureKey(runtime, entry.key) })),
+      )
+      setAllKeys(sized)
+      setSelected(new Set(sized.map((e) => e.key)))
+    })()
   }, [runtime])
 
   useLayoutEffect(() => {
@@ -220,6 +240,11 @@ function SaveDialog({ root, runtime, onClose }: SaveDialogProps) {
                               onChange={() => toggleKey(entry.key)}
                             />
                             <span>{entry.label}</span>
+                            {entry.size !== undefined ? (
+                              <span class="gm-sp-save-size" data-action="key-size">
+                                {formatByteSize(entry.size)}
+                              </span>
+                            ) : null}
                           </label>
                         ))}
                       </div>

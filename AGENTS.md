@@ -298,7 +298,7 @@ Use fetched HTML only as evidence for implementation and tests. Do not make the 
 The user manages commits themselves. When asked to prepare a commit:
 
 1. Run `bun run check` to ensure all checks pass first.
-2. Stage intended files with `git add`, excluding `*.task.md` and `*.plan.md`.
+2. Stage the intended files with `git add`. Stage the planning and review documents (`*.plan.md`, `*.plan.review.md`) together with the change they describe — that is this repo's established practice (S4–S14 and the `rss-reader.plan.md` / `.review.md` pair are all tracked). Only `*.task.md` scratch notes stay out of the index.
 3. Draft a commit message — concise, clear, ≤20 lines, describing what changed and why.
 4. Show the commit message and wait for explicit user approval.
 5. On hook rejection, fix the issue and create a new commit (never amend).

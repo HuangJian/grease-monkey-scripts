@@ -20,6 +20,33 @@ export function sourceBadge(
  * Two timestamps on the same local day share a key, so it is the unit for
  * "refresh once per day after local midnight" logic.
  */
+/**
+ * UTF-8 byte length of a string, without depending on `TextEncoder` (which is a
+ * browser global the runtime adapter would otherwise have to carry).
+ *
+ * Used to report how much storage a cached source actually occupies: GM quota is
+ * measured in bytes, and Chinese summaries cost 3 bytes per character, so
+ * `String.length` would understate the real payload by ~3x.
+ */
+export function utf8ByteLength(text: string): number {
+  let bytes = 0
+  for (const char of text) {
+    const code = char.codePointAt(0) ?? 0
+    if (code < 0x80) bytes += 1
+    else if (code < 0x800) bytes += 2
+    else if (code < 0x10000) bytes += 3
+    else bytes += 4
+  }
+  return bytes
+}
+
+/** Human-readable byte size (`512 B`, `12.3 KB`, `1.4 MB`). */
+export function formatByteSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 export function localDateKey(ms: number): string {
   const d = new Date(ms)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`

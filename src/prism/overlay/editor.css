@@ -378,3 +378,11 @@
   margin: 0;
   cursor: pointer;
 }
+
+.gm-sp-save-size {
+  margin-left: auto;
+  padding-left: 8px;
+  font-size: 11px;
+  color: var(--gm-sp-color-text-soft);
+  white-space: nowrap;
+}

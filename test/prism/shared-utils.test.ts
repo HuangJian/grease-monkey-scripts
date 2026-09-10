@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  formatByteSize,
   formatReplyCount,
   sourceBadge,
   applyDateFilter,
@@ -8,7 +9,38 @@ import {
   earliestTimestamp,
   isRetentionExpired,
   localDateKey,
+  utf8ByteLength,
 } from '../../src/prism/shared-utils'
+
+describe('utf8ByteLength', () => {
+  test('counts ASCII as one byte', () => {
+    expect(utf8ByteLength('https://example.com')).toBe(19)
+  })
+
+  test('counts CJK as three bytes — the reason String.length is not enough', () => {
+    expect(utf8ByteLength('摘要')).toBe(6)
+    expect('摘要'.length).toBe(2)
+  })
+
+  test('counts two-byte and four-byte characters correctly', () => {
+    expect(utf8ByteLength('é')).toBe(2)
+    expect(utf8ByteLength('🙂')).toBe(4)
+  })
+
+  test('is zero for the empty string', () => {
+    expect(utf8ByteLength('')).toBe(0)
+  })
+})
+
+describe('formatByteSize', () => {
+  test('formats bytes, kilobytes and megabytes', () => {
+    expect(formatByteSize(0)).toBe('0 B')
+    expect(formatByteSize(512)).toBe('512 B')
+    expect(formatByteSize(1024)).toBe('1.0 KB')
+    expect(formatByteSize(822 * 1024)).toBe('822.0 KB')
+    expect(formatByteSize(2043 * 1024)).toBe('2.0 MB')
+  })
+})
 
 describe('localDateKey', () => {
   test('formats as YYYY-MM-DD in local time', () => {
