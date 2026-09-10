@@ -7,21 +7,29 @@ import type { RssItem } from './types'
  * A fresh entry wins, except when it arrives without a publish date: some feeds
  * omit `pubDate` on later requests, and dropping the date we already know would
  * make the entry expire instantly under retention filtering.
+ *
+ * Order matters: entries present in `next` come first, entries only in `prev`
+ * follow. Callers sort by date and then cap, so with every date identical (or
+ * absent) the cap would otherwise keep the stale head of the list and silently
+ * drop everything new — a feed without `pubDate` would freeze at its first 100
+ * entries forever.
  */
 export function mergeFeedItems(
   prev: ReadonlyArray<RssItem>,
   next: ReadonlyArray<RssItem>,
 ): RssItem[] {
-  const byId = new Map<string, RssItem>()
-  for (const item of prev) byId.set(item.id, item)
+  const fromPrev = new Map(prev.map((item) => [item.id, item]))
+  const merged: RssItem[] = []
+  const seen = new Set<string>()
   for (const item of next) {
-    const existing = byId.get(item.id)
-    byId.set(
-      item.id,
-      existing && item.pubDate === 0 ? { ...item, pubDate: existing.pubDate } : item,
-    )
+    const existing = fromPrev.get(item.id)
+    merged.push(existing && item.pubDate === 0 ? { ...item, pubDate: existing.pubDate } : item)
+    seen.add(item.id)
   }
-  return Array.from(byId.values())
+  for (const item of prev) {
+    if (!seen.has(item.id)) merged.push(item)
+  }
+  return merged
 }
 
 /**

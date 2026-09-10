@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { cleanup, render, within } from '@testing-library/preact'
+import { cleanup, render, waitFor, within } from '@testing-library/preact'
 import { RssComponent } from '../../../src/prism/rss/component'
 import { TIMELINE_MAX_ITEMS } from '../../../src/prism/rss/constants'
 import { createRssState, unreadCount } from '../../../src/prism/rss/state'
@@ -68,6 +68,17 @@ describe('RssComponent', () => {
   test('shows an empty state when no feeds are configured', () => {
     const { root } = setup([])
     expect(within(root).getByText('尚未添加订阅源，请通过 ⚙ 添加或导入 OPML')).not.toBeNull()
+  })
+
+  test('says so when every feed is disabled', () => {
+    const { root } = setup([feed('a', [item('a1')], { enabled: false })])
+    expect(within(root).getByText('所有订阅源均已禁用，请通过 ⚙ 重新启用')).not.toBeNull()
+  })
+
+  test('renders only the enabled feeds', () => {
+    const { root } = setup([feed('a', [item('a1')], { enabled: false }), feed('b', [item('b1')])])
+    expect(within(root).queryByText('源 a')).toBeNull()
+    expect(within(root).getByText('源 b')).not.toBeNull()
   })
 
   test('renders one block per feed with its unread count', () => {
@@ -209,6 +220,21 @@ describe('RssComponent view switching', () => {
     root.querySelector<HTMLButtonElement>('[data-action="view-grouped"]')!.click()
     root.querySelector<HTMLButtonElement>('[data-action="view-timeline"]')!.click()
     expect(within(root).getByText('没有未读条目')).not.toBeNull()
+  })
+
+  test('follows a viewMode prop change after mount', async () => {
+    // The editor saves the view mode too; a local-only state would ignore that
+    // write until a reload.
+    const feeds = [feed('a', [item('a1')])]
+    const { root, view, state, runtime } = setup(feeds, { viewMode: 'grouped' })
+    expect(root.querySelector('.gm-sp-rss-feed')).not.toBeNull()
+    view.rerender(
+      <RssComponent data={feeds} root={root} runtime={runtime} state={state} viewMode="timeline" />,
+    )
+    await waitFor(() => {
+      expect(root.querySelector('.gm-sp-rss-timeline')).not.toBeNull()
+    })
+    expect(root.querySelector('.gm-sp-rss-feed')).toBeNull()
   })
 
   test('timeline truncates past the cap and says so', () => {

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { createRssSource, rssTabLabel } from '../../../src/prism/rss/source'
 import { createRssState } from '../../../src/prism/rss/state'
 import type { RssFeed, RssSourceOptions } from '../../../src/prism/rss/types'
+import { CONFIG_KEY, STATE_KEY } from '../../../src/prism/types'
 import type { RequestDetails } from '../../../src/runtime'
 import { createRuntime, type TestRuntime, XmlDOMParser } from '../../runtime'
 
@@ -129,6 +130,51 @@ describe('createRssSource.fetch', () => {
     const source = createRssSource(defaultOptions())
     await expect(source.fetch(runtime, undefined)).rejects.toThrow(/all feeds failed/)
   })
+
+  test('changing the retention window keeps the read markers', async () => {
+    // Regression: rebuilding the store without reloading it made the next
+    // `saveToStorage` write an empty object over every persisted marker, so
+    // editing 保留天数 in the editor wiped all read/hidden state.
+    const runtime = makeRuntime((d) =>
+      d.onload({
+        responseText: feedXml([{ id: '1', title: 'One' }]),
+        status: 200,
+        responseHeaders: '',
+      }),
+    )
+    runtime.stores[CONFIG_KEY] = { rss: defaultOptions({ retentionDays: 30 }) }
+
+    const seeded = createRssState({ retentionMs: 30 * DAY })
+    seeded.markRead('https://example.com/1', NOW)
+    await seeded.saveToStorage(runtime)
+
+    const source = createRssSource(defaultOptions())
+    await source.loadState?.(runtime)
+    const oneItem: RssFeed = {
+      id: 'u:https://example.com/feed.xml',
+      title: 'Feed',
+      url: 'https://example.com/feed.xml',
+      items: [
+        {
+          id: 'https://example.com/1',
+          title: 'One',
+          link: 'https://example.com/1',
+          pubDate: NOW - DAY,
+          summaryText: '',
+        },
+      ],
+      error: '',
+      fetchedAt: NOW,
+    }
+    expect(source.getTabLabel?.([oneItem])?.badge).toBeNull()
+
+    runtime.stores[CONFIG_KEY] = { rss: defaultOptions({ retentionDays: 7 }) }
+    await source.fetch(runtime, undefined)
+
+    const stored = runtime.stores[STATE_KEY('rss')] as Record<string, unknown>
+    expect(Object.keys(stored)).toEqual(['https://example.com/1'])
+    expect(source.getTabLabel?.([oneItem])?.badge).toBeNull()
+  })
 })
 
 describe('rssTabLabel', () => {
@@ -155,6 +201,12 @@ describe('rssTabLabel', () => {
       label: 'RSS 阅读',
       badge: 3,
     })
+  })
+
+  test('ignores disabled feeds', () => {
+    const state = createRssState({ retentionMs: 30 * DAY })
+    const feeds = [makeFeed(['a']), { ...makeFeed(['b']), enabled: false }]
+    expect(rssTabLabel(feeds, state).badge).toBe(1)
   })
 
   test('returns a null badge when nothing is unread', () => {

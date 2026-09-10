@@ -82,6 +82,15 @@ describe('parseOpml', () => {
     expect(parseOpml(xml, domParser)).toEqual([{ url: 'https://example.com/ok.xml', title: 'ok' }])
   })
 
+  test('drops urls that are not http(s)', () => {
+    const xml = `<opml version="2.0"><body>
+      <outline text="js" xmlUrl="javascript:alert(1)"/>
+      <outline text="mail" xmlUrl="mailto:a@example.com"/>
+      <outline text="ok" xmlUrl="https://example.com/ok.xml"/>
+    </body></opml>`
+    expect(parseOpml(xml, domParser)).toEqual([{ url: 'https://example.com/ok.xml', title: 'ok' }])
+  })
+
   test('drops duplicate urls inside one file', () => {
     const xml = `<opml version="2.0"><body>
       <outline text="one" xmlUrl="https://example.com/dup.xml"/>

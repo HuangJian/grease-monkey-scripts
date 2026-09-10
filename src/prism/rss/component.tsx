@@ -1,4 +1,4 @@
-import { useReducer, useState } from 'preact/hooks'
+import { useEffect, useReducer, useState } from 'preact/hooks'
 import { escapeUrl } from '../../utils'
 import { createItemHandlers } from '../item-actions'
 import { ExpandableList, useExpandScroll } from '../shared/expandable-list'
@@ -28,6 +28,14 @@ export type RssComponentProps = SourceComponentProps<RssFeed[]> & {
 /** An entry together with the feed it came from (timeline rows need the label). */
 type RssEntry = { item: RssItem; feed: RssFeed }
 
+/**
+ * Feeds the UI shows. A disabled feed keeps its cached entries (so re-enabling
+ * is instant) but is rendered by nobody — including the tab badge.
+ */
+export function visibleFeeds(feeds: ReadonlyArray<RssFeed>): RssFeed[] {
+  return feeds.filter((feed) => feed.enabled !== false)
+}
+
 type SharedRowProps = {
   state: RssState
   runtime: Runtime
@@ -45,12 +53,20 @@ export function RssComponent({
   onNotify,
 }: RssComponentProps) {
   const [mode, setMode] = useState<RssViewMode>(viewMode)
-  const feeds = data ?? []
+  // The editor saves the view mode as well, so follow the prop when it changes
+  // under us: a local-only state would ignore that write until a reload.
+  useEffect(() => setMode(viewMode), [viewMode])
+
+  const feeds = visibleFeeds(data ?? [])
 
   if (feeds.length === 0) {
+    const message =
+      (data ?? []).length === 0
+        ? '尚未添加订阅源，请通过 ⚙ 添加或导入 OPML'
+        : '所有订阅源均已禁用，请通过 ⚙ 重新启用'
     return (
       <div class="gm-sp-rss">
-        <div class="gm-sp-empty">尚未添加订阅源，请通过 ⚙ 添加或导入 OPML</div>
+        <div class="gm-sp-empty">{message}</div>
       </div>
     )
   }

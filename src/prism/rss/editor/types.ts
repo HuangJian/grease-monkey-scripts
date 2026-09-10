@@ -1,4 +1,3 @@
-import { numberOrDefault } from '../../../utils'
 import type { NumberFieldDef } from '../../editor-helpers'
 import {
   DEFAULT_MAX_ITEMS_PER_FEED,
@@ -31,15 +30,35 @@ function sanitizeFeed(raw: unknown): RssFeedConfig | undefined {
   }
 }
 
+/**
+ * Read a bounded number, falling back when the value is missing or unusable.
+ *
+ * `numberOrDefault` accepts `NaN`/`Infinity`, and a negative TTL or item cap is
+ * as broken as a missing one (a negative TTL refreshes on every render, a zero
+ * cap empties every feed). The minimum mirrors the editor's own validation.
+ */
+function boundedNumber(value: unknown, fallback: number, min: number): number {
+  const raw = typeof value === 'number' && Number.isFinite(value) ? value : fallback
+  return Math.max(min, Math.round(raw))
+}
+
 /** Reads the configured feeds, dropping malformed rows instead of failing the section. */
 export function coerceRssFeeds(
   section: Record<string, unknown> | null | undefined,
   fallback: RssFeedConfig[],
 ): RssFeedConfig[] {
   if (!Array.isArray(section?.['feeds'])) return fallback
-  const feeds = (section['feeds'] as unknown[])
-    .map(sanitizeFeed)
-    .filter((f): f is RssFeedConfig => !!f)
+  const feeds: RssFeedConfig[] = []
+  const seen = new Set<string>()
+  // Two rows for one url would yield two feeds with the same id (duplicate keys,
+  // a double fetch). The add-form and the OPML import already dedupe, so this
+  // only guards hand-edited config.
+  for (const raw of section['feeds'] as unknown[]) {
+    const feed = sanitizeFeed(raw)
+    if (!feed || seen.has(feed.url)) continue
+    seen.add(feed.url)
+    feeds.push(feed)
+  }
   return feeds.length > 0 || section!['feeds'].length === 0 ? feeds : fallback
 }
 
@@ -50,9 +69,9 @@ export function coerceRssOptions(
   const viewMode = raw['viewMode']
   return {
     feeds: coerceRssFeeds(raw, fallback.feeds),
-    ttlMinutes: numberOrDefault(raw['ttlMinutes'], fallback.ttlMinutes),
-    retentionDays: numberOrDefault(raw['retentionDays'], fallback.retentionDays),
-    maxItemsPerFeed: numberOrDefault(raw['maxItemsPerFeed'], fallback.maxItemsPerFeed),
+    ttlMinutes: boundedNumber(raw['ttlMinutes'], fallback.ttlMinutes, 1),
+    retentionDays: boundedNumber(raw['retentionDays'], fallback.retentionDays, 1),
+    maxItemsPerFeed: boundedNumber(raw['maxItemsPerFeed'], fallback.maxItemsPerFeed, 1),
     viewMode: isViewMode(viewMode) ? viewMode : fallback.viewMode,
   }
 }

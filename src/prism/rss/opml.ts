@@ -38,10 +38,11 @@ function attrByLowerName(el: Element, name: string): string {
   return ''
 }
 
+/** Only http(s) feeds are fetchable — matches the manual add-form's validation. */
 function isUsableUrl(url: string): boolean {
   try {
-    void new URL(url)
-    return true
+    const { protocol } = new URL(url)
+    return protocol === 'http:' || protocol === 'https:'
   } catch {
     return false
   }

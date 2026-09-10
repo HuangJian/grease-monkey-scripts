@@ -31,6 +31,11 @@ export type RssFeed = {
   /** Empty on success; fetch failure message otherwise. */
   error: string
   fetchedAt: number
+  /**
+   * False for a feed the user disabled. Kept optional so caches written before
+   * this field existed still render (`!== false` treats them as enabled).
+   */
+  enabled?: boolean
 }
 
 export type RssViewMode = 'grouped' | 'timeline'

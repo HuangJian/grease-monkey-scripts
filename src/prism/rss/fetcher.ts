@@ -65,7 +65,17 @@ async function fetchOneFeed(
   const now = runtime.now()
 
   if (config.enabled === false) {
-    return { id, title: title(), url: config.url, items: [], error: '', fetchedAt: now }
+    // Keep the cached entries (and the read markers that point at them) so
+    // re-enabling a feed is instant; `visibleFeeds` filters disabled feeds out.
+    return {
+      id,
+      title: title(),
+      url: config.url,
+      items: prev?.items ?? [],
+      error: '',
+      fetchedAt: prev?.fetchedAt ?? now,
+      enabled: false,
+    }
   }
 
   try {
@@ -73,7 +83,9 @@ async function fetchOneFeed(
       headers: { 'User-Agent': RSS_USER_AGENT, Accept: RSS_ACCEPT_HEADER },
     })
     const domParser = new runtime.DOMParser()
-    const parsed = parseFeed(xml, domParser)
+    // Cap while parsing: every entry costs two DOM parses (sanitize + text) and
+    // only `maxItemsPerFeed` survive the merge below, so do not pay for the rest.
+    const parsed = parseFeed(xml, domParser, { maxItems: options.maxItemsPerFeed })
     const items = parsed.items.map((item) => toRssItem(item, domParser))
     const merged = applySummaryWindow(
       capItems(
@@ -91,6 +103,7 @@ async function fetchOneFeed(
       items: merged,
       error: '',
       fetchedAt: now,
+      enabled: true,
     }
   } catch (e) {
     return {
@@ -101,6 +114,7 @@ async function fetchOneFeed(
       items: prev?.items ?? [],
       error: e instanceof Error ? e.message : String(e),
       fetchedAt: prev?.fetchedAt ?? now,
+      enabled: true,
     }
   }
 }

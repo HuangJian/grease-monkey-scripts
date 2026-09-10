@@ -171,6 +171,34 @@ describe('fetchRssFeeds', () => {
     )
     expect(feeds[0]!.items).toEqual([])
     expect(feeds[0]!.error).toBe('')
+    expect(feeds[0]!.enabled).toBe(false)
+    expect(runtime.lastRequest).toBeNull()
+  })
+
+  test('a disabled feed keeps its cached entries so re-enabling is lossless', async () => {
+    const runtime = makeRuntime()
+    const url = 'https://off.example/feed.xml'
+    const prev: RssFeed[] = [
+      {
+        id: `u:${url}`,
+        title: 'Off',
+        url,
+        items: [
+          {
+            id: 'https://example.com/kept',
+            title: 'Kept',
+            link: 'https://example.com/kept',
+            pubDate: NOW,
+            summaryText: '',
+          },
+        ],
+        error: '',
+        fetchedAt: NOW - DAY,
+      },
+    ]
+    const feeds = await fetchRssFeeds(runtime, [config(url, { enabled: false })], prev, OPTS)
+    expect(feeds[0]!.items.map((it) => it.id)).toEqual(['https://example.com/kept'])
+    expect(feeds[0]!.enabled).toBe(false)
     expect(runtime.lastRequest).toBeNull()
   })
 
@@ -214,10 +242,10 @@ describe('fetchRssFeeds', () => {
       maxItemsPerFeed: 2,
       retentionMs: 30 * DAY,
     })
-    // Stale dropped by retention; cap then trims to 2.
-    const ids = feeds[0]!.items.map((it) => it.id)
-    expect(ids).not.toContain('stale')
-    expect(ids.length).toBeLessThanOrEqual(2)
+    expect(feeds[0]!.items.map((it) => it.id)).toEqual([
+      'https://example.com/fresh',
+      'https://example.com/nodate',
+    ])
   })
 
   test('keeps summaries only for the newest entries (storage window)', async () => {

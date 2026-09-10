@@ -34,6 +34,15 @@ export type ParseFeedOptions = {
   maxTitleChars?: number
   /** Wrap bare `<img>` in an anchor (default true, matching tnews behavior). */
   wrapImagesInAnchor?: boolean
+  /**
+   * Parse at most this many entries, in document order (default: all).
+   *
+   * Each entry costs two DOM parses (sanitize + plain-text), so a caller that
+   * only keeps the newest N should pass N here rather than pay for thousands of
+   * entries it is about to discard. Feeds list newest first, so document order
+   * and the caller's cap agree.
+   */
+  maxItems?: number
 }
 
 /** Element children are matched by `localName` so namespace prefixes (`dc:creator`, `content:encoded`) work. */
@@ -106,11 +115,61 @@ function toElements(nodes: HTMLCollectionOf<Element> | ArrayLike<Element>): Elem
   return Array.from(nodes).filter((el): el is Element => el !== null)
 }
 
-/** RSS/RDF use `<item>`, Atom uses `<entry>`. A feed uses one or the other, never both. */
+const DATE_FIELDS = ['pubDate', 'published', 'updated', 'date', 'modified'] as const
+
+function entryPubDate(el: Element): number {
+  return parsePubDateMs(firstText(el, DATE_FIELDS) || undefined)
+}
+
+/**
+ * Choose which entries to convert. With `maxItems` set, keep the newest by
+ * publish date and drop the rest before any DOM sanitizing happens — every
+ * entry costs two DOM parses, and a caller that caps to N would pay for
+ * thousands of entries it is about to discard.
+ *
+ * Sorting first (rather than slicing document order) matters: the entries a
+ * caller's own cap would keep are the newest ones, not the first ones in the
+ * document. Ties keep document order, which is restored before returning so the
+ * result stays stable for the caller.
+ */
+function selectEntries(entries: Element[], maxItems: number | undefined): Element[] {
+  if (maxItems === undefined) return entries
+  const limit = Math.max(0, maxItems)
+  if (entries.length <= limit) return entries
+  return entries
+    .map((el, index) => ({ el, index, pubDate: entryPubDate(el) }))
+    .sort((a, b) => b.pubDate - a.pubDate)
+    .slice(0, limit)
+    .sort((a, b) => a.index - b.index)
+    .map((candidate) => candidate.el)
+}
+
+function descendantsByLocalName(root: Element, name: string): Element[] {
+  const target = name.toLowerCase()
+  return Array.from(root.querySelectorAll('*')).filter(
+    (el) => el.localName?.toLowerCase() === target,
+  )
+}
+
+/**
+ * RSS/RDF use `<item>`, Atom uses `<entry>`. A feed uses one or the other, never both.
+ *
+ * `getElementsByTagName` compares the qualified name, which misses a
+ * namespace-prefixed `<rss:item>`; fall back to matching on localName so entry
+ * lookup is as permissive as the child lookups above.
+ */
 function collectEntries(doc: Document): Element[] {
   const legacy = toElements(doc.getElementsByTagName('item'))
   if (legacy.length > 0) return legacy
-  return toElements(doc.getElementsByTagName('entry'))
+  const entries = toElements(doc.getElementsByTagName('entry'))
+  if (entries.length > 0) return entries
+  const root = doc.documentElement
+  if (!root) return []
+  for (const name of ['item', 'entry']) {
+    const found = descendantsByLocalName(root, name)
+    if (found.length > 0) return found
+  }
+  return []
 }
 
 function feedTitleOf(doc: Document): string {
@@ -130,9 +189,7 @@ function parseEntry(el: Element, domParser: DOMParser, options: ParseFeedOptions
   const link = entryLink(el)
   if (!link) return null
 
-  const pubDate = parsePubDateMs(
-    firstText(el, ['pubDate', 'published', 'updated', 'date', 'modified']) || undefined,
-  )
+  const pubDate = entryPubDate(el)
   const summaryRaw = firstText(el, ['description', 'encoded', 'content', 'summary'])
   const summaryHtml = summaryRaw
     ? sanitizeFeedHtml(summaryRaw, domParser, options.wrapImagesInAnchor)
@@ -172,10 +229,10 @@ export function parseFeed(
   if (isParserError(doc)) return { title: '', items: [] }
 
   const items: FeedItem[] = []
-  collectEntries(doc).forEach((el) => {
+  for (const el of selectEntries(collectEntries(doc), options.maxItems)) {
     const parsed = parseEntry(el, domParser, options)
     if (parsed) items.push(parsed)
-  })
+  }
   return { title: feedTitleOf(doc), items }
 }
 

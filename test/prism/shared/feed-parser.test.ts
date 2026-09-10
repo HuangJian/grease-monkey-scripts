@@ -171,6 +171,29 @@ describe('parseFeed · robustness', () => {
     expect(item!.link).toBe('not a url')
     expect(item!.id).toBe('not a url')
   })
+
+  test('honours maxItems, so discarded entries cost no DOM parses', () => {
+    const xml = `<rss version="2.0"><channel>
+      <item><title>one</title><link>https://example.com/1</link></item>
+      <item><title>two</title><link>https://example.com/2</link></item>
+      <item><title>three</title><link>https://example.com/3</link></item>
+    </channel></rss>`
+    expect(parseFeed(xml, domParser).items).toHaveLength(3)
+    expect(parseFeed(xml, domParser, { maxItems: 2 }).items.map((it) => it.title)).toEqual([
+      'one',
+      'two',
+    ])
+    expect(parseFeed(xml, domParser, { maxItems: 0 }).items).toEqual([])
+  })
+
+  test('finds entries whose element name carries a namespace prefix', () => {
+    // `getElementsByTagName` compares the qualified name, which misses these.
+    const xml = `<?xml version="1.0"?>
+<rss:feed xmlns:rss="http://example.com/ns">
+  <rss:item><title>prefixed</title><link>https://example.com/p</link></rss:item>
+</rss:feed>`
+    expect(parseFeed(xml, domParser).items.map((it) => it.title)).toEqual(['prefixed'])
+  })
 })
 
 describe('parsePubDateMs', () => {

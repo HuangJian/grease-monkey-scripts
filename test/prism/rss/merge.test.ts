@@ -33,6 +33,21 @@ describe('mergeFeedItems', () => {
   test('keeps entries that disappeared from the feed', () => {
     expect(mergeFeedItems([item('gone', 100)], [item('b', 200)])).toHaveLength(2)
   })
+
+  test('puts freshly fetched entries ahead of cached-only ones', () => {
+    const merged = mergeFeedItems([item('old', 0)], [item('new', 0)])
+    expect(merged.map((it) => it.id)).toEqual(['new', 'old'])
+  })
+
+  test('new entries survive the cap when the feed supplies no dates', () => {
+    // Regression: with every pubDate 0 the sort is a no-op, so a merge that
+    // appended new entries would let the cached head fill the cap and drop
+    // everything new — the feed would freeze at its first N entries.
+    const prev = Array.from({ length: 5 }, (_, i) => item(`old${i}`, 0))
+    const next = [item('new1', 0), item('new2', 0)]
+    const capped = capItems(sortByPubDateDesc(mergeFeedItems(prev, next)), 5)
+    expect(capped.map((it) => it.id)).toEqual(['new1', 'new2', 'old0', 'old1', 'old2'])
+  })
 })
 
 describe('filterByRetention', () => {

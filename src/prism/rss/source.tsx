@@ -2,7 +2,7 @@ import type { Runtime } from '../../runtime'
 import { validateConfig } from '../config'
 import { saveConfigSection } from '../editor-helpers'
 import type { Source, SourceSettings, TabLabel } from '../types'
-import { RssComponent } from './component'
+import { RssComponent, visibleFeeds } from './component'
 import { createRssEditor } from './editor/form'
 import { loadFreshOptions } from './editor/helpers'
 import { fetchRssFeeds } from './fetcher'
@@ -15,6 +15,7 @@ export function createRssSource(options: RssSourceOptions): Source<RssFeed[], 'r
   let currentOptions = options
   let retentionMs = options.retentionDays * DAY_MS
   let state = createRssState({ retentionMs })
+  let stateLoaded = false
 
   /**
    * The read-state store's TTL is derived from the retention window, but the
@@ -26,8 +27,26 @@ export function createRssSource(options: RssSourceOptions): Source<RssFeed[], 'r
     if (next !== retentionMs) {
       retentionMs = next
       state = createRssState({ retentionMs })
+      stateLoaded = false
     }
     return state
+  }
+
+  /**
+   * Load before the first read or write.
+   *
+   * `saveToStorage` persists the whole store, so a freshly rebuilt (empty) state
+   * would overwrite every persisted marker — changing the retention window in
+   * the editor used to wipe all read/hidden state. Requiring both `fetch` and
+   * `loadState` to go through here also makes the order of the two irrelevant.
+   */
+  async function ensureLoaded(runtime: Runtime): Promise<RssState> {
+    const active = ensureState()
+    if (!stateLoaded) {
+      await active.loadFromStorage(runtime)
+      stateLoaded = true
+    }
+    return active
   }
 
   /** View choice is part of the source options, so it survives a reload. */
@@ -72,17 +91,17 @@ export function createRssSource(options: RssSourceOptions): Source<RssFeed[], 'r
     },
     async fetch(runtimeArg, prevData) {
       currentOptions = await loadFreshOptions(runtimeArg, currentOptions)
-      const activeState = ensureState()
+      const activeState = await ensureLoaded(runtimeArg)
       const feeds = await fetchRssFeeds(runtimeArg, currentOptions.feeds, prevData ?? [], {
         maxItemsPerFeed: currentOptions.maxItemsPerFeed,
-        retentionMs: currentOptions.retentionDays * DAY_MS,
+        retentionMs,
       })
       await activeState.saveToStorage(runtimeArg)
       return feeds
     },
     async loadState(runtimeArg) {
       currentOptions = await loadFreshOptions(runtimeArg, currentOptions)
-      await ensureState().loadFromStorage(runtimeArg)
+      await ensureLoaded(runtimeArg)
     },
     createEditor(settings: SourceSettings) {
       return createRssEditor(currentOptions, settings)
@@ -91,6 +110,6 @@ export function createRssSource(options: RssSourceOptions): Source<RssFeed[], 'r
 }
 
 export function rssTabLabel(data: RssFeed[] | null, state: RssState): TabLabel {
-  const unread = totalUnread(data ?? [], state)
+  const unread = totalUnread(visibleFeeds(data ?? []), state)
   return { label: 'RSS 阅读', badge: unread > 0 ? unread : null }
 }
