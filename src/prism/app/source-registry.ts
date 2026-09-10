@@ -4,6 +4,7 @@ import { createWeatherSource } from '../weather'
 import { createNovelsSource } from '../novels'
 import { createRedditSource } from '../reddit'
 import { createHupuSource } from '../hupu'
+import { createRssSource } from '../rss'
 import { createTnewsSource } from '../tnews'
 import { createXueqiuSources } from '../xueqiu'
 import { createXitSource } from '../xit/source'
@@ -36,6 +37,9 @@ export function createSourceRegistry(config: Config, runtime: Runtime) {
     createNovelsSource(config.novels, runtime),
     createRedditSource(config.reddit),
     createHupuSource(config.hupu),
+    // Registered unconditionally: with no feeds configured the card shows an
+    // empty state that points at the editor (same as novels with no books).
+    createRssSource(config.rss),
     tnews.source,
     xueqiu.mainSource,
     xueqiu.hotSource,

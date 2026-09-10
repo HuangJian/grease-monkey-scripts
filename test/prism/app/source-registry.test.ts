@@ -18,6 +18,7 @@ const EXPECTED_IDS_ENABLED = [
   'novels',
   'reddit',
   'hupu',
+  'rss',
   'tnews',
   'xueqiu-news',
   'xueqiu-hot',
@@ -61,5 +62,19 @@ describe('createSourceRegistry', () => {
     const ids = reg.sources.map((s) => s.id)
     expect(ids).toContain('xueqiu-news')
     expect(ids).toContain('xueqiu-hot')
+  })
+
+  test('rss is registered even with no feeds configured (empty state guides the user)', () => {
+    const reg = createSourceRegistry(baseConfig, createRuntime())
+    const rss = findSource(reg.sources, 'rss')
+    expect(rss?.id).toBe('rss')
+    expect(reg.groupForSource.get('rss')?.id).toBe('browse')
+  })
+
+  test('rss sorts after xueqiu-hot and before misc inside the browse group (order 6)', () => {
+    const reg = createSourceRegistry(baseConfig, createRuntime())
+    const tabs = reg.groupById.get('browse')!.tabs.map((s) => s.id)
+    expect(tabs.indexOf('rss')).toBeGreaterThan(tabs.indexOf('xueqiu-hot'))
+    expect(tabs.indexOf('rss')).toBeLessThan(tabs.indexOf('misc'))
   })
 })
