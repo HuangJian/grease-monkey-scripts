@@ -292,6 +292,101 @@ describe('validateConfig', () => {
     })
   })
 
+  describe('rss', () => {
+    test('accepts valid rss config', () => {
+      const result = validateConfig({
+        rss: {
+          feeds: [{ url: 'https://example.com/feed.xml', title: 'Example', enabled: true }],
+          ttlMinutes: 123,
+          retentionDays: 30,
+          maxItemsPerFeed: 100,
+          viewMode: 'grouped',
+        },
+      })
+      expect(result).toEqual({ ok: true })
+    })
+
+    test('accepts the shipped defaults', () => {
+      expect(validateConfig({ rss: DEFAULT_CONFIG.rss })).toEqual({ ok: true })
+    })
+
+    test('accepts a minimal feed (title and enabled omitted)', () => {
+      expect(validateConfig({ rss: { feeds: [{ url: 'https://example.com/a.xml' }] } })).toEqual({
+        ok: true,
+      })
+    })
+
+    test('accepts an empty feed list', () => {
+      expect(validateConfig({ rss: { feeds: [] } })).toEqual({ ok: true })
+    })
+
+    test('rejects non-object rss', () => {
+      const result = validateConfig({ rss: [] })
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error).toContain('rss 必须是对象')
+    })
+
+    test('rejects feed with invalid URL', () => {
+      const result = validateConfig({ rss: { feeds: [{ url: 'not-a-url' }] } })
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error).toContain('有效 URL')
+    })
+
+    test('rejects feed with empty URL', () => {
+      const result = validateConfig({ rss: { feeds: [{ url: '' }] } })
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error).toContain('非空字符串')
+    })
+
+    test('rejects duplicate feed URLs', () => {
+      const result = validateConfig({
+        rss: {
+          feeds: [{ url: 'https://example.com/a.xml' }, { url: 'https://example.com/a.xml' }],
+        },
+      })
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error).toContain('重复')
+    })
+
+    test('rejects non-string title and non-boolean enabled', () => {
+      const badTitle = validateConfig({
+        rss: { feeds: [{ url: 'https://example.com/a', title: 1 }] },
+      })
+      expect(badTitle.ok).toBe(false)
+      if (!badTitle.ok) expect(badTitle.error).toContain('title 必须是 string')
+
+      const badEnabled = validateConfig({
+        rss: { feeds: [{ url: 'https://example.com/a', enabled: 'yes' }] },
+      })
+      expect(badEnabled.ok).toBe(false)
+      if (!badEnabled.ok) expect(badEnabled.error).toContain('enabled 必须是 boolean')
+    })
+
+    test('rejects out-of-range numbers', () => {
+      for (const patch of [
+        { ttlMinutes: 0 },
+        { retentionDays: 0 },
+        { maxItemsPerFeed: 0 },
+        { maxItemsPerFeed: 501 },
+      ]) {
+        const result = validateConfig({ rss: { feeds: [], ...patch } })
+        expect(result.ok).toBe(false)
+      }
+    })
+
+    test('rejects unknown viewMode', () => {
+      const result = validateConfig({ rss: { viewMode: 'cards' } })
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error).toContain('viewMode 必须是 grouped 或 timeline')
+    })
+
+    test('rejects unknown rss field (typo protection)', () => {
+      const result = validateConfig({ rss: { feeds: [], ttlMinuts: 30 } })
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error).toContain('未知字段')
+    })
+  })
+
   describe('xit', () => {
     test('accepts valid xit config', () => {
       const result = validateConfig({ xit: { enabled: true, placement: 'side' } })

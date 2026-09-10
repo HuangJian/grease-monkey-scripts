@@ -51,6 +51,7 @@ const SOURCE_LABELS: Record<string, string> = {
   'xueqiu-hot': '雪球热帖',
   weather: '天气',
   novels: '网文更新',
+  rss: 'RSS 阅读',
   misc: '杂项',
 }
 

@@ -31,9 +31,9 @@ export async function buildExportData(runtime: Runtime): Promise<ExportData> {
   return result
 }
 
-export function downloadJson(runtime: Runtime, data: ExportData, filename: string): void {
-  const json = JSON.stringify(data, null, 2)
-  const blob = new Blob([json], { type: 'application/json' })
+/** Download arbitrary text as a file. DOM access goes through `runtime.document`. */
+export function downloadText(runtime: Runtime, text: string, filename: string, mime: string): void {
+  const blob = new Blob([text], { type: mime })
   const url = URL.createObjectURL(blob)
   const a = runtime.document.createElement('a')
   a.href = url
@@ -44,18 +44,29 @@ export function downloadJson(runtime: Runtime, data: ExportData, filename: strin
   URL.revokeObjectURL(url)
 }
 
-export function readImportFile(file: File): Promise<unknown> {
+export function downloadJson(runtime: Runtime, data: ExportData, filename: string): void {
+  downloadText(runtime, JSON.stringify(data, null, 2), filename, 'application/json')
+}
+
+/** Read a user-selected file as text. Shared by JSON config import and OPML import. */
+export function readTextFile(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload = () => {
-      try {
-        resolve(JSON.parse(reader.result as string))
-      } catch (e) {
-        reject(new Error('JSON 解析失败：' + (e instanceof Error ? e.message : String(e))))
-      }
-    }
+    reader.onload = () => resolve(String(reader.result))
     reader.onerror = () => reject(new Error('文件读取失败'))
     reader.readAsText(file)
+  })
+}
+
+export function readImportFile(file: File): Promise<unknown> {
+  return readTextFile(file).then((text) => {
+    try {
+      return JSON.parse(text)
+    } catch (e) {
+      throw new Error('JSON 解析失败：' + (e instanceof Error ? e.message : String(e)), {
+        cause: e,
+      })
+    }
   })
 }
 

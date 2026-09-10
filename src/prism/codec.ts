@@ -314,6 +314,60 @@ function expandNovelBook(b: Record<string, unknown>): Record<string, unknown> {
   return normalizeBook(record) ?? record
 }
 
+// RSS
+// `array` shape only maps the top-level feeds, so entries are compressed here
+// (same nesting as `compressNovelBook` → `latestChapters`).
+function compressRssItem(v: Record<string, unknown>): Record<string, unknown> {
+  if (isShortItem(v)) return v
+  const out: Record<string, unknown> = {
+    i: v.id ?? '',
+    t: v.title ?? '',
+    l: v.link ?? '',
+    s: v.summaryText ?? '',
+  }
+  if (typeof v.pubDate === 'number' && v.pubDate > 0) out.p = compressTimestamp(v.pubDate)
+  if (typeof v.author === 'string' && v.author) out.a = v.author
+  return out
+}
+
+function expandRssItem(v: Record<string, unknown>): Record<string, unknown> {
+  if (v.title !== undefined) return v
+  return {
+    id: v.i ?? '',
+    title: v.t ?? '',
+    link: v.l ?? '',
+    pubDate: expandTimestamp(v.p as number | undefined) ?? 0,
+    summaryText: v.s ?? '',
+    ...(typeof v.a === 'string' ? { author: v.a } : {}),
+  }
+}
+
+function compressRssFeed(f: Record<string, unknown>): Record<string, unknown> {
+  if (isShortItem(f)) return f
+  const items = (f.items ?? []) as Record<string, unknown>[]
+  const out: Record<string, unknown> = {
+    i: f.id ?? '',
+    t: f.title ?? '',
+    u: f.url ?? '',
+    fa: compressTimestamp((f.fetchedAt ?? 0) as number),
+    it: items.map(compressRssItem),
+  }
+  if (typeof f.error === 'string' && f.error) out.e = f.error
+  return out
+}
+
+function expandRssFeed(f: Record<string, unknown>): Record<string, unknown> {
+  if (f.title !== undefined) return f
+  return {
+    id: f.i ?? '',
+    title: f.t ?? '',
+    url: f.u ?? '',
+    error: f.e ?? '',
+    fetchedAt: expandTimestamp(f.fa as number | undefined) ?? 0,
+    items: ((f.it ?? []) as Record<string, unknown>[]).map(expandRssItem),
+  }
+}
+
 // Per-source compress/expand dispatch via registry
 
 type CodecShape = 'array' | 'grouped' | 'novels'
@@ -368,6 +422,12 @@ const CODECS: Record<string, CodecEntry> = {
     version: CACHE_CODEC_VERSION,
     compress: compressNovelBook,
     expand: expandNovelBook,
+  },
+  rss: {
+    shape: 'array',
+    version: CACHE_CODEC_VERSION,
+    compress: compressRssFeed,
+    expand: expandRssFeed,
   },
 }
 

@@ -1,4 +1,10 @@
 import type { Config } from '../config/types'
+import {
+  DEFAULT_MAX_ITEMS_PER_FEED,
+  DEFAULT_RETENTION_DAYS,
+  DEFAULT_TTL_MINUTES,
+  DEFAULT_VIEW_MODE,
+} from '../rss/constants'
 
 export const DEFAULT_CONFIG: Config = {
   weather: {
@@ -39,6 +45,13 @@ export const DEFAULT_CONFIG: Config = {
   },
   tnews: {
     ttlMinutes: 30,
+  },
+  rss: {
+    feeds: [],
+    ttlMinutes: DEFAULT_TTL_MINUTES,
+    retentionDays: DEFAULT_RETENTION_DAYS,
+    maxItemsPerFeed: DEFAULT_MAX_ITEMS_PER_FEED,
+    viewMode: DEFAULT_VIEW_MODE,
   },
   xueqiu: {
     ttlMinutes: 30,

@@ -3,6 +3,7 @@ import { compressForStorage, expandFromStorage } from '../../src/prism/codec'
 import { migrateCache } from '../../src/prism/codec-migrate'
 import { CACHE_CODEC_VERSION, CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/prism/types'
 import type { NovelBook } from '../../src/prism/novels/types'
+import type { RssFeed } from '../../src/prism/rss/types'
 
 function roundTrip<T>(sourceId: string, data: T, fetchedAt: number = Date.now()): T {
   const cached = { data, fetchedAt, error: '' }
@@ -329,6 +330,92 @@ describe('codec round-trip: novels', () => {
       'sudugu',
       'site-b',
     ])
+  })
+})
+
+describe('codec round-trip: rss', () => {
+  test('preserves feed fields and nested entries', () => {
+    const data: RssFeed[] = [
+      {
+        id: 'u:https://example.com/feed.xml',
+        title: 'Example',
+        url: 'https://example.com/feed.xml',
+        fetchedAt: 1700000000000,
+        error: '',
+        items: [
+          {
+            id: 'https://example.com/post/1',
+            title: 'Post 1',
+            link: 'https://example.com/post/1',
+            pubDate: 1700000000000,
+            summaryText: 'summary one',
+            author: 'jane',
+          },
+        ],
+      },
+    ]
+    const result = roundTrip('rss', data)
+    expect(result[0]!.id).toBe('u:https://example.com/feed.xml')
+    expect(result[0]!.title).toBe('Example')
+    expect(result[0]!.url).toBe('https://example.com/feed.xml')
+    // Timestamps are stored at minute precision (existing codec behavior).
+    expect(Math.abs(result[0]!.fetchedAt - 1700000000000)).toBeLessThan(60_000)
+    expect(result[0]!.error).toBe('')
+    expect(result[0]!.items[0]!.title).toBe('Post 1')
+    expect(result[0]!.items[0]!.link).toBe('https://example.com/post/1')
+    expect(Math.abs(result[0]!.items[0]!.pubDate - 1700000000000)).toBeLessThan(60_000)
+    expect(result[0]!.items[0]!.summaryText).toBe('summary one')
+    expect(result[0]!.items[0]!.author).toBe('jane')
+  })
+
+  test('keeps a feed error and tolerates entries without a date or author', () => {
+    const data: RssFeed[] = [
+      {
+        id: 'u:https://example.com/broken.xml',
+        title: '',
+        url: 'https://example.com/broken.xml',
+        fetchedAt: 1700000000000,
+        error: 'http 500',
+        items: [
+          { id: 'x', title: 'No date', link: 'https://example.com/x', pubDate: 0, summaryText: '' },
+        ],
+      },
+    ]
+    const result = roundTrip('rss', data)
+    expect(result[0]!.error).toBe('http 500')
+    expect(result[0]!.items[0]!.pubDate).toBe(0)
+    expect(result[0]!.items[0]!.author).toBeUndefined()
+  })
+
+  test('compresses to the short field names', () => {
+    const compressed = compressForStorage('rss', {
+      data: [
+        {
+          id: 'u:https://example.com/feed.xml',
+          title: 'Example',
+          url: 'https://example.com/feed.xml',
+          fetchedAt: 1700000000000,
+          error: '',
+          items: [
+            {
+              id: 'p1',
+              title: 'Post',
+              link: 'https://example.com/p1',
+              pubDate: 1700000000000,
+              summaryText: 's',
+            },
+          ],
+        },
+      ],
+      fetchedAt: 1700000000000,
+      error: '',
+    })
+    const feed = (compressed.data as Record<string, unknown>[])[0]!
+    expect(feed.t).toBe('Example')
+    expect(feed.u).toBe('https://example.com/feed.xml')
+    const item = (feed.it as Record<string, unknown>[])[0]!
+    expect(item.t).toBe('Post')
+    expect(item.s).toBe('s')
   })
 })
 

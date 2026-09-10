@@ -7,6 +7,7 @@ import type { Source, CachedSource } from './types'
 import type { V2exTopic } from './v2ex/types'
 import type { WeatherData } from './weather/types'
 import type { NovelData } from './novels/types'
+import type { RssFeed } from './rss/types'
 import type { RedditRenderData } from './reddit/source'
 import type { HupuRenderData } from './hupu/source'
 import type { TnewsItem } from './tnews/types'
@@ -18,6 +19,7 @@ export type AnySource =
   | Source<V2exTopic[], 'v2ex'>
   | Source<WeatherData, 'weather'>
   | Source<NovelData, 'novels'>
+  | Source<RssFeed[], 'rss'>
   | Source<RedditRenderData, 'reddit'>
   | Source<HupuRenderData, 'hupu'>
   | Source<TnewsItem[], 'tnews'>

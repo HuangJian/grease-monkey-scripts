@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import {
   buildExportData,
+  downloadText,
+  readImportFile,
+  readTextFile,
   validateImportData,
   applyImportData,
   formatExportFilename,
@@ -242,5 +245,50 @@ describe('formatExportFilename', () => {
   test('returns filename with date pattern', () => {
     const filename = formatExportFilename()
     expect(filename).toMatch(/^gm-dashboard-export-\d{4}-\d{2}-\d{2}\.json$/)
+  })
+})
+
+describe('readTextFile / readImportFile', () => {
+  test('reads a file as text', async () => {
+    const file = new File(['hello file'], 'a.txt', { type: 'text/plain' })
+    expect(await readTextFile(file)).toBe('hello file')
+  })
+
+  test('readImportFile parses JSON and reports parse errors', async () => {
+    const ok = new File(['{"a":1}'], 'a.json', { type: 'application/json' })
+    expect(await readImportFile(ok)).toEqual({ a: 1 })
+
+    const bad = new File(['not json'], 'a.json', { type: 'application/json' })
+    await expect(readImportFile(bad)).rejects.toThrow(/JSON 解析失败/)
+  })
+})
+
+describe('downloadText', () => {
+  test('hands the payload to an anchor with the given mime type', async () => {
+    const runtime = createRuntime()
+    const anchors: HTMLAnchorElement[] = []
+    const origCreateElement = document.createElement.bind(document)
+    const origCreateObjectURL = URL.createObjectURL
+    // Wrapped in an object: a bare `let` would be narrowed to `null` at the
+    // assertion point because TS cannot see the assignment inside the stub.
+    const captured: { blob: Blob | null } = { blob: null }
+    document.createElement = ((tag: string, ...rest: unknown[]) => {
+      const el = origCreateElement(tag, ...(rest as []))
+      if (tag === 'a') anchors.push(el as HTMLAnchorElement)
+      return el
+    }) as typeof document.createElement
+    URL.createObjectURL = ((blob: Blob) => {
+      captured.blob = blob
+      return 'blob:stub'
+    }) as typeof URL.createObjectURL
+    try {
+      downloadText(runtime, 'body text', 'notes.txt', 'text/plain')
+    } finally {
+      document.createElement = origCreateElement
+      URL.createObjectURL = origCreateObjectURL
+    }
+    expect(anchors[0]?.download).toBe('notes.txt')
+    expect(captured.blob?.type).toBe('text/plain')
+    expect(await captured.blob!.text()).toBe('body text')
   })
 })

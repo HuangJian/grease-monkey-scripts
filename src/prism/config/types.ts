@@ -10,12 +10,14 @@ import type { NovelBookConfig } from '../novels/types'
 import type { TnewsConfig } from '../tnews/types'
 import type { MiscOptions } from '../misc/types'
 import type { XueqiuSourceOptions } from '../xueqiu/types'
+import type { RssSourceOptions } from '../rss/types'
 
 export type { WeatherCity } from '../weather/types'
 export type { NovelBookConfig } from '../novels/types'
 export type { TnewsConfig } from '../tnews/types'
 export type { MiscOptions } from '../misc/types'
 export type { XueqiuSourceOptions } from '../xueqiu/types'
+export type { RssSourceOptions, RssFeedConfig } from '../rss/types'
 
 export type RedditConfig = {
   ttlMinutes: number
@@ -59,6 +61,7 @@ export type Config = {
     maxLatestWindow: number
   }
   tnews: TnewsConfig
+  rss: RssSourceOptions
   xueqiu: XueqiuSourceOptions
   misc?: MiscOptions
   xit: {

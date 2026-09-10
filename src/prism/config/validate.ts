@@ -52,6 +52,7 @@ export function validateConfig(value: unknown): ConfigValidation {
     'hupu',
     'novels',
     'tnews',
+    'rss',
     'xueqiu',
     'misc',
     'xit',
@@ -295,6 +296,63 @@ export function validateConfig(value: unknown): ConfigValidation {
     const TNEWS_FIELDS = ['ttlMinutes'] as const satisfies readonly (keyof Config['tnews'])[]
     const tnewsUnknown = rejectUnknownKeys(t, 'tnews', TNEWS_FIELDS)
     if (tnewsUnknown) return tnewsUnknown
+  }
+  if ('rss' in value) {
+    const r = value['rss']
+    if (!isPlainObject(r)) {
+      return { ok: false, error: 'rss 必须是对象' }
+    }
+    if ('feeds' in r) {
+      const list = r['feeds']
+      if (!Array.isArray(list)) {
+        return { ok: false, error: 'rss.feeds 必须是数组' }
+      }
+      const seenUrls = new Set<string>()
+      for (let i = 0; i < list.length; i++) {
+        const f = list[i]
+        if (!isPlainObject(f)) {
+          return { ok: false, error: `rss.feeds[${i}] 必须是对象` }
+        }
+        const url = f['url']
+        if (typeof url !== 'string' || !url) {
+          return { ok: false, error: `rss.feeds[${i}].url 必须是非空字符串` }
+        }
+        try {
+          void new URL(url)
+        } catch {
+          return { ok: false, error: `rss.feeds[${i}].url 必须是有效 URL` }
+        }
+        if (seenUrls.has(url)) {
+          return { ok: false, error: `rss 的订阅源 URL 重复：${url}` }
+        }
+        seenUrls.add(url)
+        if ('title' in f && f['title'] != null && typeof f['title'] !== 'string') {
+          return { ok: false, error: `rss.feeds[${i}].title 必须是 string 或省略` }
+        }
+        if ('enabled' in f && f['enabled'] != null && typeof f['enabled'] !== 'boolean') {
+          return { ok: false, error: `rss.feeds[${i}].enabled 必须是 boolean 或省略` }
+        }
+      }
+    }
+    const nums = validateNumberFields(r, 'rss', [
+      ['ttlMinutes', 1, Number.POSITIVE_INFINITY],
+      ['retentionDays', 1, 3650],
+      ['maxItemsPerFeed', 1, 500],
+    ])
+    if (nums) return nums
+    const viewMode = r['viewMode']
+    if ('viewMode' in r && viewMode !== 'grouped' && viewMode !== 'timeline') {
+      return { ok: false, error: 'rss.viewMode 必须是 grouped 或 timeline' }
+    }
+    const RSS_FIELDS = [
+      'feeds',
+      'ttlMinutes',
+      'retentionDays',
+      'maxItemsPerFeed',
+      'viewMode',
+    ] as const satisfies readonly (keyof Config['rss'])[]
+    const rssUnknown = rejectUnknownKeys(r, 'rss', RSS_FIELDS)
+    if (rssUnknown) return rssUnknown
   }
   if ('xueqiu' in value) {
     const x = value['xueqiu']
