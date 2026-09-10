@@ -16,6 +16,8 @@ export type RssItem = {
   pubDate: number
   /** Plain-text summary, sanitized and truncated (see plan D9). */
   summaryText: string
+  /** Set when the summary was dropped by the storage window (see SUMMARY_KEEP_COUNT). */
+  summaryTrimmed?: boolean
   author?: string
 }
 

@@ -48,6 +48,22 @@ export function capItems(items: ReadonlyArray<RssItem>, max: number): RssItem[] 
   return items.slice(0, Math.max(0, max))
 }
 
+/**
+ * Keep summaries only for the newest `keep` entries (the input must already be
+ * sorted newest-first). Older entries keep title/link/date but drop their
+ * summary text, which is what makes the stored payload fit in one GM value —
+ * measured in plan R5.3, summaries are ~90% of the bytes.
+ *
+ * Entries that never had a summary are returned untouched, so a genuinely empty
+ * summary is never mislabelled as trimmed.
+ */
+export function applySummaryWindow(items: ReadonlyArray<RssItem>, keep: number): RssItem[] {
+  return items.map((item, index) => {
+    if (index < keep || !item.summaryText) return item
+    return { ...item, summaryText: '', summaryTrimmed: true }
+  })
+}
+
 /** Collapse a summary to plain text, appending an ellipsis when truncated. */
 export function truncateText(text: string, max: number = MAX_SUMMARY_CHARS): string {
   if (text.length <= max) return text

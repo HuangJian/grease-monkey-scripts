@@ -44,6 +44,17 @@ export function unreadItems(feed: RssFeed, state: RssState): RssItem[] {
   return feed.items.filter((item) => !state.isRead(item.id))
 }
 
+/**
+ * Unread entries that are not hidden — what a list actually renders.
+ *
+ * Distinct from `unreadItems` (which the tab badge uses and which counts hidden
+ * entries too): a list whose rows are all filtered out would otherwise claim
+ * "N 条未读" while showing nothing.
+ */
+export function visibleUnreadItems(feed: RssFeed, state: RssState): RssItem[] {
+  return feed.items.filter((item) => !state.isRead(item.id) && !state.isHidden(item.id))
+}
+
 export function unreadCount(feed: RssFeed, state: RssState): number {
   return unreadItems(feed, state).length
 }

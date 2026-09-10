@@ -7,8 +7,10 @@ import {
   MAX_SUMMARY_CHARS,
   RSS_ACCEPT_HEADER,
   RSS_USER_AGENT,
+  SUMMARY_KEEP_COUNT,
 } from './constants'
 import {
+  applySummaryWindow,
   capItems,
   filterByRetention,
   mergeFeedItems,
@@ -73,11 +75,14 @@ async function fetchOneFeed(
     const domParser = new runtime.DOMParser()
     const parsed = parseFeed(xml, domParser)
     const items = parsed.items.map((item) => toRssItem(item, domParser))
-    const merged = capItems(
-      sortByPubDateDesc(
-        filterByRetention(mergeFeedItems(prev?.items ?? [], items), now, options.retentionMs),
+    const merged = applySummaryWindow(
+      capItems(
+        sortByPubDateDesc(
+          filterByRetention(mergeFeedItems(prev?.items ?? [], items), now, options.retentionMs),
+        ),
+        options.maxItemsPerFeed,
       ),
-      options.maxItemsPerFeed,
+      SUMMARY_KEEP_COUNT,
     )
     return {
       id,

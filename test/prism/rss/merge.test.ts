@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  applySummaryWindow,
   capItems,
   filterByRetention,
   mergeFeedItems,
@@ -71,6 +72,33 @@ describe('capItems', () => {
 
   test('returns empty for a non-positive max', () => {
     expect(capItems([item('a', 1)], 0)).toEqual([])
+  })
+})
+
+describe('applySummaryWindow', () => {
+  function withSummary(id: string, text: string): RssItem {
+    return { ...item(id, 100), summaryText: text }
+  }
+
+  test('keeps summaries for the newest entries only', () => {
+    const items = [withSummary('a', 's1'), withSummary('b', 's2'), withSummary('c', 's3')]
+    const out = applySummaryWindow(items, 2)
+    expect(out[0]!.summaryText).toBe('s1')
+    expect(out[1]!.summaryText).toBe('s2')
+    expect(out[2]!.summaryText).toBe('')
+    expect(out[2]!.summaryTrimmed).toBe(true)
+  })
+
+  test('never marks an entry that had no summary as trimmed', () => {
+    const out = applySummaryWindow([item('a', 100), item('b', 100)], 1)
+    expect(out[1]!.summaryTrimmed).toBeUndefined()
+    expect(out[1]!.summaryText).toBe('')
+  })
+
+  test('does not mutate the input', () => {
+    const input = [withSummary('a', 's1'), withSummary('b', 's2')]
+    applySummaryWindow(input, 1)
+    expect(input[1]!.summaryText).toBe('s2')
   })
 })
 

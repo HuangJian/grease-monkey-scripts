@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'bun:test'
-import { createRssState, totalUnread, unreadItems } from '../../../src/prism/rss/state'
+import {
+  createRssState,
+  totalUnread,
+  unreadItems,
+  visibleUnreadItems,
+} from '../../../src/prism/rss/state'
 import type { RssFeed } from '../../../src/prism/rss/types'
 import { createRuntime, type TestRuntime } from '../../runtime'
 
@@ -111,5 +116,16 @@ describe('unreadItems / totalUnread', () => {
     const a = feed('a', ['a1'])
     state.markRead('a1', NOW)
     expect(totalUnread([a], state)).toBe(0)
+  })
+
+  test('visibleUnreadItems excludes hidden entries, unreadItems does not', () => {
+    const state = createRssState({ retentionMs: RETENTION_MS })
+    const a = feed('a', ['a1', 'a2', 'a3'])
+    state.markRead('a1', NOW)
+    state.markHidden('a2', NOW)
+    // The badge counts hidden-but-unread entries (same as tnews)…
+    expect(unreadItems(a, state).map((it) => it.id)).toEqual(['a2', 'a3'])
+    // …while a list renders only what it can actually show.
+    expect(visibleUnreadItems(a, state).map((it) => it.id)).toEqual(['a3'])
   })
 })

@@ -269,9 +269,34 @@ test/prism/shared/feed-parser.test.ts  # shared 解析器唯一测试处（评�
 
 1. `component.tsx` 加时间线视图（单 `ExpandableList` + `renderExtra` 源名标签）与顶部切换按钮，视图选择持久化。
 2. 时间线用 `createItemHandlers`，分组用 `createGroupedItemHandlers`（group = feedId）。
-3. **缓存体积实测**（必须做，非可选项）：构造 20 源 × 100 条，测 `JSON.stringify(compressForStorage('rss', cached)).length`。> 1.5MB 则启用二级裁剪（仅最近 30 条保留摘要，更早的 `summaryText: ''` 并在展开区提示「摘要已裁剪」）；≤ 1.5MB 则维持现状并在计划里记下实测值。
+   - ⚠️ **实施偏差**：分组视图改用**每个 FeedBlock 自建 `createItemHandlers`**（`getVisible` 直接闭包到该源的可见未读），未使用 `createGroupedItemHandlers`。两者语义相同，前者少一层 `getSubForItem` 间接层；批量已读作用域天然限于本源的可见条目。
+3. **缓存体积实测**（已完成，结论见下）。
 4. 补 `editor.test.tsx`（含 OPML 导入导出）、`codec.test.ts`、config-validate、`export-import` 用例。
 5. `bun run check`，报告 Build hash。
+
+#### R5.3 实测结论（已执行）
+
+构造「20 源 × 100 条 × 300 字中文摘要」，测 `Buffer.byteLength(JSON.stringify(compressForStorage('rss', cached)))`：
+
+| 方案                                         | 压缩后      | 判定             |
+| -------------------------------------------- | ----------- | ---------------- |
+| 无摘要窗口（原设计）                         | **2043 KB** | ❌ 超 1.5MB 门槛 |
+| 摘要只保留最新 30 条（`SUMMARY_KEEP_COUNT`） | **822 KB**  | ✅ 通过          |
+
+关键发现：codec 的字段缩写只省 **3%**（2099KB → 2043KB）——摘要文本本身占约 90% 的字节，键名压缩帮不上忙。因此二级裁剪是**必需的，不是可选优化**。
+
+落地方式（与预案略有调整，更可测）：
+
+- 新增 `SUMMARY_KEEP_COUNT = 30` 常量与纯函数 `applySummaryWindow(items, keep)`（在 `merge.ts`，要求输入已按时间倒序）。
+- `RssItem` 新增 `summaryTrimmed?: boolean`，只对「本来有摘要、被窗口裁掉」的条目置位——天然无摘要的条目不会被误标。
+- codec 压缩为 `st: 1`；展开区文案区分「摘要已裁剪，点击打开原文」与「（无摘要）」。
+- `test/prism/codec.test.ts` 里的体积用例覆盖三种情形：20 源 < 1.5MB、10 源 < 1MB、**去掉摘要窗口必然超标**（把「窗口是承重设计」写成断言）。
+
+#### 其他实施偏差
+
+- 时间线渲染上限 `TIMELINE_MAX_ITEMS = 100`，超出时卡片底部显示「仅显示最近 100 条未读」（避免 20 源 × 100 条直接生成上千个 DOM 节点）。
+- 新增 `visibleUnreadItems(feed, state)`（未读且未隐藏）与 `unreadItems`（仅排除已读）**并存**：前者供列表与源内计数使用，后者供 tab 徽标使用（与 tnews 一致，徽标计入已隐藏未读）。起因是组件测试发现「隐藏但未读」会让列表空白却仍显示「N 条未读」。
+- 视图切换持久化：组件本地 `useState` 立即切视图，同时回调 `persistViewMode(runtime, mode)` 走 `saveConfigSection` + `validateConfig` 落盘；`RenderComponent` 在每次渲染时从 `props.runtime` 取 Runtime，因此 source 不需要长期持有 Runtime。
 
 ---
 
@@ -297,7 +322,7 @@ test/prism/shared/feed-parser.test.ts  # shared 解析器唯一测试处（评�
 **风险**
 
 1. **R1 触碰 tnews**：会在正常工作的源上动刀。缓解：只做「搬家 + 薄适配」，tnews 的 `parseRssItems(xml, domParser)` **签名与入参个数不变**（它本来就没有 `requirePubDate` 参数，见 D3 修正），「丢弃无 pubDate 条目」的行为由 tnews 适配层自行 `.filter` 保留；测试全绿才算完成。
-2. **缓存体积（因 30 天 × 100 条而放大）**：粗估单条 ~700B（含 300 字符摘要），20 源 × 100 条 ≈ 1.4MB 进 `GM.setValue`。缓解：D9 纯文本截断 + D8 字段缩写 + R5 实测门槛 1.5MB + 二级裁剪预案。Tampermonkey 无硬性小配额，但过大值会拖慢读写，故设硬门槛。
+2. **缓存体积（因 30 天 × 100 条而放大）** —— **实测已闭环（R5.3）**：无摘要窗口时 20 源 × 100 条压缩后 **2043 KB**（超门槛），启用「摘要只保留最新 30 条」后降到 **822 KB**。原粗估 1.4MB 偏低，且高估了 codec 的收益（实测仅省 3%，因为摘要占 ~90% 字节）。当前状态：门槛由 `test/prism/codec.test.ts` 的三条断言守着，含一条「去掉窗口必然超标」。若将来要放宽 `SUMMARY_KEEP_COUNT`，必须同时重跑该用例。
 3. **item id 不稳定**：部分 feed 的 `guid` 随机或缺失，已读态会漂移。缓解：优先 `normalizeLink(link)`，`guid` 仅作兜底。
 4. **订阅源反爬**：少数站点拒绝无 Referer 请求。v1 不给 Referer（`anonymous: false`，与 tnews 一致），出现问题时按源单独处理。
 5. **OPML 方言差异**：各家导出的 OPML 在 `<outline>` 属性（`xmlUrl` vs `htmlUrl`、大小写、自闭合）上不统一，且可能带 BOM / 非 UTF-8。缓解：`parseOpml` 用 `getAttribute('xmlUrl')` 大小写不敏感兜底，读取前去除 BOM，编码异常时报错提示而非静默空列表。

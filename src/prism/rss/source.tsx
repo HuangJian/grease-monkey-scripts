@@ -1,10 +1,13 @@
+import type { Runtime } from '../../runtime'
+import { validateConfig } from '../config'
+import { saveConfigSection } from '../editor-helpers'
 import type { Source, SourceSettings, TabLabel } from '../types'
 import { RssComponent } from './component'
 import { createRssEditor } from './editor/form'
 import { loadFreshOptions } from './editor/helpers'
 import { fetchRssFeeds } from './fetcher'
 import { createRssState, totalUnread, type RssState } from './state'
-import type { RssFeed, RssSourceOptions } from './types'
+import type { RssFeed, RssSourceOptions, RssViewMode } from './types'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -27,6 +30,20 @@ export function createRssSource(options: RssSourceOptions): Source<RssFeed[], 'r
     return state
   }
 
+  /** View choice is part of the source options, so it survives a reload. */
+  async function persistViewMode(runtimeArg: Runtime, mode: RssViewMode): Promise<void> {
+    if (currentOptions.viewMode === mode) return
+    currentOptions = { ...currentOptions, viewMode: mode }
+    await saveConfigSection({
+      runtime: runtimeArg,
+      sectionKey: 'rss',
+      section: currentOptions,
+      validate: validateConfig,
+      onError: (message) => console.warn(`[gm-rss] 视图设置保存失败：${message}`),
+      onSuccess: () => {},
+    })
+  }
+
   return {
     id: 'rss',
     title: 'RSS 阅读',
@@ -35,7 +52,21 @@ export function createRssSource(options: RssSourceOptions): Source<RssFeed[], 'r
     },
     groupId: 'browse',
     order: 6,
-    RenderComponent: (props) => <RssComponent {...props} state={state} />,
+    RenderComponent: (props) => {
+      // `props.runtime` is read on every render, so the view-toggle callback
+      // never needs the source to hold on to a Runtime from an earlier call.
+      const viewRuntime = props.runtime
+      return (
+        <RssComponent
+          {...props}
+          state={state}
+          viewMode={currentOptions.viewMode}
+          onViewModeChange={(mode) => {
+            void persistViewMode(viewRuntime, mode)
+          }}
+        />
+      )
+    },
     getTabLabel(data) {
       return rssTabLabel(data, state)
     },

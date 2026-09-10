@@ -4,6 +4,47 @@
   gap: 8px;
 }
 
+.gm-sp-rss-viewbar {
+  display: flex;
+  gap: 4px;
+}
+
+.gm-sp-rss-viewbtn {
+  border: 1px solid var(--gm-sp-color-border);
+  border-radius: var(--gm-sp-radius-pill);
+  background: var(--gm-sp-color-bg);
+  color: var(--gm-sp-color-text-muted);
+  font-size: 11px;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+
+.gm-sp-rss-viewbtn:hover {
+  color: var(--gm-sp-color-text);
+}
+
+.gm-sp-rss-viewbtn-active {
+  background: var(--gm-sp-color-chip-bg);
+  border-color: var(--gm-sp-color-chip-border);
+  color: var(--gm-sp-color-chip-text);
+  font-weight: 600;
+}
+
+.gm-sp-rss-feed-tag {
+  font-size: 10px;
+  padding: 0 4px;
+  border-radius: var(--gm-sp-radius-pill);
+  background: var(--gm-sp-color-chip-bg);
+  color: var(--gm-sp-color-chip-text);
+  white-space: nowrap;
+}
+
+.gm-sp-rss-more {
+  font-size: 11px;
+  color: var(--gm-sp-color-text-soft);
+  text-align: center;
+}
+
 .gm-sp-rss-feed {
   display: flex;
   flex-direction: column;

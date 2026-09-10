@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { fetchRssFeeds } from '../../../src/prism/rss/fetcher'
-import { MAX_SUMMARY_CHARS } from '../../../src/prism/rss/constants'
+import { MAX_SUMMARY_CHARS, SUMMARY_KEEP_COUNT } from '../../../src/prism/rss/constants'
 import type { RssFeed, RssFeedConfig } from '../../../src/prism/rss/types'
 import { createRuntime, type TestRuntime, XmlDOMParser } from '../../runtime'
 
@@ -218,6 +218,30 @@ describe('fetchRssFeeds', () => {
     const ids = feeds[0]!.items.map((it) => it.id)
     expect(ids).not.toContain('stale')
     expect(ids.length).toBeLessThanOrEqual(2)
+  })
+
+  test('keeps summaries only for the newest entries (storage window)', async () => {
+    const runtime = makeRuntime()
+    const url = 'https://many.example/feed.xml'
+    runtime.queueResponse(
+      url,
+      feedXml(
+        'Many',
+        Array.from({ length: SUMMARY_KEEP_COUNT + 5 }, (_, i) => ({
+          id: `e${i}`,
+          title: `Entry ${i}`,
+          // Newest first: e0 is the newest.
+          date: RFC822(NOW - i * 60_000),
+        })),
+      ),
+    )
+    const feeds = await fetchRssFeeds(runtime, [config(url)], [], OPTS)
+    const items = feeds[0]!.items
+    expect(items).toHaveLength(SUMMARY_KEEP_COUNT + 5)
+    expect(items[0]!.summaryText).toBe(`Body e0`)
+    expect(items[SUMMARY_KEEP_COUNT - 1]!.summaryTrimmed).toBeUndefined()
+    expect(items[SUMMARY_KEEP_COUNT]!.summaryText).toBe('')
+    expect(items[SUMMARY_KEEP_COUNT]!.summaryTrimmed).toBe(true)
   })
 
   test('returns an empty list when nothing is configured', async () => {

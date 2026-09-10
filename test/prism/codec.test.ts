@@ -3,7 +3,9 @@ import { compressForStorage, expandFromStorage } from '../../src/prism/codec'
 import { migrateCache } from '../../src/prism/codec-migrate'
 import { CACHE_CODEC_VERSION, CACHE_SCHEMA_VERSION, type CachedSource } from '../../src/prism/types'
 import type { NovelBook } from '../../src/prism/novels/types'
-import type { RssFeed } from '../../src/prism/rss/types'
+import type { RssFeed, RssItem } from '../../src/prism/rss/types'
+import { applySummaryWindow } from '../../src/prism/rss/merge'
+import { MAX_SUMMARY_CHARS, SUMMARY_KEEP_COUNT } from '../../src/prism/rss/constants'
 
 function roundTrip<T>(sourceId: string, data: T, fetchedAt: number = Date.now()): T {
   const cached = { data, fetchedAt, error: '' }
@@ -387,6 +389,38 @@ describe('codec round-trip: rss', () => {
     expect(result[0]!.items[0]!.author).toBeUndefined()
   })
 
+  test('preserves the summaryTrimmed marker', () => {
+    const data: RssFeed[] = [
+      {
+        id: 'u:https://example.com/feed.xml',
+        title: 'Example',
+        url: 'https://example.com/feed.xml',
+        fetchedAt: 1_700_000_000_000,
+        error: '',
+        items: [
+          {
+            id: 'p1',
+            title: 'Trimmed',
+            link: 'https://example.com/p1',
+            pubDate: 1_700_000_000_000,
+            summaryText: '',
+            summaryTrimmed: true,
+          },
+          {
+            id: 'p2',
+            title: 'Kept',
+            link: 'https://example.com/p2',
+            pubDate: 1_700_000_000_000,
+            summaryText: 'body',
+          },
+        ],
+      },
+    ]
+    const result = roundTrip('rss', data)
+    expect(result[0]!.items[0]!.summaryTrimmed).toBe(true)
+    expect(result[0]!.items[1]!.summaryTrimmed).toBeUndefined()
+  })
+
   test('compresses to the short field names', () => {
     const compressed = compressForStorage('rss', {
       data: [
@@ -416,6 +450,61 @@ describe('codec round-trip: rss', () => {
     const item = (feed.it as Record<string, unknown>[])[0]!
     expect(item.t).toBe('Post')
     expect(item.s).toBe('s')
+  })
+})
+
+// Budget gate from rss-reader.plan.md R5.3. Measured on the configured worst
+// case (20 feeds × 100 entries, 300-character CJK summaries):
+//   no summary window : 2043 KB compressed — over budget, summaries are ~90% of
+//                       the bytes and key compression only buys ~3%
+//   with the window   : 822 KB compressed (summaries kept for the newest 30)
+// The test mirrors the real pipeline (fetcher applies applySummaryWindow), so a
+// regression in either the codec or the window is caught here.
+describe('rss cache size gate', () => {
+  function heavyFeeds(feedCount: number, itemsPerFeed: number, applyWindow = true): RssFeed[] {
+    const feeds: RssFeed[] = []
+    for (let f = 0; f < feedCount; f++) {
+      const items: RssItem[] = []
+      for (let i = 0; i < itemsPerFeed; i++) {
+        items.push({
+          id: `https://example.com/${f}/post/${i}`,
+          title: `第 ${i} 篇：一个不算短的标题占位`,
+          link: `https://example.com/${f}/post/${i}`,
+          pubDate: 1_700_000_000_000 - i * 60_000,
+          summaryText: '摘'.repeat(MAX_SUMMARY_CHARS),
+        })
+      }
+      feeds.push({
+        id: `u:https://example.com/${f}.xml`,
+        title: `订阅源 ${f}`,
+        url: `https://example.com/${f}.xml`,
+        error: '',
+        fetchedAt: 1_700_000_000_000,
+        items: applyWindow ? applySummaryWindow(items, SUMMARY_KEEP_COUNT) : items,
+      })
+    }
+    return feeds
+  }
+
+  function storedBytes(feeds: RssFeed[]): number {
+    const stored = compressForStorage('rss', {
+      data: feeds,
+      fetchedAt: 1_700_000_000_000,
+      error: '',
+    })
+    return Buffer.byteLength(JSON.stringify(stored))
+  }
+
+  test('20 feeds × 100 entries stay under 1.5MB', () => {
+    expect(storedBytes(heavyFeeds(20, 100))).toBeLessThan(1.5 * 1024 * 1024)
+  })
+
+  test('10 feeds × 100 entries (a realistic subscription list) stay under 1MB', () => {
+    expect(storedBytes(heavyFeeds(10, 100))).toBeLessThan(1024 * 1024)
+  })
+
+  test('dropping the summary window blows the budget — the window is load-bearing', () => {
+    expect(storedBytes(heavyFeeds(20, 100, false))).toBeGreaterThan(1.5 * 1024 * 1024)
   })
 })
 

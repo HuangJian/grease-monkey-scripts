@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { cleanup, render, within } from '@testing-library/preact'
 import { RssComponent } from '../../../src/prism/rss/component'
+import { TIMELINE_MAX_ITEMS } from '../../../src/prism/rss/constants'
 import { createRssState, unreadCount } from '../../../src/prism/rss/state'
-import type { RssFeed, RssItem } from '../../../src/prism/rss/types'
+import type { RssFeed, RssItem, RssViewMode } from '../../../src/prism/rss/types'
 import { createRuntime, type TestRuntime } from '../../runtime'
 
 afterEach(cleanup)
@@ -33,14 +34,30 @@ function feed(id: string, items: RssItem[], over: Partial<RssFeed> = {}): RssFee
   }
 }
 
-function setup(feeds: RssFeed[], runtime: TestRuntime = createRuntime()) {
+function setup(
+  feeds: RssFeed[],
+  over: {
+    runtime?: TestRuntime
+    viewMode?: RssViewMode
+    onViewModeChange?: (mode: RssViewMode) => void
+  } = {},
+) {
+  const runtime = over.runtime ?? createRuntime()
   const state = createRssState({ retentionMs: 30 * DAY })
   const root = document.createElement('div')
   document.body.appendChild(root)
-  const view = render(<RssComponent data={feeds} root={root} runtime={runtime} state={state} />, {
-    container: root,
-  })
-  return { state, root, view }
+  const view = render(
+    <RssComponent
+      data={feeds}
+      root={root}
+      runtime={runtime}
+      state={state}
+      viewMode={over.viewMode ?? 'grouped'}
+      onViewModeChange={over.onViewModeChange}
+    />,
+    { container: root },
+  )
+  return { state, root, runtime, view }
 }
 
 function rows(root: HTMLElement): HTMLElement[] {
@@ -70,6 +87,7 @@ describe('RssComponent', () => {
         root={root}
         runtime={createRuntime()}
         state={state}
+        viewMode="grouped"
       />,
       { container: root },
     )
@@ -96,6 +114,13 @@ describe('RssComponent', () => {
     expect(within(root).getByText('摘要 a1')).not.toBeNull()
     expect(within(root).getByText('打开原文')).not.toBeNull()
     expect(state.isRead('a1')).toBe(false)
+  })
+
+  test('says the summary was trimmed when the storage window dropped it', () => {
+    const trimmed = item('a1', { summaryText: '', summaryTrimmed: true })
+    const { root } = setup([feed('a', [trimmed])])
+    within(root).getByText('标题 a1').click()
+    expect(within(root).getByText('摘要已裁剪，点击打开原文')).not.toBeNull()
   })
 
   test('opening the original marks the entry read', () => {
@@ -133,5 +158,65 @@ describe('RssComponent', () => {
     expect(unreadCount(a, state)).toBe(2)
     state.markRead('a1', NOW)
     expect(unreadCount(a, state)).toBe(1)
+  })
+})
+
+describe('RssComponent view switching', () => {
+  function rowTitles(root: HTMLElement): string[] {
+    return rows(root).map((row) => row.querySelector('.gm-sp-expandable-title')?.textContent ?? '')
+  }
+
+  test('starts in the configured view and marks its button active', () => {
+    const { root } = setup([feed('a', [item('a1')])], { viewMode: 'timeline' })
+    expect(root.querySelector('[data-action="view-timeline"]')!.className).toContain(
+      'gm-sp-rss-viewbtn-active',
+    )
+    expect(root.querySelector('.gm-sp-rss-timeline')).not.toBeNull()
+  })
+
+  test('switching to the timeline reports the change and swaps the view', () => {
+    const changes: RssViewMode[] = []
+    const { root } = setup([feed('a', [item('a1')])], {
+      onViewModeChange: (mode) => changes.push(mode),
+    })
+    root.querySelector<HTMLButtonElement>('[data-action="view-timeline"]')!.click()
+    expect(changes).toEqual(['timeline'])
+    expect(root.querySelector('.gm-sp-rss-timeline')).not.toBeNull()
+    expect(root.querySelector('.gm-sp-rss-feed')).toBeNull()
+  })
+
+  test('timeline labels each row with its feed', () => {
+    const { root } = setup([feed('a', [item('a1')]), feed('b', [item('b1')])], {
+      viewMode: 'timeline',
+    })
+    const labels = Array.from(root.querySelectorAll('.gm-sp-rss-feed-tag')).map(
+      (el) => el.textContent,
+    )
+    expect(labels.sort()).toEqual(['源 a', '源 b'])
+  })
+
+  test('timeline merges feeds newest first', () => {
+    const older = feed('a', [item('a1', { pubDate: NOW - 3 * DAY })])
+    const newer = feed('b', [item('b1', { pubDate: NOW - 1000 })])
+    const { root } = setup([older, newer], { viewMode: 'timeline' })
+    expect(rowTitles(root)).toEqual(['标题 b1', '标题 a1'])
+  })
+
+  test('timeline omits entries that are already read or hidden', () => {
+    const { root, state } = setup([feed('a', [item('a1'), item('a2')])], { viewMode: 'timeline' })
+    state.markRead('a1', NOW)
+    state.markHidden('a2', NOW)
+    root.querySelector<HTMLButtonElement>('[data-action="view-grouped"]')!.click()
+    root.querySelector<HTMLButtonElement>('[data-action="view-timeline"]')!.click()
+    expect(within(root).getByText('没有未读条目')).not.toBeNull()
+  })
+
+  test('timeline truncates past the cap and says so', () => {
+    const many = Array.from({ length: TIMELINE_MAX_ITEMS + 20 }, (_, i) =>
+      item(`x${i}`, { pubDate: NOW - i * 1000 }),
+    )
+    const { root } = setup([feed('a', many)], { viewMode: 'timeline' })
+    expect(rows(root)).toHaveLength(TIMELINE_MAX_ITEMS)
+    expect(within(root).getByText(`仅显示最近 ${TIMELINE_MAX_ITEMS} 条未读`)).not.toBeNull()
   })
 })

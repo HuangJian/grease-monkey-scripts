@@ -327,6 +327,7 @@ function compressRssItem(v: Record<string, unknown>): Record<string, unknown> {
   }
   if (typeof v.pubDate === 'number' && v.pubDate > 0) out.p = compressTimestamp(v.pubDate)
   if (typeof v.author === 'string' && v.author) out.a = v.author
+  if (v.summaryTrimmed === true) out.st = 1
   return out
 }
 
@@ -339,6 +340,7 @@ function expandRssItem(v: Record<string, unknown>): Record<string, unknown> {
     pubDate: expandTimestamp(v.p as number | undefined) ?? 0,
     summaryText: v.s ?? '',
     ...(typeof v.a === 'string' ? { author: v.a } : {}),
+    ...(v.st ? { summaryTrimmed: true } : {}),
   }
 }
 
