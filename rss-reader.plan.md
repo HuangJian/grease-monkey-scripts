@@ -244,7 +244,7 @@ test/prism/shared/feed-parser.test.ts  # shared 解析器唯一测试处（评�
 1. `fetcher.ts`：`mapLimit` 并发 4，单源失败落 `error` 并保留 prev items，全失败 throw；摘要按 D9 转纯文本并截断。
 2. `merge.ts`：`mergeFeedItems`（按 id 去重、pubDate 取大）、`filterByRetention`（30 天）、`sortByPubDateDesc`、`capItems`（100 条/源）——均为纯函数。
 3. `state.ts`：`createRssState` + 未读计数 `unreadCount(feed, state)`。
-4. `source.tsx`：⚠️ 按 `Source` 接口真实签名实现（评审 R3，已核对 `types.ts:129-131`）：
+4. `source.tsx`：⚠️ **实施时把本步挪到 R4**。`Source` 接口要求 `RenderComponent`，而组件在 R4 才存在——分开做会在 R3 留下一个占位组件。R3 只交付数据层（fetcher / merge / state）及其测试；`source.tsx`、`source-registry` 接线与组件一起在 R4 落地。⚠️ 按 `Source` 接口真实签名实现（评审 R3，已核对 `types.ts:129-131`）：
 
    ```ts
    async fetch(runtime: Runtime, prevData?: RssFeed[]): Promise<RssFeed[]>   // 第一个参数是 runtime
