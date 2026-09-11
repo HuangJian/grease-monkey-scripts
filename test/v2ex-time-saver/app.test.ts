@@ -253,6 +253,62 @@ describe('v2ex app unit flows', () => {
     })
   })
 
+  test('tag panel: custom tag add form accepts a zero score', async () => {
+    const writes: Record<string, unknown> = {}
+    const runtime = {
+      ...createRuntime(dom),
+      setValue: (key: string, value: unknown) => {
+        writes[key] = value
+      },
+    }
+    const app = await createV2exApp(runtime)
+
+    app.start()
+
+    const tagBtn = dom.document.querySelector('#r_1 .gm-tag-btn') as unknown as HTMLElement | null
+    tagBtn!.click()
+
+    const nameInput = dom.document.querySelector('.gm-tag-input-name') as HTMLInputElement | null
+    const scoreInput = dom.document.querySelector('.gm-tag-input-score') as HTMLInputElement | null
+    const addBtn = dom.document.querySelector('.gm-tag-add-btn') as unknown as HTMLElement | null
+
+    nameInput!.value = '潜水员'
+    scoreInput!.value = '0'
+    addBtn!.click()
+
+    expect(writes[authorTagsKeyword]).toEqual({
+      alice: { 潜水员: { url: 't/123#1', score: 0 } },
+    })
+  })
+
+  test('tag panel: an emptied score field defaults to zero instead of dropping the tag', async () => {
+    const writes: Record<string, unknown> = {}
+    const runtime = {
+      ...createRuntime(dom),
+      setValue: (key: string, value: unknown) => {
+        writes[key] = value
+      },
+    }
+    const app = await createV2exApp(runtime)
+
+    app.start()
+
+    const tagBtn = dom.document.querySelector('#r_1 .gm-tag-btn') as unknown as HTMLElement | null
+    tagBtn!.click()
+
+    const nameInput = dom.document.querySelector('.gm-tag-input-name') as HTMLInputElement | null
+    const scoreInput = dom.document.querySelector('.gm-tag-input-score') as HTMLInputElement | null
+    const addBtn = dom.document.querySelector('.gm-tag-add-btn') as unknown as HTMLElement | null
+
+    nameInput!.value = '机器人'
+    scoreInput!.value = ''
+    addBtn!.click()
+
+    expect(writes[authorTagsKeyword]).toEqual({
+      alice: { 机器人: { url: 't/123#1', score: 0 } },
+    })
+  })
+
   test('getAuthorTagMap returns a snapshot, not a live reference', async () => {
     const runtime = createRuntime(dom)
     const app = await createV2exApp(runtime)

@@ -86,8 +86,11 @@ export function buildTagPanel(
   panel.querySelector('.gm-tag-add-btn')!.addEventListener('click', () => {
     const name = addNameInput.value.trim()
     if (!name) return
-    const score = parseInt(addScoreInput.value, 10)
-    if (score === 0 || isNaN(score)) return
+    // 0 is a legitimate score (a neutral marker), and the field defaults to it.
+    // An emptied or unparseable field falls back to 0 rather than silently
+    // dropping the tag.
+    const parsedScore = parseInt(addScoreInput.value, 10)
+    const score = isNaN(parsedScore) ? 0 : parsedScore
     callbacks.onSetTag(authorId, name, score, commentNumber)
     addNameInput.value = ''
     addScoreInput.value = '0'
