@@ -92,6 +92,39 @@ describe('loadConfig', () => {
     const cfg = await loadConfig(runtime)
     expect(cfg).toEqual(DEFAULT_CONFIG)
   })
+
+  test('unknown root field no longer discards valid settings', async () => {
+    const runtime = createRuntime()
+    runtime.stores[CONFIG_KEY] = {
+      // Retired section dropped from Config; used to fail the whole validation.
+      kv: { enabled: true, apiUrl: 'https://example.invalid' },
+      sourceSettings: { v2ex: { tabTitle: 'V2', priority: 1, badgeType: 'none' } },
+    }
+    const cfg = await loadConfig(runtime)
+    expect(cfg.sourceSettings.v2ex?.tabTitle).toBe('V2')
+    expect(cfg.v2ex.ttlMinutes).toBe(DEFAULT_CONFIG.v2ex.ttlMinutes)
+  })
+
+  test('unknown field inside a section is dropped, rest of the section survives', async () => {
+    const runtime = createRuntime()
+    runtime.stores[CONFIG_KEY] = {
+      v2ex: { ttlMinutes: 59, historyDays: 7 },
+    }
+    const cfg = await loadConfig(runtime)
+    expect(cfg.v2ex.ttlMinutes).toBe(59)
+    expect(cfg.v2ex).not.toHaveProperty('historyDays')
+  })
+
+  test('invalid section falls back alone; other sections are kept', async () => {
+    const runtime = createRuntime()
+    runtime.stores[CONFIG_KEY] = {
+      v2ex: { ttlMinutes: 'not-a-number' },
+      sourceSettings: { novels: { tabTitle: '📚', priority: 4, badgeType: 'default' } },
+    }
+    const cfg = await loadConfig(runtime)
+    expect(cfg.v2ex.ttlMinutes).toBe(DEFAULT_CONFIG.v2ex.ttlMinutes)
+    expect(cfg.sourceSettings.novels?.tabTitle).toBe('📚')
+  })
 })
 
 describe('loadConfigSection', () => {

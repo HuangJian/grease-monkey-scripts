@@ -6,6 +6,7 @@ import type { OverlayHandle } from '../../src/prism/shell/mount'
 import {
   CACHE_KEY,
   CACHE_SCHEMA_VERSION,
+  CONFIG_KEY,
   STATE_KEY,
   type CachedSource,
 } from '../../src/prism/types'
@@ -451,6 +452,30 @@ describe('createDashboard', () => {
     expect(() => dashboard.destroy()).not.toThrow()
     expect(() => dashboard.destroy()).not.toThrow()
     expect(countListeners()).toBe(0)
+  })
+
+  test('refreshSource re-reads config so saved settings show without a page reload', async () => {
+    // Fresh cache: keeps v2ex out of the cold-start opportunistic refresh, so
+    // the refresh under test is the only one touching the browse card.
+    runtime.stores[CACHE_KEY('v2ex')] = {
+      schemaVersion: CACHE_SCHEMA_VERSION,
+      data: [],
+      fetchedAt: Date.now(),
+      error: '',
+    }
+    const dashboard = createDashboard(runtime, { config: DEFAULT_CONFIG })
+    dashboard.start()
+    await openDashboard(dashboard)
+    const tab = () => shadowOf().querySelector<HTMLElement>('[data-tab-id="v2ex"]')
+    expect(tab()?.textContent).toContain('V2EX')
+    expect(tab()?.textContent).not.toContain('自定义标题')
+    // Editor writes to storage; the in-memory config is still the old one.
+    runtime.stores[CONFIG_KEY] = {
+      ...(runtime.stores[CONFIG_KEY] as Record<string, unknown> | undefined),
+      sourceSettings: { v2ex: { tabTitle: '自定义标题', priority: 1, badgeType: 'none' } },
+    }
+    await dashboard.refreshSource('v2ex')
+    expect(tab()?.textContent).toContain('自定义标题')
   })
 })
 

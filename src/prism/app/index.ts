@@ -32,7 +32,9 @@ const BACKGROUND_REFRESH_BASE_MS = 300_000
 const BACKGROUND_REFRESH_JITTER_MS = 60_000
 
 export function createDashboard(runtime: Runtime, options: DashboardOptions): Dashboard {
-  const reg = createSourceRegistry(options.config, runtime)
+  /** Mutable: re-read after an editor saves so changes show without a page reload. */
+  let currentConfig = options.config
+  const reg = createSourceRegistry(currentConfig, runtime)
   const activeTabByGroup = new Map<string, string>()
   let handle: OverlayHandle | null = null
   let cleanupDashboard: (() => void) | null = null
@@ -71,7 +73,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
       runtime,
       handle,
       activeTabByGroup,
-      sourceSettings: options.config.sourceSettings,
+      sourceSettings: currentConfig.sourceSettings,
       refreshSource: (sourceId) => dashboard.refreshSource(sourceId),
       revertGroup: (groupId) => {
         if (!handle) return
@@ -110,6 +112,9 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
 
   async function doRefreshSource(sourceId: string): Promise<void> {
     console.debug('[gm-dashboard] refreshSource enter sourceId=', sourceId)
+    // Editors save to storage and then trigger a refresh; re-read the config so
+    // the new settings (tab title, badge, …) render without a page reload.
+    currentConfig = await loadConfig(runtime)
     const source = findSource(reg.sources, sourceId) as Source<unknown> | undefined
     if (!source) {
       console.debug('[gm-dashboard] refreshSource source-not-found sourceId=', sourceId)
@@ -129,7 +134,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     const mounted = mountDashboard({
       runtime,
       cardGroups: reg.cardGroups,
-      sourceSettings: options.config.sourceSettings,
+      sourceSettings: currentConfig.sourceSettings,
       dashboard: { close: () => dashboard.close() },
     })
     handle = mounted.handle
@@ -200,7 +205,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
       })
       bootstrapShortcut({
         runtime,
-        config: options.config,
+        config: currentConfig,
         onOpen: () => void dashboard.open(),
       })
       runtime.requestIdleCallback(
