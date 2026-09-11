@@ -15,10 +15,15 @@ function raw(url: string, title = url, postedAt: number = 0): NovelRawChapter {
 function homeHtml(opts: {
   title: string
   chapters: { url: string; title: string; label: string }[]
+  /** Catalog chapters rendered in `#list` (oldest-first, as sudugu serves them). */
+  list?: { url: string; title: string }[]
   pages?: number
 }): string {
   const lis = opts.chapters
     .map((c) => `<li><i>${c.label}</i><a href="${c.url}">${c.title}</a></li>`)
+    .join('')
+  const listLis = (opts.list ?? [])
+    .map((c) => `<li><a href="${c.url}">${c.title}</a></li>`)
     .join('')
   const pages =
     opts.pages && opts.pages > 1
@@ -31,7 +36,7 @@ function homeHtml(opts: {
         <ul>${lis}</ul>
       </div>
     </div>
-    <div id="list"><ul></ul></div>
+    <div id="list"><ul>${listLis}</ul></div>
     ${pages}
   </body></html>`
 }
@@ -206,6 +211,123 @@ describe('fetchNovels', () => {
     ])
     expect(books[0]!.latestChapters[0]!.postedAt).toBeGreaterThan(0)
     expect(books[0]!.latestChapters[3]!.postedAt).toBe(0)
+  })
+
+  test('reads the newest catalog page even when the home list fills the window', async () => {
+    const server = makeServer()
+    server.setResponse(
+      URL_12,
+      homeHtml({
+        title: '龙藏',
+        // The home page is catalog page 1: it holds the OLDEST chapters.
+        list: [
+          { url: '/12/c1.html', title: '第1章' },
+          { url: '/12/c2.html', title: '第2章' },
+          { url: '/12/c3.html', title: '第3章' },
+        ],
+        chapters: [{ url: '/12/c10.html', title: '第10章', label: '今天' }],
+        pages: 2,
+      }),
+    )
+    server.setResponse(
+      'https://www.sudugu.org/12/p-2.html',
+      tailHtml([
+        { url: '/12/c8.html', title: '第8章' },
+        { url: '/12/c9.html', title: '第9章' },
+        { url: '/12/c10.html', title: '第10章' },
+      ]),
+    )
+    // The home list already covers the window, but the newest chapters live on
+    // page 2 — the tail fetch must not be skipped.
+    const books = await fetchNovels(server.runtime, [book('', URL_12)], [], {
+      initialNewChapters: 3,
+      maxLatestWindow: 2,
+    })
+    expect(server.hits).toEqual([URL_12, 'https://www.sudugu.org/12/p-2.html'])
+    expect(books[0]!.latestChapters.map((c) => c.key)).toEqual(['n:10', 'n:9'])
+  })
+
+  test('walks tail pages newest-first and stops at the read marker', async () => {
+    const server = makeServer()
+    server.setResponse(
+      URL_12,
+      homeHtml({
+        title: '龙藏',
+        list: [
+          { url: '/12/c1.html', title: '第1章' },
+          { url: '/12/c2.html', title: '第2章' },
+        ],
+        chapters: [{ url: '/12/c10.html', title: '第10章', label: '今天' }],
+        pages: 3,
+      }),
+    )
+    server.setResponse(
+      'https://www.sudugu.org/12/p-3.html',
+      tailHtml([
+        { url: '/12/c9.html', title: '第9章' },
+        { url: '/12/c10.html', title: '第10章' },
+      ]),
+    )
+    server.setResponse(
+      'https://www.sudugu.org/12/p-2.html',
+      tailHtml([
+        { url: '/12/c5.html', title: '第5章' },
+        { url: '/12/c6.html', title: '第6章' },
+      ]),
+    )
+    const prev = legacyPrev({
+      url: URL_12,
+      lastSeenUrl: 'https://www.sudugu.org/12/c9.html',
+      seenTitle: '第9章',
+    })
+    const books = await fetchNovels(server.runtime, [book('', URL_12)], [prev])
+    // The marker is on the newest page, so every older page is already read.
+    expect(server.hits).toEqual([URL_12, 'https://www.sudugu.org/12/p-3.html'])
+    expect(books[0]!.latestChapters.map((c) => c.key)).toEqual(['n:10', 'n:9'])
+  })
+
+  test('orders every tail page newest-first when there is no read marker', async () => {
+    const server = makeServer()
+    server.setResponse(
+      URL_12,
+      homeHtml({
+        title: '龙藏',
+        list: [
+          { url: '/12/c1.html', title: '第1章' },
+          { url: '/12/c2.html', title: '第2章' },
+        ],
+        chapters: [],
+        pages: 3,
+      }),
+    )
+    server.setResponse(
+      'https://www.sudugu.org/12/p-3.html',
+      tailHtml([
+        { url: '/12/c9.html', title: '第9章' },
+        { url: '/12/c10.html', title: '第10章' },
+      ]),
+    )
+    server.setResponse(
+      'https://www.sudugu.org/12/p-2.html',
+      tailHtml([
+        { url: '/12/c5.html', title: '第5章' },
+        { url: '/12/c6.html', title: '第6章' },
+      ]),
+    )
+    const books = await fetchNovels(server.runtime, [book('', URL_12)], [])
+    expect(server.hits).toEqual([
+      URL_12,
+      'https://www.sudugu.org/12/p-3.html',
+      'https://www.sudugu.org/12/p-2.html',
+    ])
+    expect(books[0]!.latestChapters.map((c) => c.key)).toEqual([
+      'n:10',
+      'n:9',
+      'n:6',
+      'n:5',
+      'n:2',
+      'n:1',
+    ])
   })
 
   test('preserves the read marker across refresh', async () => {

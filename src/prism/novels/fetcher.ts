@@ -223,37 +223,19 @@ async function fetchSourceChapters(
 
   if (home.homeChapters.length > 0) {
     chapters = home.homeChapters.map((c) => ({ url: c.url, title: c.title, postedAt: c.postedAt }))
-    // Tail pages hold only chapters older than the home page. If the read
-    // marker is already on the home page, there is nothing older to fetch.
-    const seenInHome = seenKey && home.homeChapters.some((c) => chapterKey(c.title) === seenKey)
-    // If the home page already fills the latest-window, no tail fetch is needed.
-    const homeFillsWindow =
-      Number.isFinite(maxLatestWindow) && home.homeChapters.length >= maxLatestWindow
-    if (home.lastPageNumber > 1 && !seenInHome && !homeFillsWindow) {
-      // Collect tail pages, then reverse+flat once (avoids O(pages²) per-page
-      // array rebuild). Stop early once we have enough to cover the window.
-      const collected: RawChapter[][] = []
-      for (let p = 2; p <= home.lastPageNumber; p++) {
-        const tailUrl = adapter.buildTailUrl(url, p)
-        const tailResult = await fetchWithFallback(
-          runtime,
-          tailUrl,
-          orderedMirrorHosts(tailUrl, adapter.hostnames, usedHost),
-        )
-        usedHost = tailResult.host
-        const tailChapters = adapter.parseChapterList(tailResult.html, tailUrl, domParser)
-        // Reverse each page (oldest→newest within a page → newest→oldest) to
-        // match the original per-page `[...tailChapters.reverse(), ...]` order.
-        collected.push(tailChapters.slice().reverse())
-        if (
-          Number.isFinite(maxLatestWindow) &&
-          home.homeChapters.length + collected.reduce((n, t) => n + t.length, 0) >= maxLatestWindow
-        ) {
-          break
-        }
-      }
-      const tailAll = collected.reverse().flat()
-      chapters = [...tailAll, ...chapters]
+    if (home.lastPageNumber > 1) {
+      const tail = await fetchTailPages(
+        runtime,
+        adapter,
+        url,
+        home.lastPageNumber,
+        seenKey,
+        maxLatestWindow,
+        domParser,
+        usedHost,
+      )
+      usedHost = tail.host
+      chapters = [...tail.chapters, ...chapters]
     }
     overlayTimestamps(chapters, prevPostedAt)
   } else if (home.lastPageNumber > 1) {
@@ -283,6 +265,48 @@ async function fetchSourceChapters(
   }
 
   return { chapters, title, mirrorHost: usedHost, chapterCount: chapters.length }
+}
+
+/**
+ * Fetch catalog pages 2..`lastPage`, newest-first.
+ *
+ * sudugu/shudugu paginate the catalog **oldest-first**: the home page is page 1
+ * (oldest chapters) and the LAST page holds the newest ones, so recent updates
+ * are invisible until the later pages are read. Walk backwards from the last
+ * page so the newest chapters arrive first, and stop as soon as the read marker
+ * turns up — everything on older pages is already read. With no marker, stop
+ * once the latest-window is filled.
+ */
+async function fetchTailPages(
+  runtime: Runtime,
+  adapter: NovelAdapter,
+  homeUrl: string,
+  lastPage: number,
+  seenKey: string,
+  maxLatestWindow: number,
+  domParser: DOMParser,
+  initialHost: string,
+): Promise<{ chapters: RawChapter[]; host: string }> {
+  const collected: RawChapter[][] = []
+  let usedHost = initialHost
+  let count = 0
+  for (let p = lastPage; p >= 2; p--) {
+    const tailUrl = adapter.buildTailUrl(homeUrl, p)
+    const result = await fetchWithFallback(
+      runtime,
+      tailUrl,
+      orderedMirrorHosts(tailUrl, adapter.hostnames, usedHost),
+    )
+    usedHost = result.host
+    const pageChapters = adapter.parseChapterList(result.html, tailUrl, domParser)
+    // Pages are oldest-first; reverse so the page's newest chapter leads.
+    const newestFirst = pageChapters.slice().reverse()
+    collected.push(newestFirst)
+    count += newestFirst.length
+    if (seenKey !== '' && newestFirst.some((c) => chapterKey(c.title) === seenKey)) break
+    if (seenKey === '' && Number.isFinite(maxLatestWindow) && count >= maxLatestWindow) break
+  }
+  return { chapters: collected.flat(), host: usedHost }
 }
 
 /**
