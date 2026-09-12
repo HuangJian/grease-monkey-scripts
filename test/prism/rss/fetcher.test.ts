@@ -36,7 +36,17 @@ function makeRuntime(): TestRuntime {
   return runtime
 }
 
-const OPTS = { maxItemsPerFeed: 100, retentionMs: 30 * DAY }
+/**
+ * Scheduling off for the tests that predate it: `ttlMinutes: 1` keeps every
+ * cached feed due immediately, so each case only exercises fetching/parsing.
+ * `respectFeedPeriod: false` keeps a feed's own `<ttl>` out of the way.
+ */
+const OPTS = {
+  maxItemsPerFeed: 100,
+  retentionMs: 30 * DAY,
+  ttlMinutes: 1,
+  respectFeedPeriod: false,
+}
 
 function config(url: string, over: Partial<RssFeedConfig> = {}): RssFeedConfig {
   return { url, title: '', ...over }
@@ -239,8 +249,8 @@ describe('fetchRssFeeds', () => {
       ]),
     )
     const feeds = await fetchRssFeeds(runtime, [config('https://cap.example/feed.xml')], [], {
+      ...OPTS,
       maxItemsPerFeed: 2,
-      retentionMs: 30 * DAY,
     })
     expect(feeds[0]!.items.map((it) => it.id)).toEqual([
       'https://example.com/fresh',
@@ -275,5 +285,265 @@ describe('fetchRssFeeds', () => {
   test('returns an empty list when nothing is configured', async () => {
     const runtime = makeRuntime()
     expect(await fetchRssFeeds(runtime, [], [], OPTS)).toEqual([])
+  })
+})
+
+describe('fetchRssFeeds scheduling', () => {
+  const url = 'https://a.example/feed.xml'
+  const HOUR = 60 * 60 * 1000
+  /** 60-minute minimum, feed declarations honoured. */
+  const SCHED = {
+    maxItemsPerFeed: 100,
+    retentionMs: 30 * DAY,
+    ttlMinutes: 60,
+    respectFeedPeriod: true,
+  }
+
+  function cachedFeed(over: Partial<RssFeed> = {}): RssFeed {
+    return {
+      id: `u:${url}`,
+      title: 'A',
+      url,
+      items: [],
+      error: '',
+      fetchedAt: NOW,
+      ...over,
+    }
+  }
+
+  function item(id: string, pubDate: number): RssFeed['items'][number] {
+    return { id, title: id, link: `https://example.com/${id}`, pubDate, summaryText: '' }
+  }
+
+  test('a feed fetched inside its interval is not requested again', async () => {
+    const runtime = makeRuntime()
+    runtime.queueResponse(url, feedXml('A', [{ id: '1', title: 'One' }]))
+    const feeds = await fetchRssFeeds(runtime, [config(url)], [cachedFeed()], SCHED)
+    expect(runtime.lastRequest).toBeNull()
+    expect(feeds[0]!.fetchedAt).toBe(NOW)
+  })
+
+  test('a forced refresh fetches a feed that is not due', async () => {
+    const runtime = makeRuntime()
+    runtime.queueResponse(url, feedXml('A', [{ id: '1', title: 'One' }]))
+    const feeds = await fetchRssFeeds(runtime, [config(url)], [cachedFeed()], {
+      ...SCHED,
+      force: true,
+    })
+    expect(runtime.lastRequest?.url).toBe(url)
+    expect(feeds[0]!.fetchedAt).toBe(NOW)
+  })
+
+  test('a forced refresh still skips a disabled feed', async () => {
+    const runtime = makeRuntime()
+    runtime.queueResponse(url, feedXml('A', [{ id: '1', title: 'One' }]))
+    const feeds = await fetchRssFeeds(
+      runtime,
+      [config(url, { enabled: false })],
+      [cachedFeed({ fetchedAt: 0 })],
+      { ...SCHED, force: true },
+    )
+    expect(runtime.lastRequest).toBeNull()
+    expect(feeds[0]!.enabled).toBe(false)
+  })
+
+  test('the same feed is requested once the interval elapses', async () => {
+    const runtime = makeRuntime()
+    runtime.queueResponse(url, feedXml('A', [{ id: '1', title: 'One' }]))
+    const feeds = await fetchRssFeeds(
+      runtime,
+      [config(url)],
+      [cachedFeed({ fetchedAt: NOW - 2 * HOUR })],
+      SCHED,
+    )
+    expect(runtime.lastRequest?.url).toBe(url)
+    expect(feeds[0]!.items).toHaveLength(1)
+    expect(feeds[0]!.fetchedAt).toBe(NOW)
+  })
+
+  test('a declared interval keeps a slow feed from being fetched', async () => {
+    const runtime = makeRuntime()
+    runtime.queueResponse(url, feedXml('A', [{ id: '1', title: 'One' }]))
+    const feeds = await fetchRssFeeds(
+      runtime,
+      [config(url)],
+      [cachedFeed({ fetchedAt: NOW - 2 * HOUR, declaredIntervalMs: 7 * 24 * HOUR })],
+      SCHED,
+    )
+    expect(runtime.lastRequest).toBeNull()
+    expect(feeds[0]!.declaredIntervalMs).toBe(7 * 24 * HOUR)
+  })
+
+  test('a feed that is not due still drops entries past retention', async () => {
+    const runtime = makeRuntime()
+    const feeds = await fetchRssFeeds(
+      runtime,
+      [config(url)],
+      [cachedFeed({ items: [item('old', NOW - 40 * DAY), item('kept', NOW)] })],
+      SCHED,
+    )
+    expect(runtime.lastRequest).toBeNull()
+    expect(feeds[0]!.items.map((it) => it.id)).toEqual(['kept'])
+  })
+
+  test('sends the cached validators as conditional-request headers', async () => {
+    const runtime = makeRuntime()
+    runtime.queueResponse(url, feedXml('A', [{ id: '1', title: 'One' }]))
+    await fetchRssFeeds(
+      runtime,
+      [config(url)],
+      [
+        cachedFeed({
+          fetchedAt: NOW - 2 * HOUR,
+          etag: '"v1"',
+          lastModified: 'Wed, 21 Oct 2015 07:28:00 GMT',
+        }),
+      ],
+      SCHED,
+    )
+    expect(runtime.lastRequest?.headers?.['If-None-Match']).toBe('"v1"')
+    expect(runtime.lastRequest?.headers?.['If-Modified-Since']).toBe(
+      'Wed, 21 Oct 2015 07:28:00 GMT',
+    )
+  })
+
+  test('stores the validators a 200 response carries', async () => {
+    const runtime = makeRuntime()
+    runtime.queueResponse(
+      url,
+      feedXml('A', [{ id: '1', title: 'One' }]),
+      200,
+      'ETag: "v2"\r\nLast-Modified: Wed, 21 Oct 2015 07:28:00 GMT',
+    )
+    const feeds = await fetchRssFeeds(runtime, [config(url)], [], SCHED)
+    expect(feeds[0]!.etag).toBe('"v2"')
+    expect(feeds[0]!.lastModified).toBe('Wed, 21 Oct 2015 07:28:00 GMT')
+  })
+
+  test('a 304 reuses the cached entries and counts as a success', async () => {
+    const runtime = makeRuntime()
+    runtime.queueResponse(url, '', 304, 'ETag: "v1"')
+    const feeds = await fetchRssFeeds(
+      runtime,
+      [config(url)],
+      [
+        cachedFeed({
+          fetchedAt: NOW - 2 * HOUR,
+          etag: '"v1"',
+          error: 'boom',
+          failureCount: 2,
+          nextRetryAt: NOW - 1,
+          items: [{ ...item('kept', NOW), summaryText: 'body' }],
+        }),
+      ],
+      SCHED,
+    )
+    expect(feeds[0]!.items.map((it) => it.id)).toEqual(['kept'])
+    expect(feeds[0]!.items[0]!.summaryText).toBe('body')
+    expect(feeds[0]!.error).toBe('')
+    expect(feeds[0]!.fetchedAt).toBe(NOW)
+    expect(feeds[0]!.attemptedAt).toBe(NOW)
+    expect(feeds[0]!.failureCount).toBeUndefined()
+    expect(feeds[0]!.nextRetryAt).toBeUndefined()
+    expect(feeds[0]!.etag).toBe('"v1"')
+  })
+
+  test('a failed attempt is recorded on the retry ladder, not as a success', async () => {
+    const runtime = makeRuntime()
+    const good = 'https://good.example/feed.xml'
+    runtime.queueResponse(good, feedXml('Good', []))
+    // No queued response for `url` → the test runtime calls onerror.
+    const feeds = await fetchRssFeeds(runtime, [config(url), config(good)], [], SCHED)
+    expect(feeds[0]!.error).not.toBe('')
+    expect(feeds[0]!.fetchedAt).toBe(0)
+    expect(feeds[0]!.attemptedAt).toBe(NOW)
+    expect(feeds[0]!.failureCount).toBe(1)
+    expect(feeds[0]!.nextRetryAt).toBe(NOW + 60_000)
+    expect(feeds[1]!.error).toBe('')
+  })
+
+  test('a feed that is not due keeps a stale error without failing the refresh', async () => {
+    const runtime = makeRuntime()
+    // Not due by *interval* (fetched a minute ago, 60-minute floor), and its
+    // error is from an earlier attempt — the source must not report a failure
+    // for a refresh that made no request at all.
+    const feeds = await fetchRssFeeds(
+      runtime,
+      [config(url)],
+      [cachedFeed({ error: 'http 500' })],
+      SCHED,
+    )
+    expect(runtime.lastRequest).toBeNull()
+    expect(feeds[0]!.error).toBe('http 500')
+  })
+
+  test('a feed inside its retry delay keeps its error and is not requested', async () => {
+    const runtime = makeRuntime()
+    runtime.queueResponse(url, feedXml('A', [{ id: '1', title: 'One' }]))
+    const feeds = await fetchRssFeeds(
+      runtime,
+      [config(url)],
+      [cachedFeed({ fetchedAt: 0, error: 'boom', failureCount: 3, nextRetryAt: NOW + 5 * 60_000 })],
+      SCHED,
+    )
+    expect(runtime.lastRequest).toBeNull()
+    expect(feeds[0]!.error).toBe('boom')
+    expect(feeds[0]!.failureCount).toBe(3)
+  })
+
+  test('the retry happens once the delay elapses, and success clears the ladder', async () => {
+    const runtime = makeRuntime()
+    runtime.queueResponse(url, feedXml('A', [{ id: '1', title: 'One' }]))
+    const feeds = await fetchRssFeeds(
+      runtime,
+      [config(url)],
+      [cachedFeed({ fetchedAt: 0, error: 'boom', failureCount: 3, nextRetryAt: NOW - 1 })],
+      SCHED,
+    )
+    expect(runtime.lastRequest?.url).toBe(url)
+    expect(feeds[0]!.error).toBe('')
+    expect(feeds[0]!.failureCount).toBeUndefined()
+    expect(feeds[0]!.nextRetryAt).toBeUndefined()
+    expect(feeds[0]!.fetchedAt).toBe(NOW)
+  })
+
+  test('a feed whose last attempt failed is retried without validators', async () => {
+    const runtime = makeRuntime()
+    runtime.queueResponse(url, feedXml('A', [{ id: '1', title: 'One' }]))
+    const feeds = await fetchRssFeeds(
+      runtime,
+      [config(url)],
+      [
+        cachedFeed({
+          fetchedAt: NOW - 2 * HOUR,
+          etag: '"v1"',
+          lastModified: 'Wed, 21 Oct 2015 07:28:00 GMT',
+          error: 'http 403',
+          failureCount: 1,
+          nextRetryAt: NOW - 1,
+        }),
+      ],
+      SCHED,
+    )
+    // A refusal cannot be persisted (a failed source throws and its result is
+    // discarded), so the rule is derived from the previous outcome instead:
+    // after any failure the next attempt goes unconditional.
+    expect(runtime.lastRequest?.headers?.['If-None-Match']).toBeUndefined()
+    expect(runtime.lastRequest?.headers?.['If-Modified-Since']).toBeUndefined()
+    expect(feeds[0]!.error).toBe('')
+    // This 200 carried no validators, so none are stored.
+    expect(feeds[0]!.etag).toBeUndefined()
+  })
+
+  test('a declaration arriving with a fetch is stored for the next round', async () => {
+    const runtime = makeRuntime()
+    runtime.queueResponse(
+      url,
+      `<?xml version="1.0"?><rss version="2.0"><channel><title>A</title><ttl>720</ttl>
+        <item><title>T</title><link>https://example.com/1</link></item>
+      </channel></rss>`,
+    )
+    const feeds = await fetchRssFeeds(runtime, [config(url)], [], SCHED)
+    expect(feeds[0]!.declaredIntervalMs).toBe(12 * 60 * 60 * 1000)
   })
 })

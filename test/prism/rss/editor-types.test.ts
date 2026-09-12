@@ -10,6 +10,7 @@ const FALLBACK: RssSourceOptions = {
   retentionDays: 30,
   maxItemsPerFeed: 100,
   viewMode: 'grouped',
+  respectFeedPeriod: true,
 }
 
 describe('coerceRssFeeds', () => {
@@ -94,6 +95,7 @@ describe('coerceRssOptions', () => {
       retentionDays: 7,
       maxItemsPerFeed: 20,
       viewMode: 'timeline',
+      respectFeedPeriod: true,
     })
   })
 
@@ -120,6 +122,13 @@ describe('coerceRssOptions', () => {
   test('rejects an unknown view mode', () => {
     expect(coerceRssOptions({ viewMode: 'kanban' }, FALLBACK).viewMode).toBe('grouped')
     expect(coerceRssOptions({ viewMode: 'timeline' }, FALLBACK).viewMode).toBe('timeline')
+  })
+
+  test('respectFeedPeriod only accepts a boolean, else falls back', () => {
+    expect(coerceRssOptions({ respectFeedPeriod: false }, FALLBACK).respectFeedPeriod).toBe(false)
+    expect(coerceRssOptions({ respectFeedPeriod: true }, FALLBACK).respectFeedPeriod).toBe(true)
+    expect(coerceRssOptions({ respectFeedPeriod: 'yes' }, FALLBACK).respectFeedPeriod).toBe(true)
+    expect(coerceRssOptions({}, FALLBACK).respectFeedPeriod).toBe(FALLBACK.respectFeedPeriod)
   })
 
   test('does not mutate the fallback', () => {

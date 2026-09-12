@@ -54,6 +54,28 @@ function parseRetryAfterMs(header: string): number {
 }
 
 /**
+ * Read a header value out of the raw response-header string.
+ *
+ * `Runtime.request` hands us the headers verbatim (newline-joined), so this is
+ * a line scan rather than a Map lookup. The value is returned **as-is**: an
+ * ETag's quotes and `W/` prefix have to survive the round trip into
+ * `If-None-Match`, and a normalised value would be rejected by the server.
+ *
+ * Returns '' when the header is absent or empty.
+ */
+export function headerValue(rawHeaders: string, name: string): string {
+  if (!rawHeaders) return ''
+  const target = name.toLowerCase()
+  for (const line of rawHeaders.split(/\r?\n/)) {
+    const sep = line.indexOf(':')
+    if (sep <= 0) continue
+    if (line.slice(0, sep).trim().toLowerCase() !== target) continue
+    return line.slice(sep + 1).trim()
+  }
+  return ''
+}
+
+/**
  * Backoff delay for retry attempt `attempt` (0-based).
  * Preference: explicit `Retry-After` header → `baseDelayMs` → `HTTP_RETRY_DELAYS_MS[attempt]`.
  */

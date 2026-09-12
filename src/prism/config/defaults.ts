@@ -1,6 +1,7 @@
 import type { Config } from '../config/types'
 import {
   DEFAULT_MAX_ITEMS_PER_FEED,
+  DEFAULT_RESPECT_FEED_PERIOD,
   DEFAULT_RETENTION_DAYS,
   DEFAULT_TTL_MINUTES,
   DEFAULT_VIEW_MODE,
@@ -52,6 +53,7 @@ export const DEFAULT_CONFIG: Config = {
     retentionDays: DEFAULT_RETENTION_DAYS,
     maxItemsPerFeed: DEFAULT_MAX_ITEMS_PER_FEED,
     viewMode: DEFAULT_VIEW_MODE,
+    respectFeedPeriod: DEFAULT_RESPECT_FEED_PERIOD,
   },
   xueqiu: {
     ttlMinutes: 30,

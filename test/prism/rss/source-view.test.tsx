@@ -35,6 +35,7 @@ function options(over: Partial<RssSourceOptions> = {}): RssSourceOptions {
     retentionDays: 30,
     maxItemsPerFeed: 100,
     viewMode: 'grouped',
+    respectFeedPeriod: true,
     ...over,
   }
 }

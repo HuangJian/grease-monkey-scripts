@@ -344,12 +344,21 @@ export function validateConfig(value: unknown): ConfigValidation {
     if ('viewMode' in r && viewMode !== 'grouped' && viewMode !== 'timeline') {
       return { ok: false, error: 'rss.viewMode 必须是 grouped 或 timeline' }
     }
+    const respectFeedPeriod = r['respectFeedPeriod']
+    if (
+      'respectFeedPeriod' in r &&
+      respectFeedPeriod != null &&
+      typeof respectFeedPeriod !== 'boolean'
+    ) {
+      return { ok: false, error: 'rss.respectFeedPeriod 必须是 boolean 或省略' }
+    }
     const RSS_FIELDS = [
       'feeds',
       'ttlMinutes',
       'retentionDays',
       'maxItemsPerFeed',
       'viewMode',
+      'respectFeedPeriod',
     ] as const satisfies readonly (keyof Config['rss'])[]
     const rssUnknown = rejectUnknownKeys(r, 'rss', RSS_FIELDS)
     if (rssUnknown) return rssUnknown

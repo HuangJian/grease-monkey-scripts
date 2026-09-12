@@ -107,6 +107,17 @@ export type SourceHeaderProps<T> = {
   onEdit?: (() => void) | undefined
 }
 
+/**
+ * Options a caller can pass to `Source.fetch`.
+ *
+ * `force` marks a refresh the user asked for explicitly (the card's refresh
+ * button), so sources that schedule per item — today only `rss`, whose feeds
+ * each follow their own interval — skip their interval gate. An explicit click
+ * is a request for fresh data now: otherwise the button would look broken
+ * whenever no feed happens to be due.
+ */
+export type FetchOptions = { force?: boolean }
+
 export type Source<T, Id extends string = string> = {
   readonly id: Id
   readonly title: string
@@ -118,6 +129,14 @@ export type Source<T, Id extends string = string> = {
    * sources (e.g. xit) whose refresh carries a daily recurring-task reset.
    */
   readonly refreshDailyAtLocalMidnight?: boolean
+  /**
+   * Custom "should this source be refreshed now?" test, replacing the
+   * `ttlMs` / `refreshDailyAtLocalMidnight` rules when present. For sources
+   * whose freshness is per item rather than per source — `rss`, where every
+   * feed carries its own interval. Must be synchronous and side-effect free;
+   * the cached payload it receives is read-only.
+   */
+  readonly isDue?: ((cached: CachedSource<unknown> | null, now: number) => boolean) | undefined
   readonly placement?: 'main' | 'side'
   readonly groupId?: string
   readonly order?: number
@@ -126,7 +145,7 @@ export type Source<T, Id extends string = string> = {
   readonly hideHeaderActions?: boolean
   readonly RenderHeader?: ComponentType<SourceHeaderProps<T>>
   readonly RenderComponent: ComponentType<SourceComponentProps<T>>
-  fetch(runtime: Runtime, prevData?: T): Promise<T>
+  fetch(runtime: Runtime, prevData?: T, options?: FetchOptions): Promise<T>
   loadState?(runtime: Runtime): Promise<void>
   createEditor?: (settings: SourceSettings) => SourceEditor
 }

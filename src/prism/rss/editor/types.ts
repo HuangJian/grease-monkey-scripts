@@ -1,6 +1,7 @@
 import type { NumberFieldDef } from '../../editor-helpers'
 import {
   DEFAULT_MAX_ITEMS_PER_FEED,
+  DEFAULT_RESPECT_FEED_PERIOD,
   DEFAULT_RETENTION_DAYS,
   DEFAULT_TTL_MINUTES,
   DEFAULT_VIEW_MODE,
@@ -8,7 +9,7 @@ import {
 import type { RssFeedConfig, RssSourceOptions, RssViewMode } from '../types'
 
 export const ADVANCED_FIELDS: NumberFieldDef[] = [
-  { prop: 'ttlMinutes', name: '刷新间隔', unit: '分钟', min: 1, integer: true },
+  { prop: 'ttlMinutes', name: '最小抓取间隔', unit: '分钟', min: 1, integer: true },
   { prop: 'retentionDays', name: '保留天数', unit: '天', min: 1, integer: true },
   { prop: 'maxItemsPerFeed', name: '每源条数', min: 1, integer: true },
 ]
@@ -67,12 +68,15 @@ export function coerceRssOptions(
   fallback: RssSourceOptions,
 ): RssSourceOptions {
   const viewMode = raw['viewMode']
+  const respectFeedPeriod = raw['respectFeedPeriod']
   return {
     feeds: coerceRssFeeds(raw, fallback.feeds),
     ttlMinutes: boundedNumber(raw['ttlMinutes'], fallback.ttlMinutes, 1),
     retentionDays: boundedNumber(raw['retentionDays'], fallback.retentionDays, 1),
     maxItemsPerFeed: boundedNumber(raw['maxItemsPerFeed'], fallback.maxItemsPerFeed, 1),
     viewMode: isViewMode(viewMode) ? viewMode : fallback.viewMode,
+    respectFeedPeriod:
+      typeof respectFeedPeriod === 'boolean' ? respectFeedPeriod : fallback.respectFeedPeriod,
   }
 }
 
@@ -82,4 +86,5 @@ export const DEFAULT_RSS_OPTIONS: RssSourceOptions = {
   retentionDays: DEFAULT_RETENTION_DAYS,
   maxItemsPerFeed: DEFAULT_MAX_ITEMS_PER_FEED,
   viewMode: DEFAULT_VIEW_MODE as RssViewMode,
+  respectFeedPeriod: DEFAULT_RESPECT_FEED_PERIOD,
 }

@@ -48,6 +48,7 @@ export function RssEditorForm({ fresh, settings, ctx, handleRef }: RssEditorForm
   const [priority, setPriority] = useState(settings.priority)
   const [badgeType, setBadgeType] = useState(settings.badgeType)
   const [viewMode, setViewMode] = useState<RssViewMode>(fresh.viewMode)
+  const [respectFeedPeriod, setRespectFeedPeriod] = useState(fresh.respectFeedPeriod)
   const [notice, setNotice] = useState('')
   const urlRef = useRef<HTMLInputElement>(null)
   const titleRef = useRef<HTMLInputElement>(null)
@@ -145,6 +146,7 @@ export function RssEditorForm({ fresh, settings, ctx, handleRef }: RssEditorForm
           retentionDays: Math.round(nums[1]!),
           maxItemsPerFeed: Math.round(nums[2]!),
           viewMode,
+          respectFeedPeriod,
         }
         void saveConfigSection({
           runtime: ctx.runtime,
@@ -163,7 +165,7 @@ export function RssEditorForm({ fresh, settings, ctx, handleRef }: RssEditorForm
         ctx.close()
       },
     }
-  }, [feeds, advanced, tabTitle, priority, badgeType, viewMode])
+  }, [feeds, advanced, tabTitle, priority, badgeType, viewMode, respectFeedPeriod])
 
   return (
     <div class="gm-sp-editor">
@@ -350,6 +352,18 @@ export function RssEditorForm({ fresh, settings, ctx, handleRef }: RssEditorForm
             />
           </label>
         ))}
+        <label
+          class="gm-sp-editor-row"
+          title="开启后，声明了更长周期的订阅源按其自身周期抓取（如日报一天一次）；关闭后所有源统一按「最小抓取间隔」抓取。"
+        >
+          <span>遵循源声明周期</span>
+          <input
+            type="checkbox"
+            data-action="respect-feed-period"
+            checked={respectFeedPeriod}
+            onInput={(e) => setRespectFeedPeriod((e.target as HTMLInputElement).checked)}
+          />
+        </label>
       </div>
 
       <div class="gm-sp-editor-error" hidden={!error}>

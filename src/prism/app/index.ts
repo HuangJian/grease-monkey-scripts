@@ -1,5 +1,5 @@
 import type { Runtime } from '../../runtime'
-import { CACHE_KEY, type Source } from '../types'
+import { CACHE_KEY, type FetchOptions, type Source } from '../types'
 import type { Config } from '../config/types'
 import { loadConfig } from '../config'
 import { createSourceRegistry, findSource } from './source-registry'
@@ -88,7 +88,14 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
   // lock check and returning immediately (button stops spinning, no data).
   const inflightRefreshes = new Map<string, Promise<void>>()
 
-  function refreshAndRerender(source: Source<unknown>): Promise<void> {
+  /**
+   * Refresh one source and re-render its group.
+   *
+   * `fetchOptions` is forwarded to `Source.fetch`. A forced refresh that arrives
+   * while an automatic one is already in flight joins the running promise (the
+   * user-visible outcome is the same refresh, just not a second request).
+   */
+  function refreshAndRerender(source: Source<unknown>, fetchOptions?: FetchOptions): Promise<void> {
     const existing = inflightRefreshes.get(source.id)
     if (existing) {
       console.debug('[gm-dashboard] refreshAndRerender in-flight sourceId=', source.id)
@@ -96,7 +103,7 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
     }
     const promise = (async () => {
       try {
-        await refreshSource(runtime, source)
+        await refreshSource(runtime, source, fetchOptions)
         const group = reg.groupForSource.get(source.id)
         if (!group || !handle) return
         const deps = getRendererDeps()
@@ -120,7 +127,9 @@ export function createDashboard(runtime: Runtime, options: DashboardOptions): Da
       console.debug('[gm-dashboard] refreshSource source-not-found sourceId=', sourceId)
       return
     }
-    await refreshAndRerender(source)
+    // The user asked for this one explicitly, so sources that schedule per item
+    // skip their interval gate instead of silently doing nothing.
+    await refreshAndRerender(source, { force: true })
   }
 
   async function doRunOpportunisticRefresh(): Promise<void> {

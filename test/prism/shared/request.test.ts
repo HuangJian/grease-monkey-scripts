@@ -1,6 +1,42 @@
 import { describe, expect, test } from 'bun:test'
 import { createRuntime } from '../../runtime'
-import { requestJson, requestText, requestTextWithHeaders } from '../../../src/prism/shared/request'
+import {
+  headerValue,
+  requestJson,
+  requestText,
+  requestTextWithHeaders,
+} from '../../../src/prism/shared/request'
+
+describe('headerValue', () => {
+  const RAW = 'Date: Wed, 21 Oct 2015 07:28:00 GMT\r\nETag: W/"abc123"\r\nContent-Type: text/xml'
+
+  test('reads a header case-insensitively', () => {
+    expect(headerValue(RAW, 'etag')).toBe('W/"abc123"')
+    expect(headerValue(RAW, 'ETAG')).toBe('W/"abc123"')
+    expect(headerValue(RAW, 'Etag')).toBe('W/"abc123"')
+  })
+
+  test('keeps the value verbatim so it can be echoed back', () => {
+    // A normalised ETag (quotes or W/ stripped, case folded) is refused by the
+    // server, which would turn every conditional request into a full download.
+    expect(headerValue(RAW, 'etag')).toBe('W/"abc123"')
+    expect(headerValue('Last-Modified: Wed, 21 Oct 2015 07:28:00 GMT', 'last-modified')).toBe(
+      'Wed, 21 Oct 2015 07:28:00 GMT',
+    )
+  })
+
+  test('handles LF-only and empty-header input', () => {
+    expect(headerValue('ETag: "x"\nX-Other: y', 'etag')).toBe('"x"')
+    expect(headerValue('', 'etag')).toBe('')
+    expect(headerValue('ETag:', 'etag')).toBe('')
+    expect(headerValue(RAW, 'x-missing')).toBe('')
+  })
+
+  test('does not match on a substring of the name', () => {
+    expect(headerValue(RAW, 'tag')).toBe('')
+    expect(headerValue(RAW, 'content')).toBe('')
+  })
+})
 
 describe('shared/request', () => {
   test('requestText resolves body on 200', async () => {

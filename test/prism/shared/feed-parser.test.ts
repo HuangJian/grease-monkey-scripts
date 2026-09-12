@@ -253,3 +253,43 @@ describe('stripHtmlToText', () => {
     expect(stripHtmlToText('', domParser)).toBe('')
   })
 })
+
+describe('declared update interval', () => {
+  const SY = 'xmlns:sy="http://purl.org/rss/1.0/modules/syndication/"'
+  const HOUR = 60 * 60_000
+  const rss = (channel: string) =>
+    `<rss version="2.0" ${SY}><channel><title>A</title>${channel}</channel></rss>`
+
+  const intervalOf = (xml: string) => parseFeed(xml, domParser).declaredIntervalMs
+
+  test('omitted when the feed declares nothing', () => {
+    expect(intervalOf(rss(''))).toBeUndefined()
+  })
+
+  test('reads the RSS 2.0 ttl, in minutes', () => {
+    expect(intervalOf(rss('<ttl>720</ttl>'))).toBe(12 * HOUR)
+  })
+
+  test('reads sy:updatePeriod times sy:updateFrequency', () => {
+    expect(
+      intervalOf(
+        rss('<sy:updatePeriod>daily</sy:updatePeriod><sy:updateFrequency>2</sy:updateFrequency>'),
+      ),
+    ).toBe(2 * 24 * HOUR)
+  })
+
+  test('defaults the frequency to 1', () => {
+    expect(intervalOf(rss('<sy:updatePeriod>hourly</sy:updatePeriod>'))).toBe(HOUR)
+  })
+
+  test('takes the smaller hint when both are present', () => {
+    expect(intervalOf(rss('<ttl>1440</ttl><sy:updatePeriod>hourly</sy:updatePeriod>'))).toBe(HOUR)
+  })
+
+  test('ignores values that do not describe an interval', () => {
+    expect(intervalOf(rss('<ttl>0</ttl>'))).toBeUndefined()
+    expect(intervalOf(rss('<ttl>abc</ttl>'))).toBeUndefined()
+    expect(intervalOf(rss('<sy:updatePeriod>fortnightly</sy:updatePeriod>'))).toBeUndefined()
+    expect(intervalOf(rss('<sy:updateFrequency>0</sy:updateFrequency>'))).toBeUndefined()
+  })
+})

@@ -5,7 +5,8 @@ import type { Source, SourceSettings, TabLabel } from '../types'
 import { RssComponent, visibleFeeds } from './component'
 import { createRssEditor } from './editor/form'
 import { loadFreshOptions } from './editor/helpers'
-import { fetchRssFeeds } from './fetcher'
+import { feedId, fetchRssFeeds } from './fetcher'
+import { feedSchedule } from './schedule'
 import { createRssState, totalUnread, type RssState } from './state'
 import type { RssFeed, RssSourceOptions, RssViewMode } from './types'
 
@@ -66,8 +67,31 @@ export function createRssSource(options: RssSourceOptions): Source<RssFeed[], 'r
   return {
     id: 'rss',
     title: 'RSS 阅读',
+    /**
+     * Only a fallback for the card's freshness display: whether a refresh is
+     * worth starting is decided by `isDue` below, per feed.
+     */
     get ttlMs() {
       return currentOptions.ttlMinutes * 60_000
+    },
+    /**
+     * Freshness is per feed, not per source — a single source-level TTL would
+     * either poll a daily feed every `ttlMinutes` or starve a busy one.
+     *
+     * Uses the same `feedSchedule` helper as `fetchRssFeeds`, so the gate that
+     * starts a refresh and the gate inside it cannot disagree. `currentOptions`
+     * is the in-memory config (refreshed by `fetch`/`loadState`, and re-read by
+     * the app on every editor save), which is why this can stay synchronous.
+     */
+    isDue(cached, now) {
+      const byId = new Map(
+        ((cached?.data as RssFeed[] | null | undefined) ?? []).map((feed) => [feed.id, feed]),
+      )
+      return currentOptions.feeds.some(
+        (config) =>
+          feedSchedule(byId.get(feedId(config.url)), config.enabled !== false, currentOptions, now)
+            .due,
+      )
     },
     groupId: 'browse',
     order: 6,
@@ -89,12 +113,16 @@ export function createRssSource(options: RssSourceOptions): Source<RssFeed[], 'r
     getTabLabel(data) {
       return rssTabLabel(data, state)
     },
-    async fetch(runtimeArg, prevData) {
+    async fetch(runtimeArg, prevData, fetchOptions) {
       currentOptions = await loadFreshOptions(runtimeArg, currentOptions)
       const activeState = await ensureLoaded(runtimeArg)
       const feeds = await fetchRssFeeds(runtimeArg, currentOptions.feeds, prevData ?? [], {
         maxItemsPerFeed: currentOptions.maxItemsPerFeed,
         retentionMs,
+        ttlMinutes: currentOptions.ttlMinutes,
+        respectFeedPeriod: currentOptions.respectFeedPeriod,
+        // A manual refresh fetches now instead of reporting "nothing due".
+        force: fetchOptions?.force === true,
       })
       await activeState.saveToStorage(runtimeArg)
       return feeds

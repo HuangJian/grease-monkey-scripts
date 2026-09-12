@@ -389,6 +389,55 @@ describe('codec round-trip: rss', () => {
     expect(result[0]!.items[0]!.author).toBeUndefined()
   })
 
+  test('preserves the per-feed scheduling state and a disabled flag', () => {
+    const data: RssFeed[] = [
+      {
+        id: 'u:https://example.com/off.xml',
+        title: 'Off',
+        url: 'https://example.com/off.xml',
+        fetchedAt: 1700000000000,
+        error: '',
+        items: [],
+        enabled: false,
+        attemptedAt: 1700000100000,
+        failureCount: 3,
+        nextRetryAt: 1700000600000,
+        declaredIntervalMs: 12 * 60 * 60 * 1000,
+        etag: 'W/"abc"',
+        lastModified: 'Wed, 21 Oct 2015 07:28:00 GMT',
+      },
+    ]
+    const result = roundTrip('rss', data)
+    expect(result[0]!.enabled).toBe(false)
+    expect(result[0]!.failureCount).toBe(3)
+    expect(result[0]!.etag).toBe('W/"abc"')
+    expect(result[0]!.lastModified).toBe('Wed, 21 Oct 2015 07:28:00 GMT')
+    // A declaration is a duration, so it survives exactly; timestamps are
+    // minute-precision (existing codec behavior).
+    expect(result[0]!.declaredIntervalMs).toBe(12 * 60 * 60 * 1000)
+    expect(Math.abs(result[0]!.attemptedAt! - 1700000100000)).toBeLessThan(60_000)
+    expect(Math.abs(result[0]!.nextRetryAt! - 1700000600000)).toBeLessThan(60_000)
+  })
+
+  test('does not invent scheduling fields for a healthy feed', () => {
+    const data: RssFeed[] = [
+      {
+        id: 'u:https://example.com/f.xml',
+        title: 'F',
+        url: 'https://example.com/f.xml',
+        fetchedAt: 1700000000000,
+        error: '',
+        items: [],
+      },
+    ]
+    const result = roundTrip('rss', data)
+    expect(result[0]!.enabled).toBeUndefined()
+    expect(result[0]!.failureCount).toBeUndefined()
+    expect(result[0]!.nextRetryAt).toBeUndefined()
+    expect(result[0]!.declaredIntervalMs).toBeUndefined()
+    expect(result[0]!.etag).toBeUndefined()
+  })
+
   test('preserves the summaryTrimmed marker', () => {
     const data: RssFeed[] = [
       {

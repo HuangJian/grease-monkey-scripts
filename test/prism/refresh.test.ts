@@ -195,3 +195,99 @@ describe('runOpportunisticRefresh refreshDailyAtLocalMidnight', () => {
     expect(refreshed).toBe(true)
   })
 })
+
+describe('runOpportunisticRefresh isDue', () => {
+  test('isDue false skips a source whose ttlMs has elapsed', async () => {
+    const runtime = createRuntime()
+    runtime.stores[CACHE_KEY('test')] = staleCache()
+    let refreshed = false
+    const source = makeSource({ isDue: () => false, fetch: async () => [] })
+    await runOpportunisticRefresh(runtime, [source], async () => {
+      refreshed = true
+    })
+    expect(refreshed).toBe(false)
+  })
+
+  test('isDue true refreshes a source whose ttlMs says fresh', async () => {
+    const runtime = createRuntime()
+    runtime.stores[CACHE_KEY('test')] = staleCache({ fetchedAt: Date.now() })
+    let refreshed = false
+    const source = makeSource({
+      ttlMs: 1000 * 60 * 60 * 24 * 365, // 1 year: plain isStale never triggers
+      isDue: () => true,
+      fetch: async () => [],
+    })
+    await runOpportunisticRefresh(runtime, [source], async () => {
+      refreshed = true
+    })
+    expect(refreshed).toBe(true)
+  })
+
+  test('isDue receives the cached payload it must inspect', async () => {
+    const runtime = createRuntime()
+    runtime.stores[CACHE_KEY('test')] = staleCache({ data: ['payload'] })
+    let seen: unknown = null
+    const source = makeSource({
+      isDue: (cached) => {
+        seen = cached?.data
+        return false
+      },
+      fetch: async () => [],
+    })
+    await runOpportunisticRefresh(runtime, [source], async () => {})
+    expect(seen).toEqual(['payload'])
+  })
+
+  test('a source in backoff is skipped even when isDue says it is due', async () => {
+    const runtime = createRuntime()
+    runtime.stores[CACHE_KEY('test')] = staleCache({
+      nextRetryAt: Date.now() + 120_000,
+      failureCount: 2,
+    })
+    let refreshed = false
+    const source = makeSource({
+      isDue: () => true,
+      fetch: async () => [],
+    })
+    await runOpportunisticRefresh(runtime, [source], async () => {
+      refreshed = true
+    })
+    expect(refreshed).toBe(false)
+  })
+
+  test('a source without isDue is unaffected', async () => {
+    const runtime = createRuntime()
+    runtime.stores[CACHE_KEY('test')] = staleCache()
+    let refreshed = false
+    const source = makeSource({ fetch: async () => [] })
+    await runOpportunisticRefresh(runtime, [source], async () => {
+      refreshed = true
+    })
+    expect(refreshed).toBe(true)
+  })
+})
+
+describe('refreshSource fetch options', () => {
+  function recordingSource(seen: Array<unknown>): Source<unknown> {
+    return makeSource({
+      fetch: async (_runtime, _prev, options) => {
+        seen.push(options)
+        return []
+      },
+    })
+  }
+
+  test('forwards force to fetch (manual refresh)', async () => {
+    const runtime = createRuntime()
+    const seen: Array<unknown> = []
+    await refreshSource(runtime, recordingSource(seen), { force: true })
+    expect(seen).toEqual([{ force: true }])
+  })
+
+  test('passes no options for an automatic refresh', async () => {
+    const runtime = createRuntime()
+    const seen: Array<unknown> = []
+    await refreshSource(runtime, recordingSource(seen))
+    expect(seen).toEqual([undefined])
+  })
+})

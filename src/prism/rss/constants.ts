@@ -34,7 +34,17 @@ export const MAX_SUMMARY_CHARS = 300
  */
 export const SUMMARY_KEEP_COUNT = 30
 
+/**
+ * Minimum interval between two fetches of the same feed (minutes).
+ *
+ * A feed that declares a longer interval for itself (`<ttl>` /
+ * `sy:updatePeriod`) is fetched at its own pace; this is the floor that keeps
+ * any single feed from being polled too often. See `rss-fetch-schedule.plan.md` D3.
+ */
 export const DEFAULT_TTL_MINUTES = 123
+
+/** Honour each feed's self-declared interval (see `respectFeedPeriod`). */
+export const DEFAULT_RESPECT_FEED_PERIOD = true
 export const DEFAULT_RETENTION_DAYS = 30
 export const DEFAULT_MAX_ITEMS_PER_FEED = 100
 export const DEFAULT_VIEW_MODE = 'grouped'

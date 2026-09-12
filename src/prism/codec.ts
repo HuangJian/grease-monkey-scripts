@@ -355,6 +355,20 @@ function compressRssFeed(f: Record<string, unknown>): Record<string, unknown> {
     it: items.map(compressRssItem),
   }
   if (typeof f.error === 'string' && f.error) out.e = f.error
+  // Per-feed scheduling state (rss-fetch-schedule.plan.md D7). This whitelist is
+  // why every field added to RssFeed has to be listed here: `enabled` was missed
+  // once and a disabled feed came back enabled after a cache round trip.
+  // `di` is a duration, not a timestamp — it must not go through
+  // `compressTimestamp`, whose expander rescales everything below 1e9.
+  if (f.enabled === false) out.en = 0
+  if (typeof f.attemptedAt === 'number') out.aa = compressTimestamp(f.attemptedAt)
+  if (typeof f.nextRetryAt === 'number') out.nr = compressTimestamp(f.nextRetryAt)
+  if (typeof f.failureCount === 'number' && f.failureCount > 0) out.fc = f.failureCount
+  if (typeof f.declaredIntervalMs === 'number' && f.declaredIntervalMs > 0) {
+    out.di = Math.round(f.declaredIntervalMs / 60_000)
+  }
+  if (typeof f.etag === 'string' && f.etag) out.et = f.etag
+  if (typeof f.lastModified === 'string' && f.lastModified) out.lm = f.lastModified
   return out
 }
 
@@ -367,6 +381,13 @@ function expandRssFeed(f: Record<string, unknown>): Record<string, unknown> {
     error: f.e ?? '',
     fetchedAt: expandTimestamp(f.fa as number | undefined) ?? 0,
     items: ((f.it ?? []) as Record<string, unknown>[]).map(expandRssItem),
+    ...(f.en === 0 ? { enabled: false } : {}),
+    ...(typeof f.aa === 'number' ? { attemptedAt: expandTimestamp(f.aa) } : {}),
+    ...(typeof f.nr === 'number' ? { nextRetryAt: expandTimestamp(f.nr) } : {}),
+    ...(typeof f.fc === 'number' ? { failureCount: f.fc } : {}),
+    ...(typeof f.di === 'number' ? { declaredIntervalMs: f.di * 60_000 } : {}),
+    ...(typeof f.et === 'string' ? { etag: f.et } : {}),
+    ...(typeof f.lm === 'string' ? { lastModified: f.lm } : {}),
   }
 }
 

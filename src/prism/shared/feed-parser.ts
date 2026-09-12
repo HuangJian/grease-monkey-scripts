@@ -27,6 +27,12 @@ export type FeedParseResult = {
   /** Feed-level title (channel/title or feed/title); empty when absent. */
   title: string
   items: FeedItem[]
+  /**
+   * The feed's self-declared update interval in ms; omitted when it declares
+   * nothing. See `parseDeclaredIntervalMs` — the caller applies its own
+   * minimum on top (see `rss-reader.plan.md` / `rss-fetch-schedule.plan.md` D3).
+   */
+  declaredIntervalMs?: number
 }
 
 export type ParseFeedOptions = {
@@ -172,10 +178,61 @@ function collectEntries(doc: Document): Element[] {
   return []
 }
 
+/** The feed-level element: RSS/RDF `<channel>`, Atom `<feed>`. */
+function feedContainer(doc: Document): Element | undefined {
+  return firstChildByLocalNames(doc.documentElement, ['channel', 'feed'])
+}
+
 function feedTitleOf(doc: Document): string {
-  const container = firstChildByLocalNames(doc.documentElement, ['channel', 'feed'])
+  const container = feedContainer(doc)
   const raw = firstText(container ?? doc.documentElement, ['title'])
   return raw
+}
+
+/**
+ * Minutes per `<sy:updatePeriod>` value (RSS 1.0 syndication module).
+ * The module is deliberately coarse, so monthly/yearly are 30/365 days.
+ */
+const SY_PERIOD_MINUTES: Record<string, number> = {
+  hourly: 60,
+  daily: 1440,
+  weekly: 10080,
+  monthly: 43200,
+  yearly: 525600,
+}
+
+/**
+ * The feed's self-declared update interval in ms; 0 when it declares nothing.
+ *
+ * Two independent hints, both meaning "do not expect anything new sooner":
+ *  - RSS 2.0 `<ttl>`: how long the feed may be cached, in minutes.
+ *  - RSS 1.0 `<sy:updatePeriod>` × `<sy:updateFrequency>`: how often it updates.
+ *
+ * When both are present the smaller wins — `<ttl>` is a cache-lifetime upper
+ * bound while `<sy:updatePeriod>` describes the actual rhythm, and of the two
+ * the rhythm is the one a reader wants to follow. Callers still apply the
+ * user's own minimum on top (`resolveIntervalMs`), so this can only slow a
+ * feed down, never make it poll too fast.
+ */
+export function parseDeclaredIntervalMs(container: Element | undefined | null): number {
+  if (!container) return 0
+  const candidates: number[] = []
+
+  const ttlMinutes = Number.parseInt(textOfElement(childrenByLocalName(container, 'ttl')[0]), 10)
+  if (Number.isFinite(ttlMinutes) && ttlMinutes > 0) candidates.push(ttlMinutes * 60_000)
+
+  const period = textOfElement(childrenByLocalName(container, 'updatePeriod')[0]).toLowerCase()
+  const perPeriod = SY_PERIOD_MINUTES[period]
+  if (perPeriod) {
+    const rawFrequency = Number.parseInt(
+      textOfElement(childrenByLocalName(container, 'updateFrequency')[0]),
+      10,
+    )
+    const frequency = Number.isFinite(rawFrequency) && rawFrequency > 0 ? rawFrequency : 1
+    candidates.push(perPeriod * frequency * 60_000)
+  }
+
+  return candidates.length > 0 ? Math.min(...candidates) : 0
 }
 
 /** Parse a date label; 0 when missing or unparseable. Handles RFC 822 / ISO 8601 / Atom variants. */
@@ -233,7 +290,12 @@ export function parseFeed(
     const parsed = parseEntry(el, domParser, options)
     if (parsed) items.push(parsed)
   }
-  return { title: feedTitleOf(doc), items }
+  const declaredIntervalMs = parseDeclaredIntervalMs(feedContainer(doc))
+  return {
+    title: feedTitleOf(doc),
+    items,
+    ...(declaredIntervalMs > 0 ? { declaredIntervalMs } : {}),
+  }
 }
 
 const DEFAULT_TITLE_FALLBACK_MAX_CHARS = 60

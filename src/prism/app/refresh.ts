@@ -1,5 +1,5 @@
 import type { Runtime } from '../../runtime'
-import type { Source, CachedSource } from '../types'
+import type { FetchOptions, Source, CachedSource } from '../types'
 import { BACKOFF_DELAYS_MS } from '../types'
 import { isInBackoff, isStale, isStaleOnDayBoundary, loadCache, saveCache } from '../cache'
 import { releaseLock, tryAcquireLock } from '../lock'
@@ -13,7 +13,17 @@ export function computeBackoffMs(failureCount: number): number {
   return BACKOFF_DELAYS_MS[idx]!
 }
 
-export async function refreshSource(runtime: Runtime, source: Source<unknown>): Promise<void> {
+/**
+ * Fetch one source into the cache.
+ *
+ * `options` reaches `Source.fetch` unchanged; the automatic paths omit it, and
+ * only the card's refresh button passes `{ force: true }` (see `FetchOptions`).
+ */
+export async function refreshSource(
+  runtime: Runtime,
+  source: Source<unknown>,
+  options?: FetchOptions,
+): Promise<void> {
   console.debug('[gm-dashboard] refreshSource enter sourceId=', source.id)
   const token = await tryAcquireLock(runtime, source.id)
   if (!token) {
@@ -24,7 +34,7 @@ export async function refreshSource(runtime: Runtime, source: Source<unknown>): 
     const oldCache = await loadCache<unknown>(runtime, source.id)
     let next: Omit<CachedSource<unknown>, 'schemaVersion'> | null = null
     try {
-      const data = await source.fetch(runtime, oldCache?.data)
+      const data = await source.fetch(runtime, oldCache?.data, options)
       next = { data, fetchedAt: runtime.now(), error: '' }
     } catch (e) {
       if (e instanceof SkipRefreshError) {
@@ -70,9 +80,13 @@ export async function runOpportunisticRefresh(
     await Promise.all(
       sources.map(async (source) => {
         const cached = await loadCache<unknown>(runtime, source.id)
-        const isStaleNow = source.refreshDailyAtLocalMidnight
-          ? isStaleOnDayBoundary(cached, now)
-          : isStale(cached, source.ttlMs, now)
+        // `isDue` wins when a source defines its own freshness rule (see rss):
+        // its staleness is per entry, which `ttlMs` cannot express.
+        const isStaleNow = source.isDue
+          ? source.isDue(cached, now)
+          : source.refreshDailyAtLocalMidnight
+            ? isStaleOnDayBoundary(cached, now)
+            : isStale(cached, source.ttlMs, now)
         if (!isStaleNow) return null
         if (isInBackoff(cached, now)) {
           console.debug(

@@ -13,6 +13,7 @@ const DEFAULT_OPTS: RssSourceOptions = {
   retentionDays: 30,
   maxItemsPerFeed: 100,
   viewMode: 'grouped',
+  respectFeedPeriod: true,
 }
 
 function configOf(runtime: TestRuntime): { rss?: RssSourceOptions } | undefined {
@@ -48,7 +49,9 @@ describe('createRssEditor', () => {
   test('renders the empty state and the default advanced values', async () => {
     const { root } = await setup()
     expect(within(root).getByText('尚未添加订阅源')).not.toBeNull()
-    expect((within(root).getByLabelText('刷新间隔（分钟）') as HTMLInputElement).value).toBe('123')
+    expect((within(root).getByLabelText('最小抓取间隔（分钟）') as HTMLInputElement).value).toBe(
+      '123',
+    )
     expect((within(root).getByLabelText('保留天数（天）') as HTMLInputElement).value).toBe('30')
     expect((within(root).getByLabelText('每源条数') as HTMLInputElement).value).toBe('100')
   })
@@ -96,7 +99,7 @@ describe('createRssEditor', () => {
   test('saves feeds and advanced fields to CONFIG_KEY', async () => {
     const { runtime, root, result } = await setup()
     addFeed(root, 'https://example.com/feed.xml', 'Example')
-    setInput(within(root).getByLabelText('刷新间隔（分钟）'), '60')
+    setInput(within(root).getByLabelText('最小抓取间隔（分钟）'), '60')
     void result.save?.()
     await waitFor(() => {
       const rss = configOf(runtime)?.rss
@@ -118,9 +121,9 @@ describe('createRssEditor', () => {
 
   test('rejects ttlMinutes <= 0 on save', async () => {
     const { runtime, root, result } = await setup()
-    setInput(within(root).getByLabelText('刷新间隔（分钟）'), '0')
+    setInput(within(root).getByLabelText('最小抓取间隔（分钟）'), '0')
     void result.save?.()
-    expect(within(root).getByText('刷新间隔必须是 ≥1 的整数')).not.toBeNull()
+    expect(within(root).getByText('最小抓取间隔必须是 ≥1 的整数')).not.toBeNull()
     expect(configOf(runtime)).toBeUndefined()
   })
 
@@ -137,7 +140,9 @@ describe('createRssEditor', () => {
     }
     const { root } = await setup(runtime, { ...DEFAULT_OPTS, feeds: [] })
     expect(within(root).getByTitle('https://example.com/saved.xml')).not.toBeNull()
-    expect((within(root).getByLabelText('刷新间隔（分钟）') as HTMLInputElement).value).toBe('45')
+    expect((within(root).getByLabelText('最小抓取间隔（分钟）') as HTMLInputElement).value).toBe(
+      '45',
+    )
     expect(root.querySelector<HTMLSelectElement>('[data-action="view-mode"]')!.value).toBe(
       'timeline',
     )
