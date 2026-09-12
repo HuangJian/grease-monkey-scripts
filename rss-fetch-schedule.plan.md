@@ -329,8 +329,8 @@ export function isAnyFeedDue(
 - 编辑器 `ttlMinutes` 的行标签由「刷新间隔」改为「最小抓取间隔」，既有测试的标签断言同步更新。
 - `fetcher.test.ts` 的共享 `OPTS` 显式关掉调度（`ttlMinutes: 1` + `respectFeedPeriod: false`），让 v1 的抓取/解析用例保持原语义。
 
-**未做（P2 / P3，待确认）**
+**第二批（P2 / P3，同日）**
 
-- P2 文案：`每 N 分钟` / `下次 X 分钟后` / 错误行「N 分钟后重试」（`rss/component.tsx` + `overlay/rss.css`）。R4 提醒：不做这步，长周期源在 UI 上只剩「数据陈旧」徽标，容易被误读成坏了。
-- P3 的 `source.ttlMs` 内存记账（让「数据陈旧」徽标对 daily 源不再常亮）。
-- `rss-reader.plan.md` 的非目标条目已就地标注指向本 plan（即 P2 的第 11 项）。
+- P2 文案落地：`rss/component.tsx` 的 `FeedBlock` 增加一行调度提示（`每 12 小时 · 下次 8 小时后`，到期时显示 `待刷新`），错误行补「（N 分钟后重试）」；新增 `formatIntervalLabel` / `formatCountdownLabel`（导出，便于单测）与卡片级 `useTickingNow`（30s 一次，不按 feed 各起一个定时器）；样式 `.gm-sp-rss-feed-schedule` 落在 `overlay/rss.css`。提示由 `source.tsx` 通过 `scheduleHint` 注入（options 归 source 所有，卡片保持无状态）。
+- P3 落地：`source.tsx` 用 `effectiveMaxIntervalMs` 记账（初始回落 `ttlMinutes`，每次 fetch 后取全部 feed 生效周期的最大值）作为 `ttlMs`，使卡片右上角「数据陈旧」徽标不再对 daily 源长期常亮。**取舍**：徽标因此不再承担「源卡死」告警职责 —— 该职责转由 P2 的错误行 + 重试倒计时承担（`rss-fetch-schedule.plan.md` R4 的推论）。
+- 校验：scoped `bun run check`（prism）**1517 pass / 0 fail**，prism 247.5 KB / hash `15aa32ac`。

@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { cleanup, render, waitFor, within } from '@testing-library/preact'
-import { RssComponent } from '../../../src/prism/rss/component'
+import {
+  formatCountdownLabel,
+  formatIntervalLabel,
+  RssComponent,
+} from '../../../src/prism/rss/component'
 import { TIMELINE_MAX_ITEMS } from '../../../src/prism/rss/constants'
+import type { FeedSchedule } from '../../../src/prism/rss/schedule'
 import { createRssState, unreadCount } from '../../../src/prism/rss/state'
 import type { RssFeed, RssItem, RssViewMode } from '../../../src/prism/rss/types'
 import { createRuntime, type TestRuntime } from '../../runtime'
@@ -40,6 +45,7 @@ function setup(
     runtime?: TestRuntime
     viewMode?: RssViewMode
     onViewModeChange?: (mode: RssViewMode) => void
+    scheduleHint?: (feed: RssFeed, now: number) => FeedSchedule
   } = {},
 ) {
   const runtime = over.runtime ?? createRuntime()
@@ -54,6 +60,7 @@ function setup(
       state={state}
       viewMode={over.viewMode ?? 'grouped'}
       onViewModeChange={over.onViewModeChange}
+      scheduleHint={over.scheduleHint}
     />,
     { container: root },
   )
@@ -244,5 +251,81 @@ describe('RssComponent view switching', () => {
     const { root } = setup([feed('a', many)], { viewMode: 'timeline' })
     expect(rows(root)).toHaveLength(TIMELINE_MAX_ITEMS)
     expect(within(root).getByText(`仅显示最近 ${TIMELINE_MAX_ITEMS} 条未读`)).not.toBeNull()
+  })
+})
+
+describe('schedule hints', () => {
+  const MIN = 60_000
+  const HOUR = 60 * MIN
+
+  /** A runtime pinned to NOW so the countdown labels are deterministic. */
+  function clockedRuntime(): TestRuntime {
+    const runtime = createRuntime()
+    runtime.setClock(NOW)
+    return runtime
+  }
+
+  function schedule(over: Partial<FeedSchedule> = {}): FeedSchedule {
+    return { intervalMs: HOUR, due: false, nextFetchAt: NOW + HOUR, ...over }
+  }
+
+  function hint(value: FeedSchedule) {
+    return () => value
+  }
+
+  test('formatIntervalLabel picks a readable unit', () => {
+    expect(formatIntervalLabel(30 * MIN)).toBe('每 30 分钟')
+    expect(formatIntervalLabel(HOUR)).toBe('每 1 小时')
+    expect(formatIntervalLabel(12 * HOUR)).toBe('每 12 小时')
+    expect(formatIntervalLabel(24 * HOUR)).toBe('每 1 天')
+    expect(formatIntervalLabel(7 * 24 * HOUR)).toBe('每 7 天')
+  })
+
+  test('formatCountdownLabel rounds up to minutes, then hours, then days', () => {
+    expect(formatCountdownLabel(1)).toBe('1 分钟后')
+    expect(formatCountdownLabel(90_000)).toBe('2 分钟后')
+    expect(formatCountdownLabel(3 * HOUR)).toBe('3 小时后')
+    expect(formatCountdownLabel(2 * 24 * HOUR)).toBe('2 天后')
+  })
+
+  test('the header states the interval and the next fetch', () => {
+    const { root } = setup([feed('a', [item('1')])], {
+      runtime: clockedRuntime(),
+      scheduleHint: hint(schedule({ intervalMs: 12 * HOUR, nextFetchAt: NOW + 8 * HOUR })),
+    })
+    expect(root.querySelector('.gm-sp-rss-feed-schedule')?.textContent).toBe(
+      '每 12 小时 · 下次 8 小时后',
+    )
+  })
+
+  test('a due feed says 待刷新 instead of counting down', () => {
+    const { root } = setup([feed('a', [item('1')])], {
+      runtime: clockedRuntime(),
+      scheduleHint: hint(schedule({ due: true, nextFetchAt: 0 })),
+    })
+    expect(root.querySelector('.gm-sp-rss-feed-schedule')?.textContent).toBe('每 1 小时 · 待刷新')
+  })
+
+  test('no hint means no schedule line', () => {
+    const { root } = setup([feed('a', [item('1')])], { runtime: clockedRuntime() })
+    expect(root.querySelector('.gm-sp-rss-feed-schedule')).toBeNull()
+  })
+
+  test('a failing feed says when it will be retried', () => {
+    const { root } = setup([feed('a', [], { error: 'http 500', nextRetryAt: NOW + 3 * MIN })], {
+      runtime: clockedRuntime(),
+      scheduleHint: hint(schedule({ nextFetchAt: 0 })),
+    })
+    expect(root.querySelector('.gm-sp-rss-feed-error')?.textContent).toBe(
+      '刷新失败：http 500（3 分钟后重试）',
+    )
+  })
+
+  test('a failing feed past its retry delay shows no countdown', () => {
+    const { root } = setup([feed('a', [], { error: 'http 500', nextRetryAt: NOW - 1 })], {
+      runtime: clockedRuntime(),
+      scheduleHint: hint(schedule()),
+    })
+    expect(root.querySelector('.gm-sp-rss-feed-error')?.textContent).toBe('刷新失败：http 500')
   })
 })

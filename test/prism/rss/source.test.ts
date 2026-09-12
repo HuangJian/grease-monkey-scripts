@@ -60,6 +60,37 @@ describe('createRssSource metadata', () => {
     await source.loadState?.(runtime)
     expect(source.ttlMs).toBe(60 * 60_000)
   })
+
+  test('ttlMs reports the largest interval in play after a fetch', async () => {
+    const runtime = makeRuntime((d) =>
+      d.onload({
+        responseText:
+          '<?xml version="1.0"?><rss version="2.0"><channel><title>F</title><ttl>720</ttl></channel></rss>',
+        status: 200,
+        responseHeaders: '',
+      }),
+    )
+    // The declared 12h beats the 60-minute minimum, so the badge must not treat
+    // the source as stale every hour.
+    const source = createRssSource(defaultOptions({ ttlMinutes: 60 }))
+    expect(source.ttlMs).toBe(60 * 60_000)
+    await source.fetch(runtime, undefined)
+    expect(source.ttlMs).toBe(12 * 60 * 60_000)
+  })
+
+  test('ttlMs ignores a declaration when respectFeedPeriod is off', async () => {
+    const runtime = makeRuntime((d) =>
+      d.onload({
+        responseText:
+          '<?xml version="1.0"?><rss version="2.0"><channel><title>F</title><ttl>720</ttl></channel></rss>',
+        status: 200,
+        responseHeaders: '',
+      }),
+    )
+    const source = createRssSource(defaultOptions({ ttlMinutes: 60, respectFeedPeriod: false }))
+    await source.fetch(runtime, undefined)
+    expect(source.ttlMs).toBe(60 * 60_000)
+  })
 })
 
 describe('createRssSource.fetch', () => {

@@ -119,6 +119,18 @@ describe('createRssEditor', () => {
     })
   })
 
+  test('respectFeedPeriod defaults on and is saved when switched off', async () => {
+    const { runtime, root, result } = await setup()
+    const box = root.querySelector<HTMLInputElement>('[data-action="respect-feed-period"]')!
+    expect(box.checked).toBe(true)
+    box.checked = false
+    box.dispatchEvent(new Event('input'))
+    void result.save?.()
+    await waitFor(() => {
+      expect(configOf(runtime)?.rss?.respectFeedPeriod).toBe(false)
+    })
+  })
+
   test('rejects ttlMinutes <= 0 on save', async () => {
     const { runtime, root, result } = await setup()
     setInput(within(root).getByLabelText('最小抓取间隔（分钟）'), '0')

@@ -6,7 +6,7 @@ import { RssComponent, visibleFeeds } from './component'
 import { createRssEditor } from './editor/form'
 import { loadFreshOptions } from './editor/helpers'
 import { feedId, fetchRssFeeds } from './fetcher'
-import { feedSchedule } from './schedule'
+import { feedSchedule, resolveIntervalMs } from './schedule'
 import { createRssState, totalUnread, type RssState } from './state'
 import type { RssFeed, RssSourceOptions, RssViewMode } from './types'
 
@@ -17,6 +17,14 @@ export function createRssSource(options: RssSourceOptions): Source<RssFeed[], 'r
   let retentionMs = options.retentionDays * DAY_MS
   let state = createRssState({ retentionMs })
   let stateLoaded = false
+  /**
+   * `ttlMs` drives the card's 「数据陈旧」 badge, which knows nothing about
+   * per-feed intervals. Reporting the **largest** interval in play keeps a daily
+   * feed from leaving that badge lit forever; the per-feed truth is in the
+   * header hints (`RssComponent`). Falls back to the user minimum before the
+   * first fetch, and is recomputed from every result.
+   */
+  let effectiveMaxIntervalMs = options.ttlMinutes * 60_000
 
   /**
    * The read-state store's TTL is derived from the retention window, but the
@@ -68,11 +76,12 @@ export function createRssSource(options: RssSourceOptions): Source<RssFeed[], 'r
     id: 'rss',
     title: 'RSS 阅读',
     /**
-     * Only a fallback for the card's freshness display: whether a refresh is
-     * worth starting is decided by `isDue` below, per feed.
+     * The largest interval currently in play (see `effectiveMaxIntervalMs`).
+     * Only used for the card's freshness badge — whether to refresh at all is
+     * decided per feed by `isDue` below.
      */
     get ttlMs() {
-      return currentOptions.ttlMinutes * 60_000
+      return effectiveMaxIntervalMs
     },
     /**
      * Freshness is per feed, not per source — a single source-level TTL would
@@ -104,6 +113,11 @@ export function createRssSource(options: RssSourceOptions): Source<RssFeed[], 'r
           {...props}
           state={state}
           viewMode={currentOptions.viewMode}
+          // The source owns the options, so it is the one that can turn a feed
+          // into "every N minutes, next in M"; the card stays presentational.
+          scheduleHint={(feed, now) =>
+            feedSchedule(feed, feed.enabled !== false, currentOptions, now)
+          }
           onViewModeChange={(mode) => {
             void persistViewMode(viewRuntime, mode)
           }}
@@ -125,6 +139,18 @@ export function createRssSource(options: RssSourceOptions): Source<RssFeed[], 'r
         force: fetchOptions?.force === true,
       })
       await activeState.saveToStorage(runtimeArg)
+      effectiveMaxIntervalMs = feeds.reduce(
+        (max, feed) =>
+          Math.max(
+            max,
+            resolveIntervalMs(
+              feed.declaredIntervalMs,
+              currentOptions.ttlMinutes,
+              currentOptions.respectFeedPeriod,
+            ),
+          ),
+        currentOptions.ttlMinutes * 60_000,
+      )
       return feeds
     },
     async loadState(runtimeArg) {

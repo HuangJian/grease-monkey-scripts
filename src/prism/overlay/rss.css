@@ -100,6 +100,11 @@
   color: var(--gm-sp-color-danger);
 }
 
+.gm-sp-rss-feed-schedule {
+  font-size: 10px;
+  color: var(--gm-sp-color-text-muted);
+}
+
 .gm-sp-rss-toggle {
   align-self: flex-start;
   border: none;

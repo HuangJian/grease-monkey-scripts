@@ -56,6 +56,13 @@ describe('RSS view mode persistence', () => {
     expect(root.querySelector('.gm-sp-rss-timeline')).not.toBeNull()
   })
 
+  test('the header hint comes from the source options', () => {
+    const runtime = createRuntime()
+    // The fixture was fetched back in 2023, so its next fetch is long overdue.
+    const root = mount(createRssSource(options({ ttlMinutes: 60 })), runtime)
+    expect(root.querySelector('.gm-sp-rss-feed-schedule')?.textContent).toBe('每 1 小时 · 待刷新')
+  })
+
   test('toggling writes the choice to CONFIG_KEY', async () => {
     const runtime = createRuntime()
     const root = mount(createRssSource(options()), runtime)

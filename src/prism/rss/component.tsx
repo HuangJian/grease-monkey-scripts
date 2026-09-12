@@ -6,6 +6,7 @@ import { ItemActions } from '../shared/item-actions'
 import type { Runtime } from '../../runtime'
 import type { SourceComponentProps } from '../types'
 import { FOLD_THRESHOLD, TIMELINE_MAX_ITEMS } from './constants'
+import type { FeedSchedule } from './schedule'
 import { visibleUnreadItems, type RssState } from './state'
 import type { RssFeed, RssItem, RssViewMode } from './types'
 
@@ -18,11 +19,51 @@ const FULL_TIME_FMT = new Intl.DateTimeFormat('zh-CN', {
   hour12: false,
 })
 
+/** How often the countdown labels re-render; they are the only time-dependent UI here. */
+const SCHEDULE_TICK_MS = 30_000
+
+/** "每 30 分钟" / "每 12 小时" / "每 7 天" — the interval a feed currently follows. */
+export function formatIntervalLabel(intervalMs: number): string {
+  const minutes = Math.max(1, Math.round(intervalMs / 60_000))
+  if (minutes < 60) return `每 ${minutes} 分钟`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `每 ${hours} 小时`
+  return `每 ${Math.round(hours / 24)} 天`
+}
+
+/** "8 分钟后" / "3 小时后" / "1 天后" — time until the feed is fetched again. */
+export function formatCountdownLabel(remainingMs: number): string {
+  const minutes = Math.max(1, Math.ceil(remainingMs / 60_000))
+  if (minutes < 60) return `${minutes} 分钟后`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours} 小时后`
+  return `${Math.round(hours / 24)} 天后`
+}
+
+/**
+ * Self-ticking "now" so the countdowns stay truthful between refreshes.
+ * Mirrors `card/primitives.tsx`'s RefreshTime; one tick for the whole card, not
+ * one per feed.
+ */
+function useTickingNow(runtime: Runtime): number {
+  const [now, setNow] = useState(() => runtime.now())
+  useEffect(() => {
+    const id = runtime.setInterval(() => setNow(runtime.now()), SCHEDULE_TICK_MS)
+    return () => runtime.clearInterval(id)
+  }, [runtime])
+  return now
+}
+
 export type RssComponentProps = SourceComponentProps<RssFeed[]> & {
   state: RssState
   viewMode: RssViewMode
   /** Persists the choice; the local state switches the view immediately. */
   onViewModeChange?: ((mode: RssViewMode) => void) | undefined
+  /**
+   * Schedules for the header hints, injected by the source (which owns the
+   * options). Optional so previews and tests can render the card without them.
+   */
+  scheduleHint?: ((feed: RssFeed, now: number) => FeedSchedule) | undefined
 }
 
 /** An entry together with the feed it came from (timeline rows need the label). */
@@ -41,6 +82,9 @@ type SharedRowProps = {
   runtime: Runtime
   root: RssComponentProps['root']
   onNotify?: (() => void) | undefined
+  /** Tick used by the countdown labels; see `useTickingNow`. */
+  now: number
+  scheduleHint?: ((feed: RssFeed, now: number) => FeedSchedule) | undefined
 }
 
 export function RssComponent({
@@ -51,11 +95,13 @@ export function RssComponent({
   viewMode,
   onViewModeChange,
   onNotify,
+  scheduleHint,
 }: RssComponentProps) {
   const [mode, setMode] = useState<RssViewMode>(viewMode)
   // The editor saves the view mode as well, so follow the prop when it changes
   // under us: a local-only state would ignore that write until a reload.
   useEffect(() => setMode(viewMode), [viewMode])
+  const now = useTickingNow(runtime)
 
   const feeds = visibleFeeds(data ?? [])
 
@@ -76,7 +122,7 @@ export function RssComponent({
     onViewModeChange?.(next)
   }
 
-  const rowProps: SharedRowProps = { state, runtime, root, onNotify }
+  const rowProps: SharedRowProps = { state, runtime, root, onNotify, now, scheduleHint }
 
   return (
     <div class="gm-sp-rss">
@@ -142,7 +188,7 @@ function useRowHandlers(props: SharedRowProps, siblings: RssItem[]) {
 }
 
 function FeedBlock({ feed, ...rowProps }: SharedRowProps & { feed: RssFeed }) {
-  const { state, runtime } = rowProps
+  const { state, runtime, now, scheduleHint } = rowProps
   const [userExpanded, setUserExpanded] = useState(false)
   const unread = visibleUnreadItems(feed, state)
   const { forceRender, onRowClick, onOpen } = useRowHandlers(rowProps, unread)
@@ -157,6 +203,11 @@ function FeedBlock({ feed, ...rowProps }: SharedRowProps & { feed: RssFeed }) {
     forceUpdate: () => forceRender(),
     getVisible: () => visibleUnreadItems(feed, state),
   })
+
+  // Freshness is per feed, so say when this one is fetched next instead of
+  // leaving the card's single "数据陈旧" badge to imply the whole source is late.
+  const schedule = scheduleHint?.(feed, now)
+  const retryInMs = feed.nextRetryAt === undefined ? 0 : feed.nextRetryAt - now
 
   return (
     <div class="gm-sp-rss-feed" data-feed-id={feed.id}>
@@ -176,7 +227,22 @@ function FeedBlock({ feed, ...rowProps }: SharedRowProps & { feed: RssFeed }) {
         )}
       </div>
 
-      {feed.error ? <div class="gm-sp-rss-feed-error">{`刷新失败：${feed.error}`}</div> : null}
+      {schedule ? (
+        <div class="gm-sp-rss-feed-schedule">
+          {schedule.nextFetchAt > now
+            ? `${formatIntervalLabel(schedule.intervalMs)} · 下次 ${formatCountdownLabel(
+                schedule.nextFetchAt - now,
+              )}`
+            : `${formatIntervalLabel(schedule.intervalMs)} · 待刷新`}
+        </div>
+      ) : null}
+
+      {feed.error ? (
+        <div class="gm-sp-rss-feed-error">
+          {`刷新失败：${feed.error}`}
+          {retryInMs > 0 ? `（${formatCountdownLabel(retryInMs)}重试）` : ''}
+        </div>
+      ) : null}
 
       {unread.length > 0 ? (
         <>
