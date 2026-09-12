@@ -6,6 +6,7 @@ import {
   RssComponent,
 } from '../../../src/prism/rss/component'
 import { TIMELINE_MAX_ITEMS } from '../../../src/prism/rss/constants'
+import type { DateFilter } from '../../../src/prism/date-filter'
 import type { FeedSchedule } from '../../../src/prism/rss/schedule'
 import { createRssState, unreadCount } from '../../../src/prism/rss/state'
 import type { RssFeed, RssItem, RssViewMode } from '../../../src/prism/rss/types'
@@ -46,6 +47,8 @@ function setup(
     viewMode?: RssViewMode
     onViewModeChange?: (mode: RssViewMode) => void
     scheduleHint?: (feed: RssFeed, now: number) => FeedSchedule
+    dateFilter?: DateFilter
+    onDateFilterChange?: (filter: DateFilter) => void
   } = {},
 ) {
   const runtime = over.runtime ?? createRuntime()
@@ -61,6 +64,8 @@ function setup(
       viewMode={over.viewMode ?? 'grouped'}
       onViewModeChange={over.onViewModeChange}
       scheduleHint={over.scheduleHint}
+      dateFilter={over.dateFilter ?? '全'}
+      onDateFilterChange={over.onDateFilterChange ?? (() => {})}
     />,
     { container: root },
   )
@@ -106,6 +111,8 @@ describe('RssComponent', () => {
         runtime={createRuntime()}
         state={state}
         viewMode="grouped"
+        dateFilter="全"
+        onDateFilterChange={() => {}}
       />,
       { container: root },
     )
@@ -236,7 +243,15 @@ describe('RssComponent view switching', () => {
     const { root, view, state, runtime } = setup(feeds, { viewMode: 'grouped' })
     expect(root.querySelector('.gm-sp-rss-feed')).not.toBeNull()
     view.rerender(
-      <RssComponent data={feeds} root={root} runtime={runtime} state={state} viewMode="timeline" />,
+      <RssComponent
+        data={feeds}
+        root={root}
+        runtime={runtime}
+        state={state}
+        viewMode="timeline"
+        dateFilter="全"
+        onDateFilterChange={() => {}}
+      />,
     )
     await waitFor(() => {
       expect(root.querySelector('.gm-sp-rss-timeline')).not.toBeNull()
@@ -327,5 +342,100 @@ describe('schedule hints', () => {
       scheduleHint: hint(schedule()),
     })
     expect(root.querySelector('.gm-sp-rss-feed-error')?.textContent).toBe('刷新失败：http 500')
+  })
+})
+
+describe('timeline date filter', () => {
+  function clockedRuntime(): TestRuntime {
+    const runtime = createRuntime()
+    runtime.setClock(NOW)
+    return runtime
+  }
+
+  /** One feed with an entry today and one yesterday, both unread. */
+  function datedFeed(): RssFeed {
+    return feed('a', [item('today', { pubDate: NOW }), item('yesterday', { pubDate: NOW - DAY })])
+  }
+
+  function filterButtons(root: HTMLElement): HTMLButtonElement[] {
+    return Array.from(root.querySelectorAll<HTMLButtonElement>('.gm-sp-date-filter-btn'))
+  }
+
+  test('the 全/今/昨/前/早 group only exists in the timeline view', () => {
+    const grouped = setup([datedFeed()], { runtime: clockedRuntime() })
+    expect(grouped.root.querySelector('.gm-sp-date-filter')).toBeNull()
+
+    const timeline = setup([datedFeed()], { runtime: clockedRuntime(), viewMode: 'timeline' })
+    expect(filterButtons(timeline.root).map((b) => b.textContent)).toEqual([
+      '全',
+      '今',
+      '昨',
+      '前',
+      '早',
+    ])
+  })
+
+  test('今 keeps only today and hides yesterday', () => {
+    const { root } = setup([datedFeed()], {
+      runtime: clockedRuntime(),
+      viewMode: 'timeline',
+      dateFilter: '今',
+    })
+    expect(rows(root)).toHaveLength(1)
+    expect(within(root).getByText('标题 today')).not.toBeNull()
+    expect(within(root).queryByText('标题 yesterday')).toBeNull()
+  })
+
+  test('昨 keeps only yesterday', () => {
+    const { root } = setup([datedFeed()], {
+      runtime: clockedRuntime(),
+      viewMode: 'timeline',
+      dateFilter: '昨',
+    })
+    expect(rows(root)).toHaveLength(1)
+    expect(within(root).getByText('标题 yesterday')).not.toBeNull()
+  })
+
+  test('全 keeps both', () => {
+    const { root } = setup([datedFeed()], {
+      runtime: clockedRuntime(),
+      viewMode: 'timeline',
+      dateFilter: '全',
+    })
+    expect(rows(root)).toHaveLength(2)
+  })
+
+  test('picking a filter reports it instead of mutating local state', () => {
+    const picked: DateFilter[] = []
+    const { root } = setup([datedFeed()], {
+      runtime: clockedRuntime(),
+      viewMode: 'timeline',
+      onDateFilterChange: (filter) => picked.push(filter),
+    })
+    filterButtons(root)[2]!.click() // 昨
+    expect(picked).toEqual(['昨'])
+  })
+
+  test('an empty result distinguishes "nothing matched" from "nothing unread"', () => {
+    const nothingMatched = setup([datedFeed()], {
+      runtime: clockedRuntime(),
+      viewMode: 'timeline',
+      dateFilter: '早',
+    })
+    expect(nothingMatched.root.querySelector('.gm-sp-empty')?.textContent).toBe(
+      '该日期范围内没有未读条目',
+    )
+
+    const nothingUnread = setup([feed('a', [])], {
+      runtime: clockedRuntime(),
+      viewMode: 'timeline',
+      dateFilter: '早',
+    })
+    expect(nothingUnread.root.querySelector('.gm-sp-empty')?.textContent).toBe('没有未读条目')
+  })
+
+  test('the date filter does not touch the grouped view', () => {
+    const { root } = setup([datedFeed()], { runtime: clockedRuntime(), dateFilter: '早' })
+    expect(rows(root)).toHaveLength(2)
   })
 })

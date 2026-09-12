@@ -1,6 +1,8 @@
 import type { Runtime } from '../../runtime'
 import { validateConfig } from '../config'
+import type { DateFilter } from '../date-filter'
 import { saveConfigSection } from '../editor-helpers'
+import { createHeaderState, useHeaderState } from '../header-state'
 import type { Source, SourceSettings, TabLabel } from '../types'
 import { RssComponent, visibleFeeds } from './component'
 import { createRssEditor } from './editor/form'
@@ -25,6 +27,17 @@ export function createRssSource(options: RssSourceOptions): Source<RssFeed[], 'r
    * first fetch, and is recomputed from every result.
    */
   let effectiveMaxIntervalMs = options.ttlMinutes * 60_000
+  /**
+   * Timeline date filter (全/今/昨/前/早).
+   *
+   * In-memory, like every other source's filter (v2ex/xueqiu): it narrows a view
+   * rather than describing a subscription, so it does not belong in `Config.rss`.
+   * Living in a store owned by the source (not in the component) is what makes
+   * it survive tab switches and refreshes. 全 by default — this is a reader with
+   * 30 days of retention, so hiding older unread entries by default would be a
+   * surprising loss of content.
+   */
+  const headerStore = createHeaderState<{ dateFilter: DateFilter }>({ dateFilter: '全' })
 
   /**
    * The read-state store's TTL is derived from the retention window, but the
@@ -108,11 +121,16 @@ export function createRssSource(options: RssSourceOptions): Source<RssFeed[], 'r
       // `props.runtime` is read on every render, so the view-toggle callback
       // never needs the source to hold on to a Runtime from an earlier call.
       const viewRuntime = props.runtime
+      const headerState = useHeaderState(headerStore)
       return (
         <RssComponent
           {...props}
           state={state}
           viewMode={currentOptions.viewMode}
+          dateFilter={headerState.dateFilter}
+          onDateFilterChange={(filter) => {
+            headerStore.set((prev) => ({ ...prev, dateFilter: filter }))
+          }}
           // The source owns the options, so it is the one that can turn a feed
           // into "every N minutes, next in M"; the card stays presentational.
           scheduleHint={(feed, now) =>

@@ -1,8 +1,10 @@
 import { useEffect, useReducer, useState } from 'preact/hooks'
 import { escapeUrl } from '../../utils'
 import { createItemHandlers } from '../item-actions'
+import { DateFilterGroup, type DateFilter } from '../date-filter'
 import { ExpandableList, useExpandScroll } from '../shared/expandable-list'
 import { ItemActions } from '../shared/item-actions'
+import { applyDateFilter } from '../shared-utils'
 import type { Runtime } from '../../runtime'
 import type { SourceComponentProps } from '../types'
 import { FOLD_THRESHOLD, TIMELINE_MAX_ITEMS } from './constants'
@@ -60,6 +62,12 @@ export type RssComponentProps = SourceComponentProps<RssFeed[]> & {
   /** Persists the choice; the local state switches the view immediately. */
   onViewModeChange?: ((mode: RssViewMode) => void) | undefined
   /**
+   * Timeline date filter (全/今/昨/前/早). Kept outside the component so it
+   * survives a tab switch, like every other source's filter (v2ex/xueqiu).
+   */
+  dateFilter: DateFilter
+  onDateFilterChange: (filter: DateFilter) => void
+  /**
    * Schedules for the header hints, injected by the source (which owns the
    * options). Optional so previews and tests can render the card without them.
    */
@@ -94,6 +102,8 @@ export function RssComponent({
   state,
   viewMode,
   onViewModeChange,
+  dateFilter,
+  onDateFilterChange,
   onNotify,
   scheduleHint,
 }: RssComponentProps) {
@@ -143,11 +153,16 @@ export function RssComponent({
             {label}
           </button>
         ))}
+        {/* The date filter only means something for the merged timeline: the
+            grouped view keeps every feed's own list intact. */}
+        {mode === 'timeline' ? (
+          <DateFilterGroup value={dateFilter} onChange={onDateFilterChange} />
+        ) : null}
       </div>
       {mode === 'grouped' ? (
         feeds.map((feed) => <FeedBlock key={feed.id} feed={feed} {...rowProps} />)
       ) : (
-        <Timeline feeds={feeds} {...rowProps} />
+        <Timeline feeds={feeds} dateFilter={dateFilter} {...rowProps} />
       )}
     </div>
   )
@@ -271,12 +286,32 @@ function FeedBlock({ feed, ...rowProps }: SharedRowProps & { feed: RssFeed }) {
   )
 }
 
-function Timeline({ feeds, ...rowProps }: SharedRowProps & { feeds: RssFeed[] }) {
-  const { state, runtime } = rowProps
+/**
+ * Merged, newest-first timeline of every feed's unread entries, narrowed by the
+ * date filter.
+ *
+ * Boundaries are computed from the same ticking `now` the countdowns use, so a
+ * pinned clock renders deterministically. Entries without a publish date
+ * (`pubDate === 0`, legal in RSS) fall outside every bound and are therefore
+ * hidden by any filter other than 全 — the same rule v2ex/xueqiu get from the
+ * shared helper.
+ */
+function Timeline({
+  feeds,
+  dateFilter,
+  ...rowProps
+}: SharedRowProps & { feeds: RssFeed[]; dateFilter: DateFilter }) {
+  const { state, runtime, now } = rowProps
   const entries: RssEntry[] = feeds
     .flatMap((feed) => visibleUnreadItems(feed, state).map((item) => ({ item, feed })))
     .sort((a, b) => b.item.pubDate - a.item.pubDate)
-  const shown = entries.slice(0, TIMELINE_MAX_ITEMS)
+  const filtered = applyDateFilter(
+    entries,
+    dateFilter,
+    (entry) => entry.item.pubDate,
+    () => now,
+  )
+  const shown = filtered.slice(0, TIMELINE_MAX_ITEMS)
   const { forceRender, onRowClick, onOpen } = useRowHandlers(
     rowProps,
     shown.map((entry) => entry.item),
@@ -290,9 +325,13 @@ function Timeline({ feeds, ...rowProps }: SharedRowProps & { feeds: RssFeed[] })
   })
 
   if (shown.length === 0) {
+    // Say which kind of empty this is: "no unread at all" reads very differently
+    // from "your filter matched nothing", and the filter is easy to forget.
     return (
       <div class="gm-sp-rss">
-        <div class="gm-sp-empty">没有未读条目</div>
+        <div class="gm-sp-empty">
+          {entries.length === 0 ? '没有未读条目' : '该日期范围内没有未读条目'}
+        </div>
       </div>
     )
   }
@@ -309,7 +348,7 @@ function Timeline({ feeds, ...rowProps }: SharedRowProps & { feeds: RssFeed[] })
         containerClassName="gm-sp-rss-items"
         showFeedLabel
       />
-      {entries.length > shown.length ? (
+      {filtered.length > shown.length ? (
         <div class="gm-sp-rss-more">{`仅显示最近 ${TIMELINE_MAX_ITEMS} 条未读`}</div>
       ) : null}
     </div>

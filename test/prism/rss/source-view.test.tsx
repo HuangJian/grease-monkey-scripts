@@ -63,6 +63,22 @@ describe('RSS view mode persistence', () => {
     expect(root.querySelector('.gm-sp-rss-feed-schedule')?.textContent).toBe('每 1 小时 · 待刷新')
   })
 
+  test('the timeline date filter is wired through the source store', async () => {
+    const runtime = createRuntime()
+    runtime.setClock(NOW)
+    const root = mount(createRssSource(options({ viewMode: 'timeline' })), runtime)
+    const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>('.gm-sp-date-filter-btn'))
+    expect(buttons.map((b) => b.textContent)).toEqual(['全', '今', '昨', '前', '早'])
+    // 全 is the default, so the fixture (an entry dated exactly at NOW) is visible.
+    expect(root.querySelectorAll('.gm-sp-list-item')).toHaveLength(1)
+
+    buttons[2]!.click() // 昨
+    await waitFor(() => {
+      expect(root.querySelector('.gm-sp-date-filter-btn-active')?.textContent).toBe('昨')
+      expect(root.querySelector('.gm-sp-empty')?.textContent).toBe('该日期范围内没有未读条目')
+    })
+  })
+
   test('toggling writes the choice to CONFIG_KEY', async () => {
     const runtime = createRuntime()
     const root = mount(createRssSource(options()), runtime)
