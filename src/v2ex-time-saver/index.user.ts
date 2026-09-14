@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         v2ex time saver
 // @namespace    https://github.com/HuangJian/grease-monkey-scripts
-// @version      1.0
+// @version      1.1
 // @description  Save my time when browsing v2ex.com!
 // @author       ustc.hj@gmail.com
 // @match        *.v2ex.com/*
@@ -11,6 +11,8 @@
 // @grant        GM_addStyle
 // @grant        GM.setValue
 // @grant        GM.getValue
+// @grant        GM.deleteValue
+// @grant        GM_registerMenuCommand
 // @noframes
 // ==/UserScript==
 import { startV2exTimeSaver } from './app'

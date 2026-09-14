@@ -4,6 +4,7 @@ import { authorTagsKeyword, createV2exApp, defaultLabels } from '../../src/v2ex-
 import {
   checkAndDoSignIn,
   extractRedeemUrl,
+  registerSignInCommand,
   runSignInIfNeeded,
   signInStateKey,
 } from '../../src/v2ex-time-saver/app/sign-in'
@@ -520,6 +521,17 @@ describe('auto sign-in', () => {
     expect(extractRedeemUrl('<html><body><p>Already signed in.</p></body></html>')).toBeNull()
   })
 
+  test('extractRedeemUrl survives restyled markup', () => {
+    // Plain <a href> instead of the onclick + location.href form.
+    expect(
+      extractRedeemUrl('<a class="button" href="/mission/daily/redeem?once=12345">领取</a>'),
+    ).toBe('/mission/daily/redeem?once=12345')
+    // HTML-escaped ampersand in the query string.
+    expect(extractRedeemUrl('<a href="/mission/daily/redeem?once=123&amp;r=1">领取</a>')).toBe(
+      '/mission/daily/redeem?once=123&r=1',
+    )
+  })
+
   const TODAY_MS = new Date(2026, 8, 11, 10, 0, 0).getTime()
   const TODAY = '2026-09-11'
   const YESTERDAY_MS = TODAY_MS - 24 * 60 * 60 * 1000
@@ -536,7 +548,7 @@ describe('auto sign-in', () => {
     runtime: TestRuntime
     requests: string[]
     /** Answer the pending `/mission/daily` request. */
-    respondMission(html: string): void
+    respondMission(html: string, status?: number): void
     /** Fail the pending `/mission/daily` request. */
     failMission(): void
   }
@@ -548,7 +560,7 @@ describe('auto sign-in', () => {
   }): SignInHarness {
     const dom = createDom(options.html, options.url ?? 'https://www.v2ex.com/t/123')
     const requests: string[] = []
-    let missionOnload: ((html: string) => void) | null = null
+    let missionOnload: ((html: string, status?: number) => void) | null = null
     let missionOnerror: (() => void) | null = null
 
     const runtime: TestRuntime = {
@@ -559,8 +571,8 @@ describe('auto sign-in', () => {
           details.onload({ responseText: '', status: 302, responseHeaders: '' })
           return
         }
-        missionOnload = (html) =>
-          details.onload({ responseText: html, status: 200, responseHeaders: '' })
+        missionOnload = (html, status) =>
+          details.onload({ responseText: html, status: status ?? 200, responseHeaders: '' })
         missionOnerror = () => details.onerror?.()
       },
     }
@@ -572,7 +584,7 @@ describe('auto sign-in', () => {
     return {
       runtime,
       requests,
-      respondMission: (html) => missionOnload!(html),
+      respondMission: (html, status) => missionOnload!(html, status),
       failMission: () => missionOnerror!(),
     }
   }
@@ -592,13 +604,13 @@ describe('auto sign-in', () => {
       'https://www.v2ex.com/mission/daily',
       'https://www.v2ex.com/mission/daily/redeem?once=99999',
     ])
-    expect(h.runtime.stores[signInStateKey]).toEqual({ attemptedDate: TODAY, signedAt: TODAY_MS })
+    expect(h.runtime.stores[signInStateKey]).toEqual({ resolvedDate: TODAY, signedAt: TODAY_MS })
   })
 
   test('does nothing when today is already recorded', async () => {
     const h = createSignInHarness({
       html: '<html><body><p>a thread</p></body></html>',
-      store: { [signInStateKey]: { attemptedDate: TODAY, signedAt: TODAY_MS - 60_000 } },
+      store: { [signInStateKey]: { resolvedDate: TODAY, signedAt: TODAY_MS - 60_000 } },
     })
 
     await runSignInIfNeeded(h.runtime)
@@ -609,7 +621,7 @@ describe('auto sign-in', () => {
   test('signs in again once the recorded day is not today', async () => {
     const h = createSignInHarness({
       html: '<html><body><p>a thread</p></body></html>',
-      store: { [signInStateKey]: { attemptedDate: '2026-09-10', signedAt: YESTERDAY_MS } },
+      store: { [signInStateKey]: { resolvedDate: '2026-09-10', signedAt: YESTERDAY_MS } },
     })
 
     const pending = runSignInIfNeeded(h.runtime)
@@ -620,13 +632,13 @@ describe('auto sign-in', () => {
     h.respondMission(MISSION_HTML)
     await pending
 
-    expect(h.runtime.stores[signInStateKey]).toEqual({ attemptedDate: TODAY, signedAt: TODAY_MS })
+    expect(h.runtime.stores[signInStateKey]).toEqual({ resolvedDate: TODAY, signedAt: TODAY_MS })
   })
 
   test('records the day but keeps the last success time when no reward is available', async () => {
     const h = createSignInHarness({
       html: '<html><body><p>a thread</p></body></html>',
-      store: { [signInStateKey]: { attemptedDate: '2026-09-10', signedAt: YESTERDAY_MS } },
+      store: { [signInStateKey]: { resolvedDate: '2026-09-10', signedAt: YESTERDAY_MS } },
     })
 
     const pending = runSignInIfNeeded(h.runtime)
@@ -636,7 +648,7 @@ describe('auto sign-in', () => {
     await pending
 
     expect(h.runtime.stores[signInStateKey]).toEqual({
-      attemptedDate: TODAY,
+      resolvedDate: TODAY,
       signedAt: YESTERDAY_MS,
     })
   })
@@ -670,6 +682,57 @@ describe('auto sign-in', () => {
     )
   })
 
+  test('shows a corner notice when the sign-in succeeds, then dismisses it', async () => {
+    // No sign-in link on this page: the notice is the only signal available.
+    const h = createSignInHarness({ html: '<html><body><p>a thread</p></body></html>' })
+
+    const pending = runSignInIfNeeded(h.runtime)
+    await flushAsync()
+
+    h.respondMission(MISSION_HTML)
+    await pending
+
+    expect(h.runtime.document.querySelector('.gm-sign-in-notice-ok')?.textContent).toBe(
+      'V2EX 每日签到成功',
+    )
+
+    const timer = h.runtime.activeTimeouts(1000)[0]
+    expect(timer).toBeDefined()
+    h.runtime.runTimeout(timer!.id)
+
+    expect(h.runtime.document.querySelector('.gm-sign-in-notice')).toBeNull()
+  })
+
+  test('shows a failure notice on an unrecognised mission page', async () => {
+    const h = createSignInHarness({
+      html: '<html><body><a href="/mission/daily">每日登录</a></body></html>',
+      url: 'https://www.v2ex.com/',
+    })
+
+    const pending = runSignInIfNeeded(h.runtime)
+    await flushAsync()
+
+    h.respondMission('<html><body><form>登录 V2EX</form></body></html>')
+    await pending
+
+    expect(h.runtime.document.querySelector('.gm-sign-in-notice-error')?.textContent).toBe(
+      '自动签到失败，请手动签到',
+    )
+  })
+
+  test('stays silent on an unrecognised page that has no sign-in link', async () => {
+    const h = createSignInHarness({ html: '<html><body><p>a thread</p></body></html>' })
+
+    const pending = runSignInIfNeeded(h.runtime)
+    await flushAsync()
+
+    h.respondMission('<html><body><form>登录 V2EX</form></body></html>')
+    await pending
+
+    expect(h.runtime.stores[signInStateKey]).toBeUndefined()
+    expect(h.runtime.document.querySelector('.gm-sign-in-notice')).toBeNull()
+  })
+
   test('checkAndDoSignIn runs the check in the background', async () => {
     const h = createSignInHarness({ html: '<html><body><p>a thread</p></body></html>' })
 
@@ -687,6 +750,64 @@ describe('auto sign-in', () => {
     await flushAsync()
 
     expect(h.requests).toContain('https://www.v2ex.com/mission/daily')
+  })
+
+  test('does not record the day when the mission page is an HTTP error page', async () => {
+    const h = createSignInHarness({
+      html: '<html><body><a href="/mission/daily">每日登录</a></body></html>',
+      url: 'https://www.v2ex.com/',
+    })
+
+    const pending = runSignInIfNeeded(h.runtime)
+    await flushAsync()
+
+    // A WAF challenge looks exactly like a mission page without a redeem button.
+    h.respondMission('<html><body>Please wait…</body></html>', 403)
+    await pending
+
+    expect(h.runtime.stores[signInStateKey]).toBeUndefined()
+    expect(h.runtime.document.querySelector("a[href='/mission/daily']")?.textContent).toBe(
+      '自动签到失败，请手动签到',
+    )
+  })
+
+  test('does not record the day when the mission page is unrecognised', async () => {
+    const h = createSignInHarness({
+      html: '<html><body><a href="/mission/daily">每日登录</a></body></html>',
+      url: 'https://www.v2ex.com/',
+    })
+
+    const pending = runSignInIfNeeded(h.runtime)
+    await flushAsync()
+
+    // 200 OK but neither a redeem link nor a "claimed" marker (e.g. logged out).
+    h.respondMission('<html><body><form>登录 V2EX</form></body></html>')
+    await pending
+
+    expect(h.runtime.stores[signInStateKey]).toBeUndefined()
+    expect(h.runtime.document.querySelector("a[href='/mission/daily']")?.textContent).toBe(
+      '自动签到失败，请手动签到',
+    )
+  })
+
+  test('menu command clears the day marker and signs in again', async () => {
+    const h = createSignInHarness({
+      html: '<html><body><p>a thread</p></body></html>',
+      store: { [signInStateKey]: { resolvedDate: TODAY, signedAt: TODAY_MS - 60_000 } },
+    })
+
+    registerSignInCommand(h.runtime)
+    expect(h.runtime.menuCommands.map((c) => c.name)).toContain('立即签到（清除今日记录后重试）')
+
+    h.runtime.runMenuCommand('立即签到（清除今日记录后重试）')
+    await flushAsync()
+
+    expect(h.requests).toEqual(['https://www.v2ex.com/mission/daily'])
+
+    h.respondMission(MISSION_HTML)
+    await flushAsync()
+
+    expect(h.runtime.stores[signInStateKey]).toEqual({ resolvedDate: TODAY, signedAt: TODAY_MS })
   })
 })
 

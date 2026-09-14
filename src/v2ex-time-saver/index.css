@@ -215,3 +215,27 @@ kbd.gm-wise-nav-hint {
   user-select: none;
   pointer-events: none;
 }
+
+/* Transient sign-in result notice — see app/sign-in.ts */
+.gm-sign-in-notice {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 2147483647;
+  max-width: 260px;
+  padding: 8px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.gm-sign-in-notice-ok {
+  border-color: #a8d5a8;
+  color: #2f6f2f;
+}
+.gm-sign-in-notice-error {
+  border-color: #e0a8a8;
+  color: #a33333;
+}
