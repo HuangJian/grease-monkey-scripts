@@ -24,11 +24,12 @@ export function createNovelsSource(
     groupId: 'browse',
     order: 2,
     // 无 loadState：本地阅读进度等状态在 fetch 内经 mergeLatestSeen 派生，无需预载（AGENTS.md 可选字段省略约定）
-    RenderComponent: ({ data, root }) => (
+    // Spread rather than pick fields: `SourceComponentProps` grows over time
+    // (`showEditorDialog`, `onNotify`), and a hand-picked list silently drops
+    // the new members — see the xit double-click regression.
+    RenderComponent: (props) => (
       <NovelsComponent
-        data={data}
-        root={root}
-        runtime={runtime}
+        {...props}
         onMarkSeen={(bookId_) => {
           void markSeen(runtime, bookId_)
         }}

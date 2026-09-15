@@ -35,17 +35,13 @@ export function createXitSource(
     RenderHeader: (props: SourceHeaderProps<XitData>) => (
       <XitHeaderControls {...props} headerStore={headerStore} />
     ),
-    RenderComponent: ({ data, root, runtime: r }) => {
-      return (
-        <XitBody
-          data={data}
-          root={root}
-          runtime={r}
-          headerStore={headerStore}
-          createEditor={createXitEditor}
-        />
-      )
-    },
+    // Spread rather than pick fields: `SourceComponentProps` grows (e.g.
+    // `showEditorDialog`, injected by `RenderCard`), and a hand-picked list
+    // silently drops the new members — which is exactly how the double-click
+    // editor stopped opening (see xit/component/body.tsx openEditor).
+    RenderComponent: (props) => (
+      <XitBody {...props} headerStore={headerStore} createEditor={createXitEditor} />
+    ),
     async fetch(runtimeArg, prevData) {
       const text = prevData?.text ?? DEFAULT_XIT_TEXT
       return { text: await resetRecurringTasks(runtimeArg, text) }
