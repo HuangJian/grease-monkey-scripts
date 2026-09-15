@@ -532,9 +532,18 @@ describe('auto sign-in', () => {
     )
   })
 
-  const TODAY_MS = new Date(2026, 8, 11, 10, 0, 0).getTime()
-  const TODAY = '2026-09-11'
-  const YESTERDAY_MS = TODAY_MS - 24 * 60 * 60 * 1000
+  /**
+   * Fixed clock: 2026-09-11 00:30 UTC (= 08:30 GMT+8), i.e. just after V2EX
+   * rolls the daily reward over at 00:00 UTC. Expressed in UTC so the tests do
+   * not depend on the machine's timezone.
+   */
+  const TODAY_MS = Date.UTC(2026, 8, 11, 0, 30, 0)
+  const TODAY_UTC = '2026-09-11'
+  /** 2026-09-10 23:30 UTC — still the outgoing reward day. */
+  const BEFORE_ROLLOVER_MS = Date.UTC(2026, 8, 10, 23, 30, 0)
+  const PREV_UTC_DAY = '2026-09-10'
+  /** A sign-in made during the outgoing reward day. */
+  const YESTERDAY_MS = Date.UTC(2026, 8, 10, 0, 25, 0)
 
   const MISSION_HTML = `
     <html><body>
@@ -557,6 +566,8 @@ describe('auto sign-in', () => {
     html: string
     url?: string
     store?: Record<string, unknown>
+    /** Overrides the fixed clock (defaults to `TODAY_MS`). */
+    clockMs?: number
   }): SignInHarness {
     const dom = createDom(options.html, options.url ?? 'https://www.v2ex.com/t/123')
     const requests: string[] = []
@@ -579,7 +590,7 @@ describe('auto sign-in', () => {
     for (const [key, value] of Object.entries(options.store ?? {})) {
       runtime.stores[key] = value
     }
-    runtime.setClock(TODAY_MS)
+    runtime.setClock(options.clockMs ?? TODAY_MS)
 
     return {
       runtime,
@@ -589,7 +600,7 @@ describe('auto sign-in', () => {
     }
   }
 
-  test('signs in on a non-homepage page when today has no attempt yet', async () => {
+  test('signs in on a non-homepage page when this reward day is unresolved', async () => {
     const h = createSignInHarness({ html: '<html><body><p>a thread</p></body></html>' })
 
     const pending = runSignInIfNeeded(h.runtime)
@@ -604,13 +615,16 @@ describe('auto sign-in', () => {
       'https://www.v2ex.com/mission/daily',
       'https://www.v2ex.com/mission/daily/redeem?once=99999',
     ])
-    expect(h.runtime.stores[signInStateKey]).toEqual({ resolvedDate: TODAY, signedAt: TODAY_MS })
+    expect(h.runtime.stores[signInStateKey]).toEqual({
+      claimedUtcDate: TODAY_UTC,
+      signedAt: TODAY_MS,
+    })
   })
 
-  test('does nothing when today is already recorded', async () => {
+  test('does nothing when this reward day is already resolved', async () => {
     const h = createSignInHarness({
       html: '<html><body><p>a thread</p></body></html>',
-      store: { [signInStateKey]: { resolvedDate: TODAY, signedAt: TODAY_MS - 60_000 } },
+      store: { [signInStateKey]: { claimedUtcDate: TODAY_UTC, signedAt: TODAY_MS } },
     })
 
     await runSignInIfNeeded(h.runtime)
@@ -618,12 +632,52 @@ describe('auto sign-in', () => {
     expect(h.requests).toEqual([])
   })
 
-  test('signs in again once the recorded day is not today', async () => {
+  test('reports the resolved state in the sidebar link instead of staying silent', async () => {
     const h = createSignInHarness({
-      html: '<html><body><p>a thread</p></body></html>',
-      store: { [signInStateKey]: { resolvedDate: '2026-09-10', signedAt: YESTERDAY_MS } },
+      html: '<html><body><a href="/mission/daily">领取今日的登录奖励</a></body></html>',
+      url: 'https://www.v2ex.com/',
+      store: { [signInStateKey]: { claimedUtcDate: TODAY_UTC, signedAt: TODAY_MS - 60_000 } },
     })
 
+    await runSignInIfNeeded(h.runtime)
+
+    expect(h.requests).toEqual([])
+    expect(h.runtime.document.querySelector("a[href='/mission/daily']")?.textContent).toMatch(
+      /^今日已签到 \d{2}:\d{2}$/,
+    )
+  })
+
+  test('reports an already-claimed reward in the sidebar when we did not sign in', async () => {
+    const h = createSignInHarness({
+      html: '<html><body><a href="/mission/daily">领取今日的登录奖励</a></body></html>',
+      url: 'https://www.v2ex.com/',
+      store: { [signInStateKey]: { claimedUtcDate: TODAY_UTC, signedAt: YESTERDAY_MS } },
+    })
+
+    await runSignInIfNeeded(h.runtime)
+
+    expect(h.requests).toEqual([])
+    expect(h.runtime.document.querySelector("a[href='/mission/daily']")?.textContent).toBe(
+      '今日签到奖励已领取',
+    )
+  })
+
+  test('signs in again after the 00:00 UTC rollover even though the outgoing day was resolved', async () => {
+    // This is the reported failure: the reward day rolls over at 00:00 UTC
+    // (= 08:00 GMT+8), so an early-morning visit resolves the *outgoing* day.
+    // Gating on the local calendar day made that block the whole local day,
+    // including the window that had just opened.
+    const h = createSignInHarness({
+      html: '<html><body><p>a thread</p></body></html>',
+      store: { [signInStateKey]: { claimedUtcDate: PREV_UTC_DAY, signedAt: YESTERDAY_MS } },
+      clockMs: BEFORE_ROLLOVER_MS,
+    })
+
+    // Before the rollover: the outgoing day is resolved, nothing to do.
+    await runSignInIfNeeded(h.runtime)
+    expect(h.requests).toEqual([])
+
+    h.runtime.setClock(TODAY_MS)
     const pending = runSignInIfNeeded(h.runtime)
     await flushAsync()
 
@@ -632,13 +686,17 @@ describe('auto sign-in', () => {
     h.respondMission(MISSION_HTML)
     await pending
 
-    expect(h.runtime.stores[signInStateKey]).toEqual({ resolvedDate: TODAY, signedAt: TODAY_MS })
+    expect(h.requests).toContain('https://www.v2ex.com/mission/daily/redeem?once=99999')
+    expect(h.runtime.stores[signInStateKey]).toEqual({
+      claimedUtcDate: TODAY_UTC,
+      signedAt: TODAY_MS,
+    })
   })
 
-  test('records the day but keeps the last success time when no reward is available', async () => {
+  test('resolves the reward day but keeps the last success time when already claimed', async () => {
     const h = createSignInHarness({
       html: '<html><body><p>a thread</p></body></html>',
-      store: { [signInStateKey]: { resolvedDate: '2026-09-10', signedAt: YESTERDAY_MS } },
+      store: { [signInStateKey]: { claimedUtcDate: PREV_UTC_DAY, signedAt: YESTERDAY_MS } },
     })
 
     const pending = runSignInIfNeeded(h.runtime)
@@ -648,9 +706,29 @@ describe('auto sign-in', () => {
     await pending
 
     expect(h.runtime.stores[signInStateKey]).toEqual({
-      resolvedDate: TODAY,
+      claimedUtcDate: TODAY_UTC,
       signedAt: YESTERDAY_MS,
     })
+  })
+
+  test('reports an already-claimed reward when the mission page says so', async () => {
+    const h = createSignInHarness({
+      html: '<html><body><a href="/mission/daily">领取今日的登录奖励</a></body></html>',
+      url: 'https://www.v2ex.com/',
+    })
+
+    const pending = runSignInIfNeeded(h.runtime)
+    await flushAsync()
+
+    h.respondMission(NO_REWARD_HTML)
+    await pending
+
+    expect(h.runtime.document.querySelector("a[href='/mission/daily']")?.textContent).toBe(
+      '今日签到奖励已领取',
+    )
+    expect(h.runtime.document.querySelector('.gm-sign-in-notice-ok')?.textContent).toBe(
+      '今日签到奖励已领取',
+    )
   })
 
   test('records nothing when the mission request fails, so the next page retries', async () => {
@@ -793,13 +871,13 @@ describe('auto sign-in', () => {
   test('menu command clears the day marker and signs in again', async () => {
     const h = createSignInHarness({
       html: '<html><body><p>a thread</p></body></html>',
-      store: { [signInStateKey]: { resolvedDate: TODAY, signedAt: TODAY_MS - 60_000 } },
+      store: { [signInStateKey]: { claimedUtcDate: TODAY_UTC, signedAt: TODAY_MS - 60_000 } },
     })
 
     registerSignInCommand(h.runtime)
-    expect(h.runtime.menuCommands.map((c) => c.name)).toContain('立即签到（清除今日记录后重试）')
+    expect(h.runtime.menuCommands.map((c) => c.name)).toContain('检查/重试今日签到')
 
-    h.runtime.runMenuCommand('立即签到（清除今日记录后重试）')
+    h.runtime.runMenuCommand('检查/重试今日签到')
     await flushAsync()
 
     expect(h.requests).toEqual(['https://www.v2ex.com/mission/daily'])
@@ -807,7 +885,10 @@ describe('auto sign-in', () => {
     h.respondMission(MISSION_HTML)
     await flushAsync()
 
-    expect(h.runtime.stores[signInStateKey]).toEqual({ resolvedDate: TODAY, signedAt: TODAY_MS })
+    expect(h.runtime.stores[signInStateKey]).toEqual({
+      claimedUtcDate: TODAY_UTC,
+      signedAt: TODAY_MS,
+    })
   })
 })
 
