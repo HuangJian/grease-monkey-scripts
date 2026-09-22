@@ -142,6 +142,13 @@ export type Source<T, Id extends string = string> = {
   readonly order?: number
   readonly getTabLabel?: ((data: T | null) => TabLabel) | undefined
   readonly dialogTitle?: string | VNode
+  /**
+   * Suppress the card-level error banner for a source that reports failures
+   * itself, per item. `rss` is the case: a paragraph of failed feed URLs stacked
+   * at the top of the card is worse than a marker on each broken feed. The
+   * cached error is still written and still drives the refresh backoff.
+   */
+  readonly hideCardError?: boolean
   readonly hideHeaderActions?: boolean
   readonly RenderHeader?: ComponentType<SourceHeaderProps<T>>
   readonly RenderComponent: ComponentType<SourceComponentProps<T>>

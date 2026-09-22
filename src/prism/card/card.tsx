@@ -97,7 +97,12 @@ export function RenderCard<T>({
   )
 
   return (
-    <Card header={header} error={cached?.error ?? ''}>
+    <Card
+      header={header}
+      // Some sources report failures per item instead of in one banner (see
+      // `Source.hideCardError`); the cached error itself is untouched.
+      error={source.hideCardError ? '' : (cached?.error ?? '')}
+    >
       <Comp data={data} root={root} runtime={runtime} showEditorDialog={showEditorDialog} />
     </Card>
   )

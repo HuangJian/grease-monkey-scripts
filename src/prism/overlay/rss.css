@@ -32,7 +32,36 @@
   font-weight: 600;
 }
 
+/**
+ * Tagged rows (timeline): append a trailing source-name column and put the
+ * actions **before** it. The actions are invisible until hover but still occupy
+ * their track, so with the old order the tag's right edge sat ~110px short of
+ * the row's right edge and read as "not right-aligned". Now the tag is the last
+ * track, flush right, and the buttons appear to its left on hover.
+ */
+.gm-sp-rss-items-tagged .gm-sp-list-item {
+  grid-template-columns: max-content minmax(90px, 1fr) auto minmax(0, 5.5rem);
+}
+
+/**
+ * Read-but-expanded rows: the shared rule keeps them at full opacity (you are
+ * reading them), which also hides the read state right after 「打开原文」 — the
+ * one moment the reader needs to see that something changed. The title carries
+ * the state instead.
+ */
+.gm-sp-rss-items .gm-sp-list-item-expanded.gm-sp-item-read .gm-sp-expandable-title {
+  color: var(--gm-sp-color-text-muted);
+}
+
 .gm-sp-rss-feed-tag {
+  /* Trailing column, right-aligned: every source name ends at the same x. */
+  grid-column: 4;
+  grid-row: 1;
+  justify-self: end;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 10px;
   padding: 0 4px;
   border-radius: var(--gm-sp-radius-pill);
@@ -47,30 +76,256 @@
   text-align: center;
 }
 
-.gm-sp-rss-feed {
+/**
+ * Timeline-only failure summary (see `FeedFailureNotice`), sitting in the view
+ * bar beside the date filter: the timeline is built from unread entries, so a
+ * feed that failed renders as nothing without it. No row of its own — collapsed
+ * it costs only its inline width. Opening it stacks the reasons under the bar;
+ * it stays in flow because several ancestors clip overflow, which would cut an
+ * absolutely positioned panel off.
+ */
+.gm-sp-rss-failures {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  border: 1px solid var(--gm-sp-color-border);
-  border-radius: var(--gm-sp-radius-md);
-  padding: 5px 6px 6px;
-  background: var(--gm-sp-color-bg);
+  align-items: flex-start;
   min-width: 0;
 }
 
+.gm-sp-rss-failures-toggle {
+  border: none;
+  background: none;
+  /* Sized to stay under the date-filter buttons' 20px, so the bar does not grow. */
+  padding: 1px 4px;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: nowrap;
+  color: var(--gm-sp-color-danger);
+  cursor: pointer;
+}
+
+.gm-sp-rss-failures-toggle:hover {
+  text-decoration: underline;
+}
+
+.gm-sp-rss-failures-list {
+  width: 100%;
+  max-width: 260px;
+  max-height: 120px;
+  overflow-y: auto;
+  margin: 2px 0 0;
+  padding: 4px 6px;
+  list-style: none;
+  border: 1px solid var(--gm-sp-color-danger-border);
+  border-radius: var(--gm-sp-radius-sm);
+  background: var(--gm-sp-color-danger-bg);
+}
+
+.gm-sp-rss-failures-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.gm-sp-rss-failures-list li + li {
+  border-top: 1px solid var(--gm-sp-color-danger-border);
+}
+
+.gm-sp-rss-failures-title {
+  color: var(--gm-sp-color-text);
+  white-space: nowrap;
+}
+
+.gm-sp-rss-failures-reason {
+  color: var(--gm-sp-color-danger);
+  word-break: break-all;
+}
+
+.gm-sp-rss-failures-retry {
+  margin-left: auto;
+  color: var(--gm-sp-color-text-soft);
+  white-space: nowrap;
+}
+
+/**
+ * One feed = one group, not one box: the card already has a border, so a
+ * bordered block here stacked rows inside a padded box. The list rows come from
+ * the shared `.gm-sp-list-item` with `margin: 0 -8px`, which used to push every
+ * row 2px past this block's rounded edge — the block is what made that visible.
+ */
+.gm-sp-rss-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-left: 2px solid var(--gm-sp-color-chip-border);
+  border-radius: 0 var(--gm-sp-radius-sm) var(--gm-sp-radius-sm) 0;
+  padding: 2px 0 2px 8px;
+  background: none;
+  min-width: 0;
+}
+
+/**
+ * Rows are a grid, not a stream.
+ *
+ * The shared markup puts time/title/extra inside `.gm-sp-expandable-row` and the
+ * hover actions in a sibling `.gm-sp-item-actions` that is absolutely positioned
+ * **on top of** the title. `display: contents` dissolves the row wrapper so all
+ * four become grid items of the `li` — no shared component change, no more
+ * overlap, and the source tag and the actions each get a fixed column whose
+ * position no longer depends on how long the title is.
+ *
+ * Columns: 时间(max-content) | 标题(≥90px，剩余空间) | 操作(auto) ｜ 源标签(时间线专属，见下)
+ *
+ * The time column is `max-content`, not a fixed width: `date-time` renders as
+ * `09-07 07:16` (~62px at 11px), which overflowed a hand-picked 46px and ran
+ * straight into the title. `max-content` fits the widest label and still keeps
+ * every row's time on the same vertical line.
+ *
+ * Careful: each row is its own grid, so `auto`/`max-content` columns are sized
+ * **per row**. Cross-row alignment therefore needs a fixed track — that is why
+ * the tag column below has an explicit width instead of being content-sized.
+ */
+.gm-sp-rss .gm-sp-list-item {
+  display: grid;
+  grid-template-columns: max-content minmax(90px, 1fr) auto;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  padding: 5px 4px;
+}
+
+.gm-sp-rss .gm-sp-expandable-row {
+  display: contents;
+  /* The row no longer has a box of its own, so the pointer lives on the cells. */
+  cursor: pointer;
+}
+
+/** Dashed separators read as noise once the rows are aligned. */
+.gm-sp-rss .gm-sp-list-item {
+  border-bottom: 1px solid var(--gm-sp-color-bg-muted);
+}
+
+.gm-sp-rss .gm-sp-expandable-time {
+  grid-column: 1;
+  grid-row: 1;
+  text-align: right;
+}
+
+.gm-sp-rss .gm-sp-expandable-title {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+/** Expanded body spans the whole row and lines up under the title column. */
+.gm-sp-rss .gm-sp-expandable-body {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  padding: 6px 0 2px 52px;
+}
+
+/**
+ * Actions become a real column instead of an overlay: always laid out (so the
+ * title never has to reserve space for them), only the ink fades in.
+ * `pointer-events` keeps an invisible button from being clickable.
+ */
+/**
+ * Actions live in column 3 in **both** templates: the base one ends with them,
+ * the tagged one has the source name after them.
+ *
+ * Every cell needs an explicit `grid-row: 1` — with auto rows, the row cursor is
+ * already past column 4 after placing the source tag, so an item with a definite
+ * column 3 gets pushed onto a second grid row, doubling the row height.
+ */
+.gm-sp-rss .gm-sp-item-actions {
+  grid-column: 3;
+  grid-row: 1;
+  position: static;
+  display: inline-flex;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s;
+}
+
+.gm-sp-rss .gm-sp-list-item:hover .gm-sp-item-actions,
+.gm-sp-rss .gm-sp-list-item:focus-within .gm-sp-item-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/**
+ * Title line: `▾ 源名  [刷新失败：…] [每 2 小时 · 下次 …]  N 条未读`.
+ *
+ * Everything secondary lives on this one line instead of stacking below it.
+ * `flex-wrap` + the title's `min-width: 6ch` mean a crowded line wraps the meta
+ * chips to a second row rather than truncating the source name to nothing.
+ */
 .gm-sp-rss-feed-header {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.gm-sp-rss-feed-toggle {
+  border: none;
+  background: none;
+  padding: 0 2px;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--gm-sp-color-text-muted);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.gm-sp-rss-feed-toggle:hover {
+  color: var(--gm-sp-color-text);
+}
+
+/** Sticky day headings; they only stick if the card body is the scroller. */
+/**
+ * The day label, in the view bar.
+ *
+ * It used to be a sticky row of its own above each day group: three groups cost
+ * three rows of vertical space every day to answer a question the reader only
+ * asks once ("am I still in 昨天?"). Now there is one label, showing whichever
+ * section is currently under the top edge, and the groups are separated by a
+ * hairline instead.
+ */
+.gm-sp-rss-day-now {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border: 1px solid var(--gm-sp-color-border);
+  border-radius: var(--gm-sp-radius-pill);
+  background: var(--gm-sp-color-bg);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--gm-sp-color-text-muted);
+  white-space: nowrap;
+}
+
+.gm-sp-rss-daygroup + .gm-sp-rss-daygroup {
+  border-top: 1px solid var(--gm-sp-color-border);
+}
+
+.gm-sp-rss-day-label {
+  font-weight: 600;
+  color: var(--gm-sp-color-text-secondary);
+}
+
+.gm-sp-rss-day-count {
+  font-variant-numeric: tabular-nums;
 }
 
 .gm-sp-rss-feed-title {
   font-weight: 600;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--gm-sp-color-text);
   text-decoration: none;
-  min-width: 0;
+  min-width: 6ch;
   flex: 1 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -97,14 +352,92 @@
   color: var(--gm-sp-color-text-muted);
 }
 
-.gm-sp-rss-feed-error {
+/**
+ * Secondary information for a feed (failure, next fetch). Inline on the title
+ * line — two independent 10–12px blocks below it were what made a feed read as
+ * a heap.
+ */
+.gm-sp-rss-feed-meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
   font-size: 11px;
+}
+
+/**
+ * Failure marker for one feed. The sentence itself lives in the tooltip: a row
+ * of red text per broken feed pushed the list around, and the card-level banner
+ * (suppressed via `Source.hideCardError`) turned a dozen failures into a wall.
+ */
+.gm-sp-rss-feed-warn {
+  flex: 0 0 auto;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--gm-sp-color-danger);
+  cursor: help;
+}
+
+/** Kept for the aggregated banner other surfaces may still render. */
+.gm-sp-rss-feed-error {
+  flex: 0 0 auto;
+  font-size: 11px;
+  white-space: nowrap;
   color: var(--gm-sp-color-danger);
 }
 
 .gm-sp-rss-feed-schedule {
-  font-size: 10px;
+  flex: 0 0 auto;
+  font-size: 11px;
+  white-space: nowrap;
   color: var(--gm-sp-color-text-muted);
+}
+
+/**
+ * A cluster's rows: nested inside the row that owns the toggle, indented and
+ * marked with a rule so they read as "these belong to that source", not as more
+ * entries of the merged day. Parent row is a grid, so claim the full width and
+ * the row after the toggle.
+ */
+.gm-sp-rss .gm-sp-rss-items-nested {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  margin-left: 52px;
+  padding-left: 6px;
+  border-left: 1px solid var(--gm-sp-color-border);
+}
+
+/**
+ * 「展开查看更多 N 个主题」/「收起 … 的主题」 — rendered inside the row it belongs
+ * to, so it must claim the full width and the grid row under it.
+ */
+.gm-sp-rss .gm-sp-rss-more-toggle {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  justify-self: start;
+  margin-left: 52px;
+}
+
+.gm-sp-rss-more-toggle {
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  font-size: 11px;
+  color: var(--gm-sp-color-primary);
+  cursor: pointer;
+}
+
+.gm-sp-rss-more-toggle:hover {
+  text-decoration: underline;
+}
+
+/** Match the pill-shaped view buttons next door instead of a square group. */
+.gm-sp-rss .gm-sp-date-filter {
+  border-radius: var(--gm-sp-radius-pill);
+}
+
+.gm-sp-rss .gm-sp-date-filter-btn {
+  border-right-color: var(--gm-sp-color-border);
 }
 
 .gm-sp-rss-toggle {
@@ -133,12 +466,21 @@
   color: var(--gm-sp-color-text-soft);
 }
 
+/**
+ * Summaries are stored up to 300 chars (MAX_SUMMARY_CHARS); showing all of them
+ * turns one expanded row into a wall of text. Three lines is enough to judge an
+ * entry — "打开原文" is right below for the rest.
+ */
 .gm-sp-rss-summary {
   margin: 0;
   font-size: 12px;
   line-height: 1.5;
   color: var(--gm-sp-color-text-secondary);
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
 }
 
 .gm-sp-rss-open {

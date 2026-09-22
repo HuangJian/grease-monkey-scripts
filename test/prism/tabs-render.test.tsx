@@ -18,6 +18,7 @@ function cached<T>(data: T | null, fetchedAt = 1_000_000, error = ''): CachedSou
 function makeSource(opts: {
   id: string
   title: string
+  hideCardError?: boolean
   render?: (container: HTMLElement, data: unknown) => void
   getTabLabel?: (data: any) => TabLabel
   createEditor?: () => (container: HTMLElement, ctx: { onRevert: () => void }) => void
@@ -31,6 +32,7 @@ function makeSource(opts: {
     id: opts.id,
     title: opts.title,
     ttlMs: 60_000,
+    hideCardError: opts.hideCardError === true,
     fetch: () => Promise.resolve(null as never),
     RenderComponent: (props: { data: unknown }) => {
       const ref = useRef<HTMLDivElement>(null)
@@ -311,6 +313,30 @@ describe('renderTabsCard', () => {
       activeTabId: 'novels',
     })
     expect(within(container).getByText('network error')).not.toBeNull()
+  })
+
+  test('hideCardError suppresses the banner inside a grouped card', () => {
+    // `rss` reports failures per feed; it is a `browse` tab, so this is the only
+    // card that ever renders it. Regression guard: the banner used to be
+    // suppressed only by `RenderCard`, which a grouped source never reaches.
+    const v2ex = makeSource({ id: 'v2ex', title: 'V2EX 热议' })
+    const rss = makeSource({ id: 'rss', title: 'RSS 阅读', hideCardError: true })
+    const group: CardGroup = browseGroup([v2ex, rss])
+    const caches = new Map<string, CachedSource<unknown> | null>([
+      ['v2ex', null],
+      ['rss', cached(null, 1, 'rss: all feeds failed: https://a/feed/: http 502')],
+    ])
+    const { container } = renderOnce({
+      runtime: createRuntime(),
+      root: document.createElement('div') as unknown as ShadowRoot,
+      group,
+      caches,
+      activeTabId: 'rss',
+    })
+    expect(container.querySelector('.gm-sp-card-error')).toBeNull()
+    expect(within(container).queryByText(/all feeds failed/)).toBeNull()
+    // The tab itself still renders.
+    expect(within(container).getByRole('tab', { selected: true }).textContent).toContain('RSS')
   })
 
   test('clicking edit opens dialog with editor; editor.onRevert fires onEdit', async () => {

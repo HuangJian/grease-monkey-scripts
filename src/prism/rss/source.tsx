@@ -37,7 +37,10 @@ export function createRssSource(options: RssSourceOptions): Source<RssFeed[], 'r
    * 30 days of retention, so hiding older unread entries by default would be a
    * surprising loss of content.
    */
-  const headerStore = createHeaderState<{ dateFilter: DateFilter }>({ dateFilter: '全' })
+  const headerStore = createHeaderState<{ dateFilter: DateFilter; filterUnread: boolean }>({
+    dateFilter: '全',
+    filterUnread: false,
+  })
 
   /**
    * The read-state store's TTL is derived from the retention window, but the
@@ -88,6 +91,10 @@ export function createRssSource(options: RssSourceOptions): Source<RssFeed[], 'r
   return {
     id: 'rss',
     title: 'RSS 阅读',
+    // Failures are reported per feed (a ⚠ on the broken block); the aggregated
+    // "all feeds failed" paragraph at the top of the card said nothing a reader
+    // could act on.
+    hideCardError: true,
     /**
      * The largest interval currently in play (see `effectiveMaxIntervalMs`).
      * Only used for the card's freshness badge — whether to refresh at all is
@@ -130,6 +137,10 @@ export function createRssSource(options: RssSourceOptions): Source<RssFeed[], 'r
           dateFilter={headerState.dateFilter}
           onDateFilterChange={(filter) => {
             headerStore.set((prev) => ({ ...prev, dateFilter: filter }))
+          }}
+          filterUnread={headerState.filterUnread}
+          onToggleFilterUnread={() => {
+            headerStore.set((prev) => ({ ...prev, filterUnread: !prev.filterUnread }))
           }}
           // The source owns the options, so it is the one that can turn a feed
           // into "every N minutes, next in M"; the card stays presentational.

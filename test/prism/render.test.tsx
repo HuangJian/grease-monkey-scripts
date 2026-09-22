@@ -120,6 +120,22 @@ describe('renderCard', () => {
     expect(within(container).getByText('boom')).not.toBeNull()
   })
 
+  test('hideCardError suppresses the banner for a source that reports per item', () => {
+    const container = renderCard({
+      source: { ...stubSource(), hideCardError: true },
+      cached: cached({ fetchedAt: 1, error: 'rss: all feeds failed: a: 403; b: 502' }),
+      ttlMs: 60_000,
+      now: 1_000_000,
+      runtime: createRuntime(),
+      root: document.createElement('div') as unknown as ShadowRoot,
+      onRefresh: () => Promise.resolve(),
+      onRevert: () => {},
+    })
+    expect(container.querySelector('.gm-sp-card-error')).toBeNull()
+    // The source still renders; only the banner is gone.
+    expect(within(container).getByText('Stub Source')).not.toBeNull()
+  })
+
   test('refresh button triggers onRefresh callback', () => {
     let refreshes = 0
     const container = renderCard({

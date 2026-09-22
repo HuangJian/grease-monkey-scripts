@@ -118,7 +118,13 @@ export function TabsCard({
   })
 
   return (
-    <Card header={header} error={activeCached?.error ?? ''}>
+    <Card
+      header={header}
+      // Same escape hatch as `RenderCard` (`Source.hideCardError`). It has to be
+      // repeated here because a grouped source never goes through `RenderCard`:
+      // `rss` lives in the `browse` tab group, so this is the card it renders in.
+      error={activeTab.hideCardError ? '' : (activeCached?.error ?? '')}
+    >
       <div>{panels}</div>
     </Card>
   )

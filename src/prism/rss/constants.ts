@@ -19,6 +19,14 @@ export const FOLD_THRESHOLD = 3
 export const TIMELINE_MAX_ITEMS = 100
 
 /**
+ * How many entries one source may contribute to a single day section of the
+ * timeline before it is collapsed to its newest entry — a firehose feed would
+ * otherwise bury everything else. Collapsing shows
+ * 「展开查看更多 N 个主题」（见 `component.tsx` 的 Timeline）。
+ */
+export const TIMELINE_HIGH_FREQUENCY = 3
+
+/**
  * Summary length kept per entry. Plain text only (plan D9): at 100 entries per
  * feed, storing sanitized HTML pushes the GM cache into megabytes.
  */

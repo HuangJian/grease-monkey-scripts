@@ -87,6 +87,12 @@ export type ExpandableListProps<T> = {
   renderBody: (item: T) => ComponentChildren
   /** Renders action buttons (bulk-read, hide) — typically `<ItemActions />`. */
   renderActions?: (item: T) => ComponentChildren
+  /**
+   * Renders extra content at the very end of a row's `<li>`, e.g. a per-source
+   * 「展开查看更多」 affordance that has to sit directly under the row it belongs
+   * to. Optional: sources that do not need it are unaffected.
+   */
+  renderAfter?: ((item: T) => ComponentChildren) | undefined
   /** Renders extra content in the row (e.g. reply/like stats for hot mode). */
   renderExtra?: ((item: T) => ComponentChildren) | undefined
   containerClassName: string
@@ -111,6 +117,7 @@ export function ExpandableList<T>({
   titleAttr,
   renderBody,
   renderActions,
+  renderAfter,
   renderExtra,
   containerClassName,
   emptyMessage = '暂无数据',
@@ -158,6 +165,7 @@ export function ExpandableList<T>({
               </span>
               {renderActions?.(item)}
               {expanded && <div class="gm-sp-expandable-body">{renderBody(item)}</div>}
+              {renderAfter?.(item)}
             </li>
           )
         })}
