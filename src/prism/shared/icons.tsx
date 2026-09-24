@@ -60,6 +60,23 @@ export function DeleteIcon() {
   )
 }
 
+/** Row reordering. Chevrons, not arrows: they read as "move one step". */
+export function ArrowUpIcon() {
+  return (
+    <Icon>
+      <path d="m4.5 15.75 7.5-7.5 7.5 7.5" />
+    </Icon>
+  )
+}
+
+export function ArrowDownIcon() {
+  return (
+    <Icon>
+      <path d="m4.5 8.25 7.5 7.5 7.5-7.5" />
+    </Icon>
+  )
+}
+
 export function ListIcon() {
   return (
     <Icon>

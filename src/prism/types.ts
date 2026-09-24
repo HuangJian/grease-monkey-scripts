@@ -39,10 +39,35 @@ export type SourceEditorContext = {
   close: () => void
 }
 
+/**
+ * How wide the editor dialog should be.
+ *
+ * Declared by the editor rather than derived from its content: the longest thing
+ * in these forms is a URL, and letting the content decide would push the panel
+ * past the edge of the screen. The dialog clamps the choice to the viewport, so
+ * a wide editor on a narrow screen degrades instead of overflowing.
+ */
+export const EDITOR_DIALOG_SIZES = {
+  sm: 420,
+  md: 520,
+  lg: 760,
+  xl: 1080,
+} as const
+
+export type EditorDialogSize = keyof typeof EDITOR_DIALOG_SIZES
+
 export type SourceEditorResult = {
   render: () => void
   save?: () => void | Promise<void>
   cancel?: () => void
+  /** Defaults to `md`. See `EDITOR_DIALOG_SIZES`. */
+  size?: EditorDialogSize
+  /**
+   * Whether the form holds edits that would be lost on close. Enables the
+   * dialog's unsaved-changes confirmation — discarding a hundred edited rows
+   * because the backdrop was clicked is not an acceptable default.
+   */
+  isDirty?: () => boolean
 }
 
 export type SourceEditor = (

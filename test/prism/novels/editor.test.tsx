@@ -52,6 +52,22 @@ async function mountEditor(
   return result
 }
 
+/**
+ * Books are collapsed by default — a fifty-title library is exactly why. Tests
+ * that inspect the sources have to open the book first.
+ */
+/** The source urls of the expanded books, in order. */
+function sourceUrls(container: HTMLElement): string[] {
+  return Array.from(container.querySelectorAll<HTMLInputElement>('[data-action="book-url"]')).map(
+    (input) => input.value,
+  )
+}
+
+async function expandAll(): Promise<void> {
+  root.querySelector<HTMLButtonElement>('[data-action="expand-all"]')!.click()
+  await new Promise((r) => setTimeout(r, 0))
+}
+
 describe('createNovelsEditor', () => {
   test('renders empty list when no books', async () => {
     await mountEditor([])
@@ -75,13 +91,16 @@ describe('createNovelsEditor', () => {
 
   test('shows unknown-site warning for unregistered hostnames', async () => {
     await mountEditor([{ title: '', urls: ['https://other.example/x/'] }])
-    const warn = within(root).getByText('未知站点') as HTMLElement
+    await expandAll()
+    // The status filter has an option with the same words — query the badge.
+    const warn = root.querySelector<HTMLElement>('.gm-sp-ne-item-warn')!
     expect(warn.hidden).toBe(false)
   })
 
   test('hides unknown-site warning for registered hostnames', async () => {
     await mountEditor([{ title: '', urls: ['https://www.sudugu.org/166/'] }])
-    const warn = within(root).getByText('未知站点') as HTMLElement
+    await expandAll()
+    const warn = root.querySelector<HTMLElement>('.gm-sp-ne-item-warn')!
     expect(warn.hidden).toBe(true)
   })
 
@@ -103,6 +122,7 @@ describe('createNovelsEditor', () => {
 
   test('appends a URL to an existing book with the same title', async () => {
     await mountEditor([{ title: '九龙', urls: ['https://www.sudugu.org/166/'] }])
+    await expandAll()
     const urlInput = within(root).getByPlaceholderText(
       'https://www.sudugu.org/166/',
     ) as HTMLInputElement
@@ -111,8 +131,12 @@ describe('createNovelsEditor', () => {
     urlInput.value = 'https://www.sudugu.org/12/'
     titleInput.value = '九龙'
     addBtn.click()
+    // Urls are editable inputs now, not text nodes.
     await waitFor(() => {
-      expect(within(root).queryAllByText('https://www.sudugu.org/12/').length).toBe(1)
+      expect(sourceUrls(root)).toEqual([
+        'https://www.sudugu.org/166/',
+        'https://www.sudugu.org/12/',
+      ])
     })
   })
 
@@ -154,17 +178,13 @@ describe('createNovelsEditor', () => {
     await mountEditor([
       { title: '', urls: ['https://www.sudugu.org/166/', 'https://www.sudugu.org/12/'] },
     ])
-    expect(within(root).queryAllByText('https://www.sudugu.org/12/').length).toBeGreaterThanOrEqual(
-      1,
-    )
+    await expandAll()
+    expect(sourceUrls(root)).toEqual(['https://www.sudugu.org/166/', 'https://www.sudugu.org/12/'])
     const removeBtns = within(root).getAllByRole('button', { name: 'remove' })
     // Order: [book-remove, url-remove, url-remove]; remove the last url.
     removeBtns[removeBtns.length - 1]!.click()
     await waitFor(() => {
-      expect(within(root).queryAllByText('https://www.sudugu.org/12/').length).toBe(0)
-      expect(
-        within(root).queryAllByText('https://www.sudugu.org/166/').length,
-      ).toBeGreaterThanOrEqual(1)
+      expect(sourceUrls(root)).toEqual(['https://www.sudugu.org/166/'])
     })
   })
 

@@ -2,6 +2,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { numberOrDefault } from '../../utils'
 import { loadConfigSection, validateConfig } from '../config'
 import { createEditorFactory } from '../editor-helpers/createEditorFactory'
+import { DeleteIcon } from '../shared/icons'
 import { saveConfigSection } from '../editor-helpers'
 import type { SourceEditorContext, SourceEditorResult } from '../types'
 import type { WeatherCity, WeatherSourceOptions } from './types'
@@ -167,7 +168,7 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
                 aria-label="remove"
                 onClick={() => removeCity(i)}
               >
-                ×
+                <DeleteIcon />
               </button>
             </div>
           ))

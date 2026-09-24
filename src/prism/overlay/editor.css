@@ -6,18 +6,66 @@
   align-items: center;
   justify-content: center;
   background: var(--gm-sp-color-editor-backdrop);
+  animation: gm-sp-editor-fade 0.14s ease-out;
 }
 
+/** Opening the dialog: a short fade plus a few pixels of lift, nothing more. */
+@keyframes gm-sp-editor-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes gm-sp-editor-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.995);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gm-sp-editor-dialog,
+  .gm-sp-editor-dialog-panel,
+  .gm-sp-item-move,
+  .gm-sp-item-remove,
+  .gm-sp-editor-item,
+  .gm-sp-ne-book-head {
+    animation: none;
+    transition: none;
+  }
+}
+
+/**
+ * Width is declared by the editor (`SourceEditorResult.size` →
+ * `--gm-sp-editor-dialog-w`) and clamped here, so a wide editor on a narrow
+ * screen degrades to the viewport instead of overflowing it.
+ *
+ * `dvh` for the height: `100vh` includes the mobile browser's toolbar, which
+ * put the 保存 / 取消 buttons off-screen.
+ */
 .gm-sp-editor-dialog-panel {
   background: var(--gm-sp-color-bg);
   border-radius: var(--gm-sp-radius-xl);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
-  width: 520px;
+  width: min(var(--gm-sp-editor-dialog-w, 520px), calc(100vw - 32px));
+  /* Second line of defence: if the width expression ever fails to parse, the
+     panel must still stay inside the viewport rather than stretch to fit a
+     hundred rows. */
   max-width: calc(100vw - 32px);
-  max-height: calc(100vh - 64px);
+  max-height: min(88dvh, calc(100vh - 64px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  animation: gm-sp-editor-panel-in 0.14s ease-out;
 }
 
 .gm-sp-editor-dialog-header {
@@ -42,10 +90,52 @@
   flex: 0 0 auto;
 }
 
+/**
+ * `min-height: 0` is what makes the body scroll instead of stretching the panel
+ * past `max-height` — a flex child defaults to `min-height: auto`, which lets a
+ * long list push the dialog off-screen.
+ */
 .gm-sp-editor-dialog-body {
   padding: 18px 20px 20px;
   overflow-y: auto;
   flex: 1 1 auto;
+  min-height: 0;
+}
+
+/** Unsaved-changes guard, shown in place of a native confirm(). */
+.gm-sp-editor-dialog-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--gm-sp-color-border);
+  background: var(--gm-sp-color-danger-bg);
+  color: var(--gm-sp-color-danger);
+  font-size: 12px;
+}
+
+.gm-sp-editor-dialog-confirm span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/**
+ * A long list's controls: stays put while the rows scroll under it, so the
+ * reader can change the query without scrolling back to the top.
+ */
+.gm-sp-editor-toolbar {
+  position: sticky;
+  top: -18px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+  margin: -18px 0 8px;
+  background: var(--gm-sp-color-bg);
+  border-bottom: 1px solid var(--gm-sp-color-border);
 }
 
 .gm-sp-editor {
@@ -54,17 +144,24 @@
   gap: 14px;
 }
 
+/**
+ * No inner scroll box of its own: a capped list inside a scrolling dialog gave
+ * two scrollbars and a five-row window onto a hundred rows. The dialog body is
+ * the single scroller now.
+ */
 .gm-sp-editor-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 200px;
-  overflow-y: auto;
 }
 
+/** Pick · expand · name/url · enabled · up · down · remove. */
 .gm-sp-editor-item {
+  transition:
+    border-color 0.12s ease,
+    background-color 0.12s ease;
   display: grid;
-  grid-template-columns: auto auto 1fr auto auto auto;
+  grid-template-columns: auto auto 1fr auto auto auto auto;
   align-items: center;
   gap: 8px 10px;
   font-size: 13px;
@@ -74,6 +171,129 @@
   padding: 6px 10px;
 }
 
+/** The editable url and title of one row, opened from the row's ▸ toggle. */
+/**
+ * The editable fields of one feed: 标题 and URL side by side rather than stacked.
+ * Both are one-line controls, so a full row each was a lot of vertical space for
+ * very little. `auto-fit` drops them back to one per row when the dialog is too
+ * narrow for two.
+ */
+.gm-sp-re-feed-detail {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 8px 12px;
+  padding-top: 6px;
+  margin-top: 2px;
+  border-top: 1px dashed var(--gm-sp-color-border);
+}
+
+/**
+ * The ▸/▾ is an indicator, not a control: the row it sits in is the click
+ * target. Clicking through keeps the whole row behaving as one thing.
+ */
+.gm-sp-re-feed-toggle {
+  pointer-events: none;
+  color: var(--gm-sp-color-text-muted);
+  font-size: 12px;
+  line-height: 1;
+  text-align: center;
+}
+
+/**
+ * An rss row: pick · marker · name · status · enabled · up · down · delete.
+ * The name column is `minmax(0, 1fr)` so a long title truncates instead of
+ * pushing the buttons out of the row.
+ */
+.gm-sp-editor-item.gm-sp-re-feed {
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto auto auto auto;
+}
+
+/**
+ * "最后更新 12 分钟前" / "⚠ 失败 3 次 · 已 2 小时未成功" — the fetch state of the
+ * feed, read from the cache. Failing takes the danger colour because it is the
+ * answer the reader is looking for when they open this dialog.
+ */
+.gm-sp-re-feed-status {
+  font-size: 11px;
+  color: var(--gm-sp-color-text-muted);
+  white-space: nowrap;
+}
+
+.gm-sp-re-feed-status[data-failed='true'] {
+  color: var(--gm-sp-color-danger);
+}
+
+/** The named cell of an rss row — the widest part, and therefore its toggle. */
+/** One size for every row checkbox, so the left edge of a list reads as a line. */
+.gm-sp-re-feed-pick input,
+.gm-sp-ne-book-pick input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.gm-sp-re-feed-pick,
+.gm-sp-ne-book-pick {
+  cursor: pointer;
+}
+
+.gm-sp-re-feed-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* Bulk delete, answered in place rather than with a native confirm(). */
+.gm-sp-editor-confirm-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--gm-sp-color-danger-border);
+  border-radius: var(--gm-sp-radius-md);
+  background: var(--gm-sp-color-danger-bg);
+  color: var(--gm-sp-color-danger);
+  font-size: 12px;
+}
+
+.gm-sp-editor-confirm-inline span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.gm-sp-toolbar-search {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.gm-sp-toolbar-status,
+.gm-sp-toolbar-selectall,
+.gm-sp-toolbar-pages {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--gm-sp-color-text-muted);
+  white-space: nowrap;
+}
+
+.gm-sp-toolbar-counter,
+.gm-sp-toolbar-selected {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--gm-sp-color-text-muted);
+  white-space: nowrap;
+}
+
+.gm-sp-btn-danger {
+  color: var(--gm-sp-color-danger);
+  border-color: var(--gm-sp-color-danger-border);
+}
+
 .gm-sp-editor-item-label {
   font-weight: 600;
   overflow: hidden;
@@ -81,18 +301,54 @@
   white-space: nowrap;
 }
 
+/**
+ * Row buttons: ↑ ↓ × as square icon buttons.
+ *
+ * They used to be bare glyphs (a grey "↑", a red "×") that read as decoration
+ * rather than as controls — nobody aims at a 10px character. One shape for all
+ * three, with the destructive one in red on hover.
+ */
+.gm-sp-item-move,
 .gm-sp-item-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  flex: 0 0 auto;
+  border: 1px solid var(--gm-sp-color-border-strong);
+  border-radius: var(--gm-sp-radius-sm);
+  background: var(--gm-sp-color-bg);
+  color: var(--gm-sp-color-btn-text);
   cursor: pointer;
-  background: transparent;
-  border: none;
-  color: var(--gm-sp-color-danger);
-  font-size: 16px;
-  line-height: 1;
-  padding: 0 4px;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.gm-sp-item-move svg,
+.gm-sp-item-remove svg {
+  width: 14px;
+  height: 14px;
+}
+
+.gm-sp-item-move:hover:not(:disabled) {
+  border-color: var(--gm-sp-color-primary);
+  color: var(--gm-sp-color-primary);
+  background: var(--gm-sp-color-bg-subtle);
+}
+
+.gm-sp-item-move:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .gm-sp-item-remove:hover {
-  color: var(--gm-sp-color-danger-dark);
+  border-color: var(--gm-sp-color-danger-border);
+  color: var(--gm-sp-color-danger);
+  background: var(--gm-sp-color-danger-bg);
 }
 
 .gm-sp-editor-form [data-action='add'] {
@@ -107,9 +363,18 @@
   padding-top: 12px;
 }
 
+/**
+ * Label + control.
+ *
+ * The label column is `minmax(72px, max-content)`, never a fraction: a `1fr`
+ * label column splits the row in half, so 「标题」 — two characters — claimed
+ * 344px and left the input the same width, with a field of empty space between
+ * them. `max-content` keeps long labels ("最小抓取间隔（分钟）") on one line while
+ * short ones sit at a common 72px edge.
+ */
 .gm-sp-editor-row {
   display: grid;
-  grid-template-columns: minmax(110px, 1fr) 1fr;
+  grid-template-columns: minmax(72px, max-content) minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   font-size: 13px;
@@ -302,9 +567,16 @@
   align-self: flex-start;
 }
 
+/**
+ * The settings at the top of a source editor.
+ *
+ * Three across instead of two: 优先级 / Badge 显示 / 列表视图 are all short
+ * controls, and a half-width column each left the third one alone on its own
+ * line. `auto-fit` folds them back to two or one on a narrow dialog.
+ */
 .gm-sp-editor-source-settings {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 8px 16px;
   padding-bottom: 12px;
 }

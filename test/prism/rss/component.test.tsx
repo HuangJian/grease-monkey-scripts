@@ -1006,6 +1006,28 @@ describe('timeline feed failures', () => {
     expect(within(root).getByText('30 分钟后重试')).not.toBeNull()
   })
 
+  test('the reasons open below the bar, not inside it, and link to each source', async () => {
+    const { root } = setup([feed('a', [item('a1')]), failedFeed()], {
+      runtime: clockedRuntime(),
+      viewMode: 'timeline',
+    })
+    const bar = root.querySelector('.gm-sp-rss-viewbar')!
+    // Right-aligned: the control is the last thing in the bar.
+    expect(bar.lastElementChild?.classList.contains('gm-sp-rss-failures')).toBe(true)
+
+    root.querySelector<HTMLButtonElement>('[data-action="toggle-feed-failures"]')!.click()
+    await waitFor(() => {
+      expect(root.querySelector('.gm-sp-rss-failures-list')).not.toBeNull()
+    })
+    // Growing the bar would drag the view buttons and the date filter down.
+    expect(bar.querySelector('.gm-sp-rss-failures-list')).toBeNull()
+    const link = root.querySelector<HTMLAnchorElement>('.gm-sp-rss-failures-title')!
+    expect(link.tagName).toBe('A')
+    expect(link.getAttribute('href')).toBe('https://example.com/b.xml')
+    expect(link.getAttribute('target')).toBe('_blank')
+    expect(link.textContent).toBe('源 b')
+  })
+
   test('two broken sources are counted, not listed inline', () => {
     const { root } = setup(
       [

@@ -172,16 +172,29 @@
   gap: 14px;
 }
 
-.gm-sp-ne-item-url {
-  color: var(--gm-sp-color-text-muted);
-  font-size: 11px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 200px;
+.gm-sp-ne-source-url {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
+/**
+ * An editable source url. It used to be a read-only span capped at 200px with an
+ * ellipsis — that cap is what kept the field 200px wide inside a 1024px row.
+ * `width: 100%` is required for the same reason: a grid cell sized
+ * `minmax(0, 1fr)` still hands the input its intrinsic width unless the input is
+ * told to fill the cell.
+ */
+.gm-sp-ne-item-url {
+  min-width: 0;
+  width: 100%;
+  font-size: 12px;
+}
+
+/** Never wraps: the source row has room, and a two-line badge lines nothing up. */
 .gm-sp-ne-item-warn {
+  white-space: nowrap;
   color: var(--gm-sp-color-danger);
   font-size: 10px;
   background: var(--gm-sp-color-stale-bg);
@@ -235,7 +248,14 @@
   text-decoration: underline;
 }
 
-/* Editor: grouped-by-book layout. */
+/**
+ * Editor: one block per book, collapsed to a summary line by default.
+ *
+ * Fifty books rendered fully open (title input + every source row) is what made
+ * this dialog unusable; the head is now the row and the sources appear under it
+ * only once the reader asks for them. The head stays a grid so the title, the
+ * count and the remove button line up across every block.
+ */
 .gm-sp-ne-book {
   display: flex;
   flex-direction: column;
@@ -246,20 +266,99 @@
   background: var(--gm-sp-color-bg);
 }
 
-.gm-sp-ne-book-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.gm-sp-ne-book-open {
+  border-color: var(--gm-sp-color-border-strong);
+  background: var(--gm-sp-color-bg-subtle);
 }
 
+/**
+ * The row is the click target (the ▸ is only an indicator), so it needs a real
+ * height and a hover state. `minmax(0, 1fr)` on the title keeps a long name from
+ * pushing the count and the × off the row.
+ */
+.gm-sp-ne-book-head {
+  display: grid;
+  grid-template-columns: auto 12px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  cursor: pointer;
+  border-radius: var(--gm-sp-radius-sm);
+}
+
+.gm-sp-ne-book-head:hover {
+  background: var(--gm-sp-color-bg-muted);
+}
+
+/** Everything under the head shares one left edge and one label column. */
+.gm-sp-ne-book-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  margin-top: 2px;
+  border-top: 1px dashed var(--gm-sp-color-border);
+}
+
+/**
+ * Book title. Uses the shared row grid so its input starts at the same x as the
+ * 来源 rows below it.
+ */
+.gm-sp-ne-book-detail .gm-sp-ne-book-title {
+  box-sizing: border-box;
+}
+
+/**
+ * A source row: url first (it gets the room), then status and the buttons.
+ * Two classes so it beats the shared `.gm-sp-editor-item` grid regardless of
+ * which stylesheet is bundled first.
+ */
+/**
+ * Url + badge in one cell, then the three buttons. The badge is part of the url
+ * cell so that hiding it cannot shift the buttons next to it.
+ */
+.gm-sp-editor-item.gm-sp-ne-source {
+  grid-template-columns: minmax(72px, max-content) minmax(0, 1fr) auto auto auto;
+  gap: 8px;
+  /* No side padding: the label column then starts at the same x as the row's
+     checkboxes above (both at the block's inner edge). */
+  padding: 6px 0;
+}
+
+/** Same 13px label as every other editor row. */
+.gm-sp-ne-source-label {
+  font-size: 13px;
+  color: var(--gm-sp-color-text);
+}
+
+.gm-sp-ne-book-pick {
+  display: inline-flex;
+  align-items: center;
+}
+
+/**
+ * Fills its row. `box-sizing: border-box` is what keeps it inside: `.gm-sp-input`
+ * is content-box, so `width: 100%` plus 8px+8px padding and a 1px border made the
+ * field 18px wider than the row it lives in.
+ */
 .gm-sp-ne-book-title {
-  flex: 1 1 auto;
+  box-sizing: border-box;
+  width: 100%;
   min-width: 0;
 }
 
-.gm-sp-ne-book-display {
+/** "2 个来源" — the one fact worth showing while the block is collapsed. */
+.gm-sp-ne-book-meta {
+  justify-self: end;
   font-size: 11px;
   color: var(--gm-sp-color-text-muted);
+  white-space: nowrap;
+}
+
+.gm-sp-ne-book-display {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gm-sp-color-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -280,32 +379,4 @@
 .gm-sp-ne-addurl .gm-sp-editor-btn {
   padding: 4px 12px;
   font-size: 12px;
-}
-
-.gm-sp-editor-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 1px 0;
-}
-
-.gm-sp-item-move {
-  background: transparent;
-  border: 1px solid var(--gm-sp-color-border);
-  border-radius: var(--gm-sp-radius-sm);
-  font: inherit;
-  font-size: 11px;
-  line-height: 1;
-  padding: 1px 5px;
-  cursor: pointer;
-  color: var(--gm-sp-color-text-soft);
-}
-
-.gm-sp-item-move:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-.gm-sp-item-move:hover:not(:disabled) {
-  background: var(--gm-sp-color-bg-muted);
 }

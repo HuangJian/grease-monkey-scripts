@@ -228,6 +228,9 @@ export function RssComponent({
    */
   const [activeDay, setActiveDay] = useState<ActiveDay | null>(null)
 
+  /** Whether the failure summary in the bar is expanded. */
+  const [failuresOpen, setFailuresOpen] = useState(false)
+
   /** Sources the last refresh could not read — only the timeline needs a summary. */
   const failed = feeds.filter((feed) => feed.error !== '')
 
@@ -268,12 +271,22 @@ export function RssComponent({
           Timeline-only: the merged list is built from unread entries, so a feed
           that failed renders as nothing there. It rides in this bar (no row of
           its own) because the grouped view already marks each broken feed with a
-          ⚠ beside its title.
+          ⚠ beside its title. Right-aligned, so it sits at the far end of the
+          bar instead of crowding the date filter.
         */}
         {mode === 'timeline' && failed.length > 0 ? (
-          <FeedFailureNotice feeds={failed} now={now} />
+          <FeedFailureToggle
+            feeds={failed}
+            open={failuresOpen}
+            onToggle={() => setFailuresOpen(!failuresOpen)}
+          />
         ) : null}
       </div>
+      {/* Outside the bar on purpose: inside it, the panel would change the bar's
+          height and move every control beside it. */}
+      {mode === 'timeline' && failuresOpen && failed.length > 0 ? (
+        <FeedFailurePanel feeds={failed} now={now} />
+      ) : null}
       {mode === 'grouped' ? (
         feeds.map((feed) => <FeedBlock key={feed.id} feed={feed} {...rowProps} />)
       ) : (
@@ -518,31 +531,36 @@ function useActiveDay(
   }, [container, groupsKey, onChange])
 }
 
+/** "30 分钟后重试" — "" when the feed is already due for another attempt. */
+function retryLabelOf(feed: RssFeed, now: number): string {
+  const retryInMs = feed.nextRetryAt === undefined ? 0 : feed.nextRetryAt - now
+  return retryInMs > 0 ? `${formatCountdownLabel(retryInMs)}重试` : ''
+}
+
 /**
- * The timeline's only trace of a failed source.
+ * The timeline's only trace of a failed source: one right-aligned control at the
+ * end of the view bar.
  *
- * The merged list is built from **unread entries**, so a feed that failed and
- * has nothing new contributes no rows at all — without this the timeline is
+ * The merged list is built from **unread entries**, so a feed that failed and has
+ * nothing new contributes no rows at all — without this the timeline is
  * indistinguishable from a healthy one. The grouped view marks each broken feed
  * with a ⚠ beside its title, so there this is redundant and not rendered.
  *
- * It rides in the view bar next to the date filter rather than taking a row
- * above the list: a permanent line of its own cost vertical space every day,
- * including the many days nothing is broken. Opening it drops the per-feed
- * reasons under the bar (in flow, not as an overlay — the card clips overflow).
+ * It rides in the bar rather than taking a row above the list: a permanent line
+ * of its own would cost vertical space every day, including the many days
+ * nothing is broken. The panel it opens is rendered *below* the bar
+ * (`FeedFailurePanel`), never inside it — growing the bar would drag the view
+ * buttons and the date filter down with it.
  */
-function FeedFailureNotice({ feeds, now }: { feeds: RssFeed[]; now: number }) {
-  const [open, setOpen] = useState(false)
-  /** "" when the feed is already due for another attempt. */
-  const retryOf = (feed: RssFeed): string => {
-    const retryInMs = feed.nextRetryAt === undefined ? 0 : feed.nextRetryAt - now
-    return retryInMs > 0 ? `${formatCountdownLabel(retryInMs)}重试` : ''
-  }
-  const detailOf = (feed: RssFeed): string => {
-    const retry = retryOf(feed)
-    return `${feed.title}：${feed.error}${retry ? `，${retry}` : ''}`
-  }
-
+function FeedFailureToggle({
+  feeds,
+  open,
+  onToggle,
+}: {
+  feeds: RssFeed[]
+  open: boolean
+  onToggle: () => void
+}) {
   return (
     <div class="gm-sp-rss-failures">
       <button
@@ -550,23 +568,43 @@ function FeedFailureNotice({ feeds, now }: { feeds: RssFeed[]; now: number }) {
         class="gm-sp-rss-failures-toggle"
         data-action="toggle-feed-failures"
         aria-expanded={open}
-        title={feeds.map(detailOf).join('\n')}
-        onClick={() => setOpen(!open)}
+        title={`${feeds.length} 个源刷新失败，点击查看`}
+        onClick={onToggle}
       >
         {`⚠ ${feeds.length} 个源刷新失败`}
       </button>
-      {open ? (
-        <ul class="gm-sp-rss-failures-list" data-action="feed-failures">
-          {feeds.map((feed) => (
-            <li key={feed.id}>
-              <span class="gm-sp-rss-failures-title">{feed.title}</span>
-              <span class="gm-sp-rss-failures-reason">{feed.error}</span>
-              {retryOf(feed) ? <span class="gm-sp-rss-failures-retry">{retryOf(feed)}</span> : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
     </div>
+  )
+}
+
+/**
+ * The reasons behind `FeedFailureToggle`, one row per source.
+ *
+ * Sits under the view bar (right-aligned, like the control it belongs to) so
+ * opening it pushes the list down and leaves the bar's other controls exactly
+ * where they were. Each source is a link: the reader has already seen the URL in
+ * the error text, so this takes them to it instead of making them copy it.
+ */
+function FeedFailurePanel({ feeds, now }: { feeds: RssFeed[]; now: number }) {
+  return (
+    <ul class="gm-sp-rss-failures-list" data-action="feed-failures">
+      {feeds.map((feed) => (
+        <li key={feed.id}>
+          <a
+            class="gm-sp-rss-failures-title"
+            href={escapeUrl(feed.url)}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {feed.title}
+          </a>
+          <span class="gm-sp-rss-failures-reason">{feed.error}</span>
+          {retryLabelOf(feed, now) ? (
+            <span class="gm-sp-rss-failures-retry">{retryLabelOf(feed, now)}</span>
+          ) : null}
+        </li>
+      ))}
+    </ul>
   )
 }
 

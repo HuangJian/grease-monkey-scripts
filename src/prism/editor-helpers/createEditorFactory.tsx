@@ -32,10 +32,17 @@ export function createEditorFactory<Fresh, FormProps extends EditorFormProps>(
     const extra = buildProps(fresh, ctx)
     const props = { ctx, handleRef, ...extra } as FormProps
     render(<FormComponent {...props} />, container)
+    const declared = handleRef.current?.size
     return {
       render: () => handleRef.current?.render?.(),
       save: () => handleRef.current?.save?.(),
       cancel: () => handleRef.current?.cancel?.(),
+      // Spread rather than assigned: `size` is optional under
+      // `exactOptionalPropertyTypes`, and a form that does not declare one must
+      // leave it absent so the dialog can fall back to the default width.
+      ...(declared ? { size: declared } : {}),
+      // A form that edits many rows also says whether closing would lose work.
+      isDirty: () => handleRef.current?.isDirty?.() ?? false,
     }
   }
 }

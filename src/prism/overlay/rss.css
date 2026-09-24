@@ -86,8 +86,9 @@
  */
 .gm-sp-rss-failures {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  /* Pushed to the far end of the view bar — it is a status, not a control the
+     reader reaches for, and it must not crowd the date filter. */
+  margin-left: auto;
   min-width: 0;
 }
 
@@ -107,12 +108,16 @@
   text-decoration: underline;
 }
 
+/**
+ * The panel: under the view bar, aligned with the control that opened it. Kept
+ * out of the bar so expanding it cannot move the buttons and the date filter.
+ */
 .gm-sp-rss-failures-list {
-  width: 100%;
-  max-width: 260px;
-  max-height: 120px;
+  width: fit-content;
+  max-width: 280px;
+  max-height: 140px;
   overflow-y: auto;
-  margin: 2px 0 0;
+  margin: 2px 0 4px auto;
   padding: 4px 6px;
   list-style: none;
   border: 1px solid var(--gm-sp-color-danger-border);
@@ -132,9 +137,16 @@
   border-top: 1px solid var(--gm-sp-color-danger-border);
 }
 
+/** A link: the error text already shows the URL, so let the reader follow it. */
 .gm-sp-rss-failures-title {
   color: var(--gm-sp-color-text);
   white-space: nowrap;
+  text-decoration: none;
+}
+
+.gm-sp-rss-failures-title:hover {
+  color: var(--gm-sp-color-primary);
+  text-decoration: underline;
 }
 
 .gm-sp-rss-failures-reason {
@@ -523,9 +535,64 @@
   cursor: pointer;
 }
 
+/**
+ * The per-feed enable switch.
+ *
+ * Still a real `<input type="checkbox">` (keyboard, screen readers and the
+ * bulk enable/disable actions all keep working) — only its appearance changes:
+ * a track with a knob that slides, which reads as a switch rather than as
+ * "this row is selected", next to the row's own selection checkbox.
+ */
 .gm-sp-re-feed-enabled input[type='checkbox'] {
+  appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 16px;
   margin: 0;
+  border: none;
+  border-radius: var(--gm-sp-radius-pill);
+  background: var(--gm-sp-color-border-strong);
   cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.gm-sp-re-feed-enabled input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--gm-sp-color-bg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.12s ease;
+}
+
+.gm-sp-re-feed-enabled input[type='checkbox']:checked {
+  background: var(--gm-sp-color-primary);
+}
+
+.gm-sp-re-feed-enabled input[type='checkbox']:checked::after {
+  transform: translateX(12px);
+}
+
+.gm-sp-re-feed-enabled input[type='checkbox']:focus-visible {
+  outline: 2px solid var(--gm-sp-color-primary);
+  outline-offset: 2px;
+}
+
+.gm-sp-re-feed-enabled input[type='checkbox']:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gm-sp-re-feed-enabled input[type='checkbox'],
+  .gm-sp-re-feed-enabled input[type='checkbox']::after {
+    transition: none;
+  }
 }
 
 .gm-sp-re-opml {

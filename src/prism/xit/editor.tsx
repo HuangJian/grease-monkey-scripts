@@ -133,6 +133,9 @@ export function createXitEditor(targetLine: number | null = null): SourceEditor 
       render: () => handleRef.current?.render?.(),
       save: () => handleRef.current?.save?.(),
       cancel: () => handleRef.current?.cancel?.(),
+      // The preview sits beside the editor, which is what used to be hardcoded
+      // as `panel.style.width = '1200px'` in the dialog.
+      size: 'xl',
     }
   }
 }
