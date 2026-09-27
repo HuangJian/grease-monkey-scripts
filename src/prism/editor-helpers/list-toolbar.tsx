@@ -17,9 +17,13 @@ export type EditorListToolbarProps<T extends string> = {
   query: string
   onQuery: (value: string) => void
   queryPlaceholder?: string
-  status: T
-  onStatus: (value: T) => void
-  statusOptions: ReadonlyArray<ToolbarOption<T>>
+  /**
+   * The status filter is optional: a list of board slugs has nothing to filter
+   * by state, while a list of feeds does. Omitting all three hides the select.
+   */
+  status?: T
+  onStatus?: ((value: T) => void) | undefined
+  statusOptions?: ReadonlyArray<ToolbarOption<T>> | undefined
   /** "共 100 · 命中 12" — the reader needs to know the filter is on. */
   counter: string
   page?: number
@@ -68,18 +72,20 @@ export function EditorListToolbar<T extends string>({
         value={query}
         onInput={(e) => onQuery((e.target as HTMLInputElement).value)}
       />
-      <select
-        class="gm-sp-input gm-sp-toolbar-status"
-        data-action="toolbar-status"
-        value={status}
-        onChange={(e) => onStatus((e.target as HTMLSelectElement).value as T)}
-      >
-        {statusOptions.map((option) => (
-          <option value={option.value} key={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+      {status !== undefined && onStatus && statusOptions ? (
+        <select
+          class="gm-sp-input gm-sp-toolbar-status"
+          data-action="toolbar-status"
+          value={status}
+          onChange={(e) => onStatus((e.target as HTMLSelectElement).value as T)}
+        >
+          {statusOptions.map((option) => (
+            <option value={option.value} key={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      ) : null}
       <span class="gm-sp-toolbar-counter" data-action="toolbar-counter">
         {counter}
       </span>

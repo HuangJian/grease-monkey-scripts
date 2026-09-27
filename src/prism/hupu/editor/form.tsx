@@ -9,12 +9,23 @@ import {
   fieldLabel,
   toFieldRule,
 } from '../../editor-helpers'
-import { SourceSettingsFields, ChipList } from '../../editor-ui'
+import { SourceSettingsFields } from '../../editor-ui'
+import { EditorListToolbar } from '../../editor-helpers/list-toolbar'
+import { useRowBrowser } from '../../editor-helpers/useRowBrowser'
+import { ArrowDownIcon, ArrowUpIcon, DeleteIcon } from '../../shared/icons'
 import type { SourceEditorContext, SourceEditorResult, SourceSettings } from '../../types'
 import { normalizeBoardSlug } from '../parser'
 import type { HupuSourceOptions } from '../types'
 import { loadFreshHupuOptions } from '../options'
 import { FORM_FIELDS } from './types'
+
+/** Boards per page — a few dozen at once is what made the old chip wall unreadable. */
+const BOARDS_PER_PAGE = 30
+
+/** Query matching is a module-level function so the hook's memo stays stable. */
+function matchesBoard(board: string, needle: string): boolean {
+  return board.toLowerCase().includes(needle)
+}
 
 type HupuEditorFormProps = {
   fresh: HupuSourceOptions
@@ -31,6 +42,58 @@ export function HupuEditorForm({ fresh, settings, ctx, handleRef }: HupuEditorFo
     fresh.boards.map(normalizeBoardSlug).filter((s) => s.length > 0),
   )
   const [error, setError] = useState('')
+  /** Unapplied renames, keyed by the board name they would replace. */
+  const [drafts, setDrafts] = useState<Record<string, string>>({})
+  const addRef = useRef<HTMLInputElement>(null)
+  const browser = useRowBrowser(boards, BOARDS_PER_PAGE, matchesBoard)
+  const selectedBoards = boards.filter((board) => browser.selected.has(board))
+
+  const moveBoard = useCallback((index: number, dir: -1 | 1) => {
+    setBoards((prev) => {
+      const target = index + dir
+      if (target < 0 || target >= prev.length) return prev
+      const next = [...prev]
+      ;[next[index], next[target]] = [next[target]!, next[index]!]
+      return next
+    })
+  }, [])
+
+  /** A rename is applied on blur: the name is the row's key. */
+  const commitRename = useCallback(
+    (oldBoard: string) => {
+      const draft = drafts[oldBoard]
+      if (draft === undefined) return
+      const next = normalizeBoardSlug(draft)
+      setDrafts((prev) => {
+        const { [oldBoard]: _dropped, ...rest } = prev
+        return rest
+      })
+      if (!next || next === oldBoard) return
+      if (boards.includes(next)) {
+        setError(`${next} 已在列表中`)
+        return
+      }
+      setError('')
+      setBoards((prev) => prev.map((b) => (b === oldBoard ? next : b)))
+      browser.renameKey(oldBoard, next)
+    },
+    [boards, drafts, browser],
+  )
+
+  const commitAdd = useCallback(() => {
+    const normalized = normalizeBoardSlug(addRef.current?.value ?? '')
+    if (!normalized) {
+      setError('请输入有效的版块标识')
+      return
+    }
+    if (boards.includes(normalized)) {
+      setError(`${normalized} 已在列表中`)
+      return
+    }
+    setError('')
+    setBoards((prev) => [...prev, normalized])
+    if (addRef.current) addRef.current.value = ''
+  }, [boards])
   const [advanced, setAdvanced] = useState<Record<string, number>>(() =>
     FORM_FIELDS.reduce(
       (out, f) => {
@@ -50,6 +113,8 @@ export function HupuEditorForm({ fresh, settings, ctx, handleRef }: HupuEditorFo
   useLayoutEffect(() => {
     handleRef.current = {
       render() {},
+      // Board lists grow to dozens; the toolbar and paging need room.
+      size: 'lg',
       save() {
         setError('')
         if (boards.length === 0) {
@@ -101,37 +166,169 @@ export function HupuEditorForm({ fresh, settings, ctx, handleRef }: HupuEditorFo
         badgeType={badgeType}
         onBadgeTypeChange={setBadgeType}
       />
-      <ChipList
-        sectionLabel="版块列表"
-        items={boards}
-        emptyMessage="尚未添加版块"
-        addInputPlaceholder="vote-hot 或 bxj"
-        onRemove={(i) => setBoards((prev) => prev.filter((_, j) => j !== i))}
-        onMoveUp={(i) => {
-          if (i <= 0) return
-          setBoards((prev) => {
-            const next = [...prev]
-            ;[next[i - 1], next[i]] = [next[i]!, next[i - 1]!]
-            return next
-          })
+      <EditorListToolbar
+        query={browser.query}
+        onQuery={browser.setQuery}
+        queryPlaceholder="搜索版块"
+        counter={
+          browser.visible.length === boards.length
+            ? `共 ${boards.length} 个版块`
+            : `共 ${boards.length} · 命中 ${browser.visible.length}`
+        }
+        page={browser.page}
+        pageCount={browser.pages}
+        onPage={browser.setPage}
+        selection={{
+          selectedCount: selectedBoards.length,
+          allSelected:
+            browser.visible.length > 0 && selectedBoards.length === browser.visible.length,
+          onSelectAll: (checked) =>
+            browser.setSelected(checked ? new Set(browser.visible) : new Set()),
+          actions: [
+            { label: '删除', action: 'bulk-remove', onClick: () => browser.setConfirmRemove(true) },
+          ],
         }}
-        onMoveDown={(i) => {
-          setBoards((prev) => {
-            if (i >= prev.length - 1) return prev
-            const next = [...prev]
-            ;[next[i], next[i + 1]] = [next[i + 1]!, next[i]!]
-            return next
-          })
-        }}
-        onAdd={(raw) => {
-          const normalized = normalizeBoardSlug(raw)
-          if (!normalized) return '请输入有效的版块标识'
-          if (boards.includes(normalized)) return `${normalized} 已在列表中`
-          setBoards((prev) => [...prev, normalized])
-          return null
-        }}
-        onError={setError}
       />
+
+      {browser.confirmRemove ? (
+        <div class="gm-sp-editor-confirm-inline" data-action="bulk-remove-guard">
+          <span>{`删除选中的 ${selectedBoards.length} 个版块？该操作不可撤销。`}</span>
+          <button
+            type="button"
+            class="gm-sp-editor-btn gm-sp-btn gm-sp-btn-danger"
+            data-action="bulk-remove-confirm"
+            onClick={() => {
+              setBoards((prev) => prev.filter((b) => !browser.selected.has(b)))
+              browser.setSelected(new Set())
+              browser.setConfirmRemove(false)
+            }}
+          >
+            删除
+          </button>
+          <button
+            type="button"
+            class="gm-sp-editor-btn gm-sp-btn"
+            onClick={() => browser.setConfirmRemove(false)}
+          >
+            取消
+          </button>
+        </div>
+      ) : null}
+
+      <div class="gm-sp-editor-list">
+        {browser.rows.length === 0 ? (
+          <div class="gm-sp-editor-empty">
+            {boards.length === 0 ? '尚未添加版块' : '没有符合条件的版块'}
+          </div>
+        ) : (
+          browser.rows.map((board) => {
+            const index = boards.indexOf(board)
+            const open = browser.expanded.has(board)
+            return (
+              <div
+                class={`gm-sp-editor-item gm-sp-hu-board${open ? ' gm-sp-hu-board-open' : ''}`}
+                key={board}
+                data-board={board}
+              >
+                <label class="gm-sp-hu-board-pick">
+                  <input
+                    type="checkbox"
+                    data-action="board-pick"
+                    checked={browser.selected.has(board)}
+                    onChange={() => browser.toggleSelected(board)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  class="gm-sp-re-feed-toggle"
+                  data-action="board-toggle"
+                  aria-expanded={open}
+                  title={open ? '收起' : '展开改名'}
+                  onClick={() => browser.toggleExpanded(board)}
+                >
+                  {open ? '▾' : '▸'}
+                </button>
+                <span
+                  class="gm-sp-hu-board-name"
+                  data-action="board-name"
+                  title={board}
+                  onClick={() => browser.toggleExpanded(board)}
+                >
+                  {board}
+                </span>
+                <button
+                  type="button"
+                  class="gm-sp-item-move"
+                  aria-label="move up"
+                  disabled={index <= 0}
+                  onClick={() => moveBoard(index, -1)}
+                >
+                  <ArrowUpIcon />
+                </button>
+                <button
+                  type="button"
+                  class="gm-sp-item-move"
+                  aria-label="move down"
+                  disabled={index >= boards.length - 1}
+                  onClick={() => moveBoard(index, 1)}
+                >
+                  <ArrowDownIcon />
+                </button>
+                <button
+                  type="button"
+                  class="gm-sp-item-remove"
+                  aria-label="remove"
+                  onClick={() => setBoards((prev) => prev.filter((_, j) => j !== index))}
+                >
+                  <DeleteIcon />
+                </button>
+                {open ? (
+                  <div class="gm-sp-hu-board-detail">
+                    <label class="gm-sp-editor-row">
+                      <span>版块</span>
+                      <input
+                        type="text"
+                        class="gm-sp-input"
+                        data-action="board-rename"
+                        value={drafts[board] ?? board}
+                        onInput={(e) =>
+                          setDrafts((prev) => ({
+                            ...prev,
+                            [board]: (e.target as HTMLInputElement).value,
+                          }))
+                        }
+                        onBlur={() => commitRename(board)}
+                      />
+                    </label>
+                  </div>
+                ) : null}
+              </div>
+            )
+          })
+        )}
+      </div>
+      <div class="gm-sp-editor-add-row">
+        <input
+          ref={addRef}
+          type="text"
+          class="gm-sp-input gm-sp-editor-input"
+          placeholder="vote-hot 或 bxj"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              commitAdd()
+            }
+          }}
+        />
+        <button
+          type="button"
+          class="gm-sp-btn gm-sp-editor-btn"
+          data-action="add-board"
+          onClick={commitAdd}
+        >
+          添加
+        </button>
+      </div>
       <div class="gm-sp-editor-form">
         {FORM_FIELDS.map((f, i) => (
           <label class="gm-sp-editor-row" key={f.prop}>

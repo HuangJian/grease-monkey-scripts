@@ -49,6 +49,8 @@ function MiscEditorForm({ fresh, settings, ctx, handleRef }: MiscEditorFormProps
   useLayoutEffect(() => {
     handleRef.current = {
       render() {},
+      // Three short fields.
+      size: 'sm',
       save() {
         setError('')
         const nums = readNumberFields([toFieldRule(ttlRef.current!, TTL_FIELD)], (msg) =>

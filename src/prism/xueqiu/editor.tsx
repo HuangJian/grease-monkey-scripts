@@ -72,6 +72,8 @@ function XueqiuEditorForm({ fresh, sourceId, settings, ctx, handleRef }: XueqiuE
   useLayoutEffect(() => {
     handleRef.current = {
       render() {},
+      // The API URL and the system prompt are the longest things here.
+      size: 'lg',
       save() {
         setError('')
         const ttlVal = ttlRef.current?.value

@@ -61,6 +61,8 @@ function V2exEditorForm({ fresh, settings, ctx, handleRef }: V2exEditorFormProps
   useLayoutEffect(() => {
     handleRef.current = {
       render() {},
+      // Five short numeric fields — nothing needs more than 420px.
+      size: 'sm',
       save() {
         setError('')
         const inputList = inputRefs.current.filter(Boolean) as HTMLInputElement[]

@@ -144,7 +144,8 @@ describe('createWeatherEditor', () => {
     lonInput.value = '116.4'
     cmaInput.value = '54511'
     within(container).getByRole('button', { name: '添加城市' }).click()
-    within(container).getByText('CMA 54511')
+    // The collapsed row shows the coordinates and the CMA id as one summary.
+    within(container).getByText(/CMA 54511/)
   })
 
   test('rejects malformed CMA station id with an error', async () => {

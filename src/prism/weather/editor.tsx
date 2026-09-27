@@ -2,7 +2,9 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { numberOrDefault } from '../../utils'
 import { loadConfigSection, validateConfig } from '../config'
 import { createEditorFactory } from '../editor-helpers/createEditorFactory'
-import { DeleteIcon } from '../shared/icons'
+import { ArrowDownIcon, ArrowUpIcon, DeleteIcon } from '../shared/icons'
+import { EditorListToolbar } from '../editor-helpers/list-toolbar'
+import { useRowBrowser } from '../editor-helpers/useRowBrowser'
 import { saveConfigSection } from '../editor-helpers'
 import type { SourceEditorContext, SourceEditorResult } from '../types'
 import type { WeatherCity, WeatherSourceOptions } from './types'
@@ -34,10 +36,24 @@ type WeatherEditorFormProps = {
   handleRef: { current: SourceEditorResult | null }
 }
 
+/** Cities per page — twenty rows of coordinates is where scrolling starts to hurt. */
+const CITIES_PER_PAGE = 20
+
+/** Module-level so the hook's memo dependency stays stable. */
+function matchesCity(city: { cityLabel: string }, needle: string): boolean {
+  return city.cityLabel.toLowerCase().includes(needle)
+}
+
 function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
   const [cities, setCities] = useState<WeatherCity[]>(() => fresh.cities.map((c) => ({ ...c })))
   const [ttlMinutes, setTtlMinutes] = useState(fresh.ttlMinutes)
   const [error, setError] = useState('')
+  /** Unapplied label renames, keyed by the label they would replace. */
+  const [drafts, setDrafts] = useState<Record<string, string>>({})
+  const browser = useRowBrowser(cities, CITIES_PER_PAGE, matchesCity)
+  const selectedCities = cities
+    .filter((city) => browser.selected.has(city.cityLabel))
+    .map((city) => city.cityLabel)
   const labelRef = useRef<HTMLInputElement>(null)
   const cmaRef = useRef<HTMLInputElement>(null)
   const latRef = useRef<HTMLInputElement>(null)
@@ -83,6 +99,10 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
     setCities((prev) => prev.filter((_, j) => j !== i))
   }, [])
 
+  const updateCity = useCallback((index: number, patch: Partial<WeatherCity>) => {
+    setCities((prev) => prev.map((c, j) => (j === index ? { ...c, ...patch } : c)))
+  }, [])
+
   const moveCityUp = useCallback((i: number) => {
     if (i <= 0) return
     setCities((prev) => {
@@ -91,6 +111,28 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
       return next
     })
   }, [])
+
+  /** The city label is the row's key, so a rename goes through the browser. */
+  const commitRename = useCallback(
+    (index: number, oldLabel: string) => {
+      const draft = drafts[oldLabel]
+      if (draft === undefined) return
+      const next = draft.trim()
+      setDrafts((prev) => {
+        const { [oldLabel]: _dropped, ...rest } = prev
+        return rest
+      })
+      if (!next || next === oldLabel) return
+      if (cities.some((c) => c.cityLabel === next)) {
+        setError(`城市「${next}」已在列表中`)
+        return
+      }
+      setError('')
+      updateCity(index, { cityLabel: next })
+      browser.renameKey(oldLabel, next)
+    },
+    [cities, drafts, browser, updateCity],
+  )
 
   const moveCityDown = useCallback((i: number) => {
     setCities((prev) => {
@@ -104,6 +146,8 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
   useLayoutEffect(() => {
     handleRef.current = {
       render() {},
+      // One row carries name, coordinates, CMA id and three actions.
+      size: 'lg',
       save() {
         setError('')
         if (cities.length === 0) {
@@ -133,45 +177,194 @@ function WeatherEditorForm({ fresh, ctx, handleRef }: WeatherEditorFormProps) {
       <div class="gm-sp-editor-error" hidden={!error}>
         {error}
       </div>
+      <EditorListToolbar
+        query={browser.query}
+        onQuery={browser.setQuery}
+        queryPlaceholder="搜索城市"
+        counter={
+          browser.visible.length === cities.length
+            ? `共 ${cities.length} 个城市`
+            : `共 ${cities.length} · 命中 ${browser.visible.length}`
+        }
+        page={browser.page}
+        pageCount={browser.pages}
+        onPage={browser.setPage}
+        selection={{
+          selectedCount: selectedCities.length,
+          allSelected:
+            browser.visible.length > 0 && selectedCities.length === browser.visible.length,
+          onSelectAll: (checked) =>
+            browser.setSelected(
+              checked ? new Set(browser.visible.map((c) => c.cityLabel)) : new Set(),
+            ),
+          actions: [
+            { label: '删除', action: 'bulk-remove', onClick: () => browser.setConfirmRemove(true) },
+          ],
+        }}
+      />
+
+      {browser.confirmRemove ? (
+        <div class="gm-sp-editor-confirm-inline" data-action="bulk-remove-guard">
+          <span>{`删除选中的 ${selectedCities.length} 个城市？该操作不可撤销。`}</span>
+          <button
+            type="button"
+            class="gm-sp-editor-btn gm-sp-btn gm-sp-btn-danger"
+            data-action="bulk-remove-confirm"
+            onClick={() => {
+              const gone = new Set(selectedCities)
+              setCities((prev) => prev.filter((c) => !gone.has(c.cityLabel)))
+              browser.setSelected(new Set())
+              browser.setConfirmRemove(false)
+            }}
+          >
+            删除
+          </button>
+          <button
+            type="button"
+            class="gm-sp-editor-btn gm-sp-btn"
+            onClick={() => browser.setConfirmRemove(false)}
+          >
+            取消
+          </button>
+        </div>
+      ) : null}
+
       <div class="gm-sp-editor-list">
-        {cities.length === 0 ? (
-          <div class="gm-sp-editor-empty">尚未添加城市</div>
+        {browser.rows.length === 0 ? (
+          <div class="gm-sp-editor-empty">
+            {cities.length === 0 ? '尚未添加城市' : '没有符合条件的城市'}
+          </div>
         ) : (
-          cities.map((city, i) => (
-            <div class="gm-sp-editor-item" key={i}>
-              <button
-                type="button"
-                class="gm-sp-editor-chip-move"
-                aria-label="move up"
-                disabled={i === 0}
-                onClick={() => moveCityUp(i)}
+          browser.rows.map((city) => {
+            const index = cities.indexOf(city)
+            const open = browser.expanded.has(city.cityLabel)
+            return (
+              <div
+                class={`gm-sp-editor-item gm-sp-we-city${open ? ' gm-sp-we-city-open' : ''}`}
+                key={city.cityLabel}
+                data-city={city.cityLabel}
               >
-                ▲
-              </button>
-              <button
-                type="button"
-                class="gm-sp-editor-chip-move"
-                aria-label="move down"
-                disabled={i === cities.length - 1}
-                onClick={() => moveCityDown(i)}
-              >
-                ▼
-              </button>
-              <span class="gm-sp-editor-item-label">{city.cityLabel}</span>
-              <span>
-                {city.latitude.toFixed(4)}, {city.longitude.toFixed(4)}
-              </span>
-              <span>{city.cmaStationId ? `CMA ${city.cmaStationId}` : ''}</span>
-              <button
-                type="button"
-                class="gm-sp-item-remove"
-                aria-label="remove"
-                onClick={() => removeCity(i)}
-              >
-                <DeleteIcon />
-              </button>
-            </div>
-          ))
+                <label class="gm-sp-we-city-pick">
+                  <input
+                    type="checkbox"
+                    data-action="city-pick"
+                    checked={browser.selected.has(city.cityLabel)}
+                    onChange={() => browser.toggleSelected(city.cityLabel)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  class="gm-sp-re-feed-toggle"
+                  data-action="city-toggle"
+                  aria-expanded={open}
+                  title={open ? '收起' : '展开编辑'}
+                  onClick={() => browser.toggleExpanded(city.cityLabel)}
+                >
+                  {open ? '▾' : '▸'}
+                </button>
+                <span
+                  class="gm-sp-we-city-name"
+                  data-action="city-name"
+                  title={city.cityLabel}
+                  onClick={() => browser.toggleExpanded(city.cityLabel)}
+                >
+                  {city.cityLabel}
+                </span>
+                <span class="gm-sp-we-city-meta">
+                  {city.latitude.toFixed(4)}, {city.longitude.toFixed(4)}
+                  {city.cmaStationId ? ` · CMA ${city.cmaStationId}` : ''}
+                </span>
+                <button
+                  type="button"
+                  class="gm-sp-item-move"
+                  aria-label="move up"
+                  disabled={index <= 0}
+                  onClick={() => moveCityUp(index)}
+                >
+                  <ArrowUpIcon />
+                </button>
+                <button
+                  type="button"
+                  class="gm-sp-item-move"
+                  aria-label="move down"
+                  disabled={index >= cities.length - 1}
+                  onClick={() => moveCityDown(index)}
+                >
+                  <ArrowDownIcon />
+                </button>
+                <button
+                  type="button"
+                  class="gm-sp-item-remove"
+                  aria-label="remove"
+                  onClick={() => removeCity(index)}
+                >
+                  <DeleteIcon />
+                </button>
+                {open ? (
+                  <div class="gm-sp-we-city-detail">
+                    <label class="gm-sp-editor-row">
+                      <span>城市名</span>
+                      <input
+                        type="text"
+                        class="gm-sp-input"
+                        data-action="city-rename"
+                        value={drafts[city.cityLabel] ?? city.cityLabel}
+                        onInput={(e) =>
+                          setDrafts((prev) => ({
+                            ...prev,
+                            [city.cityLabel]: (e.target as HTMLInputElement).value,
+                          }))
+                        }
+                        onBlur={() => commitRename(index, city.cityLabel)}
+                      />
+                    </label>
+                    <label class="gm-sp-editor-row">
+                      <span>CMA 站点 ID</span>
+                      <input
+                        type="text"
+                        inputmode="numeric"
+                        class="gm-sp-input"
+                        value={city.cmaStationId}
+                        onBlur={(e) =>
+                          updateCity(index, {
+                            cmaStationId: (e.target as HTMLInputElement).value.trim(),
+                          })
+                        }
+                      />
+                    </label>
+                    <label class="gm-sp-editor-row">
+                      <span>纬度</span>
+                      <input
+                        type="number"
+                        step="any"
+                        class="gm-sp-input"
+                        value={city.latitude}
+                        onBlur={(e) =>
+                          updateCity(index, {
+                            latitude: Number((e.target as HTMLInputElement).value),
+                          })
+                        }
+                      />
+                    </label>
+                    <label class="gm-sp-editor-row">
+                      <span>经度</span>
+                      <input
+                        type="number"
+                        step="any"
+                        class="gm-sp-input"
+                        value={city.longitude}
+                        onBlur={(e) =>
+                          updateCity(index, {
+                            longitude: Number((e.target as HTMLInputElement).value),
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
+                ) : null}
+              </div>
+            )
+          })
         )}
       </div>
       <div class="gm-sp-editor-form gm-sp-weather-editor-form">

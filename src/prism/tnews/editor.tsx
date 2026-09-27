@@ -40,6 +40,8 @@ function TnewsEditorForm({ fresh, settings, ctx, handleRef }: TnewsEditorFormPro
   useLayoutEffect(() => {
     handleRef.current = {
       render() {},
+      // Four short fields.
+      size: 'sm',
       save() {
         setError('')
         const nums = readNumberFields([toFieldRule(ttlRef.current!, TTL_FIELD)], (msg) =>

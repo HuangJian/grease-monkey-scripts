@@ -493,60 +493,6 @@
   gap: 6px;
 }
 
-.gm-sp-editor-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--gm-sp-color-chip-bg);
-  border: 1px solid var(--gm-sp-color-chip-border);
-  color: var(--gm-sp-color-chip-text);
-  border-radius: var(--gm-sp-radius-pill);
-  padding: 3px 4px 3px 10px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.gm-sp-editor-chip-label {
-  font-variant-numeric: tabular-nums;
-}
-
-.gm-sp-editor-chip-remove {
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  color: var(--gm-sp-color-chip-text);
-  font-size: 14px;
-  line-height: 1;
-  padding: 0 4px;
-  border-radius: var(--gm-sp-radius-pill);
-}
-
-.gm-sp-editor-chip-remove:hover {
-  background: var(--gm-sp-color-chip-text);
-  color: var(--gm-sp-color-bg);
-}
-
-.gm-sp-editor-chip-move {
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  color: var(--gm-sp-color-text-muted);
-  font-size: 10px;
-  line-height: 1;
-  padding: 0 2px;
-  border-radius: var(--gm-sp-radius-xs);
-}
-
-.gm-sp-editor-chip-move:hover:not(:disabled) {
-  background: var(--gm-sp-color-border);
-  color: var(--gm-sp-color-text);
-}
-
-.gm-sp-editor-chip-move:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-
 .gm-sp-editor-form-stacked,
 .gm-sp-editor-advanced {
   display: flex;

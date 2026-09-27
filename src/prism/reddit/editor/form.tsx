@@ -9,12 +9,23 @@ import {
   fieldLabel,
   toFieldRule,
 } from '../../editor-helpers'
-import { SourceSettingsFields, ChipList } from '../../editor-ui'
+import { SourceSettingsFields } from '../../editor-ui'
+import { EditorListToolbar } from '../../editor-helpers/list-toolbar'
+import { useRowBrowser } from '../../editor-helpers/useRowBrowser'
+import { ArrowDownIcon, ArrowUpIcon, DeleteIcon } from '../../shared/icons'
 import type { SourceEditorContext, SourceEditorResult, SourceSettings } from '../../types'
 import { normalizeSubredditName } from '../parser'
 import type { RedditSourceOptions } from '../types'
 import { loadFreshRedditOptions } from '../options'
 import { FORM_FIELDS } from './types'
+
+/** Subscriptions per page — a few dozen at once is what made the chip wall unreadable. */
+const SUBS_PER_PAGE = 30
+
+/** Module-level so the hook's memo dependency stays stable. */
+function matchesSub(sub: string, needle: string): boolean {
+  return sub.toLowerCase().includes(needle)
+}
 
 type RedditEditorFormProps = {
   fresh: RedditSourceOptions
@@ -28,6 +39,58 @@ export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEdit
     fresh.subreddits.map(normalizeSubredditName).filter((s) => s.length > 0),
   )
   const [error, setError] = useState('')
+  /** Unapplied renames, keyed by the subreddit they would replace. */
+  const [drafts, setDrafts] = useState<Record<string, string>>({})
+  const addRef = useRef<HTMLInputElement>(null)
+  const browser = useRowBrowser(subs, SUBS_PER_PAGE, matchesSub)
+  const selectedSubs = subs.filter((sub) => browser.selected.has(sub))
+
+  const moveSub = useCallback((index: number, dir: -1 | 1) => {
+    setSubs((prev) => {
+      const target = index + dir
+      if (target < 0 || target >= prev.length) return prev
+      const next = [...prev]
+      ;[next[index], next[target]] = [next[target]!, next[index]!]
+      return next
+    })
+  }, [])
+
+  /** A rename is applied on blur: the name is the row's key. */
+  const commitRename = useCallback(
+    (oldSub: string) => {
+      const draft = drafts[oldSub]
+      if (draft === undefined) return
+      const next = normalizeSubredditName(draft)
+      setDrafts((prev) => {
+        const { [oldSub]: _dropped, ...rest } = prev
+        return rest
+      })
+      if (!next || next === oldSub) return
+      if (subs.includes(next)) {
+        setError(`r/${next} 已在列表中`)
+        return
+      }
+      setError('')
+      setSubs((prev) => prev.map((sub) => (sub === oldSub ? next : sub)))
+      browser.renameKey(oldSub, next)
+    },
+    [subs, drafts, browser],
+  )
+
+  const commitAdd = useCallback(() => {
+    const normalized = normalizeSubredditName(addRef.current?.value ?? '')
+    if (!normalized) {
+      setError('请输入有效的 subreddit 名称')
+      return
+    }
+    if (subs.includes(normalized)) {
+      setError(`r/${normalized} 已在列表中`)
+      return
+    }
+    setError('')
+    setSubs((prev) => [...prev, normalized])
+    if (addRef.current) addRef.current.value = ''
+  }, [subs])
   const [advanced, setAdvanced] = useState<Record<string, number>>(() =>
     FORM_FIELDS.reduce(
       (out, f) => {
@@ -50,6 +113,8 @@ export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEdit
   useLayoutEffect(() => {
     handleRef.current = {
       render() {},
+      // Subreddit lists grow to dozens; the toolbar and paging need room.
+      size: 'lg',
       save() {
         setError('')
         if (subs.length === 0) {
@@ -99,38 +164,168 @@ export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEdit
         badgeType={badgeType}
         onBadgeTypeChange={setBadgeType}
       />
-      <ChipList
-        sectionLabel="Subreddit 列表"
-        items={subs}
-        emptyMessage="尚未添加 subreddit"
-        addInputPlaceholder="r/funny 或 funny"
-        renderLabel={(name) => `r/${name}`}
-        onRemove={(i) => setSubs((prev) => prev.filter((_, j) => j !== i))}
-        onMoveUp={(i) => {
-          if (i <= 0) return
-          setSubs((prev) => {
-            const next = [...prev]
-            ;[next[i - 1], next[i]] = [next[i]!, next[i - 1]!]
-            return next
-          })
+      <EditorListToolbar
+        query={browser.query}
+        onQuery={browser.setQuery}
+        queryPlaceholder="搜索 subreddit"
+        counter={
+          browser.visible.length === subs.length
+            ? `共 ${subs.length} 个订阅`
+            : `共 ${subs.length} · 命中 ${browser.visible.length}`
+        }
+        page={browser.page}
+        pageCount={browser.pages}
+        onPage={browser.setPage}
+        selection={{
+          selectedCount: selectedSubs.length,
+          allSelected: browser.visible.length > 0 && selectedSubs.length === browser.visible.length,
+          onSelectAll: (checked) =>
+            browser.setSelected(checked ? new Set(browser.visible) : new Set()),
+          actions: [
+            { label: '删除', action: 'bulk-remove', onClick: () => browser.setConfirmRemove(true) },
+          ],
         }}
-        onMoveDown={(i) => {
-          setSubs((prev) => {
-            if (i >= prev.length - 1) return prev
-            const next = [...prev]
-            ;[next[i], next[i + 1]] = [next[i + 1]!, next[i]!]
-            return next
-          })
-        }}
-        onAdd={(raw) => {
-          const normalized = normalizeSubredditName(raw)
-          if (!normalized) return '请输入有效的 subreddit 名称'
-          if (subs.includes(normalized)) return `r/${normalized} 已在列表中`
-          setSubs((prev) => [...prev, normalized])
-          return null
-        }}
-        onError={setError}
       />
+
+      {browser.confirmRemove ? (
+        <div class="gm-sp-editor-confirm-inline" data-action="bulk-remove-guard">
+          <span>{`删除选中的 ${selectedSubs.length} 个订阅？该操作不可撤销。`}</span>
+          <button
+            type="button"
+            class="gm-sp-editor-btn gm-sp-btn gm-sp-btn-danger"
+            data-action="bulk-remove-confirm"
+            onClick={() => {
+              setSubs((prev) => prev.filter((sub) => !browser.selected.has(sub)))
+              browser.setSelected(new Set())
+              browser.setConfirmRemove(false)
+            }}
+          >
+            删除
+          </button>
+          <button
+            type="button"
+            class="gm-sp-editor-btn gm-sp-btn"
+            onClick={() => browser.setConfirmRemove(false)}
+          >
+            取消
+          </button>
+        </div>
+      ) : null}
+
+      <div class="gm-sp-editor-list">
+        {browser.rows.length === 0 ? (
+          <div class="gm-sp-editor-empty">
+            {subs.length === 0 ? '尚未添加 subreddit' : '没有符合条件的订阅'}
+          </div>
+        ) : (
+          browser.rows.map((sub) => {
+            const index = subs.indexOf(sub)
+            const open = browser.expanded.has(sub)
+            return (
+              <div
+                class={`gm-sp-editor-item gm-sp-re-row${open ? ' gm-sp-re-row-open' : ''}`}
+                key={sub}
+                data-sub={sub}
+              >
+                <label class="gm-sp-re-row-pick">
+                  <input
+                    type="checkbox"
+                    data-action="sub-pick"
+                    checked={browser.selected.has(sub)}
+                    onChange={() => browser.toggleSelected(sub)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  class="gm-sp-re-feed-toggle"
+                  data-action="sub-toggle"
+                  aria-expanded={open}
+                  title={open ? '收起' : '展开改名'}
+                  onClick={() => browser.toggleExpanded(sub)}
+                >
+                  {open ? '▾' : '▸'}
+                </button>
+                <span
+                  class="gm-sp-re-row-name"
+                  data-action="sub-name"
+                  title={`r/${sub}`}
+                  onClick={() => browser.toggleExpanded(sub)}
+                >
+                  r/{sub}
+                </span>
+                <button
+                  type="button"
+                  class="gm-sp-item-move"
+                  aria-label="move up"
+                  disabled={index <= 0}
+                  onClick={() => moveSub(index, -1)}
+                >
+                  <ArrowUpIcon />
+                </button>
+                <button
+                  type="button"
+                  class="gm-sp-item-move"
+                  aria-label="move down"
+                  disabled={index >= subs.length - 1}
+                  onClick={() => moveSub(index, 1)}
+                >
+                  <ArrowDownIcon />
+                </button>
+                <button
+                  type="button"
+                  class="gm-sp-item-remove"
+                  aria-label="remove"
+                  onClick={() => setSubs((prev) => prev.filter((_, j) => j !== index))}
+                >
+                  <DeleteIcon />
+                </button>
+                {open ? (
+                  <div class="gm-sp-re-row-detail">
+                    <label class="gm-sp-editor-row">
+                      <span>Subreddit</span>
+                      <input
+                        type="text"
+                        class="gm-sp-input"
+                        data-action="sub-rename"
+                        value={drafts[sub] ?? sub}
+                        onInput={(e) =>
+                          setDrafts((prev) => ({
+                            ...prev,
+                            [sub]: (e.target as HTMLInputElement).value,
+                          }))
+                        }
+                        onBlur={() => commitRename(sub)}
+                      />
+                    </label>
+                  </div>
+                ) : null}
+              </div>
+            )
+          })
+        )}
+      </div>
+      <div class="gm-sp-editor-add-row">
+        <input
+          ref={addRef}
+          type="text"
+          class="gm-sp-input gm-sp-editor-input"
+          placeholder="r/funny 或 funny"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              commitAdd()
+            }
+          }}
+        />
+        <button
+          type="button"
+          class="gm-sp-btn gm-sp-editor-btn"
+          data-action="add-sub"
+          onClick={commitAdd}
+        >
+          添加
+        </button>
+      </div>
       <div class="gm-sp-editor-form">
         {FORM_FIELDS.map((f, i) => (
           <label class="gm-sp-editor-row" key={f.prop}>
