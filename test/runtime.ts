@@ -1,4 +1,5 @@
 import type { Runtime, ValueChangeListener } from '../src/runtime'
+import { describeBody } from '../src/runtime'
 import { Window } from 'happy-dom'
 
 // Make Preact state updates synchronous in tests
@@ -248,15 +249,27 @@ export function createRuntime(dom?: Window): TestRuntime {
       return id
     },
     addElement: (_parentNode, _tagName, _attributes) => document.createElement(_tagName),
+    // Mirrors the browser runtime: read the body, then parse — so a queued
+    // HTML body (WAF challenge page) surfaces the same diagnostic error here.
     pageFetch: async (url) => {
       const r = responses.get(url)
       if (!r) throw new Error(`pageFetch: no queued response for ${url}`)
       if (r.status !== 200) {
         throw new Error(
-          `pageFetch HTTP ${r.status} for ${url}\n  body[:300]: ${r.text.slice(0, 300)}`,
+          `pageFetch HTTP ${r.status} for ${url}\n  body[:300]: ${describeBody(r.text)}`,
         )
       }
-      return JSON.parse(r.text)
+      try {
+        return JSON.parse(r.text)
+      } catch (e) {
+        throw new Error(
+          `pageFetch 返回非 JSON（疑似风控/验证页）for ${url}\n` +
+            `  原始错误: ${(e as Error).message}\n` +
+            `  content-type: -\n` +
+            `  body[:200]: ${describeBody(r.text, 200)}`,
+          { cause: e },
+        )
+      }
     },
     openTab: () => {},
     now: () => (clock === null ? Date.now() : clock),

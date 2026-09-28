@@ -80,7 +80,13 @@ function gmFetchJson(runtime: Runtime, url: string): Promise<ApiResponse> {
     try {
       return JSON.parse(res.text) as ApiResponse
     } catch (e) {
-      throw new Error(`JSON parse failed for ${url}: ${(e as Error).message}`, { cause: e })
+      // Same WAF case as pageFetch: 200 + HTML instead of JSON. Include a body
+      // preview so the card error says *what* came back, not just "bad token".
+      const preview = res.text.slice(0, 200).replace(/\s+/g, ' ')
+      throw new Error(
+        `JSON parse failed for ${url}: ${(e as Error).message}\n  body[:200]: ${preview}`,
+        { cause: e },
+      )
     }
   })
 }
@@ -201,10 +207,21 @@ async function fetchSource(
 
 // ---- Public API ----
 
+export type XueqiuFetchResult = XueqiuRenderData & {
+  /**
+   * Error from the HOT endpoint when NEWS succeeded. Empty when both succeeded.
+   *
+   * HOT sits behind the WAF and can answer 200 with an HTML challenge page,
+   * which is a *partial* failure: the NEWS items already fetched are still
+   * valid and must reach the cache.
+   */
+  hotError: string
+}
+
 export async function fetchXueqiu(
   runtime: Runtime,
   _options: XueqiuSourceOptions,
-): Promise<XueqiuRenderData> {
+): Promise<XueqiuFetchResult> {
   const cached = await loadCache<XueqiuRenderData>(runtime, 'xueqiu-news')
   const newsKnownIds = new Set<number>()
   const hotKnownIds = new Set<number>()
@@ -213,8 +230,23 @@ export async function fetchXueqiu(
     cached.data.hotPosts.forEach((item) => hotKnownIds.add(item.id))
   }
 
+  // NEWS is fatal: it is the primary feed, and a failure there means there is
+  // nothing new to show (the source-level backoff in app/refresh.ts should
+  // then apply).
   const news = await fetchSource(runtime, 'news', newsKnownIds)
-  const hotPosts = await fetchSource(runtime, 'hot', hotKnownIds)
 
-  return { news, hotPosts }
+  // HOT is best-effort. It used to share the same `await` chain, so a WAF
+  // challenge page there rejected `fetchXueqiu` as a whole and discarded the
+  // NEWS batch with it — the cache then never advanced past the last good run
+  // (observed: feed frozen for 7 days while the tab still showed 1000+ unread).
+  let hotPosts: XueqiuNewsItem[] = []
+  let hotError = ''
+  try {
+    hotPosts = await fetchSource(runtime, 'hot', hotKnownIds)
+  } catch (e) {
+    hotError = e instanceof Error ? e.message : String(e)
+    console.warn(`[gm-xueqiu] hot fetch failed (news kept): ${hotError}`)
+  }
+
+  return { news, hotPosts, hotError }
 }

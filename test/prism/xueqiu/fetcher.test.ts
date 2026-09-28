@@ -276,6 +276,57 @@ describe('xueqiu fetchXueqiu (direct API)', () => {
     await expect(fetchXueqiu(runtime, { ttlMinutes: 60, retentionDays: 7 })).rejects.toThrow()
   })
 
+  test('bugfix: WAF challenge page on HOT must not discard the NEWS batch', async () => {
+    const runtime = createRuntime()
+
+    // NEWS is healthy and returns two items.
+    runtime.queueResponse(
+      'https://xueqiu.com/statuses/livenews/list.json',
+      JSON.stringify({
+        items: [
+          makeApiItem(101, { text: 'News 1', created_at: 1000, target: '/status/101' }),
+          makeApiItem(102, { text: 'News 2', created_at: 2000, target: '/status/102' }),
+        ],
+        next_max_id: null,
+      }),
+    )
+
+    // HOT is behind the WAF: 200 with an HTML challenge page (real body starts
+    // with a <textarea>), so res.json()/JSON.parse throws.
+    const wafPage = '<textarea style="display:none">...challenge...</textarea>\n<html></html>'
+    runtime.queueResponse('https://xueqiu.com/statuses/hot/listV3.json?page=1', wafPage)
+
+    const { fetchXueqiu } = await import('../../../src/prism/xueqiu/fetcher')
+    const result = await fetchXueqiu(runtime, { ttlMinutes: 60, retentionDays: 7 })
+
+    // Before this fix the HOT throw propagated out of fetchXueqiu and the two
+    // NEWS items were dropped with it — the cache then never moved forward
+    // (feed frozen for 7 days while the tab still advertised 1000+ unread).
+    expect(result.news).toHaveLength(2)
+    expect(result.news.map((it) => it.id)).toEqual([101, 102])
+    expect(result.hotPosts).toHaveLength(0)
+    // The failure is still reported, just not fatally.
+    expect(result.hotError).toContain('非 JSON')
+    expect(result.hotError).toContain('<textarea')
+  })
+
+  test('hotError is empty when both endpoints succeed', async () => {
+    const runtime = createRuntime()
+
+    runtime.queueResponse(
+      'https://xueqiu.com/statuses/livenews/list.json',
+      JSON.stringify({ items: [], next_max_id: null }),
+    )
+    runtime.queueResponse(
+      'https://xueqiu.com/statuses/hot/listV3.json?page=1',
+      JSON.stringify({ list: [], has_next_page: false }),
+    )
+
+    const { fetchXueqiu } = await import('../../../src/prism/xueqiu/fetcher')
+    const result = await fetchXueqiu(runtime, { ttlMinutes: 60, retentionDays: 7 })
+    expect(result.hotError).toBe('')
+  })
+
   test('skips already-known items from cache', async () => {
     const runtime = createRuntime()
     const { saveCache } = await import('../../../src/prism/cache')
@@ -463,6 +514,94 @@ describe('xueqiu hotSource fetch', () => {
     // fetch itself never writes to the xueqiu-hot key (only refreshSource does)
     const hotCache = await loadCache<XueqiuRenderData>(runtime, 'xueqiu-hot')
     expect(hotCache?.data?.hotPosts ?? []).toHaveLength(0)
+  })
+})
+
+describe('xueqiu partial hot failure (WAF)', () => {
+  async function withXueqiuHost<T>(fn: () => Promise<T>): Promise<T> {
+    const originalHref = globalThis.location.href
+    globalThis.location.href = 'https://xueqiu.com/'
+    try {
+      return await fn()
+    } finally {
+      globalThis.location.href = originalHref
+    }
+  }
+
+  test('bugfix: mainSource.fetch persists news even when hot is blocked', async () => {
+    await withXueqiuHost(async () => {
+      const runtime = createRuntime()
+      const { loadCache } = await import('../../../src/prism/cache')
+      const { XUEQIU_HOT_ERROR_KEY } = await import('../../../src/prism/keys')
+      const { createXueqiuSources } = await import('../../../src/prism/xueqiu/source')
+
+      runtime.queueResponse(
+        'https://xueqiu.com/statuses/livenews/list.json',
+        JSON.stringify({
+          items: [
+            makeApiItem(901, {
+              text: 'Fresh news',
+              created_at: Date.now(),
+              target: '/status/901',
+            }),
+          ],
+          next_max_id: null,
+        }),
+      )
+      runtime.queueResponse(
+        'https://xueqiu.com/statuses/hot/listV3.json?page=1',
+        '<textarea>challenge</textarea>',
+      )
+
+      const { mainSource } = createXueqiuSources({ ttlMinutes: 60, retentionDays: 7 })
+      const result = await mainSource.fetch(runtime)
+
+      // The news item must survive, and reach the cache — this is what the
+      // all-or-nothing version broke.
+      expect(result.news.map((it) => it.id)).toEqual([901])
+      const cache = await loadCache<XueqiuRenderData>(runtime, 'xueqiu-news')
+      expect(cache?.data?.news.map((it) => it.id)).toEqual([901])
+      expect(cache?.error ?? '').toBe('')
+
+      // The hot failure is published for the 雪球热议 tab instead of being
+      // swallowed (no silent branch).
+      expect(String(runtime.stores[XUEQIU_HOT_ERROR_KEY] ?? '')).toContain('非 JSON')
+    })
+  })
+
+  test('bugfix: hotSource.fetch surfaces the stored hot error', async () => {
+    const runtime = createRuntime()
+    const { saveCache } = await import('../../../src/prism/cache')
+    const { XUEQIU_HOT_ERROR_KEY } = await import('../../../src/prism/keys')
+    const { createXueqiuSources } = await import('../../../src/prism/xueqiu/source')
+
+    runtime.stores[XUEQIU_HOT_ERROR_KEY] = 'WAF challenge page'
+    await saveCache(runtime, 'xueqiu-news', {
+      data: { news: [], hotPosts: [makeItem(100)] },
+      fetchedAt: Date.now(),
+      error: '',
+    })
+
+    const { hotSource } = createXueqiuSources({ ttlMinutes: 60, retentionDays: 7 })
+    await expect(hotSource.fetch(runtime)).rejects.toThrow(/雪球热议抓取失败/)
+  })
+
+  test('hotSource.fetch works normally when there is no stored hot error', async () => {
+    const runtime = createRuntime()
+    const { saveCache } = await import('../../../src/prism/cache')
+    const { XUEQIU_HOT_ERROR_KEY } = await import('../../../src/prism/keys')
+    const { createXueqiuSources } = await import('../../../src/prism/xueqiu/source')
+
+    runtime.stores[XUEQIU_HOT_ERROR_KEY] = ''
+    await saveCache(runtime, 'xueqiu-news', {
+      data: { news: [], hotPosts: [makeItem(100)] },
+      fetchedAt: Date.now(),
+      error: '',
+    })
+
+    const { hotSource } = createXueqiuSources({ ttlMinutes: 60, retentionDays: 7 })
+    const result = await hotSource.fetch(runtime)
+    expect(result.hotPosts.map((it) => it.id)).toEqual([100])
   })
 })
 

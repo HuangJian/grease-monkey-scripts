@@ -9,6 +9,7 @@ import type {
 import { SkipRefreshError } from '../errors'
 import { createHeaderState, useHeaderState, type HeaderStateStore } from '../header-state'
 import { loadCache, saveCache } from '../cache'
+import { XUEQIU_HOT_ERROR_KEY } from '../keys'
 import type { DateFilter } from '../date-filter'
 import { DateFilterGroup } from '../date-filter'
 import { ListIcon, SparklesIcon } from '../shared/icons'
@@ -112,6 +113,9 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
       }
       await state.loadFromStorage(runtime)
       const fresh = await fetchXueqiu(runtime, currentOptions)
+      // HOT is best-effort: publish its error for the 雪球热议 tab instead of
+      // letting it fail this refresh (which would drop the NEWS batch with it).
+      await runtime.setValue(XUEQIU_HOT_ERROR_KEY, fresh.hotError)
       await saveXueqiuCache(runtime, fresh)
       await pruneExpiredCache(runtime)
       const merged = await loadXueqiuCache(runtime)
@@ -177,6 +181,11 @@ export function createXueqiuSources(options: XueqiuSourceOptions): XueqiuHandle 
       // Derive + rank here so the fetch→cache→render flow fills the hot cache
       // instead of the old empty payload (which refreshSource stamped fresh).
       await state.loadFromStorage(runtime)
+      // Surface a previous HOT failure. Throwing here (rather than in the news
+      // fetch) keeps the already-fetched news and the cached hot posts intact:
+      // refreshSource preserves `oldCache.data` and only writes the error.
+      const hotError = await runtime.getValue<string>(XUEQIU_HOT_ERROR_KEY, '')
+      if (hotError) throw new Error(`雪球热议抓取失败：${hotError}`)
       const cached = await loadXueqiuCache(runtime)
       if (!cached) {
         // Nothing to derive yet — skip so refreshSource leaves the hot cache

@@ -32,5 +32,13 @@ export const GM_PREFIX = 'gm:'
 // `gm:misc:openrouter:cache`, `gm:xueqiu:ai-summaries`, reddit author tags).
 export const OPENROUTER_CACHE_KEY = 'gm:misc:openrouter:cache'
 export const XUEQIU_SUMMARIES_KEY = 'gm:xueqiu:ai-summaries'
+/**
+ * Last HOT-endpoint error, persisted so the 雪球热议 tab can surface it.
+ *
+ * HOT failures are non-fatal for the news feed (see fetchXueqiu), so the error
+ * cannot travel through the news cache — it would either be dropped or poison
+ * the news card. Empty string means "last hot fetch succeeded".
+ */
+export const XUEQIU_HOT_ERROR_KEY = 'gm:xueqiu:hot-error'
 export const REDDIT_AUTHOR_TAGS_KEY = 'reddit_author_tags'
 export const REDDIT_AUTHOR_TAGS_LS_KEY = 'gm:reddit:author-tags'

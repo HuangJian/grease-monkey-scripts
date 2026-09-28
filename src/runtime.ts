@@ -100,6 +100,16 @@ declare function GM_registerMenuCommand(name: string, fn: () => void): number
 
 declare const unsafeWindow: Window
 
+/**
+ * Compact single-line preview of a response body, for error messages.
+ *
+ * WAF challenge pages are multi-line HTML; without collapsing whitespace the
+ * card-error banner renders as one long unreadable line anyway.
+ */
+export function describeBody(text: string, max = 300): string {
+  return text.slice(0, max).replace(/\s+/g, ' ')
+}
+
 export function createBrowserRuntime(): Runtime {
   return {
     document,
@@ -138,13 +148,27 @@ export function createBrowserRuntime(): Runtime {
         credentials: 'include',
         headers: { Accept: 'application/json, text/plain, */*' },
       })
+      // Read text first (not res.json()): a WAF challenge page answers 200 with
+      // HTML, and `res.json()` then throws a bare "Unexpected token '<'" that
+      // says nothing about why. Keeping the body lets us report it.
+      const text = await res.text()
       if (!res.ok) {
-        const body = await res.text()
         throw new Error(
-          `pageFetch HTTP ${res.status} for ${url}\n  body[:300]: ${body.slice(0, 300)}`,
+          `pageFetch HTTP ${res.status} for ${url}\n  body[:300]: ${describeBody(text)}`,
         )
       }
-      return res.json()
+      try {
+        return JSON.parse(text)
+      } catch (e) {
+        const contentType = res.headers?.get?.('content-type') ?? ''
+        throw new Error(
+          `pageFetch 返回非 JSON（疑似风控/验证页）for ${url}\n` +
+            `  原始错误: ${(e as Error).message}\n` +
+            `  content-type: ${contentType}\n` +
+            `  body[:200]: ${describeBody(text, 200)}`,
+          { cause: e },
+        )
+      }
     },
     openTab: (url) => window.open(url, '_blank'),
     now: () => Date.now(),
