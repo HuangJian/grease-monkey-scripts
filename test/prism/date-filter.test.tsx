@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { render, cleanup } from '@testing-library/preact'
-import { DATE_OPTIONS, dateFilterBounds, DateFilterGroup } from '../../src/prism/date-filter'
+import {
+  DATE_OPTIONS,
+  dateFilterBounds,
+  daySectionOf,
+  DAY_SECTIONS,
+  placedAt,
+  DateFilterGroup,
+} from '../../src/prism/date-filter'
 
 describe('DATE_OPTIONS', () => {
   test('has exactly 5 entries', () => {
@@ -48,6 +55,39 @@ describe('dateFilterBounds', () => {
     const ts = todayStart(now)
     const result = dateFilterBounds('早', now)
     expect(result).toEqual({ end: ts - 172800000 })
+  })
+})
+
+describe('placedAt', () => {
+  const NOW = new Date(2026, 8, 30, 15, 45).getTime()
+
+  test('a real timestamp is passed through', () => {
+    expect(placedAt(NOW - 1000, NOW)).toBe(NOW - 1000)
+  })
+
+  test('a missing timestamp counts as now', () => {
+    expect(placedAt(0, NOW)).toBe(NOW)
+  })
+})
+
+describe('daySectionOf', () => {
+  const NOW = new Date(2026, 8, 30, 15, 45).getTime()
+  const midnight = new Date(2026, 8, 30).getTime()
+  const DAY = 24 * 60 * 60 * 1000
+
+  test('splits today / yesterday / earlier on local midnight', () => {
+    expect(daySectionOf(midnight, NOW)).toBe('today')
+    expect(daySectionOf(midnight - 1, NOW)).toBe('yesterday')
+    expect(daySectionOf(midnight - DAY, NOW)).toBe('yesterday')
+    expect(daySectionOf(midnight - 2 * DAY, NOW)).toBe('earlier')
+  })
+
+  test('an undated entry is placed in 今天', () => {
+    expect(daySectionOf(0, NOW)).toBe('today')
+  })
+
+  test('there is no 未知日期 section left to render', () => {
+    expect(DAY_SECTIONS).toEqual(['today', 'yesterday', 'earlier'])
   })
 })
 

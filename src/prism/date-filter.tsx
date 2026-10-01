@@ -31,7 +31,7 @@ export function dateFilterBounds(
   }
 }
 
-export const DAY_SECTIONS = ['today', 'yesterday', 'earlier', 'unknown'] as const
+export const DAY_SECTIONS = ['today', 'yesterday', 'earlier'] as const
 
 export type DaySection = (typeof DAY_SECTIONS)[number]
 
@@ -39,7 +39,24 @@ export const DAY_SECTION_LABELS: Record<DaySection, string> = {
   today: '今天',
   yesterday: '昨天',
   earlier: '更早',
-  unknown: '未知日期',
+}
+
+/**
+ * The date an item is filtered and grouped by: a missing timestamp counts as
+ * **now**.
+ *
+ * One function, because every date judgment has to agree — grouping puts an
+ * undated entry in 今天, so the pills must keep it under 今 and the 起–止 window
+ * must keep it in a window that covers today. Deciding "missing" separately in
+ * each place is how you get an entry that is in 今天 under 全 and gone under 今.
+ *
+ * Calling it "unknown" instead would only be honest on paper: there is nothing
+ * the reader can do with "we do not know", and a section of its own collects
+ * exactly the entries nobody can act on. The reader's place for an entry it
+ * cannot date is next to the ones it has just seen.
+ */
+export function placedAt(ts: number, now: number): number {
+  return ts === 0 ? now : ts
 }
 
 /**
@@ -47,14 +64,13 @@ export const DAY_SECTION_LABELS: Record<DaySection, string> = {
  * `dateFilterBounds` — a timeline grouped by this and filtered by 今/昨/早 agree
  * with each other, which they would not if each used its own notion of "today".
  *
- * `unknown` is for entries with no timestamp at all (legal in RSS): they are not
- * "earlier", they are undated, and calling them earlier would be a lie.
+ * Undated entries (`0`) land in 今天 through `placedAt`.
  */
 export function daySectionOf(ts: number, now: number): DaySection {
-  if (!ts) return 'unknown'
+  const at = placedAt(ts, now)
   const today = localMidnight(now)
-  if (ts >= today) return 'today'
-  if (ts >= today - 86_400_000) return 'yesterday'
+  if (at >= today) return 'today'
+  if (at >= today - 86_400_000) return 'yesterday'
   return 'earlier'
 }
 

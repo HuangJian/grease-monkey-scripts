@@ -476,9 +476,12 @@ describe('timeline day sections', () => {
     expect(sectionTotals(root)).toEqual(['2', '1'])
   })
 
-  test('undated entries get their own trailing section instead of 更早', () => {
+  test('undated entries are placed in 今天, not in a section of their own', () => {
+    // No 未知日期 section: there is nothing to act on in "we do not know when",
+    // so an entry the reader cannot date sits with the ones just seen.
     const { root } = timeline([item('undated', { pubDate: 0 }), item('t', { pubDate: NOW })])
-    expect(sectionKeys(root)).toEqual(['today', 'unknown'])
+    expect(sectionKeys(root)).toEqual(['today'])
+    expect(sectionTotals(root)).toEqual(['2'])
   })
 
   test('empty sections are not rendered', () => {
