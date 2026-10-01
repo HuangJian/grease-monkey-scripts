@@ -8,6 +8,7 @@
 // @match        https://www.biduoxs.com/biquge/*
 // @match        https://www.sudugu.org/*
 // @match        https://www.shudugu.org/*
+// @match        https://www.suduguu.com/*
 // @match        https://www.tongrenxsw.com/book/*
 // @grant        GM_xmlhttpRequest
 // @noframes

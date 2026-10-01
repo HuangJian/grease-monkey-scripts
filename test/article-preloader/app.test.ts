@@ -118,6 +118,31 @@ describe('selectorsFactory', () => {
     expect(factory.matchNextChapterText('下一章')).toBe(true)
   })
 
+  test('creates identical text-pattern selectors for suduguu.com', () => {
+    const dom = createHappyDom(
+      `
+      <html><body>
+        <div class="prenext">
+          <a href="/prev">上一章</a>
+          <a href="/index">目录</a>
+          <a href="/next">下一章</a>
+        </div>
+        <div class="con">content</div>
+      </body></html>
+    `,
+      'https://www.suduguu.com/chapter/1',
+    )
+    const factory = selectorsFactory('www.suduguu.com', dom.document as unknown as Document)
+
+    expect(factory.contentSelector).toBe('.con')
+    expect(factory.previousChapterLinkSelector()?.getAttribute('href')).toBe('/prev')
+    expect(factory.indexLinkSelector()?.getAttribute('href')).toBe('/index')
+    expect(factory.nextChapterLinkSelector()?.getAttribute('href')).toBe('/next')
+    expect(factory.paginationSelector).toBe('.prenext a')
+    expect(factory.matchContinuationText('下一页')).toBe(true)
+    expect(factory.matchNextChapterText('下一章')).toBe(true)
+  })
+
   test('creates direct selectors for xbiquge.so', () => {
     const dom = createHappyDom(
       `

@@ -32,6 +32,7 @@
 - `www.biduoxs.com`
 - `www.sudugu.org`
 - `www.shudugu.org`
+- `www.suduguu.com`
 - `www.tongrenxsw.com`
 
 ## 安装
