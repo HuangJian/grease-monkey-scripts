@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { cleanup, render, waitFor, within } from '@testing-library/preact'
+import { useState } from 'preact/hooks'
 import {
   formatCountdownLabel,
   formatIntervalLabel,
@@ -7,6 +8,7 @@ import {
 } from '../../../src/prism/rss/component'
 import { TIMELINE_MAX_ITEMS } from '../../../src/prism/rss/constants'
 import type { DateFilter } from '../../../src/prism/date-filter'
+import { ALL_DATES, type DateRangePreset } from '../../../src/prism/rss/date-range'
 import type { FeedSchedule } from '../../../src/prism/rss/schedule'
 import { createRssState, unreadCount, type RssState } from '../../../src/prism/rss/state'
 import type { RssFeed, RssItem, RssViewMode } from '../../../src/prism/rss/types'
@@ -54,6 +56,9 @@ function setup(
     onToggleFilterUnread?: () => void
     /** Runs before the first render, to set the state a scenario needs. */
     prepare?: (state: RssState) => void
+    /** Window preset; see `./date-range`. */
+    dateRange?: DateRangePreset
+    onDateRangeChange?: (range: DateRangePreset) => void
   } = {},
 ) {
   const runtime = over.runtime ?? createRuntime()
@@ -74,6 +79,8 @@ function setup(
       onDateFilterChange={over.onDateFilterChange ?? (() => {})}
       filterUnread={over.filterUnread ?? false}
       onToggleFilterUnread={over.onToggleFilterUnread ?? (() => {})}
+      dateRange={over.dateRange ?? ALL_DATES}
+      onDateRangeChange={over.onDateRangeChange ?? (() => {})}
     />,
     { container: root },
   )
@@ -121,6 +128,8 @@ describe('RssComponent', () => {
         viewMode="grouped"
         dateFilter="全"
         onDateFilterChange={() => {}}
+        dateRange={ALL_DATES}
+        onDateRangeChange={() => {}}
         filterUnread={false}
         onToggleFilterUnread={() => {}}
       />,
@@ -165,6 +174,39 @@ describe('RssComponent', () => {
     within(root).getByText('标题 a1').click()
     within(root).getByText('打开原文').click()
     expect(state.isRead('a1')).toBe(true)
+  })
+
+  test('hover actions lead with 直达, an anchor to the entry', () => {
+    // Rows carry a summary, so following an entry used to cost two clicks
+    // (expand, then 打开原文) even when the headline already said it was worth
+    // opening. An anchor, not a button, so middle-click and "open in new tab"
+    // keep working.
+    const { root } = setup([feed('a', [item('a1')])])
+    const actions = root.querySelector('.gm-sp-item-actions')!
+    expect(Array.from(actions.children).map((el) => el.textContent)).toEqual([
+      '直达',
+      '↑已读',
+      '×隐藏',
+    ])
+    const direct = actions.querySelector<HTMLAnchorElement>('[data-action="open-direct"]')!
+    expect(direct.getAttribute('href')).toBe('https://example.com/a1')
+    expect(direct.getAttribute('target')).toBe('_blank')
+    expect(direct.getAttribute('rel')).toBe('noopener noreferrer')
+  })
+
+  test('直达 opens the original without expanding the summary first', () => {
+    const { root, state } = setup([feed('a', [item('a1')])])
+    root.querySelector<HTMLAnchorElement>('[data-action="open-direct"]')!.click()
+    expect(state.isRead('a1')).toBe(true)
+    // No summary was opened on the way there.
+    expect(root.querySelector('.gm-sp-expandable-body')).toBeNull()
+  })
+
+  test('直达 leads in the timeline too', () => {
+    const { root } = setup([feed('a', [item('a1')])], { viewMode: 'timeline' })
+    expect(
+      root.querySelector('.gm-sp-item-actions')!.firstElementChild?.getAttribute('data-action'),
+    ).toBe('open-direct')
   })
 
   test('bulk-read marks every entry up to the clicked row', () => {
@@ -293,6 +335,8 @@ describe('RssComponent view switching', () => {
         viewMode="timeline"
         dateFilter="全"
         onDateFilterChange={() => {}}
+        dateRange={ALL_DATES}
+        onDateRangeChange={() => {}}
         filterUnread={false}
         onToggleFilterUnread={() => {}}
       />,
@@ -478,10 +522,22 @@ describe('timeline day sections', () => {
 
   test('undated entries are placed in 今天, not in a section of their own', () => {
     // No 未知日期 section: there is nothing to act on in "we do not know when",
-    // so an entry the reader cannot date sits with the ones just seen.
+    // so an entry the reader cannot date sits with the ones just seen — which is
+    // also where the date filters put it.
     const { root } = timeline([item('undated', { pubDate: 0 }), item('t', { pubDate: NOW })])
     expect(sectionKeys(root)).toEqual(['today'])
     expect(sectionTotals(root)).toEqual(['2'])
+  })
+
+  test('an undated entry sorts with the newest rather than trailing the list', () => {
+    const { root } = timeline([
+      item('old', { pubDate: NOW - 3 * DAY }),
+      item('undated', { pubDate: 0 }),
+    ])
+    const titles = rows(root).map(
+      (row) => row.querySelector('.gm-sp-expandable-title')?.textContent ?? '',
+    )
+    expect(titles).toEqual(['标题 undated', '标题 old'])
   })
 
   test('empty sections are not rendered', () => {
@@ -527,6 +583,8 @@ describe('timeline day sections', () => {
         viewMode="timeline"
         dateFilter="早"
         onDateFilterChange={() => {}}
+        dateRange={ALL_DATES}
+        onDateRangeChange={() => {}}
         filterUnread={false}
         onToggleFilterUnread={() => {}}
       />,
@@ -544,6 +602,8 @@ describe('timeline day sections', () => {
         viewMode="timeline"
         dateFilter="昨"
         onDateFilterChange={() => {}}
+        dateRange={ALL_DATES}
+        onDateRangeChange={() => {}}
         filterUnread={false}
         onToggleFilterUnread={() => {}}
       />,
@@ -977,7 +1037,9 @@ describe('timeline feed failures', () => {
     const bar = root.querySelector('.gm-sp-rss-viewbar')!
     expect(bar.querySelector('.gm-sp-date-filter')).not.toBeNull()
     expect(bar.querySelector('.gm-sp-rss-failures')).not.toBeNull()
-    expect(bar.lastElementChild?.classList.contains('gm-sp-rss-failures')).toBe(true)
+    // Right-aligned: it lives in the cluster the bar pushes to its far end.
+    expect(bar.lastElementChild?.classList.contains('gm-sp-rss-bar-end')).toBe(true)
+    expect(bar.lastElementChild?.querySelector('.gm-sp-rss-failures')).not.toBeNull()
     expect(root.querySelector('.gm-sp-rss-timeline .gm-sp-rss-failures')).toBeNull()
   })
 
@@ -1015,8 +1077,8 @@ describe('timeline feed failures', () => {
       viewMode: 'timeline',
     })
     const bar = root.querySelector('.gm-sp-rss-viewbar')!
-    // Right-aligned: the control is the last thing in the bar.
-    expect(bar.lastElementChild?.classList.contains('gm-sp-rss-failures')).toBe(true)
+    // Right-aligned: the control sits in the cluster at the bar's far end.
+    expect(bar.lastElementChild?.querySelector('.gm-sp-rss-failures')).not.toBeNull()
 
     root.querySelector<HTMLButtonElement>('[data-action="toggle-feed-failures"]')!.click()
     await waitFor(() => {
@@ -1048,5 +1110,374 @@ describe('timeline feed failures', () => {
     const { root } = setup([failedFeed()], { runtime: clockedRuntime(), viewMode: 'grouped' })
     expect(root.querySelector('.gm-sp-rss-failures')).toBeNull()
     expect(root.querySelector('[data-action="feed-warning"]')).not.toBeNull()
+  })
+})
+
+describe('RSS 时间范围下拉', () => {
+  const HOUR = 60 * MIN
+
+  /** Local midnight `offset` days from the clock's own day. */
+  function dayStart(offset: number): number {
+    const d = new Date(NOW)
+    d.setHours(0, 0, 0, 0)
+    d.setDate(d.getDate() + offset)
+    return d.getTime()
+  }
+
+  /**
+   * One entry per interesting age, all inside the 30-day retention the tests
+   * run with except the last: today, yesterday, three days back (outside 本周
+   * whatever weekday the clock lands on), twelve back (inside 近三十天), forty
+   * back (the 三十天以前 one).
+   */
+  function datedFeed(): RssFeed {
+    return feed('a', [
+      item('today', { pubDate: dayStart(0) + 9 * HOUR }),
+      item('d1', { pubDate: dayStart(-1) + 9 * HOUR }),
+      item('d3', { pubDate: dayStart(-3) + 9 * HOUR }),
+      item('d12', { pubDate: dayStart(-12) + 9 * HOUR }),
+      item('d40', { pubDate: dayStart(-40) + 9 * HOUR }),
+    ])
+  }
+
+  function titles(root: HTMLElement): string[] {
+    return rows(root).map((row) => row.querySelector('.gm-sp-expandable-title')?.textContent ?? '')
+  }
+
+  type RangeExtra = {
+    viewMode?: RssViewMode
+    dateFilter?: DateFilter
+    filterUnread?: boolean
+    initialRange?: DateRangePreset
+    prepare?: (state: RssState) => void
+    onRangeChange?: (range: DateRangePreset) => void
+    onFilterChange?: (filter: DateFilter) => void
+  }
+
+  /**
+   * Mounts the card with a parent that owns both date controls, which is how the
+   * source does it: the component reports a change upward and comes back with the
+   * new props. Neither may live in the component — a tab switch drops it — and
+   * the parent is also what makes the two controls able to clear each other.
+   */
+  function Harness({
+    feeds,
+    state,
+    runtime,
+    root,
+    extra,
+  }: {
+    feeds: RssFeed[]
+    state: RssState
+    runtime: TestRuntime
+    root: HTMLElement
+    extra: RangeExtra
+  }) {
+    const [range, setRange] = useState<DateRangePreset>(extra.initialRange ?? ALL_DATES)
+    const [filter, setFilter] = useState<DateFilter>(extra.dateFilter ?? '全')
+    return (
+      <RssComponent
+        data={feeds}
+        root={root}
+        runtime={runtime}
+        state={state}
+        viewMode={extra.viewMode ?? 'grouped'}
+        dateFilter={filter}
+        onDateFilterChange={(next) => {
+          extra.onFilterChange?.(next)
+          setFilter(next)
+        }}
+        dateRange={range}
+        onDateRangeChange={(next) => {
+          extra.onRangeChange?.(next)
+          setRange(next)
+        }}
+        filterUnread={extra.filterUnread ?? false}
+        onToggleFilterUnread={() => {}}
+      />
+    )
+  }
+
+  function mount(feeds: RssFeed[], extra: RangeExtra = {}) {
+    const runtime = createRuntime()
+    runtime.setClock(NOW)
+    const state = createRssState({ retentionMs: 60 * DAY })
+    extra.prepare?.(state)
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    render(<Harness feeds={feeds} state={state} runtime={runtime} root={root} extra={extra} />, {
+      container: root,
+    })
+    return { root, state, runtime }
+  }
+
+  function rangeSelect(root: HTMLElement): HTMLSelectElement {
+    return root.querySelector<HTMLSelectElement>('[data-action="range-preset"]')!
+  }
+
+  function pickPreset(root: HTMLElement, preset: DateRangePreset): void {
+    const select = rangeSelect(root)
+    select.value = preset
+    select.dispatchEvent(new Event('change'))
+  }
+
+  function markAllButton(root: HTMLElement): HTMLButtonElement {
+    return root.querySelector<HTMLButtonElement>('[data-action="mark-all-read"]')!
+  }
+
+  test('both views offer the dropdown with 全部 and the four windows', () => {
+    for (const viewMode of ['grouped', 'timeline'] as const) {
+      const { root } = mount([datedFeed()], { viewMode })
+      const options = Array.from(rangeSelect(root).options).map((option) => option.value)
+      expect(options).toEqual(['全部', '本周', '近十天', '近三十天', '三十天以前'])
+    }
+  })
+
+  test('全部 is in force by default and offers nothing window-specific', () => {
+    // The bulk action is the point of picking a window; offering it against
+    // everything the source has would be a delete key for the whole feed.
+    const { root } = mount([datedFeed()])
+    expect(rangeSelect(root).value).toBe('全部')
+    expect(root.querySelector('[data-action="mark-all-read"]')).toBeNull()
+  })
+
+  test('本周 keeps the current week and drops what came before it', async () => {
+    const { root } = mount([datedFeed()], { viewMode: 'timeline' })
+    pickPreset(root, '本周')
+    await waitFor(() => {
+      expect(titles(root)).toContain('标题 today')
+    })
+    // d3 is older than this week's Monday on any weekday the clock can land on.
+    expect(titles(root)).not.toContain('标题 d3')
+    expect(titles(root)).not.toContain('标题 d40')
+  })
+
+  test('近十天 keeps ten calendar days', async () => {
+    const { root } = mount([datedFeed()], { viewMode: 'timeline' })
+    pickPreset(root, '近十天')
+    await waitFor(() => {
+      expect(titles(root)).toEqual(['标题 today', '标题 d1', '标题 d3'])
+    })
+    expect(titles(root)).not.toContain('标题 d12')
+  })
+
+  test('近三十天 keeps thirty calendar days', async () => {
+    const { root } = mount([datedFeed()], { viewMode: 'timeline' })
+    pickPreset(root, '近三十天')
+    await waitFor(() => {
+      expect(titles(root)).toEqual(['标题 today', '标题 d1', '标题 d3', '标题 d12'])
+    })
+    expect(titles(root)).not.toContain('标题 d40')
+  })
+
+  test('三十天以前 is the complement — nothing is lost or shown twice', async () => {
+    const { root } = mount([datedFeed()], { viewMode: 'timeline' })
+    pickPreset(root, '三十天以前')
+    await waitFor(() => {
+      expect(titles(root)).toEqual(['标题 d40'])
+    })
+  })
+
+  test('the window narrows the grouped lists too', async () => {
+    const { root } = mount([datedFeed()])
+    pickPreset(root, '近十天')
+    await waitFor(() => {
+      expect(titles(root)).toEqual(['标题 today', '标题 d1', '标题 d3'])
+    })
+  })
+
+  test('picking a preset clears the day buttons to 全', async () => {
+    // 昨 + 近十天 reads like a wider window and is really an intersection, with
+    // no way to see which of the two hid an entry. One is in force at a time.
+    const filters: DateFilter[] = []
+    const { root } = mount([datedFeed()], {
+      viewMode: 'timeline',
+      dateFilter: '昨',
+      onFilterChange: (filter) => filters.push(filter),
+    })
+    pickPreset(root, '近十天')
+    await waitFor(() => {
+      expect(filters).toEqual(['全'])
+    })
+    expect(root.querySelector('.gm-sp-date-filter-btn-active')?.textContent).toBe('全')
+  })
+
+  test('picking a day button clears the window to 全部', async () => {
+    const ranges: DateRangePreset[] = []
+    const { root } = mount([datedFeed()], {
+      viewMode: 'timeline',
+      initialRange: '近十天',
+      onRangeChange: (next) => ranges.push(next),
+    })
+    root.querySelectorAll<HTMLButtonElement>('.gm-sp-date-filter-btn')[2]!.click() // 昨
+    await waitFor(() => {
+      expect(ranges).toEqual(['全部'])
+    })
+    expect(rangeSelect(root).value).toBe('全部')
+    expect(root.querySelector('[data-action="mark-all-read"]')).toBeNull()
+  })
+
+  test('the off positions leave the other control alone', async () => {
+    // 全 / 全部 mean "no filter": switching one off must not also switch the
+    // other off, which would take away a filter the reader never touched.
+    const filters: DateFilter[] = []
+    const ranges: DateRangePreset[] = []
+    const { root } = mount([datedFeed()], {
+      viewMode: 'timeline',
+      dateFilter: '昨',
+      initialRange: '近十天',
+      onFilterChange: (filter) => filters.push(filter),
+      onRangeChange: (next) => ranges.push(next),
+    })
+    root.querySelectorAll<HTMLButtonElement>('.gm-sp-date-filter-btn')[0]!.click() // 全
+    expect(ranges).toEqual([])
+    pickPreset(root, '全部')
+    await waitFor(() => {
+      expect(ranges).toEqual(['全部'])
+    })
+    expect(filters).toEqual(['全'])
+  })
+
+  test('the dropdown rides at the far end of the view bar, not in a row below it', () => {
+    const { root } = mount([datedFeed()])
+    const bar = root.querySelector('.gm-sp-rss-viewbar')!
+    expect(bar.querySelector('[data-action="range-preset"]')).not.toBeNull()
+    expect(bar.lastElementChild?.classList.contains('gm-sp-rss-bar-end')).toBe(true)
+    // No second row: the bar is where every other filter lives.
+    expect(root.querySelector('.gm-sp-rss > .gm-sp-rss-range')).toBeNull()
+  })
+
+  test('未 and the window compose: a source with nothing in the window goes away', async () => {
+    const stale = feed('stale', [item('s40', { pubDate: dayStart(-40) })])
+    const fresh = feed('fresh', [item('f1', { pubDate: dayStart(0) })])
+    const { root } = mount([stale, fresh], { filterUnread: true })
+    pickPreset(root, '近十天')
+    await waitFor(() => {
+      expect(within(root).queryByText('源 stale')).toBeNull()
+    })
+    expect(within(root).getByText('源 fresh')).not.toBeNull()
+  })
+
+  test('picking a preset reports it upward instead of keeping it locally', async () => {
+    const seen: DateRangePreset[] = []
+    const { root } = mount([datedFeed()], { onRangeChange: (range) => seen.push(range) })
+    pickPreset(root, '近三十天')
+    await waitFor(() => {
+      expect(seen).toEqual(['近三十天'])
+    })
+    expect(rangeSelect(root).value).toBe('近三十天')
+  })
+
+  test('a window that empties everything can still be undone', async () => {
+    // 三十天以前 + 未 drops every source, and the view that replaced them used
+    // to offer no control back — the only way out was to reload. The dropdown is
+    // why that is no longer a dead end.
+    const { root } = mount([datedFeed()], { filterUnread: true })
+    pickPreset(root, '三十天以前')
+    await waitFor(() => {
+      expect(root.querySelectorAll('.gm-sp-rss-feed')).toHaveLength(1)
+    })
+    // Everything inside it read: nothing left, but the dropdown stays.
+    const { root: read } = mount([datedFeed()], {
+      filterUnread: true,
+      initialRange: '近十天',
+      prepare: (state) => ['today', 'd1', 'd3'].forEach((id) => state.markRead(id, NOW)),
+    })
+    expect(read.querySelector('.gm-sp-rss-feed')).toBeNull()
+    expect(read.querySelector('[data-action="range-preset"]')).not.toBeNull()
+
+    pickPreset(read, '全部')
+    await waitFor(() => {
+      expect(read.querySelectorAll('.gm-sp-rss-feed')).toHaveLength(1)
+    })
+  })
+
+  test('全部已读 states its own scope in the label', async () => {
+    const { root } = mount([datedFeed()], { viewMode: 'timeline' })
+    pickPreset(root, '近十天')
+    await waitFor(() => {
+      expect(markAllButton(root).textContent).toBe('全部已读 (3)')
+    })
+    expect(markAllButton(root).getAttribute('title')).toBe('将近十天内的 3 个未读主题标记为已读')
+  })
+
+  test('全部已读 marks the window read and leaves the rest alone', async () => {
+    const { root, state } = mount([datedFeed()], { viewMode: 'timeline' })
+    pickPreset(root, '近十天')
+    await waitFor(() => {
+      expect(titles(root)).toHaveLength(3)
+    })
+    markAllButton(root).click()
+    await waitFor(() => {
+      expect(state.isRead('d3')).toBe(true)
+    })
+    expect(state.isRead('today')).toBe(true)
+    expect(state.isRead('d1')).toBe(true)
+    expect(state.isRead('d12')).toBe(false)
+    expect(state.isRead('d40')).toBe(false)
+  })
+
+  test('the marks are persisted, not just held in memory', async () => {
+    const { root, runtime } = mount([datedFeed()])
+    pickPreset(root, '近十天')
+    await waitFor(() => {
+      expect(markAllButton(root).textContent).toBe('全部已读 (3)')
+    })
+    markAllButton(root).click()
+    await waitFor(async () => {
+      const reloaded = createRssState({ retentionMs: 60 * DAY })
+      await reloaded.loadFromStorage(runtime)
+      expect(reloaded.isRead('d3')).toBe(true)
+    })
+  })
+
+  test('a folded source is counted whole, not by the two rows it shows', async () => {
+    // The count drives what the button marks, so counting the rows on screen
+    // would leave everything past the fold unread.
+    const busy = feed(
+      'a',
+      Array.from({ length: 5 }, (_unused, i) => item(`b${i}`, { pubDate: dayStart(-1) + i * MIN })),
+    )
+    const { root, state } = mount([busy])
+    pickPreset(root, '近十天')
+    await waitFor(() => {
+      expect(titles(root)).toHaveLength(2)
+    })
+    expect(markAllButton(root).textContent).toBe('全部已读 (5)')
+    markAllButton(root).click()
+    await waitFor(() => {
+      expect(state.isRead('b4')).toBe(true)
+    })
+    expect(['b0', 'b1', 'b2', 'b3'].every((id) => state.isRead(id))).toBe(true)
+  })
+
+  test('already-read entries are not recounted', async () => {
+    const { root } = mount([datedFeed()], { prepare: (state) => state.markRead('d1', NOW) })
+    pickPreset(root, '近十天')
+    await waitFor(() => {
+      expect(markAllButton(root).textContent).toBe('全部已读 (2)')
+    })
+  })
+
+  test('a window with nothing unread disables the button and says why', async () => {
+    const { root } = mount([datedFeed()], {
+      prepare: (state) => ['today', 'd1', 'd3'].forEach((id) => state.markRead(id, NOW)),
+    })
+    pickPreset(root, '近十天')
+    await waitFor(() => {
+      expect(markAllButton(root).disabled).toBe(true)
+    })
+    expect(markAllButton(root).textContent).toBe('全部已读')
+    expect(markAllButton(root).getAttribute('title')).toBe('近十天内没有未读条目')
+  })
+
+  test('an empty result still reads as a filter, not as an empty source', async () => {
+    const { root } = mount([feed('a', [item('d40', { pubDate: dayStart(-40) })])], {
+      viewMode: 'timeline',
+    })
+    pickPreset(root, '近十天')
+    await waitFor(() => {
+      expect(root.querySelector('.gm-sp-empty')?.textContent).toBe('该日期范围内没有未读条目')
+    })
   })
 })

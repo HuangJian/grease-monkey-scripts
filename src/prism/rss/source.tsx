@@ -7,6 +7,7 @@ import type { Source, SourceSettings, TabLabel } from '../types'
 import { RssComponent, visibleFeeds } from './component'
 import { createRssEditor } from './editor/form'
 import { loadFreshOptions } from './editor/helpers'
+import { ALL_DATES, type DateRangePreset } from './date-range'
 import { feedId, fetchRssFeeds } from './fetcher'
 import { feedSchedule, resolveIntervalMs } from './schedule'
 import { createRssState, totalUnread, type RssState } from './state'
@@ -28,7 +29,7 @@ export function createRssSource(options: RssSourceOptions): Source<RssFeed[], 'r
    */
   let effectiveMaxIntervalMs = options.ttlMinutes * 60_000
   /**
-   * Timeline date filter (全/今/昨/前/早).
+   * Timeline date filter (全/今/昨/前/早) and the explicit 起–止 window.
    *
    * In-memory, like every other source's filter (v2ex/xueqiu): it narrows a view
    * rather than describing a subscription, so it does not belong in `Config.rss`.
@@ -37,8 +38,13 @@ export function createRssSource(options: RssSourceOptions): Source<RssFeed[], 'r
    * 30 days of retention, so hiding older unread entries by default would be a
    * surprising loss of content.
    */
-  const headerStore = createHeaderState<{ dateFilter: DateFilter; filterUnread: boolean }>({
+  const headerStore = createHeaderState<{
+    dateFilter: DateFilter
+    dateRange: DateRangePreset
+    filterUnread: boolean
+  }>({
     dateFilter: '全',
+    dateRange: ALL_DATES,
     filterUnread: false,
   })
 
@@ -137,6 +143,10 @@ export function createRssSource(options: RssSourceOptions): Source<RssFeed[], 'r
           dateFilter={headerState.dateFilter}
           onDateFilterChange={(filter) => {
             headerStore.set((prev) => ({ ...prev, dateFilter: filter }))
+          }}
+          dateRange={headerState.dateRange}
+          onDateRangeChange={(range) => {
+            headerStore.set((prev) => ({ ...prev, dateRange: range }))
           }}
           filterUnread={headerState.filterUnread}
           onToggleFilterUnread={() => {

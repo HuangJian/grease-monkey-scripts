@@ -247,6 +247,33 @@
   display: inline-flex;
 }
 
+/**
+ * 「直达」 — the same chip as its neighbours, tinted with the link colour so the
+ * eye reads "this one leaves the card" before it reads the label.
+ */
+.gm-sp-item-open {
+  background: var(--gm-sp-color-bg-muted);
+  border: 1px solid var(--gm-sp-color-info);
+  border-radius: var(--gm-sp-radius-xs);
+  cursor: pointer;
+  color: var(--gm-sp-color-primary);
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 6px;
+  white-space: nowrap;
+  text-decoration: none;
+  transition:
+    color 0.12s,
+    background 0.12s,
+    border-color 0.12s;
+}
+
+.gm-sp-item-open:hover {
+  color: var(--gm-sp-color-primary-hover, var(--gm-sp-color-primary));
+  background: var(--gm-sp-color-border);
+  border-color: var(--gm-sp-color-primary);
+}
+
 .gm-sp-item-hide {
   background: var(--gm-sp-color-bg-muted);
   border: 1px solid var(--gm-sp-color-info);

@@ -7,6 +7,7 @@ import {
   DAY_SECTION_LABELS,
   DAY_SECTIONS,
   daySectionOf,
+  placedAt,
   type DateFilter,
   type DaySection,
 } from '../date-filter'
@@ -19,6 +20,13 @@ import { FOLD_THRESHOLD, TIMELINE_HIGH_FREQUENCY, TIMELINE_MAX_ITEMS } from './c
 import type { FeedSchedule } from './schedule'
 import { visibleUnreadItems, type RssState } from './state'
 import type { RssFeed, RssItem, RssViewMode } from './types'
+import {
+  ALL_DATES,
+  applyDateRange,
+  DATE_RANGE_OPTIONS,
+  isDateRangeActive,
+  type DateRangePreset,
+} from './date-range'
 
 const FULL_TIME_FMT = new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric',
@@ -84,6 +92,13 @@ export type RssComponentProps = SourceComponentProps<RssFeed[]> & {
   dateFilter: DateFilter
   onDateFilterChange: (filter: DateFilter) => void
   /**
+   * The long-window preset (全部/本周/近十天/近三十天/三十天以前), which composes
+   * with the day buttons above: those narrow by day, this narrows by window. Both
+   * views apply it, so it belongs beside them rather than inside either view.
+   */
+  dateRange: DateRangePreset
+  onDateRangeChange: (range: DateRangePreset) => void
+  /**
    * Hides sources that have nothing unread (the 「未」 checkbox beside the date
    * filter). The timeline shows unread entries only, so this is mostly what
    * keeps「无新条目」blocks from occupying the grouped view.
@@ -119,18 +134,28 @@ export function visibleFeeds(feeds: ReadonlyArray<RssFeed>): RssFeed[] {
  * nothing to show" means the same thing in both places — a source whose unread
  * entries all sit outside 今天 disappears when 未 is checked, instead of leaving
  * an empty block behind.
+ *
+ * Both date controls apply: the day buttons first, then the window preset.
+ * Entries are placed by `placedAt`, so an undated entry obeys the same bounds as
+ * one published now.
  */
 function unreadInRange(
   feed: RssFeed,
   state: RssState,
   dateFilter: DateFilter,
+  dateRange: DateRangePreset,
   now: number,
 ): RssItem[] {
-  return applyDateFilter(
-    visibleUnreadItems(feed, state),
-    dateFilter,
-    (item) => item.pubDate,
-    () => now,
+  return applyDateRange(
+    applyDateFilter(
+      visibleUnreadItems(feed, state),
+      dateFilter,
+      (item) => placedAt(item.pubDate, now),
+      () => now,
+    ),
+    dateRange,
+    (item) => placedAt(item.pubDate, now),
+    now,
   )
 }
 
@@ -143,6 +168,8 @@ type SharedRowProps = {
   now: number
   /** Applies to both views: the grouped lists narrow too. */
   dateFilter: DateFilter
+  /** The long-window preset, applied after the day buttons. */
+  dateRange: DateRangePreset
   /**
    * 「未」 — whether read entries are dropped from the timeline. Only the
    * timeline needs it: an entry opened from a list that shows read entries has
@@ -161,18 +188,23 @@ export function RssComponent({
   onViewModeChange,
   dateFilter,
   onDateFilterChange,
+  dateRange,
+  onDateRangeChange,
   filterUnread,
   onToggleFilterUnread,
   onNotify,
   scheduleHint,
 }: RssComponentProps) {
   const [mode, setMode] = useState<RssViewMode>(viewMode)
+  /** 「全部已读」 acts on the whole card, which no row's own handler re-renders. */
+  const [, forceRender] = useReducer<number, void>((n) => n + 1, 0)
   // The editor saves the view mode as well, so follow the prop when it changes
   // under us: a local-only state would ignore that write until a reload.
   useEffect(() => setMode(viewMode), [viewMode])
   const now = useTickingNow(runtime)
 
   const allFeeds = visibleFeeds(data ?? [])
+  const rangeUnread = (feed: RssFeed) => unreadInRange(feed, state, dateFilter, dateRange, now)
   /**
    * 「未」 hides what has nothing to show **right now** — including the date
    * range, so a source whose unread entries are all from last week stops
@@ -182,10 +214,33 @@ export function RssComponent({
    * their block, and hiding it would leave no trace of a broken feed.
    */
   const feeds = filterUnread
-    ? allFeeds.filter(
-        (feed) => unreadInRange(feed, state, dateFilter, now).length > 0 || feed.error !== '',
-      )
+    ? allFeeds.filter((feed) => rangeUnread(feed).length > 0 || feed.error !== '')
     : allFeeds
+
+  /**
+   * 「全部已读」 clears every unread, non-hidden entry inside the window, across
+   * every visible source.
+   *
+   * Counted from the feeds rather than from the rows currently on screen: folded
+   * blocks (2 of N shown) and collapsed clusters (1 per firehose source) are
+   * display tricks, and letting them shield entries would make the button's own
+   * count a lie. Read entries need no action and hidden ones are the reader's
+   * own 「×」, so neither is touched.
+   */
+  const rangeActive = isDateRangeActive(dateRange)
+  const rangeUnreadCount = rangeActive
+    ? allFeeds.reduce((sum, feed) => sum + rangeUnread(feed).length, 0)
+    : 0
+
+  /** The window controls, wherever they are reachable — see the empty branch. */
+  const rangeBar = (
+    <DateRangeBar
+      range={dateRange}
+      onChange={pickRange}
+      unreadCount={rangeUnreadCount}
+      onMarkAllRead={markAllInRangeRead}
+    />
+  )
 
   if (feeds.length === 0) {
     // Three kinds of empty that must not be confused: nothing configured,
@@ -195,9 +250,19 @@ export function RssComponent({
         ? (data ?? []).length === 0
           ? '尚未添加订阅源，请通过 ⚙ 添加或导入 OPML'
           : '所有订阅源均已禁用，请通过 ⚙ 重新启用'
-        : '没有未读条目'
+        : rangeActive
+          ? '该日期范围内没有未读条目'
+          : '没有未读条目'
     return (
       <div class="gm-sp-rss">
+        {/*
+          The window survives an empty list on purpose. Nothing left to show is
+          exactly the state 三十天以前 + 未 produces, and taking the control away
+          with the list would leave the reader with no way back out of it short of
+          reloading. Only the unconfigured case (no sources at all) has nothing
+          for it to filter.
+        */}
+        {(data ?? []).length > 0 ? <div class="gm-sp-rss-bar-end">{rangeBar}</div> : null}
         <div class="gm-sp-empty">{message}</div>
       </div>
     )
@@ -215,8 +280,49 @@ export function RssComponent({
     onNotify,
     now,
     dateFilter,
+    dateRange,
     filterUnread,
     scheduleHint,
+  }
+
+  /**
+   * The two date controls are alternatives, not layers: picking one clears the
+   * other.
+   *
+   * They could be stacked, and 昨 + 近十天 reads like a wider window when it is
+   * really an intersection — the reader had no way to tell which of the two had
+   * hidden an entry. One active filter at a time also means 「全部已读」 always
+   * describes exactly what is on screen.
+   *
+   * 全部 / 全 are the "off" positions, and picking one leaves the other alone:
+   * there is nothing to resolve when the reader is switching a filter off.
+   */
+  function pickDateFilter(filter: DateFilter): void {
+    onDateFilterChange(filter)
+    if (filter !== '全' && isDateRangeActive(dateRange)) onDateRangeChange(ALL_DATES)
+  }
+
+  function pickRange(preset: DateRangePreset): void {
+    onDateRangeChange(preset)
+    if (isDateRangeActive(preset) && dateFilter !== '全') onDateFilterChange('全')
+  }
+
+  /**
+   * Declared rather than assigned so the empty branch above — which renders
+   * `rangeBar` before this line is reached — can already hand it down.
+   */
+  function markAllInRangeRead(): void {
+    if (!rangeActive) return
+    const readAt = runtime.now()
+    for (const feed of allFeeds) {
+      for (const item of rangeUnread(feed)) {
+        if (!state.isRead(item.id)) state.markRead(item.id, readAt)
+      }
+    }
+    void state.saveToStorage(runtime)
+    // The tab badge counts unread across the whole source, so it has to be told.
+    onNotify?.()
+    forceRender()
   }
 
   /**
@@ -257,30 +363,40 @@ export function RssComponent({
             grouped lists too, and 「未」 hides sources with nothing unread. */}
         <DateFilterGroup
           value={dateFilter}
-          onChange={onDateFilterChange}
+          onChange={pickDateFilter}
           filterUnread={filterUnread}
           onToggleFilterUnread={onToggleFilterUnread}
         />
         {mode === 'timeline' && activeDay ? (
           <span class="gm-sp-rss-day-now" data-day-section={activeDay.section}>
             <span class="gm-sp-rss-day-label">{DAY_SECTION_LABELS[activeDay.section]}</span>
+            <span class="gm-sp-rss-day-sep" aria-hidden="true">
+              ·
+            </span>
             <span class="gm-sp-rss-day-count">{activeDay.total}</span>
           </span>
         ) : null}
         {/*
-          Timeline-only: the merged list is built from unread entries, so a feed
-          that failed renders as nothing there. It rides in this bar (no row of
-          its own) because the grouped view already marks each broken feed with a
-          ⚠ beside its title. Right-aligned, so it sits at the far end of the
-          bar instead of crowding the date filter.
+          Everything that belongs at the far end of the bar, in one group.
+          Two siblings with `margin-left: auto` would split the free space
+          between them and strand the failure count in the middle of the row.
         */}
-        {mode === 'timeline' && failed.length > 0 ? (
-          <FeedFailureToggle
-            feeds={failed}
-            open={failuresOpen}
-            onToggle={() => setFailuresOpen(!failuresOpen)}
-          />
-        ) : null}
+        <div class="gm-sp-rss-bar-end">
+          {/*
+            Timeline-only: the merged list is built from unread entries, so a feed
+            that failed renders as nothing there. It rides in this bar (no row of
+            its own) because the grouped view already marks each broken feed with
+            a ⚠ beside its title.
+          */}
+          {mode === 'timeline' && failed.length > 0 ? (
+            <FeedFailureToggle
+              feeds={failed}
+              open={failuresOpen}
+              onToggle={() => setFailuresOpen(!failuresOpen)}
+            />
+          ) : null}
+          {rangeBar}
+        </div>
       </div>
       {/* Outside the bar on purpose: inside it, the panel would change the bar's
           height and move every control beside it. */}
@@ -331,16 +447,16 @@ function useRowHandlers(props: SharedRowProps, siblings: RssItem[]) {
 }
 
 function FeedBlock({ feed, ...rowProps }: SharedRowProps & { feed: RssFeed }) {
-  const { state, runtime, now, dateFilter, scheduleHint } = rowProps
+  const { state, runtime, now, dateFilter, dateRange, scheduleHint } = rowProps
   const [userExpanded, setUserExpanded] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
-  /** Everything unread, before the date filter narrows it. */
+  /** Everything unread, before the date controls narrow it. */
   const unreadAll = visibleUnreadItems(feed, state)
   // The date filter applies to the grouped lists as well (it is not a
   // timeline-only control). The badge still reports the source's own unread
   // count — a source with 5 unread does not become a source with 0 because the
   // reader is looking at today.
-  const unread = unreadInRange(feed, state, dateFilter, now)
+  const unread = unreadInRange(feed, state, dateFilter, dateRange, now)
   const filteredOut = unreadAll.length - unread.length
   const { forceRender, onRowClick, onOpen } = useRowHandlers(rowProps, unread)
 
@@ -531,6 +647,70 @@ function useActiveDay(
   }, [container, groupsKey, onChange])
 }
 
+/**
+ * The window preset, and the bulk action it unlocks.
+ *
+ * Rides at the end of the view bar rather than in a row of its own: the bar is
+ * where every other filter lives, and a second row pushed the list down to make
+ * room for two controls the reader reaches for once. Not a sixth button in the
+ * day-button group either — that group is one glyph per button, and a dropdown
+ * inside it would break the rhythm and crowd the buttons used most.
+ *
+ * No 清除 button: going back is picking 全部, which the dropdown already offers.
+ *
+ * 「全部已读」 exists only while a window is set. Marking a month of entries read
+ * in one click is not an accident worth inviting; with a window, the button's own
+ * scope is visible in its label and picking 全部 takes it away again.
+ */
+function DateRangeBar({
+  range,
+  onChange,
+  unreadCount,
+  onMarkAllRead,
+}: {
+  range: DateRangePreset
+  onChange: (range: DateRangePreset) => void
+  unreadCount: number
+  onMarkAllRead: () => void
+}) {
+  const active = isDateRangeActive(range)
+  return (
+    <div class="gm-sp-rss-range">
+      <select
+        class="gm-sp-rss-range-select"
+        data-action="range-preset"
+        aria-label="时间范围"
+        title="按时间范围过滤"
+        value={range}
+        onChange={(event) => onChange((event.target as HTMLSelectElement).value as DateRangePreset)}
+      >
+        {DATE_RANGE_OPTIONS.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+      {active ? (
+        <button
+          type="button"
+          class="gm-sp-rss-markall"
+          data-action="mark-all-read"
+          data-unread={unreadCount}
+          disabled={unreadCount === 0}
+          title={
+            unreadCount === 0
+              ? `${range}内没有未读条目`
+              : `将${range}内的 ${unreadCount} 个未读主题标记为已读`
+          }
+          onClick={onMarkAllRead}
+        >
+          {`全部已读${unreadCount > 0 ? ` (${unreadCount})` : ''}`}
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
 /** "30 分钟后重试" — "" when the feed is already due for another attempt. */
 function retryLabelOf(feed: RssFeed, now: number): string {
   const retryInMs = feed.nextRetryAt === undefined ? 0 : feed.nextRetryAt - now
@@ -613,10 +793,11 @@ function FeedFailurePanel({ feeds, now }: { feeds: RssFeed[]; now: number }) {
  * date filter.
  *
  * Boundaries are computed from the same ticking `now` the countdowns use, so a
- * pinned clock renders deterministically. Entries without a publish date
- * (`pubDate === 0`, legal in RSS) fall outside every bound and are therefore
- * hidden by any filter other than 全 — the same rule v2ex/xueqiu get from the
- * shared helper.
+ * pinned clock renders deterministically, and every entry is placed by
+ * `placedAt` — an entry with no publish date is judged as if it were published
+ * now, so 全 and 今 cannot disagree about it.
+ * Fetched entries are dated at fetch time (`mergeFeedItems`), so this only ever
+ * meets cache entries written before that.
  */
 function Timeline({
   feeds,
@@ -626,7 +807,7 @@ function Timeline({
   feeds: RssFeed[]
   onActiveDayChange?: ((day: ActiveDay | null) => void) | undefined
 }) {
-  const { state, runtime, now, dateFilter, filterUnread } = rowProps
+  const { state, runtime, now, dateFilter, dateRange, filterUnread } = rowProps
   const [container, setContainer] = useState<HTMLElement | null>(null)
   /**
    * Every entry a feed has, minus the hidden ones — read entries included unless
@@ -644,19 +825,27 @@ function Timeline({
         .filter((item) => !filterUnread || !state.isRead(item.id))
         .map((item) => ({ item, feed })),
     )
-    .sort((a, b) => b.item.pubDate - a.item.pubDate)
-  const filtered = applyDateFilter(
-    entries,
-    dateFilter,
-    (entry) => entry.item.pubDate,
-    () => now,
+    // Sorted by the date each entry is *placed* by, so an undated one lands with
+    // the newest rather than trailing the list on a `0`.
+    .sort((a, b) => placedAt(b.item.pubDate, now) - placedAt(a.item.pubDate, now))
+  // Both date controls apply, in the same order as in the grouped view, so the
+  // two views never disagree about which entries are in range.
+  const filtered = applyDateRange(
+    applyDateFilter(
+      entries,
+      dateFilter,
+      (entry) => placedAt(entry.item.pubDate, now),
+      () => now,
+    ),
+    dateRange,
+    (entry) => placedAt(entry.item.pubDate, now),
+    now,
   )
   const shown = filtered.slice(0, TIMELINE_MAX_ITEMS)
   /**
    * Split by day on the same local-midnight basis as the date filter, so a
-   * filtered timeline and a grouped one never disagree about what 昨天 is.
-   * Undated entries get their own trailing section instead of being lumped into
-   * 更早 — see `daySectionOf`.
+   * filtered timeline and a grouped one never disagree about what 昨天 is —
+   * undated entries included, which `placedAt` puts in 今天.
    */
   const sections = DAY_SECTIONS.map((section) => ({
     section,
@@ -922,7 +1111,12 @@ function ItemList({
       }
       renderBody={(entry) => <ItemBody item={entry.item} onOpen={() => onOpen(entry.item)} />}
       renderActions={(entry) => (
-        <ItemActions onBulkRead={() => onBulkRead(entry)} onHide={() => onHide(entry)} />
+        <ItemActions
+          openHref={entry.item.link}
+          onOpen={() => onOpen(entry.item)}
+          onBulkRead={() => onBulkRead(entry)}
+          onHide={() => onHide(entry)}
+        />
       )}
       renderAfter={renderAfter}
       containerClassName={
