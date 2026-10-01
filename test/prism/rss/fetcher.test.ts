@@ -89,6 +89,30 @@ describe('fetchRssFeeds', () => {
     expect(runtime.lastRequest?.headers?.['Accept']).toContain('application/rss+xml')
   })
 
+  test('an entry without a publish date is dated with the fetch time', async () => {
+    const runtime = makeRuntime()
+    const url = 'https://nodate.example/feed.xml'
+    runtime.queueResponse(url, feedXml('NoDate', [{ id: '1', title: 'One' }]))
+    const feeds = await fetchRssFeeds(runtime, [config(url)], [], OPTS)
+    // Not `0`: an undated entry is unplaceable downstream — it would sort last,
+    // sit outside every date window and never expire.
+    expect(feeds[0]!.items[0]!.pubDate).toBe(NOW)
+  })
+
+  test('that date is the first sighting, not the latest fetch', async () => {
+    // Regression shape: re-stamping on every fetch would drag a week-old post
+    // forward forever and it would read as brand new on every refresh.
+    const runtime = makeRuntime()
+    const url = 'https://nodate.example/feed.xml'
+    runtime.queueResponse(url, feedXml('NoDate', [{ id: '1', title: 'One' }]))
+    const first = await fetchRssFeeds(runtime, [config(url)], [], OPTS)
+
+    runtime.setClock(NOW + 3 * DAY)
+    runtime.queueResponse(url, feedXml('NoDate', [{ id: '1', title: 'One' }]))
+    const second = await fetchRssFeeds(runtime, [config(url)], first, OPTS)
+    expect(second[0]!.items[0]!.pubDate).toBe(NOW)
+  })
+
   test('truncates long summaries', async () => {
     const runtime = makeRuntime()
     const long = `https://a.example/feed.xml`

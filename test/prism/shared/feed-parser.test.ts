@@ -186,6 +186,21 @@ describe('parseFeed · robustness', () => {
     expect(parseFeed(xml, domParser, { maxItems: 0 }).items).toEqual([])
   })
 
+  test('a cap keeps undated entries instead of treating them as the oldest', () => {
+    // The RSS reader dates an undated entry with the fetch time, so an entry the
+    // feed never dated is the newest thing it has, not the oldest: dropping it
+    // first would drop exactly what the caller is about to call brand new.
+    const xml = `<rss version="2.0"><channel>
+      <item><title>dated-old</title><link>https://example.com/1</link><pubDate>2020-01-01T00:00:00Z</pubDate></item>
+      <item><title>dated-new</title><link>https://example.com/2</link><pubDate>2026-01-02T00:00:00Z</pubDate></item>
+      <item><title>undated</title><link>https://example.com/3</link></item>
+    </channel></rss>`
+    expect(parseFeed(xml, domParser, { maxItems: 2 }).items.map((it) => it.title)).toEqual([
+      'dated-new',
+      'undated',
+    ])
+  })
+
   test('finds entries whose element name carries a namespace prefix', () => {
     // `getElementsByTagName` compares the qualified name, which misses these.
     const xml = `<?xml version="1.0"?>

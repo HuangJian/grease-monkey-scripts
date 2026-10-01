@@ -16,26 +16,29 @@ function item(id: string, pubDate: number, title = id): RssItem {
 
 const DAY = 24 * 60 * 60 * 1000
 
+/** The fetch time every scenario here stamps undated entries with. */
+const SEEN_AT = 10 * DAY
+
 describe('mergeFeedItems', () => {
   test('unions by id and lets the fresh entry win', () => {
     const prev = [item('a', 100, 'old A')]
     const next = [item('a', 100, 'new A'), item('b', 200)]
-    const merged = mergeFeedItems(prev, next)
+    const merged = mergeFeedItems(prev, next, SEEN_AT)
     expect(merged).toHaveLength(2)
     expect(merged.find((it) => it.id === 'a')!.title).toBe('new A')
   })
 
   test('keeps a known publish date when the fresh entry has none', () => {
-    const merged = mergeFeedItems([item('a', 1000)], [item('a', 0)])
+    const merged = mergeFeedItems([item('a', 1000)], [item('a', 0)], SEEN_AT)
     expect(merged[0]!.pubDate).toBe(1000)
   })
 
   test('keeps entries that disappeared from the feed', () => {
-    expect(mergeFeedItems([item('gone', 100)], [item('b', 200)])).toHaveLength(2)
+    expect(mergeFeedItems([item('gone', 100)], [item('b', 200)], SEEN_AT)).toHaveLength(2)
   })
 
   test('puts freshly fetched entries ahead of cached-only ones', () => {
-    const merged = mergeFeedItems([item('old', 0)], [item('new', 0)])
+    const merged = mergeFeedItems([item('old', 0)], [item('new', 0)], SEEN_AT)
     expect(merged.map((it) => it.id)).toEqual(['new', 'old'])
   })
 
@@ -45,8 +48,46 @@ describe('mergeFeedItems', () => {
     // everything new — the feed would freeze at its first N entries.
     const prev = Array.from({ length: 5 }, (_, i) => item(`old${i}`, 0))
     const next = [item('new1', 0), item('new2', 0)]
-    const capped = capItems(sortByPubDateDesc(mergeFeedItems(prev, next)), 5)
+    const capped = capItems(sortByPubDateDesc(mergeFeedItems(prev, next, SEEN_AT)), 5)
     expect(capped.map((it) => it.id)).toEqual(['new1', 'new2', 'old0', 'old1', 'old2'])
+  })
+
+  test('an entry the feed leaves undated is dated with the fetch time', () => {
+    // `0` is legal RSS but unplaceable: it sorts last, falls outside every date
+    // window, and would be exempt from retention forever.
+    const merged = mergeFeedItems([], [item('a', 0)], SEEN_AT)
+    expect(merged[0]!.pubDate).toBe(SEEN_AT)
+  })
+
+  test('the stamped date is the first sighting, not the latest fetch', () => {
+    // Regression shape: stamping at fetch time unconditionally would drag every
+    // undated entry forward on every refresh, so a week-old post would read as
+    // brand new forever.
+    const first = mergeFeedItems([], [item('a', 0)], SEEN_AT)
+    const second = mergeFeedItems(first, [item('a', 0)], SEEN_AT + 3 * DAY)
+    expect(second[0]!.pubDate).toBe(SEEN_AT)
+  })
+
+  test('a date the feed starts supplying later wins over the stamped one', () => {
+    const stamped = mergeFeedItems([], [item('a', 0)], SEEN_AT)
+    const dated = mergeFeedItems(stamped, [item('a', SEEN_AT - 5 * DAY)], SEEN_AT + DAY)
+    expect(dated[0]!.pubDate).toBe(SEEN_AT - 5 * DAY)
+  })
+
+  test('a cached entry still carrying 0 gets this fetch as its best guess', () => {
+    // Entries written before undated entries were stamped have no first-seen
+    // time left to recover; leaving them at 0 would keep them outside every
+    // window forever.
+    const merged = mergeFeedItems([item('a', 0)], [item('a', 0)], SEEN_AT)
+    expect(merged[0]!.pubDate).toBe(SEEN_AT)
+  })
+
+  test('an undated entry is only stamped once per id, even across feeds', () => {
+    const merged = mergeFeedItems([item('a', 0), item('b', 0)], [item('a', 0)], SEEN_AT)
+    // 'b' is cached-only and keeps whatever it had — this pass never sees it in
+    // a response, so it must not be silently re-dated.
+    expect(merged.find((it) => it.id === 'a')!.pubDate).toBe(SEEN_AT)
+    expect(merged.find((it) => it.id === 'b')!.pubDate).toBe(0)
   })
 })
 

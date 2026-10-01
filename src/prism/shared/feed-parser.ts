@@ -137,6 +137,11 @@ function entryPubDate(el: Element): number {
  * caller's own cap would keep are the newest ones, not the first ones in the
  * document. Ties keep document order, which is restored before returning so the
  * result stays stable for the caller.
+ *
+ * An entry the feed leaves undated sorts as **newest**, not oldest. Callers date
+ * such entries with the fetch time (the RSS reader stamps `firstSeenAt`), so
+ * dropping them first would be choosing the entries that pipeline is about to
+ * call brand new — and it would drop them before that ever happens.
  */
 function selectEntries(entries: Element[], maxItems: number | undefined): Element[] {
   if (maxItems === undefined) return entries
@@ -144,10 +149,15 @@ function selectEntries(entries: Element[], maxItems: number | undefined): Elemen
   if (entries.length <= limit) return entries
   return entries
     .map((el, index) => ({ el, index, pubDate: entryPubDate(el) }))
-    .sort((a, b) => b.pubDate - a.pubDate)
+    .sort((a, b) => rankPubDate(b.pubDate) - rankPubDate(a.pubDate))
     .slice(0, limit)
     .sort((a, b) => a.index - b.index)
     .map((candidate) => candidate.el)
+}
+
+/** Undated entries compete as the newest ones; see `selectEntries`. */
+function rankPubDate(pubDate: number): number {
+  return pubDate === 0 ? Number.POSITIVE_INFINITY : pubDate
 }
 
 function descendantsByLocalName(root: Element, name: string): Element[] {

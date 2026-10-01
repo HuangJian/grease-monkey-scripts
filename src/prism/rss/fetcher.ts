@@ -177,7 +177,9 @@ async function fetchOneFeed(
       feed: {
         ...base,
         title: config.title || parsed.title || prev?.title || hostnameOf(config.url),
-        items: windowItems(mergeFeedItems(prev?.items ?? [], items), now, options),
+        // `now` is the date an entry the feed leaves undated is given — the
+        // moment this refresh first saw it (see `mergeFeedItems`).
+        items: windowItems(mergeFeedItems(prev?.items ?? [], items, now), now, options),
         error: '',
         fetchedAt: now,
         attemptedAt: now,
