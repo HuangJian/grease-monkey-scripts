@@ -342,67 +342,76 @@ export function RssComponent({
 
   return (
     <div class="gm-sp-rss">
-      <div class="gm-sp-rss-viewbar">
-        {(
-          [
-            ['grouped', '分组'],
-            ['timeline', '时间线'],
-          ] as const
-        ).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            class={`gm-sp-rss-viewbtn${mode === value ? ' gm-sp-rss-viewbtn-active' : ''}`}
-            data-action={`view-${value}`}
-            onClick={() => switchTo(value)}
-          >
-            {label}
-          </button>
-        ))}
-        {/* Both controls apply to both views: the date filter narrows the
-            grouped lists too, and 「未」 hides sources with nothing unread. */}
-        <DateFilterGroup
-          value={dateFilter}
-          onChange={pickDateFilter}
-          filterUnread={filterUnread}
-          onToggleFilterUnread={onToggleFilterUnread}
-        />
-        {mode === 'timeline' && activeDay ? (
-          <span class="gm-sp-rss-day-now" data-day-section={activeDay.section}>
-            <span class="gm-sp-rss-day-label">{DAY_SECTION_LABELS[activeDay.section]}</span>
-            <span class="gm-sp-rss-day-sep" aria-hidden="true">
-              ·
+      {/*
+        The bar and the failure panel are one sticky block: the panel belongs to
+        the bar's ⚠ toggle, so it has to travel with it — otherwise opening it
+        and scrolling leaves the reasons floating over a list they no longer
+        describe. It stays a sibling of the bar rather than a child because
+        growing the bar itself would move every control beside it.
+      */}
+      <div class="gm-sp-rss-head">
+        <div class="gm-sp-rss-viewbar">
+          {(
+            [
+              ['grouped', '分组'],
+              ['timeline', '时间线'],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              class={`gm-sp-rss-viewbtn${mode === value ? ' gm-sp-rss-viewbtn-active' : ''}`}
+              data-action={`view-${value}`}
+              onClick={() => switchTo(value)}
+            >
+              {label}
+            </button>
+          ))}
+          {/* Both controls apply to both views: the date filter narrows the
+              grouped lists too, and 「未」 hides sources with nothing unread. */}
+          <DateFilterGroup
+            value={dateFilter}
+            onChange={pickDateFilter}
+            filterUnread={filterUnread}
+            onToggleFilterUnread={onToggleFilterUnread}
+          />
+          {mode === 'timeline' && activeDay ? (
+            <span class="gm-sp-rss-day-now" data-day-section={activeDay.section}>
+              <span class="gm-sp-rss-day-label">{DAY_SECTION_LABELS[activeDay.section]}</span>
+              <span class="gm-sp-rss-day-sep" aria-hidden="true">
+                ·
+              </span>
+              <span class="gm-sp-rss-day-count">{activeDay.total}</span>
             </span>
-            <span class="gm-sp-rss-day-count">{activeDay.total}</span>
-          </span>
-        ) : null}
-        {/*
-          Everything that belongs at the far end of the bar, in one group.
-          Two siblings with `margin-left: auto` would split the free space
-          between them and strand the failure count in the middle of the row.
-        */}
-        <div class="gm-sp-rss-bar-end">
-          {/*
-            Timeline-only: the merged list is built from unread entries, so a feed
-            that failed renders as nothing there. It rides in this bar (no row of
-            its own) because the grouped view already marks each broken feed with
-            a ⚠ beside its title.
-          */}
-          {mode === 'timeline' && failed.length > 0 ? (
-            <FeedFailureToggle
-              feeds={failed}
-              open={failuresOpen}
-              onToggle={() => setFailuresOpen(!failuresOpen)}
-            />
           ) : null}
-          {rangeBar}
+          {/*
+            Everything that belongs at the far end of the bar, in one group.
+            Two siblings with `margin-left: auto` would split the free space
+            between them and strand the failure count in the middle of the row.
+          */}
+          <div class="gm-sp-rss-bar-end">
+            {/*
+              Timeline-only: the merged list is built from unread entries, so a feed
+              that failed renders as nothing there. It rides in this bar (no row of
+              its own) because the grouped view already marks each broken feed with
+              a ⚠ beside its title.
+            */}
+            {mode === 'timeline' && failed.length > 0 ? (
+              <FeedFailureToggle
+                feeds={failed}
+                open={failuresOpen}
+                onToggle={() => setFailuresOpen(!failuresOpen)}
+              />
+            ) : null}
+            {rangeBar}
+          </div>
         </div>
+        {/* Outside the bar on purpose: inside it, the panel would change the bar's
+            height and move every control beside it. */}
+        {mode === 'timeline' && failuresOpen && failed.length > 0 ? (
+          <FeedFailurePanel feeds={failed} now={now} />
+        ) : null}
       </div>
-      {/* Outside the bar on purpose: inside it, the panel would change the bar's
-          height and move every control beside it. */}
-      {mode === 'timeline' && failuresOpen && failed.length > 0 ? (
-        <FeedFailurePanel feeds={failed} now={now} />
-      ) : null}
       {mode === 'grouped' ? (
         feeds.map((feed) => <FeedBlock key={feed.id} feed={feed} {...rowProps} />)
       ) : (
@@ -621,7 +630,15 @@ function useActiveDay(
       // which would read as "all sections are at the top" and land on the last
       // one. Fall back to the first section instead.
       const laidOut = groups.some((group) => group.getBoundingClientRect().height > 0)
-      const originTop = scroller ? scroller.getBoundingClientRect().top : 0
+      /**
+       * The bar (with the failure panel when it is open) is pinned to the top of
+       * the scroll area: a group is "the one you are looking at" once it reaches
+       * that block's bottom edge, not the scroll area's top. Without this the
+       * label would flip to a section whose rows are still hidden behind it.
+       */
+      const head = container.closest('.gm-sp-rss')?.querySelector<HTMLElement>('.gm-sp-rss-head')
+      const headBottom = head ? head.getBoundingClientRect().height : 0
+      const originTop = (scroller ? scroller.getBoundingClientRect().top : 0) + headBottom
       let current = groups[0]!
       if (laidOut) {
         for (const group of groups) {
