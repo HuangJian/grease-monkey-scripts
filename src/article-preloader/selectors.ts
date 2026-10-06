@@ -1,6 +1,6 @@
 import { getLinkText, matchesText } from '../utils'
 import { SITE_CONFIGS } from './config'
-import type { Selectors } from './types'
+import type { Selectors, SiteConfig } from './types'
 
 export function findChapterLink(
   linkSelector: string,
@@ -15,13 +15,38 @@ export function findChapterLink(
   return null
 }
 
-export function selectorsFactory(host: string, doc: Document): Selectors {
-  const config = SITE_CONFIGS.find((c) => {
-    const hosts = Array.isArray(c.host) ? c.host : [c.host]
-    return hosts.some((h) => host.includes(h))
-  })
-  if (!config) throw new Error(`Unsupported website: ${host}`)
+function hostsOf(config: SiteConfig): string[] {
+  return Array.isArray(config.host) ? config.host : [config.host]
+}
 
+/** Every selector of the site's DOM signature must be present. */
+function matchesStructure(doc: Document, config: SiteConfig): boolean {
+  const needed = Array.isArray(config.detect) ? config.detect : [config.detect]
+  return needed.every((selector) => doc.querySelector(selector) !== null)
+}
+
+/**
+ * Resolve the site config for a page.
+ *
+ * Known hosts win: it is deterministic and the only route on pages that lack
+ * the chapter markup. Otherwise fall back to the DOM signature, so a site that
+ * moves to a brand-new domain keeps working without any code change.
+ */
+export function findSiteConfig(host: string, doc: Document): SiteConfig | undefined {
+  return (
+    SITE_CONFIGS.find((c) => hostsOf(c).some((h) => host.includes(h))) ??
+    SITE_CONFIGS.find((c) => matchesStructure(doc, c))
+  )
+}
+
+export function selectorsFactory(host: string, doc: Document): Selectors {
+  const config = findSiteConfig(host, doc)
+  if (!config) throw new Error(`Unsupported website: ${host}`)
+  return selectorsFromConfig(config, doc)
+}
+
+/** Build selectors from an already-resolved site config. */
+export function selectorsFromConfig(config: SiteConfig, doc: Document): Selectors {
   if (config.kind === 'text') {
     return {
       previousChapterLinkSelector: () =>

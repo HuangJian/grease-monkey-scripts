@@ -1,6 +1,8 @@
 export type DirectSelectorConfig = {
   kind: 'direct'
   host: string | string[]
+  /** DOM signature identifying the site when the host is not one of `host`. */
+  detect: string | string[]
   contentSelector?: string | undefined
   previousChapterLinkSelector: string
   indexLinkSelector: string
@@ -10,6 +12,8 @@ export type DirectSelectorConfig = {
 export type TextPatternConfig = {
   kind: 'text'
   host: string | string[]
+  /** DOM signature identifying the site when the host is not one of `host`. */
+  detect: string | string[]
   contentSelector?: string | undefined
   chapterLinkSelector: string
   previousChapterTextPattern: RegExp

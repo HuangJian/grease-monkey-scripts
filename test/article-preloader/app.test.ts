@@ -1,13 +1,22 @@
 import { describe, expect, test, afterAll } from 'bun:test'
+import { readFile } from 'node:fs/promises'
 
 import { getLinkText, isAbsoluteUrl, toAbsoluteUrl, matchesText } from '../../src/utils'
 import {
   findChapterLink,
+  findSiteConfig,
   selectorsFactory,
   startArticlePreloader,
 } from '../../src/article-preloader/app'
 import type { RequestDetails } from '../../src/runtime'
 import { createHappyDom, createRuntime, closeAllWindows } from '../runtime'
+
+/** Start the preloader on a fixture page, failing loudly if the page is unsupported. */
+function startApp(runtime: Parameters<typeof startArticlePreloader>[0]) {
+  const app = startArticlePreloader(runtime)
+  if (!app) throw new Error('fixture page is not a supported novel site')
+  return app
+}
 
 describe('pure helpers', () => {
   test('getLinkText strips all whitespace', () => {
@@ -169,6 +178,66 @@ describe('selectorsFactory', () => {
       'Unsupported website',
     )
   })
+
+  test('recognises the sudugu family on a domain it has never seen', () => {
+    const dom = createHappyDom(
+      `
+      <html><body>
+        <div class="con">content</div>
+        <div class="prenext">
+          <a href="/prev">上一章</a>
+          <a href="/index">目录</a>
+          <a href="/next">下一章</a>
+        </div>
+      </body></html>
+    `,
+      'https://www.suduguu.com/chapter/1',
+    )
+    // The host is deliberately unknown — only the page structure identifies it.
+    const factory = selectorsFactory(
+      'brand-new-mirror.example',
+      dom.document as unknown as Document,
+    )
+
+    expect(factory.contentSelector).toBe('.con')
+    expect(factory.paginationSelector).toBe('.prenext a')
+    expect(factory.previousChapterLinkSelector()?.getAttribute('href')).toBe('/prev')
+    expect(factory.indexLinkSelector()?.getAttribute('href')).toBe('/index')
+    expect(factory.nextChapterLinkSelector()?.getAttribute('href')).toBe('/next')
+  })
+
+  test('every site is still identifiable after moving to an unknown domain', () => {
+    // Guards against adding a site config without a DOM signature: it would work
+    // on its current domain and silently break the moment the site moves.
+    const fixtures: { knownHost: string; html: string }[] = [
+      {
+        knownHost: 'biduoxs.com',
+        html: '<html><body><div class="bottem2"><a href="/1">1</a></div></body></html>',
+      },
+      {
+        knownHost: 'xbiquge.so',
+        html: '<html><body><a id="link-next" href="/n">下一章</a></body></html>',
+      },
+      {
+        knownHost: 'sudugu.org',
+        html: '<html><body><div class="con">c</div><div class="prenext"></div></body></html>',
+      },
+      {
+        knownHost: 'tongrenxsw.com',
+        html: '<html><body><div class="content">c</div><div class="btnW"></div></body></html>',
+      },
+    ]
+    for (const fixture of fixtures) {
+      const dom = createHappyDom(fixture.html)
+      const config = findSiteConfig('unknown-mirror.example', dom.document as unknown as Document)
+      expect(config?.host).toContain(fixture.knownHost)
+    }
+  })
+
+  test('does nothing on pages that are not a supported novel site', () => {
+    const dom = createHappyDom('<html><body><p>hello</p></body></html>', 'https://example.com/')
+    expect(startArticlePreloader(createRuntime(dom))).toBeUndefined()
+  })
 })
 
 describe('loadChapter', () => {
@@ -194,7 +263,7 @@ describe('loadChapter', () => {
     }
 
     let result: { html: string; url: string; nextChapterUrl: string } | null = null
-    const app = startArticlePreloader(runtime)
+    const app = startApp(runtime)
 
     app.loadChapter(
       '/chapter/1',
@@ -242,7 +311,7 @@ describe('loadChapter', () => {
     }
 
     let result: { html: string; url: string; nextChapterUrl: string } | null = null
-    const app = startArticlePreloader(runtime)
+    const app = startApp(runtime)
 
     app.loadChapter(
       '/chapter/1',
@@ -268,7 +337,7 @@ describe('loadChapter', () => {
     }
 
     let failed = false
-    const app = startArticlePreloader(runtime)
+    const app = startApp(runtime)
 
     app.loadChapter(
       '/chapter/1',
@@ -293,7 +362,7 @@ describe('loadChapter', () => {
       },
     }
 
-    const app = startArticlePreloader(runtime)
+    const app = startApp(runtime)
 
     app.loadChapter(
       '/chapter/1',
@@ -320,7 +389,7 @@ describe('loadChapter', () => {
       },
     }
 
-    const app = startArticlePreloader(runtime)
+    const app = startApp(runtime)
 
     app.loadChapter(
       '/chapter/1',
@@ -368,7 +437,7 @@ describe('loadChapter', () => {
     }
 
     let result: { html: string; url: string; nextChapterUrl: string } | null = null
-    const app = startArticlePreloader(runtime)
+    const app = startApp(runtime)
 
     app.loadChapter(
       '/chapter/1',
@@ -424,7 +493,7 @@ describe('loadChapter', () => {
     }
 
     let result: { html: string; url: string; nextChapterUrl: string } | null = null
-    const app = startArticlePreloader(runtime)
+    const app = startApp(runtime)
 
     app.loadChapter(
       '/chapter/1',
@@ -451,7 +520,7 @@ describe('mergeCurrentChapterIfNeeded', () => {
     `
     const dom = createHappyDom(html, 'https://www.sudugu.org/chapter/1')
     let doneCalled = false
-    const app = startArticlePreloader(createRuntime(dom))
+    const app = startApp(createRuntime(dom))
 
     app.mergeCurrentChapterIfNeeded(() => {
       doneCalled = true
@@ -491,7 +560,7 @@ describe('mergeCurrentChapterIfNeeded', () => {
     }
 
     let doneCalled = false
-    const app = startArticlePreloader(runtime)
+    const app = startApp(runtime)
 
     app.mergeCurrentChapterIfNeeded(() => {
       doneCalled = true
@@ -501,6 +570,57 @@ describe('mergeCurrentChapterIfNeeded', () => {
     const content = dom.document.querySelector('.con')?.textContent
     expect(content).toContain('Page 1')
     expect(content).toContain('Page 2')
+  })
+
+  test('recovers text injected by document.write without copying the script', async () => {
+    const currentHtml = `
+      <html><head></head><body>
+        <div class="con">Page 1</div>
+        <div class="prenext">
+          <a href="/chapter/1-2.html">下一页</a>
+          <a href="/chapter/2">下一章</a>
+        </div>
+      </body></html>
+    `
+    // Pages 2+ ship no text at all: the prose arrives through an injection script
+    // (this is how the sudugu family serves continuation pages).
+    const page2Html = `
+      <html><head></head><body>
+        <div class="con"><script src="/i/a.aspx?id=1&p=2"></script></div>
+        <div class="prenext">
+          <a href="/chapter/2">下一章</a>
+        </div>
+      </body></html>
+    `
+    const injectJs = 'document.write("<p>Part two</p>");'
+
+    const dom = createHappyDom(currentHtml, 'https://www.sudugu.org/chapter/1')
+    const runtime = {
+      ...createRuntime(dom),
+      request: ({ url, onload }: { url: string; onload: RequestDetails['onload'] }) => {
+        const body = url.includes('a.aspx')
+          ? injectJs
+          : url.includes('1-2')
+            ? page2Html
+            : currentHtml
+        onload({ responseText: body, status: 200, responseHeaders: '' })
+      },
+    }
+
+    let doneCalled = false
+    const app = startApp(runtime)
+    app.mergeCurrentChapterIfNeeded(() => {
+      doneCalled = true
+    })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(doneCalled).toBe(true)
+    const content = dom.document.querySelector('.con')!
+    expect(content.textContent).toContain('Page 1')
+    expect(content.textContent).toContain('Part two')
+    // The injection script must never reach the live document: running it there
+    // document.write()s over the whole page.
+    expect(content.querySelectorAll('script')).toHaveLength(0)
   })
 })
 
@@ -563,6 +683,18 @@ describe('integration: startArticlePreloader', () => {
     startArticlePreloader(runtime)
 
     expect(requestUrls).toHaveLength(0)
+  })
+})
+
+describe('userscript metadata', () => {
+  test('matches every host, so a site moving to a new domain needs no script change', async () => {
+    // Detection is by page structure, but Tampermonkey only injects where the
+    // metadata says so. A host wildcard is what lets a renamed mirror work
+    // untouched; narrowing it back to fixed domains silently breaks that.
+    const source = await readFile('src/article-preloader/index.user.ts', 'utf8')
+    const meta = source.match(/^\/\/ ==UserScript==[\s\S]*?^\/\/ ==\/UserScript==/m)?.[0] ?? ''
+    const patterns = [...meta.matchAll(/^\/\/ @(?:match|include)\s+(\S+)/gm)].map((m) => m[1]!)
+    expect(patterns.some((p) => /^\*:\/\/\*/.test(p) || /^https?:\/\/\*/.test(p))).toBe(true)
   })
 })
 

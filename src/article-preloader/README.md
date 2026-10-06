@@ -28,12 +28,23 @@
 
 ## 支持站点
 
-- `www.xbiquge.so`
-- `www.biduoxs.com`
-- `www.sudugu.org`
-- `www.shudugu.org`
-- `www.suduguu.com`
-- `www.tongrenxsw.com`
+脚本对所有页面注入（`@match *://*/*`），但**按页面结构识别**：只有页面同时命中某个站点的
+DOM 特征时才启动，其余页面静默退出、不做任何事。
+
+这样小说站换域名（换镜像）就**不用改脚本**——只要它还用同一套模板，新域名自动生效。
+
+| 站点                                                                                    | 识别特征（全部命中才启动） |
+| --------------------------------------------------------------------------------------- | -------------------------- |
+| 速读谷系：`www.sudugu.org`、`www.shudugu.org`、`www.suduguu.com` 及任何沿用该模板的域名 | `.prenext` + `.con`        |
+| `www.xbiquge.so`                                                                        | `#link-next`               |
+| `www.biduoxs.com`                                                                       | `.bottem2`                 |
+| `www.tongrenxsw.com`                                                                    | `.btnW` + `.content`       |
+
+新增站点：在 `src/article-preloader/config.ts` 加一条配置并填上 `detect` 特征即可，
+**不需要改脚本头**。`host` 只是已知域名的快速通道，不是必需项。
+
+> 代价：脚本会在每个页面注入并执行几次 `querySelector` 探测。若想收紧范围，把
+> `@match *://*/*` 换成具体域名即可（但那样换镜像就又得改脚本了）。
 
 ## 安装
 

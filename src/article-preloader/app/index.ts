@@ -1,13 +1,17 @@
 import type { Runtime } from '../../runtime'
-import { selectorsFactory } from '../selectors'
+import { findSiteConfig, selectorsFromConfig } from '../selectors'
 import { loadChapter } from './chapter-loader'
 import { mergeCurrentChapterIfNeeded } from './merge-current-page'
 import { createPreloadController } from './preload-controller'
 
-export { findChapterLink, selectorsFactory } from '../selectors'
+export { findChapterLink, findSiteConfig, selectorsFactory } from '../selectors'
 
 export function startArticlePreloader(runtime: Runtime) {
-  const selectors = selectorsFactory(runtime.location.host, runtime.document)
+  const config = findSiteConfig(runtime.location.host, runtime.document)
+  // The script matches every URL, so most pages are simply not novels. Bail out
+  // quietly instead of throwing on pages we do not support.
+  if (!config) return undefined
+  const selectors = selectorsFromConfig(config, runtime.document)
 
   function boundLoadChapter(
     url: string,

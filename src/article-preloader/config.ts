@@ -2,10 +2,18 @@ import type { DirectSelectorConfig, TextPatternConfig, SiteConfig } from './type
 
 export type { DirectSelectorConfig, TextPatternConfig, SiteConfig }
 
+/**
+ * Site table.
+ *
+ * `host` is only a fast path for known domains. `detect` is the real identity:
+ * a DOM signature (every listed selector must be present) so a site is still
+ * recognised after it moves to a brand-new domain — no script change needed.
+ */
 export const SITE_CONFIGS: SiteConfig[] = [
   {
     kind: 'direct',
     host: 'biduoxs.com',
+    detect: '.bottem2',
     previousChapterLinkSelector: '.bottem2 a:nth-child(1)',
     indexLinkSelector: '.bottem2 a:nth-child(2)',
     nextChapterLinkSelector: '.bottem2 a:nth-child(3)',
@@ -13,6 +21,7 @@ export const SITE_CONFIGS: SiteConfig[] = [
   {
     kind: 'direct',
     host: 'xbiquge.so',
+    detect: '#link-next',
     previousChapterLinkSelector: '#link-preview',
     indexLinkSelector: '#link-index',
     nextChapterLinkSelector: '#link-next',
@@ -21,6 +30,7 @@ export const SITE_CONFIGS: SiteConfig[] = [
   {
     kind: 'text',
     host: ['sudugu.org', 'shudugu.org', 'suduguu.com'],
+    detect: ['.prenext', '.con'],
     chapterLinkSelector: '.prenext a',
     contentSelector: '.con',
     previousChapterTextPattern: /上一章|上一页/,
@@ -31,6 +41,7 @@ export const SITE_CONFIGS: SiteConfig[] = [
   {
     kind: 'text',
     host: 'tongrenxsw.com',
+    detect: ['.btnW', '.content'],
     chapterLinkSelector: '.btnW a',
     contentSelector: '.content',
     previousChapterTextPattern: /上一章|上一页/,
