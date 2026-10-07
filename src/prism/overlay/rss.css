@@ -159,20 +159,34 @@
 }
 
 /**
- * The panel: under the view bar, aligned with the control that opened it. Kept
- * out of the bar so expanding it cannot move the buttons and the date filter.
+ * The panel floats over the list instead of pushing it down.
+ *
+ * Opening it used to add a block under the bar, which moved every row below it
+ * — the list the reader was in the middle of shifted on a click that was only
+ * meant to look something up. Absolute positioning takes it out of the flow, so
+ * the list stays exactly where it was and the panel reads as a layer on top.
+ *
+ * It can be absolute here because `.gm-sp-rss-head` is sticky (i.e. positioned):
+ * the panel anchors to the bar that owns its toggle and travels with it, and
+ * inherits the bar's stacking context, so it paints over the rows rather than
+ * under them. Right-aligned to the toggle that opened it.
  */
 .gm-sp-rss-failures-list {
+  position: absolute;
+  top: 100%;
+  right: 12px;
+  z-index: 1;
   width: fit-content;
   max-width: 280px;
   max-height: 140px;
   overflow-y: auto;
-  margin: 2px 0 4px auto;
+  margin-top: 2px;
   padding: 4px 6px;
   list-style: none;
   border: 1px solid var(--gm-sp-color-danger-border);
   border-radius: var(--gm-sp-radius-sm);
   background: var(--gm-sp-color-danger-bg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .gm-sp-rss-failures-list li {
