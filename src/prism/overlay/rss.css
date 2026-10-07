@@ -309,8 +309,25 @@
   transition: opacity 0.12s;
 }
 
-.gm-sp-rss .gm-sp-list-item:hover .gm-sp-item-actions,
-.gm-sp-rss .gm-sp-list-item:focus-within .gm-sp-item-actions {
+/**
+ * Light the actions of the row under the pointer — and only that row.
+ *
+ * Two traps, both from the cluster: a source's extra rows are *descendants* of
+ * the headline row's `li` (see `.gm-sp-rss-items-nested`), so
+ * - the descendant combinator lit **every** row's buttons the moment the
+ *   headline (or anything hovering in it) matched, and
+ * - hovering a nested row kept the headline hovered too, since it is an
+ *   ancestor.
+ * `>` keeps each row's rule on its own buttons; `:not(:has(...))` drops the
+ * ancestor, so exactly the row under the pointer lights up.
+ *
+ * The focus rule deliberately targets `.gm-sp-item-actions` itself, not the
+ * row: a focused toggle (e.g. right after clicking 展开查看更多) would
+ * otherwise keep its row's buttons lit while the pointer works another row.
+ * Tabbing into the buttons still reveals them — that is the case it exists for.
+ */
+.gm-sp-rss .gm-sp-list-item:hover:not(:has(.gm-sp-list-item:hover)) > .gm-sp-item-actions,
+.gm-sp-rss .gm-sp-item-actions:focus-within {
   opacity: 1;
   pointer-events: auto;
 }
@@ -467,28 +484,32 @@
 }
 
 /**
- * A cluster's rows: nested inside the row that owns the toggle, indented and
- * marked with a rule so they read as "these belong to that source", not as more
- * entries of the merged day. Parent row is a grid, so claim the full width and
- * the row after the toggle.
+ * A cluster's rows: nested inside the row that owns the toggle, but laid out on
+ * the same grid lines as it — 时间对时间、标题对标题 — so expanding reads as
+ * "more of the same list" rather than a doubly indented sub-list. (What says
+ * they belong to one source is the toggle above them, which names the source.)
+ *
+ * Parent row is a grid, so claim the full width and the row after the toggle.
+ * The negative left margin is the row's own `padding-left`: the container sits
+ * inside the parent's content box, and without it the nested time column would
+ * start 4px right of every other row's.
  */
 .gm-sp-rss .gm-sp-rss-items-nested {
   grid-column: 1 / -1;
   grid-row: 3;
-  margin-left: 52px;
-  padding-left: 6px;
-  border-left: 1px solid var(--gm-sp-color-border);
+  margin-left: -4px;
 }
 
 /**
  * 「展开查看更多 N 个主题」/「收起 … 的主题」 — rendered inside the row it belongs
- * to, so it must claim the full width and the grid row under it.
+ * to, so it must claim the full width and the grid row under it. Aligned with
+ * the rows it opens, for the same reason.
  */
 .gm-sp-rss .gm-sp-rss-more-toggle {
   grid-column: 1 / -1;
   grid-row: 2;
   justify-self: start;
-  margin-left: 52px;
+  margin-left: 0;
 }
 
 .gm-sp-rss-more-toggle {
