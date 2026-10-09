@@ -96,6 +96,12 @@ export type ExpandableListProps<T> = {
   /** Renders extra content in the row (e.g. reply/like stats for hot mode). */
   renderExtra?: ((item: T) => ComponentChildren) | undefined
   containerClassName: string
+  /**
+   * Rows whose id appears here get the `-preview` marker: a source uses it to
+   * show what a bulk action (「↑已读」) would touch while its button is hovered.
+   * Optional — nothing pays for it until a source passes a set.
+   */
+  previewIds?: ReadonlySet<string | number> | undefined
   emptyMessage?: string
   /** ARIA role for the clickable row (default: none). */
   rowRole?: string
@@ -120,6 +126,7 @@ export function ExpandableList<T>({
   renderAfter,
   renderExtra,
   containerClassName,
+  previewIds,
   emptyMessage = '暂无数据',
   rowRole,
   rowTabIndex,
@@ -142,6 +149,7 @@ export function ExpandableList<T>({
           const read = isRead?.(id) ?? false
           const readClass = read ? ' gm-sp-item-read' : ''
           const expandedClass = expanded ? ' gm-sp-list-item-expanded' : ''
+          const previewClass = previewIds?.has(id) ? ' gm-sp-item-preview' : ''
           const time = getTime(item)
           const rowProps: Record<string, unknown> = {
             class: 'gm-sp-expandable-row',
@@ -151,7 +159,11 @@ export function ExpandableList<T>({
           if (rowTabIndex !== undefined) rowProps.tabindex = rowTabIndex
 
           return (
-            <li key={id} class={`gm-sp-list-item${readClass}${expandedClass}`} data-item-id={id}>
+            <li
+              key={id}
+              class={`gm-sp-list-item${readClass}${expandedClass}${previewClass}`}
+              data-item-id={id}
+            >
               <span {...rowProps}>
                 {time !== undefined && (
                   <span class="gm-sp-expandable-time" title={timeTitle?.(item)}>

@@ -17,6 +17,12 @@ export type ItemActionsProps = {
   openHref?: string | undefined
   /** Called when it is followed; the reader marks the entry read. */
   onOpen?: (() => void) | undefined
+  /**
+   * Reports whether 已读 is being hovered (or focused), so the source can show
+   * which rows it would touch. Optional: only sources that preview it pass this,
+   * and without it the button behaves exactly as before.
+   */
+  onBulkReadPreview?: ((active: boolean) => void) | undefined
 }
 
 /**
@@ -33,7 +39,21 @@ export function ItemActions({
   onHide,
   openHref,
   onOpen,
+  onBulkReadPreview,
 }: ItemActionsProps): ComponentChildren {
+  /**
+   * Focus counts as hovering: keyboard users tab through these buttons, and a
+   * `title` alone does not tell them how far up the reach goes.
+   */
+  const preview = (active: boolean) => () => onBulkReadPreview?.(active)
+  const previewProps = onBulkReadPreview
+    ? {
+        onMouseEnter: preview(true),
+        onMouseLeave: preview(false),
+        onFocus: preview(true),
+        onBlur: preview(false),
+      }
+    : {}
   return (
     <span class="gm-sp-item-actions">
       {openHref ? (
@@ -54,6 +74,7 @@ export function ItemActions({
         class="gm-sp-item-bulk-btn"
         title="将顶端至此主题全部标记已读"
         onClick={onBulkRead}
+        {...previewProps}
       >
         {'↑'}已读
       </button>

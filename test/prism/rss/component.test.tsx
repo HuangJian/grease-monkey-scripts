@@ -1003,6 +1003,67 @@ describe('timeline bulk read (↑已读)', () => {
   })
 })
 
+describe('「↑已读」 hover preview', () => {
+  const PREVIEW = 'gm-sp-item-preview'
+
+  function previewed(root: HTMLElement): string[] {
+    return rows(root)
+      .filter((row) => row.classList.contains(PREVIEW))
+      .map((row) => row.dataset['itemId']!)
+  }
+
+  function hoverButton(row: HTMLElement): HTMLButtonElement {
+    return row.querySelector<HTMLButtonElement>('.gm-sp-item-bulk-btn')!
+  }
+
+  test('hovering 已读 marks the entries it would touch, and nothing else', () => {
+    const { root } = setup([feed('a', [item('a1'), item('a2'), item('a3')])])
+    expect(previewed(root)).toEqual([])
+
+    hoverButton(rows(root)[1]!).dispatchEvent(new MouseEvent('mouseenter'))
+    expect(previewed(root)).toEqual(['a1', 'a2'])
+
+    hoverButton(rows(root)[1]!).dispatchEvent(new MouseEvent('mouseleave'))
+    expect(previewed(root)).toEqual([])
+  })
+
+  test('the preview follows the merged timeline, not the row order', async () => {
+    // Same fixture as the bulk-read tests: a1, b2, a3, b4, a5. Hovering 源 a's
+    // third row must reach a1 and a3 — never 源 b's rows, which sit between
+    // them on screen.
+    const { root } = setup(
+      [feed('a', [item('a1'), item('a3'), item('a5')]), feed('b', [item('b2'), item('b4')])],
+      { viewMode: 'timeline' },
+    )
+    const row = rows(root).find((r) => r.dataset['itemId'] === 'a3')!
+    hoverButton(row).dispatchEvent(new MouseEvent('mouseenter'))
+    await waitFor(() => {
+      expect(previewed(root)).toEqual(['a1', 'a3'])
+    })
+  })
+
+  test('focusing the button previews too, for keyboard readers', () => {
+    const { root } = setup([feed('a', [item('a1'), item('a2')])])
+    const button = hoverButton(rows(root)[1]!)
+    button.dispatchEvent(new FocusEvent('focus'))
+    expect(previewed(root)).toEqual(['a1', 'a2'])
+    button.dispatchEvent(new FocusEvent('blur'))
+    expect(previewed(root)).toEqual([])
+  })
+
+  test('already-read entries are left out: the button would not touch them', () => {
+    // The grouped lists carry unread entries only, so this needs the timeline,
+    // where a read entry stays on screen (greyed) — and stays out of the reach.
+    const { root } = setup([feed('a', [item('a1'), item('a2')])], {
+      viewMode: 'timeline',
+      prepare: (state) => state.markRead('a1', NOW),
+    })
+    const row = rows(root).find((r) => r.dataset['itemId'] === 'a2')!
+    hoverButton(row).dispatchEvent(new MouseEvent('mouseenter'))
+    expect(previewed(root)).toEqual(['a2'])
+  })
+})
+
 describe('timeline feed failures', () => {
   function clockedRuntime(): TestRuntime {
     const runtime = createRuntime()

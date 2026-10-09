@@ -80,6 +80,9 @@ function useTickingNow(runtime: Runtime): number {
   return now
 }
 
+/** Empty preview set: `setPreviewIds` needs a stable "nothing" to fall back to. */
+const NO_PREVIEW: ReadonlySet<string> = new Set()
+
 export type RssComponentProps = SourceComponentProps<RssFeed[]> & {
   state: RssState
   viewMode: RssViewMode
@@ -177,6 +180,14 @@ type SharedRowProps = {
    */
   filterUnread: boolean
   scheduleHint?: ((feed: RssFeed, now: number) => FeedSchedule) | undefined
+  /**
+   * Entries 「↑已读」 would mark, highlighted while that button is hovered — see
+   * `previewBulkRead`. Card-level because one row's reach crosses rows rendered
+   * by other components (day groups, expanded clusters).
+   */
+  previewIds: ReadonlySet<string>
+  /** Show the given entries as the ones 已读 would touch, or clear it (null). */
+  setPreview: (ids: ReadonlyArray<string> | null) => void
 }
 
 export function RssComponent({
@@ -198,6 +209,8 @@ export function RssComponent({
   const [mode, setMode] = useState<RssViewMode>(viewMode)
   /** 「全部已读」 acts on the whole card, which no row's own handler re-renders. */
   const [, forceRender] = useReducer<number, void>((n) => n + 1, 0)
+  /** Rows to highlight while a 「↑已读」 button is hovered. */
+  const [previewIds, setPreviewIds] = useState<ReadonlySet<string>>(NO_PREVIEW)
   // The editor saves the view mode as well, so follow the prop when it changes
   // under us: a local-only state would ignore that write until a reload.
   useEffect(() => setMode(viewMode), [viewMode])
@@ -273,6 +286,22 @@ export function RssComponent({
     onViewModeChange?.(next)
   }
 
+  /**
+   * Rows 「↑已读」 is currently pointing at, if any.
+   *
+   * The ids arrive from whichever row owns the hovered button (each row asks its
+   * own handler factory), and live here because that reach crosses components:
+   * a row in one day group covers rows in the groups above it, and one inside an
+   * expanded cluster covers rows in the timeline around it.
+   */
+  function setPreview(ids: ReadonlyArray<string> | null): void {
+    if (ids === null) {
+      setPreviewIds((prev) => (prev.size === 0 ? prev : NO_PREVIEW))
+      return
+    }
+    setPreviewIds(ids.length === 0 ? NO_PREVIEW : new Set(ids))
+  }
+
   const rowProps: SharedRowProps = {
     state,
     runtime,
@@ -283,6 +312,8 @@ export function RssComponent({
     dateRange,
     filterUnread,
     scheduleHint,
+    previewIds,
+    setPreview,
   }
 
   /**
@@ -456,7 +487,8 @@ function useRowHandlers(props: SharedRowProps, siblings: RssItem[]) {
 }
 
 function FeedBlock({ feed, ...rowProps }: SharedRowProps & { feed: RssFeed }) {
-  const { state, runtime, now, dateFilter, dateRange, scheduleHint } = rowProps
+  const { state, runtime, now, dateFilter, dateRange, scheduleHint, previewIds, setPreview } =
+    rowProps
   const [userExpanded, setUserExpanded] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   /** Everything unread, before the date controls narrow it. */
@@ -473,7 +505,7 @@ function FeedBlock({ feed, ...rowProps }: SharedRowProps & { feed: RssFeed }) {
   const isFolded = folded && !userExpanded
   const shown = isFolded ? unread.slice(0, 2) : unread
 
-  const { handleHide, handleBulkRead } = createItemHandlers<RssItem>({
+  const { handleHide, handleBulkRead, previewBulkRead } = createItemHandlers<RssItem>({
     state,
     runtime,
     forceUpdate: () => forceRender(),
@@ -548,6 +580,10 @@ function FeedBlock({ feed, ...rowProps }: SharedRowProps & { feed: RssFeed }) {
             onOpen={onOpen}
             onBulkRead={(entry) => handleBulkRead(entry.item)}
             onHide={(entry) => handleHide(entry.item.id)}
+            onPreviewBulkRead={(entry, active) =>
+              setPreview(active ? previewBulkRead(entry.item).map((it) => it.id) : null)
+            }
+            previewIds={previewIds}
             containerClassName="gm-sp-rss-items"
           />
           {folded ? (
@@ -824,7 +860,8 @@ function Timeline({
   feeds: RssFeed[]
   onActiveDayChange?: ((day: ActiveDay | null) => void) | undefined
 }) {
-  const { state, runtime, now, dateFilter, dateRange, filterUnread } = rowProps
+  const { state, runtime, now, dateFilter, dateRange, filterUnread, previewIds, setPreview } =
+    rowProps
   const [container, setContainer] = useState<HTMLElement | null>(null)
   /**
    * Every entry a feed has, minus the hidden ones — read entries included unless
@@ -962,7 +999,10 @@ function Timeline({
     feedIdOfItem.set(entry.item.id, entry.feed.id)
   }
 
-  const { handleHide, handleBulkRead } = createGroupedItemHandlers<RssItem, string>({
+  const { handleHide, handleBulkRead, previewBulkRead } = createGroupedItemHandlers<
+    RssItem,
+    string
+  >({
     state,
     runtime,
     forceUpdate: () => forceRender(),
@@ -1002,6 +1042,10 @@ function Timeline({
             onOpen={onOpen}
             onBulkRead={(entry) => handleBulkRead(entry.item)}
             onHide={(entry) => handleHide(entry.item.id)}
+            onPreviewBulkRead={(entry, active) =>
+              setPreview(active ? previewBulkRead(entry.item).map((it) => it.id) : null)
+            }
+            previewIds={previewIds}
             containerClassName="gm-sp-rss-items"
             showFeedLabel
             renderAfter={(entry) => {
@@ -1050,13 +1094,15 @@ function SourceClusterRows({
   open: boolean
   onToggle: () => void
 }) {
-  const { state, runtime } = rowProps
+  const { state, runtime, previewIds, setPreview } = rowProps
   const items = rest.map((entry) => entry.item)
   const { forceRender, onRowClick, onOpen } = useRowHandlers(rowProps, items)
-  const { handleHide, handleBulkRead } = createItemHandlers<RssItem>({
+  const { handleHide, handleBulkRead, previewBulkRead } = createItemHandlers<RssItem>({
     state,
     runtime,
     forceUpdate: () => forceRender(),
+    // Reach is the cluster's own slice of the source, matching what the button
+    // itself does from here.
     getVisible: () => items,
   })
 
@@ -1078,6 +1124,10 @@ function SourceClusterRows({
           onOpen={onOpen}
           onBulkRead={(entry) => handleBulkRead(entry.item)}
           onHide={(entry) => handleHide(entry.item.id)}
+          onPreviewBulkRead={(entry, active) =>
+            setPreview(active ? previewBulkRead(entry.item).map((it) => it.id) : null)
+          }
+          previewIds={previewIds}
           containerClassName="gm-sp-rss-items gm-sp-rss-items-nested"
         />
       ) : null}
@@ -1092,6 +1142,8 @@ function ItemList({
   onOpen,
   onBulkRead,
   onHide,
+  onPreviewBulkRead,
+  previewIds,
   containerClassName,
   showFeedLabel = false,
   renderAfter,
@@ -1102,6 +1154,9 @@ function ItemList({
   onOpen: (item: RssItem) => void
   onBulkRead: (entry: RssEntry) => void
   onHide: (entry: RssEntry) => void
+  /** Reveals what 「↑已读」 would touch while that button is hovered. */
+  onPreviewBulkRead: (entry: RssEntry, active: boolean) => void
+  previewIds: ReadonlySet<string>
   containerClassName: string
   showFeedLabel?: boolean
   renderAfter?: ((entry: RssEntry) => ComponentChildren) | undefined
@@ -1133,9 +1188,11 @@ function ItemList({
           onOpen={() => onOpen(entry.item)}
           onBulkRead={() => onBulkRead(entry)}
           onHide={() => onHide(entry)}
+          onBulkReadPreview={(active) => onPreviewBulkRead(entry, active)}
         />
       )}
       renderAfter={renderAfter}
+      previewIds={previewIds}
       containerClassName={
         // Tagged rows (timeline) put the source name in its own trailing column;
         // untagged rows (grouped) end with the actions.

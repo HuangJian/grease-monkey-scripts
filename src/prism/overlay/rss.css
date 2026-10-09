@@ -306,6 +306,20 @@
  * `pointer-events` keeps an invisible button from being clickable.
  */
 /**
+ * What 「↑已读」 is about to touch, shown while that button is hovered or
+ * focused.
+ *
+ * A tint rather than the read row's opacity: the entries are still unread, and
+ * greying them would claim the click already happened. One left edge is enough
+ * to make the set legible when it spans several rows — with a background alone
+ * the eye cannot tell where it stops.
+ */
+.gm-sp-rss .gm-sp-item-preview {
+  background: var(--gm-sp-color-chip-bg);
+  box-shadow: inset 2px 0 0 var(--gm-sp-color-chip-border);
+}
+
+/**
  * Actions live in column 3 in **both** templates: the base one ends with them,
  * the tagged one has the source name after them.
  *

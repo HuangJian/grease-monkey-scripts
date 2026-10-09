@@ -9,6 +9,25 @@ export type ItemHandlerState<T extends { id: string | number }> = {
   filterVisible(items: ReadonlyArray<T>): T[]
 }
 
+/**
+ * The entries `handleBulkRead` touches: this one and everything above it in the
+ * (newest-first) list, minus what is already read. `null` when `hovered` is not
+ * in the list at all — the button is then a no-op, and the preview empty.
+ *
+ * Exposed via `previewBulkRead` so hovering the button can show its reach before
+ * committing — the reach is otherwise invisible, and the button is destructive
+ * enough that counting rows should not be the way to find out.
+ */
+function bulkReadTargets<T extends { id: string | number }>(
+  visible: ReadonlyArray<T>,
+  hovered: T,
+  isRead: (id: T['id']) => boolean,
+): T[] | null {
+  const idx = visible.findIndex((it) => it.id === hovered.id)
+  if (idx < 0) return null
+  return visible.slice(0, idx + 1).filter((it) => !isRead(it.id))
+}
+
 export function createItemHandlers<T extends { id: string | number }>(opts: {
   state: ItemHandlerState<T>
   runtime: Runtime
@@ -18,6 +37,7 @@ export function createItemHandlers<T extends { id: string | number }>(opts: {
 }): {
   handleHide: (id: T['id']) => void
   handleBulkRead: (hovered: T) => void
+  previewBulkRead: (hovered: T) => T[]
 } {
   const { state, runtime, forceUpdate, getVisible, repliesOf } = opts
 
@@ -29,21 +49,22 @@ export function createItemHandlers<T extends { id: string | number }>(opts: {
   }
 
   function handleBulkRead(hovered: T) {
-    const visible = getVisible()
-    const idx = visible.findIndex((it) => it.id === hovered.id)
-    if (idx < 0) return
+    const targets = bulkReadTargets(getVisible(), hovered, (id) => state.isRead(id))
+    if (!targets) return
     const now = runtime.now()
-    visible
-      .slice(0, idx + 1)
-      .filter((it) => !state.isRead(it.id))
-      .forEach((it) => {
-        state.markRead(it.id, now, repliesOf?.(it))
-      })
+    targets.forEach((it) => {
+      state.markRead(it.id, now, repliesOf?.(it))
+    })
     void state.saveToStorage(runtime)
     forceUpdate()
   }
 
-  return { handleHide, handleBulkRead }
+  return {
+    handleHide,
+    handleBulkRead,
+    previewBulkRead: (hovered) =>
+      bulkReadTargets(getVisible(), hovered, (id) => state.isRead(id)) ?? [],
+  }
 }
 
 export function createGroupedItemHandlers<
@@ -59,6 +80,7 @@ export function createGroupedItemHandlers<
 }): {
   handleHide: (id: T['id']) => void
   handleBulkRead: (hovered: T) => void
+  previewBulkRead: (hovered: T) => T[]
 } {
   const { state, runtime, forceUpdate, getSubForItem, getVisibleInSub, repliesOf } = opts
 
@@ -72,19 +94,23 @@ export function createGroupedItemHandlers<
   function handleBulkRead(hovered: T) {
     const sub = getSubForItem(hovered)
     if (sub === null) return
-    const posts = getVisibleInSub(sub)
-    const idx = posts.findIndex((p) => p.id === hovered.id)
-    if (idx < 0) return
+    const targets = bulkReadTargets(getVisibleInSub(sub), hovered, (id) => state.isRead(id))
+    if (!targets) return
     const now = runtime.now()
-    posts
-      .slice(0, idx + 1)
-      .filter((p) => !state.isRead(p.id))
-      .forEach((p) => {
-        state.markRead(p.id, now, repliesOf?.(p))
-      })
+    targets.forEach((p) => {
+      state.markRead(p.id, now, repliesOf?.(p))
+    })
     void state.saveToStorage(runtime)
     forceUpdate()
   }
 
-  return { handleHide, handleBulkRead }
+  return {
+    handleHide,
+    handleBulkRead,
+    previewBulkRead: (hovered) => {
+      const sub = getSubForItem(hovered)
+      if (sub === null) return []
+      return bulkReadTargets(getVisibleInSub(sub), hovered, (id) => state.isRead(id)) ?? []
+    },
+  }
 }
