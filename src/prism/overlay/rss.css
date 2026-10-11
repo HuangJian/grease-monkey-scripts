@@ -325,6 +325,29 @@
  * `pointer-events` keeps an invisible button from being clickable.
  */
 /**
+ * 直达 leaves the action column and floats where the pointer is.
+ *
+ * The other two stay put: ↑已读 and ×隐藏 sit at the row's right edge, and
+ * ×隐藏 — the only one here that cannot be undone — must stay where the reader
+ * learned to find it. 直达 is the one they reach for most, and on a wide row the
+ * walk from the headline they are reading to the far end is a long one, so it
+ * comes to the cursor instead: `left` is set once, on `mouseenter`
+ * (`ItemActions`), and the chip then stays where it landed.
+ *
+ * Absolute against the row (`.gm-sp-list-item` is `position: relative`), with
+ * `top` left alone so the chip keeps the vertical position it had in the column
+ * — centred on the row's first line, level with its two neighbours.
+ *
+ * It now overlaps the headline, so it needs to read as lying *over* the text:
+ * the chip's own background is not quite enough for that next to 13px body
+ * copy, hence the shadow.
+ */
+.gm-sp-rss .gm-sp-item-open-pointer {
+  position: absolute;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+/**
  * What 「↑已读」 is about to touch, shown while that button is hovered or
  * focused.
  *

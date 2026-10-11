@@ -1189,6 +1189,9 @@ function ItemList({
           onBulkRead={() => onBulkRead(entry)}
           onHide={() => onHide(entry)}
           onBulkReadPreview={(active) => onPreviewBulkRead(entry, active)}
+          // Rows here are wide and the headline is what the reader is looking
+          // at, so 直达 comes to the pointer instead of waiting at the far end.
+          openAtPointer
         />
       )}
       renderAfter={renderAfter}

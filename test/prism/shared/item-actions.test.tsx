@@ -16,6 +16,34 @@ function mount(over: Partial<Parameters<typeof ItemActions>[0]> = {}) {
   return { calls }
 }
 
+/**
+ * The same component inside the row it renders into, which is where it looks for
+ * the pointer: 直达 anchors against `.gm-sp-list-item`, not against the span.
+ */
+function mountInRow(over: Partial<Parameters<typeof ItemActions>[0]> = {}) {
+  render(
+    <ul class="gm-sp-list">
+      <li class="gm-sp-list-item">
+        <ItemActions onBulkRead={() => {}} onHide={() => {}} {...over} />
+      </li>
+    </ul>,
+  )
+  const row = document.querySelector<HTMLElement>('.gm-sp-list-item')!
+  // happy-dom lays nothing out, so its box is zero-sized — and every anchor
+  // would clamp to 0. Give the row one wide enough to place a chip inside.
+  row.getBoundingClientRect = () => ({ left: 100, width: 400 }) as unknown as DOMRect
+  return {
+    row,
+    chip: document.querySelector<HTMLAnchorElement>('[data-action="open-direct"]')!,
+  }
+}
+
+/** Preact defers re-renders to a microtask, so a state change needs a tick. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+const enter = (row: HTMLElement, clientX: number) =>
+  row.dispatchEvent(new MouseEvent('mouseenter', { clientX }))
+
 describe('ItemActions', () => {
   test('offers bulk-read and hide, and nothing that opens the entry', () => {
     // Sources whose rows carry no summary have nothing to skip: 直达 would open
@@ -50,5 +78,56 @@ describe('ItemActions', () => {
     const link = document.querySelector<HTMLAnchorElement>('[data-action="open-direct"]')!
     expect(link.getAttribute('href')).toBe('')
     expect(link.textContent).toBe('直达')
+  })
+
+  test('直达 meets the pointer: anchored 12px to its right when the row is entered', async () => {
+    const { row, chip } = mountInRow({
+      openHref: 'https://example.com/x',
+      openAtPointer: true,
+    })
+    // Before the row has been pointed at it belongs to the action column: no
+    // inline offset, so CSS keeps it in flow next to its neighbours.
+    expect(chip.style.left).toBe('')
+
+    enter(row, 160)
+    await settle()
+    expect(chip.style.left).toBe('72px') // 160 - 100 (row left) + 12
+  })
+
+  test('直达 stays where it landed: moving inside the row does not drag it', async () => {
+    // Anchored once per hover, not on every move: a chip that follows the
+    // cursor slides out from under the click that was already on its way.
+    const { row, chip } = mountInRow({
+      openHref: 'https://example.com/x',
+      openAtPointer: true,
+    })
+    enter(row, 160)
+    await settle()
+
+    row.dispatchEvent(new MouseEvent('mousemove', { clientX: 380 }))
+    await settle()
+    expect(chip.style.left).toBe('72px')
+
+    // A fresh hover is a new decision about where to reach, so it re-anchors.
+    enter(row, 300)
+    await settle()
+    expect(chip.style.left).toBe('212px')
+  })
+
+  test('直达 never leaves the row, however far right the pointer enters', async () => {
+    const { row, chip } = mountInRow({
+      openHref: 'https://example.com/x',
+      openAtPointer: true,
+    })
+    enter(row, 495)
+    await settle()
+    expect(chip.style.left).toBe('396px') // clamped to the row minus the chip
+  })
+
+  test('without the opt-in 直达 keeps its place in the action column', async () => {
+    const { row, chip } = mountInRow({ openHref: 'https://example.com/x' })
+    enter(row, 160)
+    await settle()
+    expect(chip.style.left).toBe('')
   })
 })
