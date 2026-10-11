@@ -86,17 +86,6 @@
 }
 
 /**
- * Tagged rows (timeline): append a trailing source-name column and put the
- * actions **before** it. The actions are invisible until hover but still occupy
- * their track, so with the old order the tag's right edge sat ~110px short of
- * the row's right edge and read as "not right-aligned". Now the tag is the last
- * track, flush right, and the buttons appear to its left on hover.
- */
-.gm-sp-rss-items-tagged .gm-sp-list-item {
-  grid-template-columns: max-content minmax(90px, 1fr) auto minmax(0, 5.5rem);
-}
-
-/**
  * Read-but-expanded rows: the shared rule keeps them at full opacity (you are
  * reading them), which also hides the read state right after 「打开原文」 — the
  * one moment the reader needs to see that something changed. The title carries
@@ -269,6 +258,36 @@
   gap: 6px;
   margin: 0;
   padding: 5px 4px;
+}
+
+/**
+ * Tagged rows (timeline): append a trailing source-name column and put the
+ * actions **before** it. The actions are invisible until hover but still occupy
+ * their track, so with the old order the tag's right edge sat ~110px short of
+ * the row's right edge and read as "not right-aligned". Now the tag is the last
+ * track, flush right, and the buttons appear to its left on hover.
+ *
+ * It has to sit *after* the base template: both selectors score the same
+ * (two classes), so source order decides, and an override written above what it
+ * overrides is silently dead. Dead, this one cost the timeline more than the tag
+ * — the row's explicit grid fell back to three columns, the tag went into an
+ * implicit fourth, and every `grid-column: 1 / -1` block (the expanded body,
+ * the cluster toggle, and the nested rows of an expanded same-source cluster)
+ * stopped at column 3: a cluster's 直达/已读/隐藏 ended ~57px short of the
+ * list's right edge.
+ *
+ * The tag track is `fit-content`, not the fixed `5.5rem` it used to be: a fixed
+ * track reserved its full 88px even for a two-character source name and took
+ * that slack out of the title column, while the tag itself — right-aligned in
+ * the track — never used it. `fit-content` sizes the track to the name and
+ * still caps the long ones, which is what the cap was for.
+ * Child combinators, not descendants: the rows of an expanded same-source
+ * cluster are nested *inside* a tagged row, so a descendant selector gave them
+ * the tag column too — an empty fourth track whose 6px gap pushed their actions
+ * 10px off the right edge. They carry no tag; they keep the base template.
+ */
+.gm-sp-rss-items-tagged > .gm-sp-list > .gm-sp-list-item {
+  grid-template-columns: max-content minmax(90px, 1fr) auto fit-content(5.5rem);
 }
 
 .gm-sp-rss .gm-sp-expandable-row {
@@ -518,14 +537,15 @@
  * they belong to one source is the toggle above them, which names the source.)
  *
  * Parent row is a grid, so claim the full width and the row after the toggle.
- * The negative left margin is the row's own `padding-left`: the container sits
- * inside the parent's content box, and without it the nested time column would
- * start 4px right of every other row's.
+ * The negative side margins are the row's own `padding`: the container sits
+ * inside the parent's content box, and without them the nested cells would start
+ * 4px right of every other row's and stop 4px short of them — so a cluster's
+ * hover actions ended off the list's right edge.
  */
 .gm-sp-rss .gm-sp-rss-items-nested {
   grid-column: 1 / -1;
   grid-row: 3;
-  margin-left: -4px;
+  margin: 0 -4px;
 }
 
 /**
