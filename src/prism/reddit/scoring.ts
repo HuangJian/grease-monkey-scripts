@@ -1,5 +1,6 @@
 import { getTodayStartMs, computeDecayedScore } from '../scoring-utils'
 import { earliestTimestamp } from '../shared-utils'
+import { specContainsSub } from './parser'
 import type { RedditCountOptions, RedditPost } from './types'
 
 /**
@@ -11,9 +12,10 @@ import type { RedditCountOptions, RedditPost } from './types'
  *
  * ── 阶段 2：双源融合去重 ─────────────────────────────────────────────────
  *   mergeSubPosts(perSubLive, history) 执行：
- *   ① 按 sub 分组 live 帖子
- *   ② 验证 live 帖子归属：从 URL (/r/{sub}/comments/) 提取 sub，与当前分组的 sub 不匹配则跳过；prev 帖子直接使用缓存分组中的 sub 进行匹配
- *   ③ 对每个 sub：合并同 id 的 history 条目（取 max(score), max(numComments), min(created)）
+ *   ① 按分组键分组 live 帖子（键可以是单个 sub，也可以是 a+b 这样的合并组）
+ *   ② 验证 live 帖子归属：从 URL (/r/{sub}/comments/) 提取 sub，不属于该分组的
+ *      任何成员则跳过（合并组接受任一成员的帖子）；prev 帖子直接使用缓存分组中的键进行匹配
+ *   ③ 对每个分组：合并同 id 的 history 条目（取 max(score), max(numComments), min(created)）
  *   ④ 跨 sub 去重（seenIds）
  *   ⑤ 剩余 history 条目匹配到对应 sub
  *
@@ -65,7 +67,7 @@ export function mergeSubPosts(
     const byId = new Map<string, RedditPost>()
     livePosts.forEach((p) => {
       const urlSub = subFromUrl(p.url)
-      if (urlSub !== undefined && urlSub !== sub) return
+      if (urlSub !== undefined && !specContainsSub(sub, urlSub)) return
       byId.set(p.id, p)
     })
     prevById.forEach(({ sub: prevSub, post: prev }, id) => {

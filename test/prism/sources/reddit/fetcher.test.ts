@@ -199,6 +199,86 @@ describe('fetchReddit', () => {
     await expect(fetchReddit(runtime, defaultRedditOpts())).rejects.toThrow(/http 500/)
     expect(calls).toBe(1)
   })
+  test('merges a "+" group into one bucket, fetching each member separately', async () => {
+    const runtime = makeRuntime((d) => {
+      const sub = d.url.includes('/r/opencodecli/') ? 'opencodecli' : 'opencode'
+      d.onload({
+        responseText: JSON.stringify({
+          data: {
+            children: [
+              {
+                kind: 't3',
+                data: {
+                  id: `${sub}1`,
+                  title: sub,
+                  permalink: `/r/${sub}/comments/${sub}1/x/`,
+                  score: 10,
+                  num_comments: 5,
+                  subreddit: sub,
+                  created_utc: 1700000000,
+                },
+              },
+            ],
+          },
+        }),
+        status: 200,
+        responseHeaders: '',
+      })
+    })
+    const result = await fetchReddit(
+      runtime,
+      defaultRedditOpts({ subreddits: ['opencode+opencodecli'] }),
+    )
+    expect(result.posts).toHaveLength(1)
+    expect(result.posts[0]!.sub).toBe('opencode+opencodecli')
+    expect(result.posts[0]!.posts.map((p) => p.id).sort()).toEqual(['opencode1', 'opencodecli1'])
+  })
+  test('a sub shared by two entries is fetched once', async () => {
+    const json = loadFixture()
+    const urls: string[] = []
+    const runtime = makeRuntime((d) => {
+      urls.push(d.url)
+      d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
+    })
+    await fetchReddit(runtime, defaultRedditOpts({ subreddits: ['popular', 'popular+funny'] }))
+    expect(urls.filter((u) => u.includes('/r/popular/'))).toHaveLength(1)
+    expect(urls.filter((u) => u.includes('/r/funny/'))).toHaveLength(1)
+  })
+  test('one failing member keeps the group alive and is reported', async () => {
+    const runtime = makeRuntime((d) => {
+      if (d.url.includes('/r/opencodecli/')) d.onerror?.()
+      else
+        d.onload({
+          responseText: JSON.stringify({
+            data: {
+              children: [
+                {
+                  kind: 't3',
+                  data: {
+                    id: 'oc1',
+                    title: 't',
+                    permalink: '/r/opencode/comments/oc1/x/',
+                    score: 10,
+                    num_comments: 5,
+                    subreddit: 'opencode',
+                    created_utc: 1700000000,
+                  },
+                },
+              ],
+            },
+          }),
+          status: 200,
+          responseHeaders: '',
+        })
+    })
+    const result = await fetchReddit(
+      runtime,
+      defaultRedditOpts({ subreddits: ['opencode+opencodecli'] }),
+    )
+    expect(result.posts).toHaveLength(1)
+    expect(result.posts[0]!.posts.map((p) => p.id)).toEqual(['oc1'])
+    expect(result.partialErrors.join('; ')).toContain('r/opencodecli')
+  })
   test('normalizes subreddit names before fetching', async () => {
     const json = loadFixture()
     const urls: string[] = []

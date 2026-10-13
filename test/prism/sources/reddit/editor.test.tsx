@@ -181,6 +181,59 @@ describe('createRedditEditor', () => {
     expect(runtime.stores[CONFIG_KEY]).toBeUndefined()
   })
 
+  test('renders a merged group as one row', async () => {
+    await mount(runtime, container, { ...DEFAULTS, subreddits: ['opencode+opencodecli'] })
+    expect(within(container).getByText('r/opencode + r/opencodecli')).not.toBeNull()
+  })
+
+  test('adds a merged group from the add input', async () => {
+    await mount(runtime, container)
+    const input = within(container).getByPlaceholderText(/r\/funny/) as HTMLInputElement
+    const addBtn = within(container).getByRole('button', { name: '添加' }) as HTMLButtonElement
+    input.value = 'opencode+opencodecli'
+    addBtn.click()
+    expect(within(container).getByText('r/opencode + r/opencodecli')).not.toBeNull()
+  })
+
+  test('merges the selected rows into one group', async () => {
+    await mount(runtime, container, { ...DEFAULTS, subreddits: ['opencode', 'opencodecli'] })
+    const picks = Array.from(
+      container.querySelectorAll<HTMLInputElement>('input[data-action="sub-pick"]'),
+    )
+    expect(picks).toHaveLength(2)
+    picks.forEach((box) => box.click())
+
+    const mergeBtn = within(container).getByRole('button', { name: '合并' }) as HTMLButtonElement
+    mergeBtn.click()
+
+    expect(within(container).getByText('r/opencode + r/opencodecli')).not.toBeNull()
+    expect(
+      container.querySelectorAll<HTMLInputElement>('input[data-action="sub-pick"]'),
+    ).toHaveLength(1)
+  })
+
+  test('save rejects a subreddit that belongs to two entries', async () => {
+    const { result } = await mount(runtime, container, {
+      ...DEFAULTS,
+      subreddits: ['opencode', 'opencode+opencodecli'],
+    })
+    void result.save?.()
+    expect(within(container).getByText(/同时属于多个订阅/)).not.toBeNull()
+    expect(runtime.stores[CONFIG_KEY]).toBeUndefined()
+  })
+
+  test('saves a merged group entry as one config value', async () => {
+    const { result } = await mount(runtime, container, {
+      ...DEFAULTS,
+      subreddits: ['opencode+opencodecli'],
+    })
+    void result.save?.()
+    await waitFor(() => {
+      const stored = runtime.stores[CONFIG_KEY] as { reddit: { subreddits: string[] } }
+      expect(stored.reddit.subreddits).toEqual(['opencode+opencodecli'])
+    })
+  })
+
   test('reorder chips via move buttons updates state and re-renders', async () => {
     await mount(runtime, container, { ...DEFAULTS, subreddits: ['a', 'b', 'c'] })
     const labelsBefore = within(container)

@@ -10,6 +10,7 @@ import type { SourceComponentProps } from '../types'
 import { COLLAPSE_THRESHOLD, type ExpandCollapse } from '../expand-collapse'
 import type { RedditState } from './state'
 import type { RedditRenderData } from './source'
+import { subredditSpecLabel } from './parser'
 
 export type RedditComponentProps = SourceComponentProps<RedditRenderData> & {
   state: RedditState
@@ -86,9 +87,14 @@ export function RedditComponent({
         const caretClass = showCaret ? ' gm-sp-caret-visible' : ''
         return (
           <section class={`gm-sp-section${collapsedClass}`} data-sub={sub}>
-            <h3 class="gm-sp-section-title" data-sub={sub} onClick={() => handleToggleSub(sub)}>
+            <h3
+              class="gm-sp-section-title"
+              data-sub={sub}
+              title={subredditSpecLabel(sub)}
+              onClick={() => handleToggleSub(sub)}
+            >
               <span class={`gm-sp-caret${caretClass}`}>▾</span>
-              r/{sub}
+              {subredditSpecLabel(sub)}
             </h3>
             <ol class="gm-sp-list">
               {visiblePosts.map((post) => {

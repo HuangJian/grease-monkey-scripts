@@ -17,6 +17,10 @@ export type RedditCountOptions = {
 export type RedditSourceOptions = {
   ttlMinutes: number
   retentionDays: number
+  /**
+   * One entry per section. An entry is either a subreddit (`opencode`) or
+   * several merged into one section with `+` (`opencode+opencodecli`).
+   */
   subreddits: string[]
 } & RedditCountOptions
 

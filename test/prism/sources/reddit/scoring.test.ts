@@ -157,6 +157,48 @@ describe('mergeSubPosts', () => {
     expect(funnyIds).toContain('f1')
     expect(funnyIds).toContain('p1')
   })
+  test('merged group keeps posts from every member', () => {
+    const live: Array<{ sub: string; posts: RedditPost[] }> = [
+      {
+        sub: 'opencode+opencodecli',
+        posts: [
+          post({ id: 'a1', score: 100, sub: 'opencode' }),
+          post({ id: 'b1', score: 90, sub: 'opencodecli' }),
+        ],
+      },
+    ]
+    const result = mergeSubPosts(live, new Map())
+    expect(result[0]!.sub).toBe('opencode+opencodecli')
+    expect(result[0]!.posts.map((p) => p.id)).toEqual(['a1', 'b1'])
+  })
+  test('merged group still drops posts from a sub outside the group', () => {
+    const live: Array<{ sub: string; posts: RedditPost[] }> = [
+      {
+        sub: 'opencode+opencodecli',
+        posts: [
+          post({ id: 'a1', score: 100, sub: 'opencode' }),
+          post({ id: 'x1', score: 200, sub: 'other' }),
+        ],
+      },
+    ]
+    const result = mergeSubPosts(live, new Map())
+    expect(result[0]!.posts.map((p) => p.id)).toEqual(['a1'])
+  })
+  test('history keyed by the merged group merges into it', () => {
+    const live: Array<{ sub: string; posts: RedditPost[] }> = [
+      { sub: 'opencode+opencodecli', posts: [post({ id: 'a1', score: 100, sub: 'opencode' })] },
+    ]
+    const prev = post({
+      id: 'a1',
+      score: 300,
+      numComments: 42,
+      sub: 'opencode+opencodecli',
+      created: NOW - 1000,
+    })
+    const result = mergeSubPosts(live, toMap([prev]))
+    expect(result[0]!.posts[0]!.score).toBe(300)
+    expect(result[0]!.posts[0]!.numComments).toBe(42)
+  })
   test('bugfix: prev data with expanded subreddits does not leak to wrong sub', () => {
     const prevPost = post({
       id: 'p1',
@@ -228,6 +270,17 @@ describe('selectPostsPerSub', () => {
       now: NOW,
     })
     expect(result.get('x')!.map((p) => p.id)).toEqual(['old-high', 'new-low'])
+  })
+  test('ranks a merged group as one pool across both subs', () => {
+    const posts = [
+      post({ id: 'from-a', score: 10, numComments: 30, sub: 'opencode' }),
+      post({ id: 'from-b', score: 500, numComments: 30, sub: 'opencodecli' }),
+    ]
+    const result = selectPostsPerSub([{ sub: 'opencode+opencodecli', posts }], {
+      ...DEFAULT_COUNT_OPTS,
+      now: NOW,
+    })
+    expect(result.get('opencode+opencodecli')!.map((p) => p.id)).toEqual(['from-b', 'from-a'])
   })
   test('no truncation: returns all posts after filtering', () => {
     const posts = Array.from({ length: 50 }, (_, i) =>

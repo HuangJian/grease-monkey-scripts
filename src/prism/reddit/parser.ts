@@ -9,6 +9,47 @@ export function normalizeSubredditName(raw: string): string {
     .replace(/[^a-z0-9_]/g, '')
 }
 
+/**
+ * Separator inside one subscription entry: `opencode+opencodecli` is a single
+ * section fed by both subs. Reddit itself uses this for multi-reddits, so the
+ * syntax needs no explanation to anyone who has seen a /r/a+b URL.
+ */
+export const SUBREDDIT_GROUP_SEP = '+'
+
+/** Members of an entry, normalized and deduped, in the order written. */
+export function splitSubredditSpec(spec: string): string[] {
+  return Array.from(
+    new Set(
+      spec
+        .split(SUBREDDIT_GROUP_SEP)
+        .map((part) => normalizeSubredditName(part))
+        .filter((part) => part.length > 0),
+    ),
+  )
+}
+
+/**
+ * Canonical form of one `subreddits` entry — also the section key. Members are
+ * sorted so that `a+b` and `b+a` are the same entry: the key is a cache and
+ * read-state identity, and a re-typed order must not orphan it.
+ */
+export function normalizeSubredditSpec(raw: string): string {
+  return [...splitSubredditSpec(raw)].sort().join(SUBREDDIT_GROUP_SEP)
+}
+
+/** Does a post from `postSub` belong to the section keyed by `spec`? */
+export function specContainsSub(spec: string, postSub: string): boolean {
+  const normalized = normalizeSubredditName(postSub)
+  return normalized.length > 0 && splitSubredditSpec(spec).includes(normalized)
+}
+
+/** `opencode+opencodecli` → `r/opencode + r/opencodecli`. */
+export function subredditSpecLabel(spec: string): string {
+  return splitSubredditSpec(spec)
+    .map((sub) => `r/${sub}`)
+    .join(' + ')
+}
+
 export function parseRedditListing(
   json: unknown,
   maxItems: number,

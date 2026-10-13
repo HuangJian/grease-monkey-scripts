@@ -1,7 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { normalizeSubredditName, parseRedditListing } from '../../../../src/prism/reddit/parser'
+import {
+  normalizeSubredditName,
+  normalizeSubredditSpec,
+  parseRedditListing,
+  splitSubredditSpec,
+  specContainsSub,
+  subredditSpecLabel,
+} from '../../../../src/prism/reddit/parser'
 
 function loadFixture(): unknown {
   const text = readFileSync(
@@ -30,6 +37,58 @@ describe('normalizeSubredditName', () => {
   test('returns empty for blank or invalid input', () => {
     expect(normalizeSubredditName('   ')).toBe('')
     expect(normalizeSubredditName('!!!')).toBe('')
+  })
+})
+
+describe('splitSubredditSpec', () => {
+  test('splits a single sub', () => {
+    expect(splitSubredditSpec('opencode')).toEqual(['opencode'])
+  })
+  test('splits a merged group and normalizes each member', () => {
+    expect(splitSubredditSpec('r/OpenCode + /r/opencodecli')).toEqual(['opencode', 'opencodecli'])
+  })
+  test('drops empty and duplicate members', () => {
+    expect(splitSubredditSpec('a++b+a+!!')).toEqual(['a', 'b'])
+  })
+  test('returns empty when nothing is usable', () => {
+    expect(splitSubredditSpec('+')).toEqual([])
+    expect(splitSubredditSpec('')).toEqual([])
+  })
+})
+
+describe('normalizeSubredditSpec', () => {
+  test('canonical form is order independent', () => {
+    expect(normalizeSubredditSpec('opencodecli+opencode')).toBe('opencode+opencodecli')
+    expect(normalizeSubredditSpec('opencode+opencodecli')).toBe('opencode+opencodecli')
+  })
+  test('collapses a single sub to itself', () => {
+    expect(normalizeSubredditSpec('/r/Funny')).toBe('funny')
+  })
+  test('returns empty for junk input', () => {
+    expect(normalizeSubredditSpec('!!!')).toBe('')
+  })
+})
+
+describe('specContainsSub', () => {
+  test('matches a single-sub spec', () => {
+    expect(specContainsSub('opencode', 'opencode')).toBe(true)
+    expect(specContainsSub('opencode', 'opencodecli')).toBe(false)
+  })
+  test('matches any member of a group', () => {
+    expect(specContainsSub('opencode+opencodecli', 'opencodecli')).toBe(true)
+    expect(specContainsSub('opencode+opencodecli', 'other')).toBe(false)
+  })
+  test('is false for a blank post sub', () => {
+    expect(specContainsSub('opencode', '  ')).toBe(false)
+  })
+})
+
+describe('subredditSpecLabel', () => {
+  test('renders a single sub', () => {
+    expect(subredditSpecLabel('funny')).toBe('r/funny')
+  })
+  test('renders a group', () => {
+    expect(subredditSpecLabel('opencode+opencodecli')).toBe('r/opencode + r/opencodecli')
   })
 })
 

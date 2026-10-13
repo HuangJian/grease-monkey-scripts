@@ -1,7 +1,7 @@
 import type { Runtime } from '../../runtime'
 import { MAX_RETRIES_ON_429, REDDIT_API_URL, REDDIT_HOSTS, REDDIT_USER_AGENT } from './constants'
 import { computeRetryDelayMs } from '../shared/request'
-import { normalizeSubredditName, parseRedditListing } from './parser'
+import { normalizeSubredditSpec, parseRedditListing, splitSubredditSpec } from './parser'
 import type { RedditFetchResult, RedditPost, RedditSourceOptions } from './types'
 
 type FetchOutcome =
@@ -102,14 +102,19 @@ export async function fetchReddit(
   runtime: Runtime,
   options: RedditSourceOptions,
 ): Promise<RedditFetchResult> {
-  const normalizedSubs = options.subreddits.map(normalizeSubredditName).filter((s) => s.length > 0)
-  const uniqueSubs = Array.from(new Set(normalizedSubs))
-  if (uniqueSubs.length === 0) {
+  // One entry may be several subs merged into a single section ("opencode+opencodecli"):
+  // each member is still fetched on its own (its own top-100), then the members' posts
+  // are pooled under the entry's key and ranked together downstream.
+  const specs = Array.from(
+    new Set(options.subreddits.map(normalizeSubredditSpec).filter((s) => s.length > 0)),
+  )
+  const members = Array.from(new Set(specs.flatMap(splitSubredditSpec)))
+  if (members.length === 0) {
     throw new Error('reddit: no valid subreddits configured')
   }
 
   const settled = await Promise.all(
-    uniqueSubs.map(async (sub) => {
+    members.map(async (sub) => {
       const outcome = await fetchOneSub(runtime, sub)
       if (!outcome.ok) return { sub, posts: [] as RedditPost[], error: outcome.error }
       return { sub, posts: outcome.posts, error: null as string | null }
@@ -117,15 +122,22 @@ export async function fetchReddit(
   )
 
   const errors: string[] = []
-  const perSub: Array<{ sub: string; posts: RedditPost[] }> = []
+  const postsBySub = new Map<string, RedditPost[]>()
   settled.forEach((item) => {
     if (item.error) errors.push(`r/${item.sub}: ${item.error}`)
-    if (item.posts.length > 0) perSub.push({ sub: item.sub, posts: item.posts })
+    if (item.posts.length > 0) postsBySub.set(item.sub, item.posts)
   })
 
-  if (perSub.length === 0) {
+  if (postsBySub.size === 0) {
     throw new Error(`reddit: all subs failed: ${errors.join('; ')}`)
   }
 
-  return { posts: perSub, partialErrors: errors }
+  const perSpec = specs
+    .map((spec) => ({
+      sub: spec,
+      posts: splitSubredditSpec(spec).flatMap((sub) => postsBySub.get(sub) ?? []),
+    }))
+    .filter(({ posts }) => posts.length > 0)
+
+  return { posts: perSpec, partialErrors: errors }
 }

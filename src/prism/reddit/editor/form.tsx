@@ -14,7 +14,12 @@ import { EditorListToolbar } from '../../editor-helpers/list-toolbar'
 import { useRowBrowser } from '../../editor-helpers/useRowBrowser'
 import { ArrowDownIcon, ArrowUpIcon, DeleteIcon } from '../../shared/icons'
 import type { SourceEditorContext, SourceEditorResult, SourceSettings } from '../../types'
-import { normalizeSubredditName } from '../parser'
+import {
+  normalizeSubredditSpec,
+  splitSubredditSpec,
+  SUBREDDIT_GROUP_SEP,
+  subredditSpecLabel,
+} from '../parser'
 import type { RedditSourceOptions } from '../types'
 import { loadFreshRedditOptions } from '../options'
 import { FORM_FIELDS } from './types'
@@ -36,7 +41,7 @@ type RedditEditorFormProps = {
 
 export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEditorFormProps) {
   const [subs, setSubs] = useState<string[]>(() =>
-    fresh.subreddits.map(normalizeSubredditName).filter((s) => s.length > 0),
+    fresh.subreddits.map(normalizeSubredditSpec).filter((s) => s.length > 0),
   )
   const [error, setError] = useState('')
   /** Unapplied renames, keyed by the subreddit they would replace. */
@@ -60,14 +65,14 @@ export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEdit
     (oldSub: string) => {
       const draft = drafts[oldSub]
       if (draft === undefined) return
-      const next = normalizeSubredditName(draft)
+      const next = normalizeSubredditSpec(draft)
       setDrafts((prev) => {
         const { [oldSub]: _dropped, ...rest } = prev
         return rest
       })
       if (!next || next === oldSub) return
       if (subs.includes(next)) {
-        setError(`r/${next} 已在列表中`)
+        setError(`${subredditSpecLabel(next)} 已在列表中`)
         return
       }
       setError('')
@@ -78,19 +83,34 @@ export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEdit
   )
 
   const commitAdd = useCallback(() => {
-    const normalized = normalizeSubredditName(addRef.current?.value ?? '')
+    const normalized = normalizeSubredditSpec(addRef.current?.value ?? '')
     if (!normalized) {
       setError('请输入有效的 subreddit 名称')
       return
     }
     if (subs.includes(normalized)) {
-      setError(`r/${normalized} 已在列表中`)
+      setError(`${subredditSpecLabel(normalized)} 已在列表中`)
       return
     }
     setError('')
     setSubs((prev) => [...prev, normalized])
     if (addRef.current) addRef.current.value = ''
   }, [subs])
+
+  /** Selected rows become one section: `a`, `b` → `a+b`. */
+  const mergeSelected = useCallback(() => {
+    const picked = subs.filter((sub) => browser.selected.has(sub))
+    if (picked.length < 2) return
+    const merged = normalizeSubredditSpec(picked.join(SUBREDDIT_GROUP_SEP))
+    const firstIdx = subs.indexOf(picked[0]!)
+    setSubs((prev) => [
+      ...prev.slice(0, firstIdx),
+      merged,
+      ...prev.slice(firstIdx + 1).filter((sub) => !browser.selected.has(sub)),
+    ])
+    setError('')
+    browser.setSelected(new Set())
+  }, [subs, browser])
   const [advanced, setAdvanced] = useState<Record<string, number>>(() =>
     FORM_FIELDS.reduce(
       (out, f) => {
@@ -119,6 +139,21 @@ export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEdit
         setError('')
         if (subs.length === 0) {
           setError('至少添加一个 subreddit')
+          return
+        }
+        // A sub feeding two sections would silently drop its posts from the
+        // second one (mergeSubPosts dedupes across sections), so refuse it here.
+        const owners = new Map<string, number>()
+        subs.forEach((spec) => {
+          splitSubredditSpec(spec).forEach((sub) => {
+            owners.set(sub, (owners.get(sub) ?? 0) + 1)
+          })
+        })
+        const shared = Array.from(owners.entries())
+          .filter(([, count]) => count > 1)
+          .map(([sub]) => sub)
+        if (shared.length > 0) {
+          setError(`r/${shared.sort().join('、r/')} 同时属于多个订阅，请只保留一处`)
           return
         }
         const inputList = advancedRefs.current.filter(Boolean) as HTMLInputElement[]
@@ -182,6 +217,9 @@ export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEdit
           onSelectAll: (checked) =>
             browser.setSelected(checked ? new Set(browser.visible) : new Set()),
           actions: [
+            ...(selectedSubs.length > 1
+              ? [{ label: '合并', action: 'bulk-merge', onClick: mergeSelected }]
+              : []),
             { label: '删除', action: 'bulk-remove', onClick: () => browser.setConfirmRemove(true) },
           ],
         }}
@@ -248,10 +286,10 @@ export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEdit
                 <span
                   class="gm-sp-re-row-name"
                   data-action="sub-name"
-                  title={`r/${sub}`}
+                  title={subredditSpecLabel(sub)}
                   onClick={() => browser.toggleExpanded(sub)}
                 >
-                  r/{sub}
+                  {subredditSpecLabel(sub)}
                 </span>
                 <button
                   type="button"
@@ -282,7 +320,7 @@ export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEdit
                 {open ? (
                   <div class="gm-sp-re-row-detail">
                     <label class="gm-sp-editor-row">
-                      <span>Subreddit</span>
+                      <span>Subreddit（多个用 + 合并）</span>
                       <input
                         type="text"
                         class="gm-sp-input"
@@ -309,7 +347,7 @@ export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEdit
           ref={addRef}
           type="text"
           class="gm-sp-input gm-sp-editor-input"
-          placeholder="r/funny 或 funny"
+          placeholder="r/funny 或 opencode+opencodecli"
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault()
@@ -325,6 +363,9 @@ export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEdit
         >
           添加
         </button>
+      </div>
+      <div class="gm-sp-editor-hint">
+        用 + 连接多个 sub 即合并为一个分组（如 opencode+opencodecli）；也可勾选多行后点「合并」
       </div>
       <div class="gm-sp-editor-form">
         {FORM_FIELDS.map((f, i) => (

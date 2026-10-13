@@ -137,6 +137,53 @@ describe('createRedditSource.render uses ctx.runtime when runtimeRef is null', (
   })
 })
 
+describe('createRedditSource with merged subs', () => {
+  /** A one-post listing for `sub`, fresh enough to clear today's thresholds. */
+  function listing(sub: string): unknown {
+    return {
+      data: {
+        children: [
+          {
+            kind: 't3',
+            data: {
+              id: `${sub}-1`,
+              title: `${sub} post`,
+              permalink: `/r/${sub}/comments/${sub}-1/x/`,
+              score: 100,
+              num_comments: 50,
+              subreddit: sub,
+              created_utc: Math.floor(Date.now() / 1000),
+            },
+          },
+        ],
+      },
+    }
+  }
+
+  test('fetch keys both subs under one group and renders a single section', async () => {
+    const runtime = makeRuntime((d) => {
+      const sub = d.url.includes('/r/opencodecli/') ? 'opencodecli' : 'opencode'
+      d.onload({ responseText: JSON.stringify(listing(sub)), status: 200, responseHeaders: '' })
+    })
+    const source = createRedditSource(
+      defaultRedditOpts({ subreddits: ['opencode+opencodecli'], todayMinComments: 0 }),
+    )
+    const data = await source.fetch(runtime, undefined)
+    expect(Object.keys(data as Record<string, unknown>)).toEqual(['opencode+opencodecli'])
+
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    render(h(source.RenderComponent, { data, root: undefined as never, runtime }), { container })
+    expect(within(container).getByText('r/opencode + r/opencodecli')).not.toBeNull()
+    expect(
+      within(container)
+        .getAllByRole('link')
+        .map((a) => a.textContent),
+    ).toEqual(['opencode post', 'opencodecli post'])
+    document.body.innerHTML = ''
+  })
+})
+
 describe('validateConfig.reddit', () => {
   test('accepts default config', () => {
     expect(
