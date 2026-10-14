@@ -8,8 +8,19 @@
   background: rgba(0, 0, 0, 0.55);
   cursor: zoom-out;
 }
+/* Shrink-wraps the image so the nav arrows sit right beside it, not at the
+   viewport edges. `100%` (not vw) keeps the arrows on screen when the page has
+   a scrollbar. */
+.gm-img-overlay__stage {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+}
 .gm-img-overlay__img {
-  max-width: 92vw;
+  /* 100vw - (2 arrows 48px + 2 gaps 12px) leaves room for the arrows. */
+  max-width: calc(100vw - 120px);
+  min-width: 0;
   max-height: 88vh;
   object-fit: contain;
   border-radius: 6px;
@@ -56,11 +67,10 @@
   opacity: 0.4;
 }
 
-/* Gallery navigation arrows */
+/* Gallery navigation arrows: laid out beside the image, not pinned to the
+   viewport edges. Disabled ones keep their slot so the image never jumps. */
 .gm-img-overlay__nav {
-  position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
+  flex: none;
   width: 48px;
   height: 48px;
   display: flex;
@@ -76,7 +86,6 @@
   transition:
     background 0.15s,
     color 0.15s;
-  z-index: 1;
 }
 .gm-img-overlay__nav:hover {
   background: rgba(0, 0, 0, 0.65);
@@ -87,13 +96,6 @@
   cursor: default;
   pointer-events: none;
 }
-.gm-img-overlay__nav--prev {
-  left: 20px;
-}
-.gm-img-overlay__nav--next {
-  right: 20px;
-}
-
 /* Position counter (e.g. "2 / 5") */
 .gm-img-overlay__counter {
   min-width: 50px;

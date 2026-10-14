@@ -270,6 +270,29 @@ describe('setupImageViewer', () => {
     cleanup()
   })
 
+  test('image and nav arrows live inside a stage so arrows sit beside the image', () => {
+    const dom = createHappyDom(multiImageHtml(), 'https://www.reddit.com/r/test/comments/x/')
+    const runtime = createRuntime(dom)
+    const cleanup = setupImageViewer(runtime)
+
+    const img = dom.document.querySelector('a[href*="image2"] img')! as unknown as HTMLElement
+    img.click()
+
+    const overlay = dom.document.getElementById('gm-img-viewer')!
+    const stage = overlay.querySelector('.gm-img-overlay__stage')!
+    // Arrows are siblings of the image inside the stage, not pinned to the
+    // viewport edges — that is what keeps them within reach of the image.
+    expect(stage.querySelector('.gm-img-overlay__img')).not.toBeNull()
+    expect(stage.querySelector('[data-action="prev"]')).not.toBeNull()
+    expect(stage.querySelector('[data-action="next"]')).not.toBeNull()
+
+    // Clicking the stage area beside the image closes, like the backdrop.
+    stage.dispatchEvent(new dom.MouseEvent('click', { bubbles: true }))
+    expect(dom.document.getElementById('gm-img-viewer')).toBeNull()
+
+    cleanup()
+  })
+
   test('clicking bare hupu image opens overlay via shouldInterceptImage', () => {
     const dom = createHappyDom(
       '<body><p class="image-wrapper"><span class="img-wrapper-embedded"><div class="lazyload-wrapper"><img src="https://i3.hoopchina.com.cn/test_w_1440_h_3120.jpg?x-oss-process=image/resize,w_800/format,webp" class="thread-img"></div></span></p></body>',

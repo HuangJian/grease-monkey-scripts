@@ -178,10 +178,10 @@ export function setupImageViewer(runtime: Runtime, options: ImageViewerOptions =
     const hasPrev = hasNav && currentIndex > 0
     const hasNext = hasNav && currentIndex < imageList.length - 1
 
-    const navHtml = hasNav
-      ? `<div class="gm-img-overlay__nav gm-img-overlay__nav--prev${hasPrev ? '' : ' gm-img-overlay__nav--disabled'}" data-action="prev" role="button" tabindex="0">‹</div>
-         <div class="gm-img-overlay__nav gm-img-overlay__nav--next${hasNext ? '' : ' gm-img-overlay__nav--disabled'}" data-action="next" role="button" tabindex="0">›</div>`
-      : ''
+    const navButton = (action: 'prev' | 'next', glyph: string, label: string, disabled: boolean) =>
+      `<div class="gm-img-overlay__nav gm-img-overlay__nav--${action}${disabled ? ' gm-img-overlay__nav--disabled' : ''}" data-action="${action}" role="button" tabindex="0" aria-label="${label}">${glyph}</div>`
+    const prevHtml = hasNav ? navButton('prev', '‹', '上一张', !hasPrev) : ''
+    const nextHtml = hasNav ? navButton('next', '›', '下一张', !hasNext) : ''
 
     const navHint = hasNav
       ? `<span class="gm-img-overlay__sep">·</span>
@@ -193,8 +193,11 @@ export function setupImageViewer(runtime: Runtime, options: ImageViewerOptions =
     runtime.document.body.insertAdjacentHTML(
       'beforeend',
       `<div id="${OVERLAY_ID}" class="gm-img-overlay" role="dialog" aria-label="图片预览">
-         ${navHtml}
-         <img class="gm-img-overlay__img" src="${escapeHtml(url)}" alt="">
+         <div class="gm-img-overlay__stage">
+           ${prevHtml}
+           <img class="gm-img-overlay__img" src="${escapeHtml(url)}" alt="">
+           ${nextHtml}
+         </div>
          <div class="gm-img-overlay__hint">
            <span class="gm-img-overlay__action" data-action="open-tab" role="button" tabindex="0">新 tab 查看</span>
            <span class="gm-img-overlay__sep">·</span>
@@ -215,6 +218,11 @@ export function setupImageViewer(runtime: Runtime, options: ImageViewerOptions =
     const el = e.target as HTMLElement
     // Click on backdrop (the overlay itself) closes
     if (e.target === e.currentTarget) {
+      close()
+      return
+    }
+    // Click on the stage area beside the image (the flex gap) closes too
+    if (el.classList.contains('gm-img-overlay__stage')) {
       close()
       return
     }
