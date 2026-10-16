@@ -590,4 +590,78 @@ describe('setupImageViewer — gallery navigation', () => {
   })
 })
 
+describe('setupImageViewer — actual size', () => {
+  const ACTUAL = 'gm-img-overlay--actual'
+
+  function openFirstSingleImage() {
+    const dom = createHappyDom(redditImageHtml(), 'https://www.reddit.com/r/test/comments/x/')
+    const runtime = createRuntime(dom)
+    const cleanup = setupImageViewer(runtime)
+    const img = dom.document.querySelector('figure img')! as unknown as HTMLElement
+    img.click()
+    return { dom, cleanup, overlay: dom.document.getElementById('gm-img-viewer')! }
+  }
+
+  test('overlay starts fitted and shows the 原始尺寸 toggle', () => {
+    const { overlay, cleanup } = openFirstSingleImage()
+    expect(overlay.classList.contains(ACTUAL)).toBe(false)
+    expect(overlay.querySelector('.gm-img-overlay__size-label')?.textContent).toBe('原始尺寸')
+    cleanup()
+  })
+
+  test('clicking the toggle switches to actual size and back', () => {
+    const { dom, overlay, cleanup } = openFirstSingleImage()
+    const toggle = overlay.querySelector('[data-action="toggle-size"]')! as unknown as HTMLElement
+
+    toggle.click()
+    expect(overlay.classList.contains(ACTUAL)).toBe(true)
+    expect(overlay.querySelector('.gm-img-overlay__size-label')?.textContent).toBe('适应窗口')
+
+    toggle.click()
+    expect(overlay.classList.contains(ACTUAL)).toBe(false)
+    expect(overlay.querySelector('.gm-img-overlay__size-label')?.textContent).toBe('原始尺寸')
+
+    // Toggling must not close the overlay.
+    expect(dom.document.getElementById('gm-img-viewer')).not.toBeNull()
+    cleanup()
+  })
+
+  test('Z toggles actual size, but not with a modifier held', () => {
+    const { dom, overlay, cleanup } = openFirstSingleImage()
+
+    dom.document.dispatchEvent(new dom.KeyboardEvent('keydown', { key: 'z' }))
+    expect(overlay.classList.contains(ACTUAL)).toBe(true)
+
+    dom.document.dispatchEvent(new dom.KeyboardEvent('keydown', { key: 'z' }))
+    expect(overlay.classList.contains(ACTUAL)).toBe(false)
+
+    dom.document.dispatchEvent(new dom.KeyboardEvent('keydown', { key: 'z', ctrlKey: true }))
+    expect(overlay.classList.contains(ACTUAL)).toBe(false)
+    cleanup()
+  })
+
+  test('actual size persists across ←/→ but resets for a new overlay', () => {
+    const dom = createHappyDom(multiImageHtml(), 'https://www.reddit.com/r/test/comments/x/')
+    const runtime = createRuntime(dom)
+    const cleanup = setupImageViewer(runtime)
+
+    const img = dom.document.querySelector('figure img')! as unknown as HTMLElement
+    img.click()
+    const overlay = dom.document.getElementById('gm-img-viewer')!
+    ;(overlay.querySelector('[data-action="toggle-size"]')! as unknown as HTMLElement).click()
+    expect(overlay.classList.contains(ACTUAL)).toBe(true)
+
+    dom.document.dispatchEvent(new dom.KeyboardEvent('keydown', { key: 'ArrowRight' }))
+    expect(overlay.classList.contains(ACTUAL)).toBe(true)
+
+    dom.document.dispatchEvent(new dom.KeyboardEvent('keydown', { key: 'Escape' }))
+    img.click()
+    const reopened = dom.document.getElementById('gm-img-viewer')!
+    expect(reopened.classList.contains(ACTUAL)).toBe(false)
+    expect(reopened.querySelector('.gm-img-overlay__size-label')?.textContent).toBe('原始尺寸')
+
+    cleanup()
+  })
+})
+
 afterAll(() => closeAllWindows())

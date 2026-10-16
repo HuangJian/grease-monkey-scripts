@@ -3,6 +3,15 @@ import { escapeHtml } from '../../utils'
 
 const OVERLAY_ID = 'gm-img-viewer'
 const OPEN_TAB_KEY = 'Enter'
+const TOGGLE_SIZE_KEY = 'z'
+/** Modifier class that renders the image at its natural pixel size. */
+const ACTUAL_SIZE_CLASS = 'gm-img-overlay--actual'
+
+/** `Z` toggles actual size. Ignore it when combined with a modifier. */
+function isToggleSizeKey(e: KeyboardEvent): boolean {
+  if (e.metaKey || e.ctrlKey || e.altKey) return false
+  return e.key.toLowerCase() === TOGGLE_SIZE_KEY
+}
 
 /** Known image-hosting domains. */
 const IMAGE_HOST_RE =
@@ -77,8 +86,9 @@ type ImageEntry = { element: Element; url: string }
 /**
  * Set up the image popup viewer: intercepts clicks on image thumbnails and
  * shows a full-size overlay. Press `Enter` to open in a new tab, `Esc` to
- * close, `←`/`→` to navigate between images on the page. Opening a new tab
- * auto-closes the overlay.
+ * close, `←`/`→` to navigate between images on the page, `Z` to switch between
+ * fit-to-window and actual pixel size. Opening a new tab auto-closes the
+ * overlay.
  *
  * Returns a cleanup function that removes all listeners and the overlay.
  */
@@ -90,6 +100,7 @@ export function setupImageViewer(runtime: Runtime, options: ImageViewerOptions =
   let currentUrl = ''
   let imageList: ImageEntry[] = []
   let currentIndex = -1
+  let actualSize = false
 
   /** Collect all eligible images on the page for gallery navigation. */
   function collectImages(): ImageEntry[] {
@@ -128,7 +139,19 @@ export function setupImageViewer(runtime: Runtime, options: ImageViewerOptions =
     currentUrl = ''
     imageList = []
     currentIndex = -1
+    actualSize = false
     runtime.document.removeEventListener('keydown', onKeyDown)
+  }
+
+  /** Switch between fit-to-window and natural pixel size. */
+  function setActualSize(on: boolean): void {
+    actualSize = on
+    if (!overlay) return
+    overlay.classList.toggle(ACTUAL_SIZE_CLASS, on)
+    const label = overlay.querySelector('.gm-img-overlay__size-label')
+    if (label) label.textContent = on ? '适应窗口' : '原始尺寸'
+    overlay.scrollTop = 0
+    overlay.scrollLeft = 0
   }
 
   function showImage(index: number): void {
@@ -138,6 +161,11 @@ export function setupImageViewer(runtime: Runtime, options: ImageViewerOptions =
     currentUrl = entry.url
     const imgEl = overlay?.querySelector('.gm-img-overlay__img') as HTMLImageElement | null
     if (imgEl) imgEl.src = entry.url
+    if (overlay) {
+      // Start every image from its top-left — long screenshots are read top-down.
+      overlay.scrollTop = 0
+      overlay.scrollLeft = 0
+    }
     updateNavState()
   }
 
@@ -204,6 +232,8 @@ export function setupImageViewer(runtime: Runtime, options: ImageViewerOptions =
            <span><kbd>Enter</kbd> 新 tab</span>
            <span class="gm-img-overlay__sep">·</span>
            <span><kbd>Esc</kbd> 关闭</span>
+           <span class="gm-img-overlay__sep">·</span>
+           <span class="gm-img-overlay__action" data-action="toggle-size" role="button" tabindex="0"><kbd>Z</kbd> <span class="gm-img-overlay__size-label">原始尺寸</span></span>
            ${navHint}
          </div>
        </div>`,
@@ -232,6 +262,10 @@ export function setupImageViewer(runtime: Runtime, options: ImageViewerOptions =
       close()
       return
     }
+    if (el.closest('[data-action="toggle-size"]')) {
+      setActualSize(!actualSize)
+      return
+    }
     if (el.closest('[data-action="prev"]')) {
       navigate(-1)
       return
@@ -256,6 +290,9 @@ export function setupImageViewer(runtime: Runtime, options: ImageViewerOptions =
     } else if (e.key === 'ArrowRight') {
       e.preventDefault()
       navigate(1)
+    } else if (isToggleSizeKey(e)) {
+      e.preventDefault()
+      setActualSize(!actualSize)
     }
   }
 

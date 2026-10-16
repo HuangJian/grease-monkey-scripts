@@ -67,6 +67,39 @@
   opacity: 0.4;
 }
 
+/* Actual pixel size (long screenshots): image renders at 1:1 and the overlay
+   scrolls. `margin: auto` on the stage keeps a small image centred but never
+   pushes a large one past the top-left corner — `justify-content: center`
+   would make that corner unreachable. */
+.gm-img-overlay--actual {
+  overflow: auto;
+  overscroll-behavior: contain;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+.gm-img-overlay--actual .gm-img-overlay__stage {
+  max-width: none;
+  margin: auto;
+}
+.gm-img-overlay--actual .gm-img-overlay__img {
+  max-width: none;
+  max-height: none;
+}
+/* An oversized image overflows the viewport, so the arrows go back to the
+   viewport edges — the only place they stay reachable while scrolling. */
+.gm-img-overlay--actual .gm-img-overlay__nav {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+.gm-img-overlay--actual .gm-img-overlay__nav--prev {
+  left: 20px;
+}
+.gm-img-overlay--actual .gm-img-overlay__nav--next {
+  right: 20px;
+}
+
 /* Gallery navigation arrows: laid out beside the image, not pinned to the
    viewport edges. Disabled ones keep their slot so the image never jumps. */
 .gm-img-overlay__nav {
