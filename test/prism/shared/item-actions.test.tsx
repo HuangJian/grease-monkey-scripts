@@ -29,11 +29,15 @@ function mountInRow(over: Partial<Parameters<typeof ItemActions>[0]> = {}) {
     </ul>,
   )
   const row = document.querySelector<HTMLElement>('.gm-sp-list-item')!
-  // happy-dom lays nothing out, so its box is zero-sized — and every anchor
-  // would clamp to 0. Give the row one wide enough to place a chip inside.
+  // happy-dom lays nothing out, so its boxes are zero-sized — and every anchor
+  // would clamp to 0. Give the row and the action column real ones: the column
+  // starts 280px into the row, which is where ↑已读 begins.
   row.getBoundingClientRect = () => ({ left: 100, width: 400 }) as unknown as DOMRect
+  const column = row.querySelector<HTMLElement>('.gm-sp-item-actions')!
+  column.getBoundingClientRect = () => ({ left: 380, width: 90 }) as unknown as DOMRect
   return {
     row,
+    column,
     chip: document.querySelector<HTMLAnchorElement>('[data-action="open-direct"]')!,
   }
 }
@@ -114,14 +118,20 @@ describe('ItemActions', () => {
     expect(chip.style.left).toBe('212px')
   })
 
-  test('直达 never leaves the row, however far right the pointer enters', async () => {
-    const { row, chip } = mountInRow({
+  test('直达 stops short of ↑已读, however far right the pointer enters', async () => {
+    // It may float over the headline, never over the two buttons that stay in
+    // the column: ×隐藏 is the one action here that cannot be undone.
+    const { row, column, chip } = mountInRow({
       openHref: 'https://example.com/x',
       openAtPointer: true,
     })
+    const columnLeft = column.getBoundingClientRect().left - row.getBoundingClientRect().left
+
     enter(row, 495)
     await settle()
-    expect(chip.style.left).toBe('396px') // clamped to the row minus the chip
+    const left = Number.parseInt(chip.style.left, 10)
+    expect(left).toBe(274) // clamped to the column minus the clearance
+    expect(left + chip.offsetWidth).toBeLessThanOrEqual(columnLeft - 6)
   })
 
   test('without the opt-in 直达 keeps its place in the action column', async () => {

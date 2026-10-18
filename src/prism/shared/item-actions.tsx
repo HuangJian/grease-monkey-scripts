@@ -7,8 +7,14 @@ import { escapeUrl } from '../../utils'
  * clear of the cursor, near enough that reaching it is one short move.
  */
 const OPEN_GAP_PX = 12
-/** Keeps the chip inside the row when the pointer enters near its right end. */
-const OPEN_EDGE_PX = 4
+/**
+ * The breathing room 直达 keeps from the two buttons that stay in the column.
+ *
+ * It floats over the headline, which is fine, but not over them: covering
+ * ×隐藏 — the one action here that cannot be undone — is exactly the mistake a
+ * chip that jumps to the cursor must not make.
+ */
+const OPEN_CLEARANCE_PX = 6
 
 export type ItemActionsProps = {
   onBulkRead: () => void
@@ -96,10 +102,14 @@ export function ItemActions({
     const anchor = (event: MouseEvent) => {
       const box = row.getBoundingClientRect()
       const chip = openRef.current
-      const room = Math.max(0, box.width - (chip?.offsetWidth ?? 0) - OPEN_EDGE_PX)
+      // The column's left edge is where ↑已读 begins: 直达 is out of flow, so
+      // the span is exactly the two buttons that stay behind. Clamping against
+      // the row instead would let the chip land on top of them.
+      const columnLeft = (actionsRef.current?.getBoundingClientRect().left ?? box.right) - box.left
+      const room = Math.max(0, columnLeft - OPEN_CLEARANCE_PX - (chip?.offsetWidth ?? 0))
       // `mouseenter` alone: a second one means a new hover, which re-anchors,
       // while moving inside the row does not touch it.
-      setOpenLeft(Math.min(event.clientX - box.left + OPEN_GAP_PX, room))
+      setOpenLeft(Math.max(0, Math.min(event.clientX - box.left + OPEN_GAP_PX, room)))
     }
     row.addEventListener('mouseenter', anchor)
     return () => row.removeEventListener('mouseenter', anchor)
