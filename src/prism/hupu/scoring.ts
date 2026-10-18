@@ -25,6 +25,11 @@ import type { HupuCountOptions, HupuPost } from './types'
  *   ③ 跨 board 去重（seenIds）
  *   ④ 剩余 history 条目匹配到对应 board
  *
+ *   ⚠️  history 条目的 board 来自缓存的分组键（Record<board, post[]>），不是
+ *   帖子上的 board 字段——hupu codec 有意不持久化它（见 codec.ts）。调用方
+ *   （source.tsx）必须把分组键盖到 prev 条目上，否则每个 prev 都匹配不到
+ *   board，整段 history 会被静默丢弃。
+ *
  * ── 阶段 3：门槛过滤 ────────────────────────────────────────────────────
  *   selectPostsPerBoard(merged, options) 对每个 board 执行：
  *   ① 旧帖子 (created < 今日 0:00)：replies < olderMinReplies → 移除

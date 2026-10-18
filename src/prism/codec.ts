@@ -109,6 +109,10 @@ function expandReddit(v: Record<string, unknown>): Record<string, unknown> {
 }
 
 // Hupu
+// `board` is deliberately not stored: the cache is shaped `Record<board, post[]>`,
+// so the group key IS the board and a per-post copy is redundant. Do not "fix"
+// this by adding it back — history entries reach `mergeBoardPosts` stamped with
+// the board their caller read off the group key (see hupu/source.tsx).
 function compressHupu(v: Record<string, unknown>): Record<string, unknown> {
   if (isShortItem(v)) return v
   return {

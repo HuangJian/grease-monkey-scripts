@@ -93,10 +93,16 @@ export function createHupuSource(options: HupuSourceOptions): Source<HupuRenderD
         'partial=',
         fetchResult.partialErrors,
       )
+      // The group key is the authoritative board. The hupu codec deliberately
+      // drops the per-post `board` field (redundant with this key), so prev
+      // entries have to be re-stamped from it: `mergeBoardPosts` matches them
+      // by `prev.board`, and a missing board makes every history entry match
+      // no board at all — the whole cached history then falls out of the merge
+      // and only the current board page survives.
       const prevById = new Map<string, HupuPost>()
       if (_prevData) {
-        for (const posts of Object.values(_prevData)) {
-          for (const p of posts) prevById.set(p.id, p)
+        for (const [board, posts] of Object.entries(_prevData)) {
+          for (const p of posts) prevById.set(p.id, { ...p, board })
         }
       }
       const merged = mergeBoardPosts(fetchResult.boards, prevById)
