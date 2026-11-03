@@ -3,7 +3,7 @@ import type { AuthorTagMap } from '../../shared/author-labels'
 import { getTotalScore, tagColor } from '../../shared/author-labels'
 import { escapeHtml } from '../../utils'
 
-import { findCommentCells, findFirstCommentCell } from './comment-helpers'
+import { findCommentBox, findCommentCells, findFirstCommentCell } from './comment-helpers'
 import { SELECTORS } from './selectors'
 
 const SCORE_CLASS_MIN = -3
@@ -90,6 +90,7 @@ export function reorderCommentsByHearts(runtime: Runtime): void {
 
   const countsElement = findFirstCommentCell(runtime.document)
   console.debug('[v2ex] reorderCommentsByHearts countsElement', { found: !!countsElement })
+  const commentsBox = findCommentBox(runtime.document)
 
   const withHearts = comments.filter((it) => it.getAttribute(heartsFlagKey) !== '0')
   console.debug('[v2ex] reorderCommentsByHearts withHearts', { count: withHearts.length })
@@ -101,7 +102,12 @@ export function reorderCommentsByHearts(runtime: Runtime): void {
         parseInt(a.getAttribute(heartsFlagKey) || '0', 10) -
         parseInt(b.getAttribute(heartsFlagKey) || '0', 10),
     )
-    .forEach((it) => countsElement?.insertAdjacentElement('afterend', it))
+    .forEach((it) => {
+      // The "N replies" header is the natural anchor; when V2EX renders it
+      // outside the reply box, pin the sorted replies to the top instead.
+      if (countsElement) countsElement.insertAdjacentElement('afterend', it)
+      else commentsBox?.prepend(it)
+    })
 }
 
 export function addTargetToTopicLinks(runtime: Runtime): void {

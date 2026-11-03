@@ -5,18 +5,18 @@
 export const SELECTORS = {
   /** Main content area boxes (query from document) */
   mainBoxes: '#Main > .box',
+  /** Any box element; the reply cells' container is resolved via `closest` */
+  box: '.box',
   /** All comment cells (query from document) */
   allCells: '.cell',
   /** Comment cells with an id attribute (query from document) */
   cellsWithId: '.cell[id]',
   /** Comment cells within the main area (query from document) */
   mainCells: '#Main .cell[id]',
-  /** Cells within a box (relative to box, use with :scope) */
+  /** Cells within the reply box (relative to box, use with :scope) */
   cellInBox: ':scope > .cell[id]',
-  /** First cell within a box (relative to box, use with :scope) */
+  /** First cell within the reply box (relative to box, use with :scope) */
   firstCellInBox: ':scope > .cell',
-  /** Cells in parsed HTML (query from parsed document) */
-  parsedCells: '#Main > .box > .cell[id]',
 
   /** Author link within a cell (query from cell) */
   authorLink: 'strong > a[href]',

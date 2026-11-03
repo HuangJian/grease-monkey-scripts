@@ -2,6 +2,12 @@ import { beforeEach, describe, expect, test, afterAll } from 'bun:test'
 import { Window } from 'happy-dom'
 import { authorTagsKeyword, createV2exApp, defaultLabels } from '../../src/v2ex-time-saver/app'
 import {
+  findCommentBox,
+  findCommentCells,
+  findFirstCommentCell,
+} from '../../src/v2ex-time-saver/app/comment-helpers'
+import { reorderCommentsByHearts } from '../../src/v2ex-time-saver/app/thread-enhancements'
+import {
   checkAndDoSignIn,
   extractRedeemUrl,
   registerSignInCommand,
@@ -503,6 +509,134 @@ describe('v2ex app integration', () => {
     )
     expect(ids).toContain('r_1')
     expect(ids).toContain('r_2')
+  })
+})
+
+describe('v2ex reply container', () => {
+  /** happy-dom's Document is not assignable to the DOM lib's ParentNode. */
+  const docOf = (dom: ReturnType<typeof createDom>) => dom.document as unknown as ParentNode
+
+  // Replies no longer live in `#Main > .box`: V2EX nests them under
+  // `#Main > #topic-replies > .box`, and the topic cell above them carries an id
+  // as well, so the container has to be resolved from the numbered reply cells.
+  function topicHtml(
+    replies: { id: string; no: number; author: string; hearts: number }[],
+    { header = true } = {},
+  ) {
+    const cells = replies
+      .map(
+        ({ id, no, author, hearts }) => `
+          <div class="cell" id="${id}">
+            <table><tbody><tr>
+              <td><span class="no">${no}</span></td>
+              <td>
+                <strong><a class="dark" href="/member/${author}">${author}</a></strong>
+                <div class="reply_content">reply ${no}</div>
+                <span class="small fade flex-one-row gap5"><img width="14" alt="❤️">${hearts}</span>
+              </td>
+            </tr></tbody></table>
+          </div>`,
+      )
+      .join('')
+
+    return `
+      <html><head></head><body>
+        <div id="Main">
+          <div class="box">
+            <div class="cell" id="topic_content"><div class="topic_content">topic</div></div>
+          </div>
+          <div id="topic-replies">
+            <div class="box">
+              ${header ? `<div class="cell"><span class="gray">${replies.length} replies</span></div>` : ''}
+              ${cells}
+            </div>
+          </div>
+        </div>
+      </body></html>`
+  }
+
+  test('resolves replies nested under #topic-replies instead of #Main > .box', () => {
+    const dom = createDom(topicHtml([{ id: 'r_1', no: 1, author: 'alice', hearts: 1 }]))
+
+    // The selector the old implementation relied on now only matches the topic
+    // cell, which is exactly why replies were reported as "not sorted".
+    expect(
+      Array.from(dom.document.querySelectorAll('#Main > .box > .cell[id]')).map((it) => it.id),
+    ).toEqual(['topic_content'])
+
+    expect(findCommentCells(docOf(dom)).map((it) => it.id)).toEqual(['r_1'])
+    expect(findCommentBox(docOf(dom))?.className).toBe('box')
+    expect(findFirstCommentCell(docOf(dom))?.textContent).toContain('replies')
+  })
+
+  test('sorts replies by hearts in the nested layout', () => {
+    const dom = createDom(
+      topicHtml([
+        { id: 'r_1', no: 1, author: 'alice', hearts: 1 },
+        { id: 'r_2', no: 2, author: 'bob', hearts: 7 },
+        { id: 'r_3', no: 3, author: 'carol', hearts: 0 },
+      ]),
+    )
+
+    reorderCommentsByHearts(createRuntime(dom))
+
+    expect(findCommentCells(docOf(dom)).map((it) => it.id)).toEqual(['r_2', 'r_1', 'r_3'])
+  })
+
+  test('still sorts when the reply box has no header cell to anchor on', () => {
+    const dom = createDom(
+      topicHtml(
+        [
+          { id: 'r_1', no: 1, author: 'alice', hearts: 2 },
+          { id: 'r_2', no: 2, author: 'bob', hearts: 9 },
+        ],
+        { header: false },
+      ),
+    )
+
+    expect(findFirstCommentCell(docOf(dom))).toBeNull()
+    reorderCommentsByHearts(createRuntime(dom))
+
+    expect(findCommentCells(docOf(dom)).map((it) => it.id)).toEqual(['r_2', 'r_1'])
+  })
+
+  test('merges a fetched page into the nested reply box', async () => {
+    const pagination = `
+      <div class="cell ps_container">
+        <a href="?p=1" class="page_current">1</a>
+        <a href="?p=2" class="page_normal">2</a>
+      </div>`
+
+    const page1 = topicHtml([{ id: 'r_1', no: 1, author: 'alice', hearts: 0 }]).replace(
+      '</body>',
+      `${pagination}</body>`,
+    )
+    const page2 = topicHtml([{ id: 'r_2', no: 2, author: 'bob', hearts: 0 }])
+
+    const dom = createDom(page1)
+    let page2Callback: ((response: { responseText: string }) => void) | null = null
+    const runtime = {
+      ...createRuntime(dom),
+      request: ({
+        onload,
+      }: {
+        url: string
+        method: string
+        timeout: number
+        onload: (r: { responseText: string }) => void
+      }) => {
+        page2Callback = onload
+      },
+    }
+
+    const app = await createV2exApp(runtime)
+    app.start()
+    page2Callback!({ responseText: page2 })
+
+    const ids = findCommentCells(docOf(dom)).map((it) => it.id)
+    expect(ids).toContain('r_1')
+    expect(ids).toContain('r_2')
+    expect(ids).toHaveLength(2)
   })
 })
 

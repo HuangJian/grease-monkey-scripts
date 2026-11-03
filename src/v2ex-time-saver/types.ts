@@ -3,7 +3,7 @@ import type { Runtime } from '../runtime'
 export type V2exApp = {
   addTargetToTopicLinks: (runtime: Runtime) => void
   embedDiscussions: (runtime: Runtime) => void
-  getCommentElementsFromHtmlString: (html: string) => NodeListOf<Element>
+  getCommentElementsFromHtmlString: (html: string) => Element[]
   highlightCommentsAndTopics: () => void
   tagAuthor: (id: string, commentNumber: number | string, tag: string, delta: number) => void
   setTag: (id: string, tag: string, score: number, commentNumber: number | string) => void

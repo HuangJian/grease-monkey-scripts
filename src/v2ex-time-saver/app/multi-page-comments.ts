@@ -16,7 +16,7 @@ export function createMultiPageLoader(
   callbacks: TagPanelCallbacks,
   quickLabels: QuickLabels,
 ) {
-  let commentsOfPages: (NodeListOf<Element> | null)[] = []
+  let commentsOfPages: (Element[] | null)[] = []
 
   function tryDisplayAllComments() {
     const states = commentsOfPages.map((p) => (p ? `non-null(len=${p.length})` : 'null'))
@@ -29,6 +29,8 @@ export function createMultiPageLoader(
     }
 
     const commentBox = findCommentBox(runtime.document)
+    // The "N replies" header is not always a direct child of the reply box, so
+    // it is a nicety (keep it on top) rather than a precondition for merging.
     const countsElement = findFirstCommentCell(runtime.document)
     console.debug('[gm-v2ex-time-saver] tryDisplayAllComments', {
       commentBox: !!commentBox,
@@ -36,7 +38,7 @@ export function createMultiPageLoader(
       totalPages: commentsOfPages.length,
     })
 
-    if (!commentBox || !countsElement) {
+    if (!commentBox) {
       return
     }
 
@@ -48,7 +50,9 @@ export function createMultiPageLoader(
     })
 
     commentBox.prepend(fragment)
-    commentBox.prepend(countsElement)
+    if (countsElement) {
+      commentBox.prepend(countsElement)
+    }
     Array.from(runtime.document.querySelectorAll(SELECTORS.paginationContainer))
       .filter((it, idx) => idx > 0)
       .forEach((it) => it.remove())
@@ -83,7 +87,7 @@ export function createMultiPageLoader(
       if (pageNum === currentPageNum) {
         const cells = findCommentCells(runtime.document)
         console.debug('[gm-v2ex-time-saver] current page cells', { pageNum, count: cells.length })
-        commentsOfPages[idx] = cells as unknown as NodeListOf<Element>
+        commentsOfPages[idx] = cells
       } else {
         loadCommentsByPage(pageNum, idx)
       }
