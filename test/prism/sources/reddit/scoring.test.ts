@@ -127,10 +127,18 @@ describe('mergeSubPosts', () => {
     const result = mergeSubPosts(live, toMap(prevPosts))
     expect(result).toEqual([])
   })
-  test('live post with empty list and no prev returns empty result for that sub', () => {
-    const live = [{ sub: 'aww', posts: [] as RedditPost[] }]
-    const result = mergeSubPosts(live, new Map())
-    expect(result).toEqual([])
+  test('an empty live group claims the key so its cached posts survive', () => {
+    // Feed rotation sends `posts: []` for sections it skipped this round; the
+    // group key is the only thing that carries their cached posts over.
+    const prev = new Map([['a1', { sub: 'aww', post: post({ id: 'a1', sub: 'aww' }) }]])
+    const result = mergeSubPosts([{ sub: 'aww', posts: [] }], prev)
+    expect(result.map((r) => r.sub)).toEqual(['aww'])
+    expect(result[0]!.posts.map((p) => p.id)).toEqual(['a1'])
+  })
+  test('an empty live group with nothing cached yields an empty bucket', () => {
+    expect(mergeSubPosts([{ sub: 'aww', posts: [] }], new Map())).toEqual([
+      { sub: 'aww', posts: [] },
+    ])
   })
   test('bugfix: promoted cross-community post from subB does not duplicate into subA', () => {
     const live: Array<{ sub: string; posts: RedditPost[] }> = [
@@ -230,6 +238,39 @@ describe('mergeSubPosts', () => {
 })
 
 describe('selectPostsPerSub', () => {
+  test('a feed without metrics keeps document order instead of sorting by zero score', () => {
+    const posts = [
+      post({ id: 'first', metrics: false }),
+      post({ id: 'second', metrics: false }),
+      post({ id: 'third', metrics: false }),
+    ]
+    const result = selectPostsPerSub([{ sub: 'x', posts }], { ...DEFAULT_COUNT_OPTS, now: NOW })
+    expect(result.get('x')!.map((p) => p.id)).toEqual(['first', 'second', 'third'])
+  })
+
+  test('a feed without metrics skips the comment thresholds', () => {
+    // A zero placeholder must not be read as "0 comments, drop it".
+    const longAgo = NOW - 30 * 86_400_000
+    const posts = [post({ id: 'a', metrics: false, created: longAgo })]
+    const result = selectPostsPerSub([{ sub: 'x', posts }], {
+      ...DEFAULT_COUNT_OPTS,
+      olderMinComments: 100,
+      now: NOW,
+    })
+    expect(result.get('x')!.map((p) => p.id)).toEqual(['a'])
+  })
+
+  test('one post without metrics switches the whole group to feed order', () => {
+    // Upgrade moment: the cache still holds score-ranked entries while the feed
+    // brings new metric-less ones. Gating here would drop every new post.
+    const posts = [
+      post({ id: 'legacy', score: 100, numComments: 50 }),
+      post({ id: 'fromFeed', metrics: false }),
+    ]
+    const result = selectPostsPerSub([{ sub: 'x', posts }], { ...DEFAULT_COUNT_OPTS, now: NOW })
+    expect(result.get('x')!.map((p) => p.id)).toEqual(['legacy', 'fromFeed'])
+  })
+
   test('returns empty map for empty input', () => {
     const result = selectPostsPerSub([], { ...DEFAULT_COUNT_OPTS, now: NOW })
     expect(result.size).toBe(0)

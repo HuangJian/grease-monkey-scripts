@@ -103,7 +103,13 @@ export function RenderCard<T>({
       // `Source.hideCardError`); the cached error itself is untouched.
       error={source.hideCardError ? '' : (cached?.error ?? '')}
     >
-      <Comp data={data} root={root} runtime={runtime} showEditorDialog={showEditorDialog} />
+      <Comp
+        data={data}
+        root={root}
+        runtime={runtime}
+        showEditorDialog={showEditorDialog}
+        error={cached?.error ?? ''}
+      />
     </Card>
   )
 }

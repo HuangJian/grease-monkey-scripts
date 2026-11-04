@@ -1,98 +1,89 @@
 import type { Runtime } from '../../runtime'
-import { MAX_RETRIES_ON_429, REDDIT_API_URL, REDDIT_HOSTS, REDDIT_USER_AGENT } from './constants'
-import { computeRetryDelayMs } from '../shared/request'
-import { normalizeSubredditSpec, parseRedditListing, splitSubredditSpec } from './parser'
+import {
+  MAX_RETRIES_ON_429,
+  REDDIT_FEED_LIMIT,
+  REDDIT_FEED_URL,
+  REDDIT_USER_AGENT,
+} from './constants'
+import { computeRetryDelayMs, headerValue } from '../shared/request'
+import {
+  normalizeSubredditSpec,
+  parseRedditFeed,
+  specContainsSub,
+  splitSubredditSpec,
+} from './parser'
 import type { RedditFetchResult, RedditPost, RedditSourceOptions } from './types'
 
-type FetchOutcome =
-  | { ok: true; posts: RedditPost[] }
-  | { ok: false; error: string; status?: number }
+type FeedEntry = { sub: string; post: RedditPost }
 
-function fetchOneSub(runtime: Runtime, subreddit: string): Promise<FetchOutcome> {
-  return new Promise<FetchOutcome>((resolve) => {
+type FeedOutcome = { ok: true; entries: readonly FeedEntry[] } | { ok: false; error: string }
+
+/**
+ * Reddit throttles the feed to roughly one success per minute per IP and answers
+ * the rest with 429. `Retry-After` is usually `0`, so the useful signal is
+ * `x-ratelimit-reset` (seconds until the window reopens); wait that out once
+ * rather than burning the retry after one second.
+ */
+function feedRetryDelayMs(responseHeaders: string, attempt: number): number {
+  const resetSecs = Number(headerValue(responseHeaders, 'x-ratelimit-reset'))
+  if (Number.isFinite(resetSecs) && resetSecs > 0) return Math.min(resetSecs * 1000 + 1000, 60_000)
+  return computeRetryDelayMs(attempt, responseHeaders)
+}
+
+/**
+ * One request covers every configured subreddit (`/r/a+b+c/hot/.rss`). Per-sub
+ * requests would need a minute each because of the IP-wide throttle, so the
+ * whole feed is fetched as a single multi-sub listing and split afterwards.
+ */
+function fetchFeed(runtime: Runtime, members: readonly string[]): Promise<FeedOutcome> {
+  return new Promise<FeedOutcome>((resolve) => {
     let settled = false
-    let hostIdx = 0
     let retriesLeft = MAX_RETRIES_ON_429
-    let lastError = 'unknown'
-    const settle = (outcome: FetchOutcome) => {
+    const settle = (outcome: FeedOutcome) => {
       if (settled) return
       settled = true
-      console.debug(
-        '[gm-dashboard] reddit.fetchOneSub settled sub=',
-        subreddit,
-        'hostIdx=',
-        hostIdx,
-        'outcome=',
-        outcome,
-      )
+      console.debug('[gm-dashboard] reddit.fetchFeed settled members=', members, 'outcome=', {
+        ok: outcome.ok,
+        error: outcome.ok ? undefined : outcome.error,
+        count: outcome.ok ? outcome.entries.length : undefined,
+      })
       resolve(outcome)
     }
     const attempt = () => {
-      const host = REDDIT_HOSTS[hostIdx]!
-      console.debug(
-        '[gm-dashboard] reddit.fetchOneSub attempt sub=',
-        subreddit,
-        'host=',
-        host,
-        'retriesLeft=',
-        retriesLeft,
-      )
       runtime.request({
-        url: REDDIT_API_URL(host, subreddit),
+        url: REDDIT_FEED_URL(members, REDDIT_FEED_LIMIT),
         method: 'GET',
-        timeout: 15000,
+        timeout: 20000,
         anonymous: false,
-        headers: { 'User-Agent': REDDIT_USER_AGENT },
+        headers: {
+          'User-Agent': REDDIT_USER_AGENT,
+          Accept: 'application/atom+xml, application/xml;q=0.9, */*;q=0.8',
+        },
         onload(response) {
           if (response.status === 429 && retriesLeft > 0) {
             retriesLeft--
             const attemptIndex = MAX_RETRIES_ON_429 - retriesLeft
-            const waitMs = computeRetryDelayMs(attemptIndex, response.responseHeaders)
-            runtime.setTimeout(() => attempt(), waitMs)
-            return
-          }
-          if (response.status === 403) {
-            lastError = 'http 403'
-            advanceHost()
+            const waitMs = feedRetryDelayMs(response.responseHeaders, attemptIndex)
+            console.debug('[gm-dashboard] reddit.fetchFeed 429, retry in', waitMs, 'ms')
+            runtime.setTimeout(attempt, waitMs)
             return
           }
           if (response.status >= 400) {
-            settle({
-              ok: false,
-              error: `http ${response.status}`,
-              status: response.status,
-            })
+            settle({ ok: false, error: `http ${response.status}` })
             return
           }
-          try {
-            const json: unknown = JSON.parse(response.responseText)
-            const posts = parseRedditListing(json, 100, runtime.now)
-            settle({ ok: true, posts })
-          } catch (e) {
-            settle({
-              ok: false,
-              error: e instanceof Error ? e.message : String(e),
-            })
+          const entries = parseRedditFeed(response.responseText, new runtime.DOMParser(), {
+            now: () => runtime.now(),
+          })
+          if (entries.length === 0) {
+            settle({ ok: false, error: 'feed carried no recognizable posts' })
+            return
           }
+          settle({ ok: true, entries })
         },
-        onerror: () => {
-          lastError = 'network error'
-          advanceHost()
-        },
-        ontimeout: () => {
-          lastError = 'timeout'
-          advanceHost()
-        },
+        onerror: () => settle({ ok: false, error: 'network error' }),
+        ontimeout: () => settle({ ok: false, error: 'timeout' }),
       })
-    }
-    const advanceHost = () => {
-      if (hostIdx + 1 >= REDDIT_HOSTS.length) {
-        settle({ ok: false, error: lastError })
-        return
-      }
-      hostIdx++
-      retriesLeft = MAX_RETRIES_ON_429
-      attempt()
     }
     attempt()
   })
@@ -102,9 +93,8 @@ export async function fetchReddit(
   runtime: Runtime,
   options: RedditSourceOptions,
 ): Promise<RedditFetchResult> {
-  // One entry may be several subs merged into a single section ("opencode+opencodecli"):
-  // each member is still fetched on its own (its own top-100), then the members' posts
-  // are pooled under the entry's key and ranked together downstream.
+  // One entry may be several subs merged into a single section ("opencode+opencodecli").
+  // The feed is fetched once for all members; members are only used to build its URL.
   const specs = Array.from(
     new Set(options.subreddits.map(normalizeSubredditSpec).filter((s) => s.length > 0)),
   )
@@ -113,31 +103,33 @@ export async function fetchReddit(
     throw new Error('reddit: no valid subreddits configured')
   }
 
-  const settled = await Promise.all(
-    members.map(async (sub) => {
-      const outcome = await fetchOneSub(runtime, sub)
-      if (!outcome.ok) return { sub, posts: [] as RedditPost[], error: outcome.error }
-      return { sub, posts: outcome.posts, error: null as string | null }
-    }),
-  )
-
-  const errors: string[] = []
-  const postsBySub = new Map<string, RedditPost[]>()
-  settled.forEach((item) => {
-    if (item.error) errors.push(`r/${item.sub}: ${item.error}`)
-    if (item.posts.length > 0) postsBySub.set(item.sub, item.posts)
-  })
-
-  if (postsBySub.size === 0) {
-    throw new Error(`reddit: all subs failed: ${errors.join('; ')}`)
+  const outcome = await fetchFeed(runtime, members)
+  if (!outcome.ok) {
+    throw new Error(`reddit: ${outcome.error} (${members.map((m) => `r/${m}`).join(', ')})`)
   }
 
   const perSpec = specs
     .map((spec) => ({
       sub: spec,
-      posts: splitSubredditSpec(spec).flatMap((sub) => postsBySub.get(sub) ?? []),
+      posts: outcome.entries.filter((e) => specContainsSub(spec, e.sub)).map((e) => e.post),
     }))
     .filter(({ posts }) => posts.length > 0)
 
-  return { posts: perSpec, partialErrors: errors }
+  if (perSpec.length === 0) {
+    throw new Error(
+      `reddit: feed has no posts for the configured subs (${members.map((m) => `r/${m}`).join(', ')})`,
+    )
+  }
+
+  // A member missing from the feed is normal, not an error: the 100-entry cap is
+  // shared across the whole multi-sub listing, so a quiet subreddit can lose out.
+  const silent = members.filter((m) => !outcome.entries.some((e) => e.sub === m))
+  if (silent.length > 0) {
+    console.debug(
+      '[gm-dashboard] reddit: subs with no entries in this feed:',
+      silent.map((m) => `r/${m}`),
+    )
+  }
+
+  return { posts: perSpec, partialErrors: [] }
 }

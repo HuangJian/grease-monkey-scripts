@@ -1,3 +1,4 @@
+import { parseFeed } from '../shared/feed-parser'
 import type { RedditPost } from './types'
 
 export function normalizeSubredditName(raw: string): string {
@@ -50,58 +51,57 @@ export function subredditSpecLabel(spec: string): string {
     .join(' + ')
 }
 
-export function parseRedditListing(
-  json: unknown,
-  maxItems: number,
-  now: () => number = Date.now,
-): RedditPost[] {
-  if (!json || typeof json !== 'object') return []
-  const data = (json as { data?: unknown }).data
-  if (!data || typeof data !== 'object') return []
-  const children = (data as { children?: unknown }).children
-  if (!Array.isArray(children)) return []
-  const out: RedditPost[] = []
-  children.some((child) => {
-    if (!child || typeof child !== 'object') return false
-    const c = child as { kind?: unknown; data?: unknown }
-    if (c.kind !== 't3') return false
-    if (!c.data || typeof c.data !== 'object') return false
-    const d = c.data as Record<string, unknown>
-    if (d['over_18'] === true) return false
-    if (d['distinguished'] === 'promoted') return false
-    const id = d['id']
-    const title = d['title']
-    const permalink = d['permalink']
-    const score = d['score']
-    const numComments = d['num_comments']
-    const subreddit = d['subreddit']
-    const author = d['author']
-    const createdUtc = d['created_utc']
-    if (typeof id !== 'string' || !id) return false
-    if (typeof title !== 'string' || !title) return false
-    if (typeof permalink !== 'string' || !permalink) return false
-    if (typeof score !== 'number' || !Number.isFinite(score)) return false
-    if (typeof numComments !== 'number' || !Number.isFinite(numComments)) return false
-    if (typeof subreddit !== 'string' || !subreddit) return false
-    const authorText = typeof author === 'string' ? author : ''
-    const normalizedSub = normalizeSubredditName(subreddit)
-    if (!normalizedSub) return false
-    let created: number
-    if (typeof createdUtc === 'number' && Number.isFinite(createdUtc) && createdUtc > 0) {
-      created = Math.floor(createdUtc * 1000)
-    } else {
-      created = now()
-    }
+/** `/r/{sub}/comments/{id}/...` — the only stable identity the feed exposes. */
+const POST_LINK_RE = /\/r\/([^/]+)\/comments\/([a-z0-9]+)/i
+
+export type RedditFeedEntry = { sub: string; post: RedditPost }
+
+/** Atom author is `/u/name`; sections and author tags key on the bare name. */
+function normalizeRedditAuthor(raw: string | undefined): string {
+  return (raw ?? '').trim().replace(/^\/?u\//i, '')
+}
+
+/**
+ * Parse an Atom listing (`/r/a+b/hot/.rss`) into posts tagged with the
+ * subreddit they belong to.
+ *
+ * The subreddit is read from the permalink, not from `<category>`: category
+ * labels keep the display casing (`LocalLLaMA`, `opencodeCLI`) while every
+ * section key is normalized. Entries whose link is not a comments permalink are
+ * skipped — the feed also carries no vote/comment counts, so `metrics: false`
+ * marks the zeros as "not measured" rather than "measured as zero".
+ */
+export function parseRedditFeed(
+  xml: string,
+  domParser: DOMParser,
+  options: { maxItems?: number; now?: () => number } = {},
+): RedditFeedEntry[] {
+  const now = options.now ?? Date.now
+  const { items } = parseFeed(
+    xml,
+    domParser,
+    options.maxItems === undefined ? {} : { maxItems: options.maxItems },
+  )
+  const out: RedditFeedEntry[] = []
+  for (const item of items) {
+    const m = item.link.match(POST_LINK_RE)
+    if (!m) continue
+    const sub = normalizeSubredditName(m[1]!)
+    const id = m[2]!.toLowerCase()
+    if (!sub || !id) continue
     out.push({
-      id,
-      title,
-      url: `https://www.reddit.com${permalink}`,
-      score: Math.max(0, Math.floor(score)),
-      numComments: Math.max(0, Math.floor(numComments)),
-      author: authorText,
-      created,
+      sub,
+      post: {
+        id,
+        title: item.title,
+        url: item.link,
+        score: 0,
+        numComments: 0,
+        author: normalizeRedditAuthor(item.author),
+        created: item.pubDate > 0 ? item.pubDate : now(),
+        metrics: false,
+      },
     })
-    return out.length >= maxItems
-  })
+  }
   return out
 }

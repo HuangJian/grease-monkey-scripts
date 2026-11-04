@@ -117,6 +117,12 @@ export type SourceComponentProps<T> = {
   root: ShadowRoot | HTMLElement
   runtime: Runtime
   onNotify?: (() => void) | undefined
+  /**
+   * The last fetch error, when the card is showing a failed refresh. Lets a
+   * source relax its own view filter instead of presenting cached history as
+   * "no data" (see reddit's date fallback).
+   */
+  error?: string | undefined
   /** Injected at the composition root; opens the shared editor dialog. */
   showEditorDialog?: ShowEditorDialog
 }

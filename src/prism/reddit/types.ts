@@ -6,6 +6,12 @@ export type RedditPost = {
   numComments: number
   author: string
   created: number
+  /**
+   * False when the channel carries no vote/comment counts — Reddit's Atom feed
+   * does not supply them. Readers must then skip the vote-based gating and
+   * ranking rather than treat the zero placeholders as measured data.
+   */
+  metrics?: boolean
 }
 
 export type RedditCountOptions = {

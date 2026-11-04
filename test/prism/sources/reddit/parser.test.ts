@@ -4,18 +4,14 @@ import { join } from 'node:path'
 import {
   normalizeSubredditName,
   normalizeSubredditSpec,
-  parseRedditListing,
+  parseRedditFeed,
   splitSubredditSpec,
   specContainsSub,
   subredditSpecLabel,
 } from '../../../../src/prism/reddit/parser'
 
-function loadFixture(): unknown {
-  const text = readFileSync(
-    join(import.meta.dir, '..', '..', 'fixtures', 'reddit-popular.json'),
-    'utf8',
-  )
-  return JSON.parse(text)
+function loadFeedFixture(): string {
+  return readFileSync(join(import.meta.dir, '..', '..', 'fixtures', 'reddit-hot.atom'), 'utf8')
 }
 
 describe('normalizeSubredditName', () => {
@@ -92,117 +88,84 @@ describe('subredditSpecLabel', () => {
   })
 })
 
-describe('parseRedditListing', () => {
-  test('parses valid listing', () => {
-    const json = loadFixture()
-    const posts = parseRedditListing(json, 100)
-    const ids = posts.map((p) => p.id)
-    expect(ids).toContain('pop001')
-    expect(ids).toContain('pop002')
+describe('parseRedditFeed', () => {
+  const parse = (xml = loadFeedFixture()) => parseRedditFeed(xml, new DOMParser())
+
+  test('tags every entry with the subreddit from its permalink', () => {
+    const entries = parse()
+    expect(entries.map((e) => e.sub)).toEqual(['programming', 'localllama', 'programming'])
   })
-  test('builds absolute permalink url', () => {
-    const json = loadFixture()
-    const posts = parseRedditListing(json, 100)
-    const post = posts.find((p) => p.id === 'pop001')!
-    expect(post.url).toBe(
-      'https://www.reddit.com/r/aww/comments/pop001/cat_photobombs_every_family_photo/',
+
+  test('keeps document order — it is Reddit own hot ranking', () => {
+    // Fixture dates run 16:31 / 20:00 / 12:00, so a date sort would reorder them.
+    expect(parse().map((e) => e.post.id)).toEqual(['1xmxnwu', '1xllama', '1xnodate'])
+  })
+
+  test('derives the post id from the permalink, not from the t3_ guid', () => {
+    expect(parse()[0]!.post.id).toBe('1xmxnwu')
+  })
+
+  test('normalizes the display casing the feed carries', () => {
+    // The feed labels this sub `LocalLLaMA`; the section key is normalized.
+    expect(parse()[1]!.sub).toBe('localllama')
+  })
+
+  test('builds an absolute permalink url', () => {
+    expect(parse()[0]!.post.url).toBe(
+      'https://www.reddit.com/r/programming/comments/1xmxnwu/can_group_by_still_be_optimized_after_all_these',
     )
   })
-  test('skips non-t3 children (t1 comments)', () => {
-    const json = loadFixture()
-    const posts = parseRedditListing(json, 100)
-    expect(posts.find((p) => p.id === 'comment001')).toBeUndefined()
+
+  test('strips the /u/ prefix from the Atom author', () => {
+    expect(parse()[0]!.post.author).toBe('Giladkl')
   })
-  test('drops over_18 posts', () => {
-    const json = loadFixture()
-    const posts = parseRedditListing(json, 100)
-    expect(posts.find((p) => p.id === 'pop004')).toBeUndefined()
-  })
-  test('drops distinguished=promoted posts', () => {
-    const json = loadFixture()
-    const posts = parseRedditListing(json, 100)
-    expect(posts.find((p) => p.id === 'pop006')).toBeUndefined()
-  })
-  test('drops posts with empty title', () => {
-    const json = loadFixture()
-    const posts = parseRedditListing(json, 100)
-    expect(posts.find((p) => p.id === 'pop005')).toBeUndefined()
-  })
-  test('returns empty for non-listing input', () => {
-    expect(parseRedditListing(null, 10)).toEqual([])
-    expect(parseRedditListing({}, 10)).toEqual([])
-    expect(parseRedditListing({ data: {} }, 10)).toEqual([])
-    expect(parseRedditListing({ data: { children: 'x' } }, 10)).toEqual([])
-  })
-  test('respects maxItems', () => {
-    const json = loadFixture()
-    expect(parseRedditListing(json, 2)).toHaveLength(2)
-  })
-  test('normalizes subreddit names', () => {
-    const json = {
-      data: {
-        children: [
-          {
-            kind: 't3',
-            data: {
-              id: 'x',
-              title: 't',
-              permalink: '/r/X/comments/x/',
-              score: 10,
-              num_comments: 1,
-              subreddit: 'r/Sub',
-              created_utc: 1700000000,
-            },
-          },
-        ],
-      },
+
+  test('marks posts as carrying no metrics', () => {
+    for (const { post } of parse()) {
+      expect(post.metrics).toBe(false)
+      expect(post.score).toBe(0)
+      expect(post.numComments).toBe(0)
     }
-    const [post] = parseRedditListing(json, 10)
-    expect(post!.id).toBe('x')
   })
-  test('parses created_utc to milliseconds', () => {
-    const json = loadFixture()
-    const posts = parseRedditListing(json, 100)
-    const post = posts.find((p) => p.id === 'pop001')!
-    expect(post.created).toBe(1_700_000_000_000)
+
+  test('maps published to milliseconds', () => {
+    expect(parse()[0]!.post.created).toBe(Date.parse('2026-11-03T16:31:27+00:00'))
   })
-  test('falls back to current time when created_utc is missing or invalid', () => {
+
+  test('falls back to updated when the feed never published the entry', () => {
+    expect(parse()[2]!.post.created).toBe(Date.parse('2026-11-03T12:00:00+00:00'))
+  })
+
+  test('falls back to now when the entry carries no date at all', () => {
+    const xml = `<feed xmlns="http://www.w3.org/2005/Atom"><entry>
+      <link href="https://www.reddit.com/r/x/comments/abc123/t/" />
+      <title>undated</title>
+    </entry></feed>`
     const before = Date.now()
-    const json = {
-      data: {
-        children: [
-          {
-            kind: 't3',
-            data: {
-              id: 'a',
-              title: 'no-time',
-              permalink: '/r/x/comments/a/',
-              score: 10,
-              num_comments: 1,
-              subreddit: 'x',
-            },
-          },
-          {
-            kind: 't3',
-            data: {
-              id: 'b',
-              title: 'bad-time',
-              permalink: '/r/x/comments/b/',
-              score: 10,
-              num_comments: 1,
-              subreddit: 'x',
-              created_utc: -1,
-            },
-          },
-        ],
-      },
-    }
-    const after = Date.now()
-    const posts = parseRedditListing(json, 10)
-    expect(posts).toHaveLength(2)
-    for (const p of posts) {
-      expect(p.created).toBeGreaterThanOrEqual(before)
-      expect(p.created).toBeLessThanOrEqual(after)
-    }
+    const [entry] = parseRedditFeed(xml, new DOMParser())
+    expect(entry!.post.created).toBeGreaterThanOrEqual(before)
+    expect(entry!.post.created).toBeLessThanOrEqual(Date.now())
+  })
+
+  test('skips an entry whose link is not a comments permalink', () => {
+    // The promoted slot in the fixture points at the subreddit root.
+    expect(parse().find((e) => e.post.id === '1xpromo')).toBeUndefined()
+  })
+
+  test('respects maxItems', () => {
+    // Capping happens before parsing, so the cap counts feed entries, not posts.
+    const xml = `<feed xmlns="http://www.w3.org/2005/Atom">
+      <entry><link href="https://www.reddit.com/r/x/comments/a1/t/"/><title>a1</title><published>2026-11-03T10:00:00+00:00</published></entry>
+      <entry><link href="https://www.reddit.com/r/x/comments/a2/t/"/><title>a2</title><published>2026-11-03T11:00:00+00:00</published></entry>
+      <entry><link href="https://www.reddit.com/r/x/comments/a3/t/"/><title>a3</title><published>2026-11-03T12:00:00+00:00</published></entry>
+    </feed>`
+    expect(parseRedditFeed(xml, new DOMParser(), { maxItems: 2 })).toHaveLength(2)
+  })
+
+  test('returns empty for empty or malformed input', () => {
+    expect(parseRedditFeed('', new DOMParser())).toEqual([])
+    expect(parseRedditFeed('   ', new DOMParser())).toEqual([])
+    expect(parseRedditFeed('<feed><entry>', new DOMParser())).toEqual([])
+    expect(parseRedditFeed('<html><body>not a feed</body></html>', new DOMParser())).toEqual([])
   })
 })

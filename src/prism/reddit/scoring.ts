@@ -33,6 +33,15 @@ import type { RedditCountOptions, RedditPost } from './types'
  *   - post.score ≤ 0 → score = 0
  *   按衰减分数降序排列，不做截断
  *
+ * ── 无指标通道（阶段 3/4 的例外）────────────────────────────────────────
+ *   Reddit 匿名 JSON 于 2026 年被封（403），现走 Atom feed。feed 不提供
+ *   score / num_comments，解析时标 `metrics: false`。此时：
+ *   ① 阶段 3 的门槛全部跳过 —— 用 0 去比阈值会把整段静默清空；
+ *   ② 阶段 4 的排序全部跳过 —— feed 的文档顺序本身就是 Reddit 的 hot 排序，
+ *      重排反而破坏信号（所有 score 都是 0）。
+ *   判定用 `every(p => p.metrics !== false)`：升级瞬间缓存里可能还混着带分数
+ *   的旧条目，此时整段统一切到 feed 顺序，避免新帖被 0 分压到末尾。
+ *
  * ══════════════════════════════════════════════════════════════════════════════
  */
 
@@ -54,11 +63,13 @@ export function mergeSubPosts(
   prevById: Map<string, { sub: string; post: RedditPost }>,
 ): Array<{ sub: string; posts: RedditPost[] }> {
   const liveBySub = new Map<string, RedditPost[]>()
-  perSubLive
-    .filter(({ posts }) => posts.length > 0)
-    .forEach(({ sub, posts }) => {
-      liveBySub.set(sub, [...(liveBySub.get(sub) ?? []), ...posts])
-    })
+  // Empty groups are kept, not filtered out: during feed rotation a section is
+  // skipped for a round and arrives here as `posts: []` purely to claim the key,
+  // so that its cached posts are carried over below. Dropping it would erase the
+  // whole section until its next turn (the hupu group-key lesson).
+  perSubLive.forEach(({ sub, posts }) => {
+    liveBySub.set(sub, [...(liveBySub.get(sub) ?? []), ...posts])
+  })
 
   const out: Array<{ sub: string; posts: RedditPost[] }> = []
   const seenIds = new Set<string>()
@@ -118,6 +129,12 @@ export function selectPostsPerSub(
   const todayStartMs = getTodayStartMs()
   const result = new Map<string, RedditPost[]>()
   merged.forEach(({ sub, posts }) => {
+    // No metrics channel (Reddit's Atom feed): its document order already is the
+    // hot ranking, and every gate would compare against a zero placeholder.
+    if (!posts.every((p) => p.metrics !== false)) {
+      result.set(sub, posts)
+      return
+    }
     const filtered = posts.filter((p) => {
       if (p.created < todayStartMs) {
         return p.numComments >= options.olderMinComments

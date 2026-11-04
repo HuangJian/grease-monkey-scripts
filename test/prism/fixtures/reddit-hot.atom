@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">
+  <category term="programming" label="r/programming"/>
+  <updated>2026-11-04T00:46:19+00:00</updated>
+  <icon>https://www.redditstatic.com/icon.png/</icon>
+  <id>/r/programming+localllama/hot/.rss</id>
+  <link rel="self" href="https://www.reddit.com/r/programming+localllama/hot/.rss" type="application/atom+xml"/>
+  <link rel="alternate" href="https://www.reddit.com/r/programming+localllama/hot/" type="text/html"/>
+  <subtitle>programming+localllama</subtitle>
+  <title>programming+localllama</title>
+  <entry>
+    <author><name>/u/Giladkl</name><uri>https://www.reddit.com/user/Giladkl</uri></author>
+    <category term="programming" label="r/programming"/>
+    <content type="html">&amp;#32; submitted by &amp;#32; &lt;a href=&quot;https://www.reddit.com/user/Giladkl&quot;&gt; /u/Giladkl &lt;/a&gt; &lt;br/&gt; &lt;span&gt;&lt;a href=&quot;https://pivotlake.io/blog/know-your-limit-faster-top-k-aggregation/&quot;&gt;[link]&lt;/a&gt;&lt;/span&gt; &amp;#32; &lt;span&gt;&lt;a href=&quot;https://www.reddit.com/r/programming/comments/1xmxnwu/can_group_by_still_be_optimized_after_all_these/&quot;&gt;[comments]&lt;/a&gt;&lt;/span&gt;</content>
+    <id>t3_1xmxnwu</id>
+    <link href="https://www.reddit.com/r/programming/comments/1xmxnwu/can_group_by_still_be_optimized_after_all_these/"/>
+    <updated>2026-11-03T16:31:27+00:00</updated>
+    <published>2026-11-03T16:31:27+00:00</published>
+    <title>Can GROUP BY still be optimized after all these years?</title>
+  </entry>
+  <entry>
+    <author><name>/u/llama-fan</name><uri>https://www.reddit.com/user/llama-fan</uri></author>
+    <category term="LocalLLaMA" label="r/LocalLLaMA"/>
+    <content type="html">&amp;#32; submitted by &amp;#32; &lt;a href=&quot;https://www.reddit.com/user/llama-fan&quot;&gt; /u/llama-fan &lt;/a&gt; &lt;br/&gt; &lt;span&gt;&lt;a href=&quot;https://www.reddit.com/r/LocalLLaMA/comments/1xllama/local_models_are_fast_now/&quot;&gt;[comments]&lt;/a&gt;&lt;/span&gt;</content>
+    <id>t3_1xllama</id>
+    <link href="https://www.reddit.com/r/LocalLLaMA/comments/1xllama/local_models_are_fast_now/"/>
+    <updated>2026-11-03T20:00:00+00:00</updated>
+    <published>2026-11-03T20:00:00+00:00</published>
+    <title>本地模型现在有多快？</title>
+  </entry>
+  <entry>
+    <author><name>/u/nodate</name><uri>https://www.reddit.com/user/nodate</uri></author>
+    <category term="programming" label="r/programming"/>
+    <content type="html">only an updated stamp</content>
+    <id>t3_1xnodate</id>
+    <link href="https://www.reddit.com/r/programming/comments/1xnodate/updated_only/"/>
+    <updated>2026-11-03T12:00:00+00:00</updated>
+    <title>Updated but never published</title>
+  </entry>
+  <entry>
+    <author><name>/u/booster</name><uri>https://www.reddit.com/user/booster</uri></author>
+    <category term="programming" label="r/programming"/>
+    <content type="html">promoted slot</content>
+    <id>t3_1xpromo</id>
+    <link href="https://www.reddit.com/r/programming/"/>
+    <updated>2026-11-03T22:00:00+00:00</updated>
+    <published>2026-11-03T22:00:00+00:00</published>
+    <title>A promoted slot that is not a post</title>
+  </entry>
+</feed>

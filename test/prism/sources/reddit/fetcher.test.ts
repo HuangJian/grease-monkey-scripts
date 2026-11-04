@@ -1,6 +1,4 @@
 import { describe, expect, test } from 'bun:test'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { fetchReddit } from '../../../../src/prism/reddit/fetcher'
 import type { RedditSourceOptions } from '../../../../src/prism/reddit/types'
 import type { RequestDetails } from '../../../../src/runtime'
@@ -22,12 +20,22 @@ function defaultRedditOpts(over: Partial<RedditSourceOptions> = {}): RedditSourc
   }
 }
 
-function loadFixture(): unknown {
-  const text = readFileSync(
-    join(import.meta.dir, '..', '..', 'fixtures', 'reddit-popular.json'),
-    'utf8',
-  )
-  return JSON.parse(text)
+/** Minimal Atom listing shaped like reddit's `/r/a+b/hot/.rss`. */
+function atomFeed(entries: ReadonlyArray<[sub: string, id: string]>): string {
+  const body = entries
+    .map(
+      ([sub, id]) => `<entry>
+    <author><name>/u/u_${id}</name></author>
+    <category term="${sub}" label="r/${sub}"/>
+    <id>t3_${id}</id>
+    <link href="https://www.reddit.com/r/${sub}/comments/${id}/${id}/"/>
+    <updated>2026-11-03T16:31:27+00:00</updated>
+    <published>2026-11-03T16:31:27+00:00</published>
+    <title>${id} title</title>
+  </entry>`,
+    )
+    .join('')
+  return `<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom">${body}</feed>`
 }
 
 function makeRuntime(handler: (d: RequestDetails) => void): TestRuntime {
@@ -54,143 +62,115 @@ async function drainRetries(runtime: TestRuntime, attempt = 0): Promise<void> {
 }
 
 describe('fetchReddit', () => {
-  test('fetches one sub, returns per-sub result', async () => {
-    const json = loadFixture()
+  test('covers every configured sub with a single multi-sub feed request', async () => {
     const calls: RequestDetails[] = []
     const runtime = makeRuntime((d) => {
       calls.push(d)
-      d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
-    })
-    const result = await fetchReddit(runtime, defaultRedditOpts())
-    expect(result.posts).toHaveLength(1)
-    expect(result.posts[0]!.sub).toBe('popular')
-    expect(result.posts[0]!.posts.length).toBeGreaterThan(0)
-    expect(calls).toHaveLength(1)
-    expect(calls[0]!.url).toContain('/r/popular/hot.json')
-  })
-  test('sends custom User-Agent and forwards session cookies (anonymous: false)', async () => {
-    const json = loadFixture()
-    let captured: RequestDetails | undefined
-    const runtime = makeRuntime((d) => {
-      captured = d
-      d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
-    })
-    await fetchReddit(runtime, defaultRedditOpts())
-    expect(captured!.anonymous).toBe(false)
-    expect(captured!.headers?.['User-Agent']).toMatch(/^web:grease-monkey-dashboard:/)
-  })
-  test('fetches multiple subs in parallel and returns separate buckets per sub', async () => {
-    const popular = {
-      data: {
-        children: [
-          {
-            kind: 't3',
-            data: {
-              id: 'popular1',
-              title: 'p1',
-              permalink: '/r/popular/comments/popular1/x/',
-              score: 5000,
-              num_comments: 100,
-              subreddit: 'popular',
-              created_utc: 1700000000,
-            },
-          },
-        ],
-      },
-    }
-    const funny = {
-      data: {
-        children: [
-          {
-            kind: 't3',
-            data: {
-              id: 'funny1',
-              title: 'f1',
-              permalink: '/r/funny/comments/funny1/x/',
-              score: 3000,
-              num_comments: 50,
-              subreddit: 'funny',
-              created_utc: 1700000000,
-            },
-          },
-        ],
-      },
-    }
-    const runtime = makeRuntime((d) => {
-      if (d.url.includes('/r/funny/')) {
-        d.onload({ responseText: JSON.stringify(funny), status: 200, responseHeaders: '' })
-      } else {
-        d.onload({ responseText: JSON.stringify(popular), status: 200, responseHeaders: '' })
-      }
+      d.onload({
+        responseText: atomFeed([
+          ['popular', 'p1'],
+          ['funny', 'f1'],
+        ]),
+        status: 200,
+        responseHeaders: '',
+      })
     })
     const result = await fetchReddit(
       runtime,
       defaultRedditOpts({ subreddits: ['popular', 'funny'] }),
     )
-    expect(result.posts).toHaveLength(2)
-    const bySub = new Map(result.posts.map((p) => [p.sub, p.posts]))
-    expect(bySub.get('popular')![0]!.id).toBe('popular1')
-    expect(bySub.get('funny')![0]!.id).toBe('funny1')
+    expect(calls).toHaveLength(1)
+    expect(calls[0]!.url).toBe('https://www.reddit.com/r/popular+funny/hot/.rss?limit=100')
+    expect(result.posts.map((p) => p.sub)).toEqual(['popular', 'funny'])
+    expect(result.posts[1]!.posts.map((p) => p.id)).toEqual(['f1'])
   })
-  test('parser populates created field on parsed posts', async () => {
-    const json = loadFixture()
+
+  test('sends the custom User-Agent, an Atom Accept header, and session cookies', async () => {
+    let captured: RequestDetails | undefined
     const runtime = makeRuntime((d) => {
-      d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
+      captured = d
+      d.onload({ responseText: atomFeed([['popular', 'p1']]), status: 200, responseHeaders: '' })
     })
-    const result = await fetchReddit(runtime, defaultRedditOpts())
-    for (const { posts } of result.posts) {
-      for (const p of posts) {
-        expect(typeof p.created).toBe('number')
-        expect(p.created).toBeGreaterThan(0)
-      }
-    }
+    await fetchReddit(runtime, defaultRedditOpts())
+    expect(captured!.anonymous).toBe(false)
+    expect(captured!.headers?.['User-Agent']).toMatch(/^web:grease-monkey-dashboard:/)
+    expect(captured!.headers?.['Accept']).toContain('application/atom+xml')
   })
-  test('single sub failure: returns posts from successful sub, no throw', async () => {
-    const json = loadFixture()
-    const runtime = makeRuntime((d) => {
-      if (d.url.includes('/r/askscience/')) d.onerror?.()
-      else d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
-    })
+
+  test('posts parsed from the feed are marked as carrying no metrics', async () => {
+    const runtime = makeRuntime((d) =>
+      d.onload({ responseText: atomFeed([['popular', 'p1']]), status: 200, responseHeaders: '' }),
+    )
+    const [bucket] = (await fetchReddit(runtime, defaultRedditOpts())).posts
+    expect(bucket!.posts[0]!.metrics).toBe(false)
+    expect(bucket!.posts[0]!.score).toBe(0)
+  })
+
+  test('merges a "+" group into one bucket fed by every member', async () => {
+    const runtime = makeRuntime((d) =>
+      d.onload({
+        responseText: atomFeed([
+          ['opencode', 'o1'],
+          ['opencodecli', 'c1'],
+        ]),
+        status: 200,
+        responseHeaders: '',
+      }),
+    )
     const result = await fetchReddit(
       runtime,
-      defaultRedditOpts({ subreddits: ['popular', 'askscience'] }),
+      defaultRedditOpts({ subreddits: ['opencodecli+opencode'] }),
     )
     expect(result.posts).toHaveLength(1)
-    expect(result.posts[0]!.sub).toBe('popular')
-    expect(result.partialErrors.some((e) => e.includes('askscience'))).toBe(true)
+    expect(result.posts[0]!.sub).toBe('opencode+opencodecli')
+    expect(result.posts[0]!.posts.map((p) => p.id)).toEqual(['o1', 'c1'])
   })
-  test('all subs fail: throws aggregate error', async () => {
-    const runtime = makeRuntime((d) => d.onerror?.())
+
+  test('a member missing from the feed does not fail the fetch', async () => {
+    const runtime = makeRuntime((d) =>
+      d.onload({ responseText: atomFeed([['popular', 'p1']]), status: 200, responseHeaders: '' }),
+    )
+    const result = await fetchReddit(
+      runtime,
+      defaultRedditOpts({ subreddits: ['popular', 'quiet'] }),
+    )
+    expect(result.posts.map((p) => p.sub)).toEqual(['popular'])
+    expect(result.partialErrors).toEqual([])
+  })
+
+  test('normalizes and dedupes subreddit names before building the url', async () => {
+    const urls: string[] = []
+    const runtime = makeRuntime((d) => {
+      urls.push(d.url)
+      d.onload({ responseText: atomFeed([['funny', 'f1']]), status: 200, responseHeaders: '' })
+    })
+    await fetchReddit(runtime, defaultRedditOpts({ subreddits: ['/r/Funny', 'r/funny'] }))
+    expect(urls).toEqual(['https://www.reddit.com/r/funny/hot/.rss?limit=100'])
+  })
+
+  test('throws when the feed carries no recognizable posts', async () => {
+    const runtime = makeRuntime((d) =>
+      d.onload({
+        responseText: '<html><body>challenge</body></html>',
+        status: 200,
+        responseHeaders: '',
+      }),
+    )
+    await expect(fetchReddit(runtime, defaultRedditOpts())).rejects.toThrow(
+      /feed carried no recognizable posts/,
+    )
+  })
+
+  test('throws on 403 with the sub list in the message', async () => {
+    const runtime = makeRuntime((d) =>
+      d.onload({ responseText: '', status: 403, responseHeaders: '' }),
+    )
     await expect(
-      fetchReddit(runtime, defaultRedditOpts({ subreddits: ['a', 'b'] })),
-    ).rejects.toThrow(/all subs failed/)
+      fetchReddit(runtime, defaultRedditOpts({ subreddits: ['popular', 'funny'] })),
+    ).rejects.toThrow(/http 403.*r\/popular.*r\/funny/)
   })
-  test('429 first call with Retry-After triggers one retry', async () => {
-    const json = loadFixture()
-    let calls = 0
-    const runtime = makeRuntime((d) => {
-      calls++
-      if (calls === 1) {
-        d.onload({ responseText: '', status: 429, responseHeaders: 'retry-after: 0' })
-      } else {
-        d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
-      }
-    })
-    const pending = fetchReddit(runtime, defaultRedditOpts())
-    await drainRetries(runtime)
-    const result = await pending
-    expect(calls).toBe(2)
-    expect(result.posts[0]!.posts.length).toBeGreaterThan(0)
-  })
-  test('429 on both attempts on same host: throws http 429', async () => {
-    const runtime = makeRuntime((d) => {
-      d.onload({ responseText: '', status: 429, responseHeaders: 'retry-after: 0' })
-    })
-    const pending = fetchReddit(runtime, defaultRedditOpts())
-    await drainRetries(runtime)
-    await expect(pending).rejects.toThrow(/http 429/)
-  })
-  test('http 500 on first call: no retry, throws', async () => {
+
+  test('does not retry a 500', async () => {
     let calls = 0
     const runtime = makeRuntime((d) => {
       calls++
@@ -199,132 +179,37 @@ describe('fetchReddit', () => {
     await expect(fetchReddit(runtime, defaultRedditOpts())).rejects.toThrow(/http 500/)
     expect(calls).toBe(1)
   })
-  test('merges a "+" group into one bucket, fetching each member separately', async () => {
+
+  test('retries a 429 once, waiting out x-ratelimit-reset', async () => {
+    let calls = 0
     const runtime = makeRuntime((d) => {
-      const sub = d.url.includes('/r/opencodecli/') ? 'opencodecli' : 'opencode'
-      d.onload({
-        responseText: JSON.stringify({
-          data: {
-            children: [
-              {
-                kind: 't3',
-                data: {
-                  id: `${sub}1`,
-                  title: sub,
-                  permalink: `/r/${sub}/comments/${sub}1/x/`,
-                  score: 10,
-                  num_comments: 5,
-                  subreddit: sub,
-                  created_utc: 1700000000,
-                },
-              },
-            ],
-          },
-        }),
-        status: 200,
-        responseHeaders: '',
-      })
-    })
-    const result = await fetchReddit(
-      runtime,
-      defaultRedditOpts({ subreddits: ['opencode+opencodecli'] }),
-    )
-    expect(result.posts).toHaveLength(1)
-    expect(result.posts[0]!.sub).toBe('opencode+opencodecli')
-    expect(result.posts[0]!.posts.map((p) => p.id).sort()).toEqual(['opencode1', 'opencodecli1'])
-  })
-  test('a sub shared by two entries is fetched once', async () => {
-    const json = loadFixture()
-    const urls: string[] = []
-    const runtime = makeRuntime((d) => {
-      urls.push(d.url)
-      d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
-    })
-    await fetchReddit(runtime, defaultRedditOpts({ subreddits: ['popular', 'popular+funny'] }))
-    expect(urls.filter((u) => u.includes('/r/popular/'))).toHaveLength(1)
-    expect(urls.filter((u) => u.includes('/r/funny/'))).toHaveLength(1)
-  })
-  test('one failing member keeps the group alive and is reported', async () => {
-    const runtime = makeRuntime((d) => {
-      if (d.url.includes('/r/opencodecli/')) d.onerror?.()
-      else
-        d.onload({
-          responseText: JSON.stringify({
-            data: {
-              children: [
-                {
-                  kind: 't3',
-                  data: {
-                    id: 'oc1',
-                    title: 't',
-                    permalink: '/r/opencode/comments/oc1/x/',
-                    score: 10,
-                    num_comments: 5,
-                    subreddit: 'opencode',
-                    created_utc: 1700000000,
-                  },
-                },
-              ],
-            },
-          }),
-          status: 200,
-          responseHeaders: '',
-        })
-    })
-    const result = await fetchReddit(
-      runtime,
-      defaultRedditOpts({ subreddits: ['opencode+opencodecli'] }),
-    )
-    expect(result.posts).toHaveLength(1)
-    expect(result.posts[0]!.posts.map((p) => p.id)).toEqual(['oc1'])
-    expect(result.partialErrors.join('; ')).toContain('r/opencodecli')
-  })
-  test('normalizes subreddit names before fetching', async () => {
-    const json = loadFixture()
-    const urls: string[] = []
-    const runtime = makeRuntime((d) => {
-      urls.push(d.url)
-      d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
-    })
-    await fetchReddit(runtime, defaultRedditOpts({ subreddits: ['/r/Funny', ' AWESOME '] }))
-    expect(urls.some((u) => u.includes('/r/funny/'))).toBe(true)
-    expect(urls.some((u) => u.includes('/r/awesome/'))).toBe(true)
-    expect(urls).toHaveLength(2)
-  })
-  test('dedupes repeated sub names in config', async () => {
-    const json = loadFixture()
-    const urls: string[] = []
-    const runtime = makeRuntime((d) => {
-      urls.push(d.url)
-      d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
-    })
-    await fetchReddit(
-      runtime,
-      defaultRedditOpts({ subreddits: ['popular', 'popular', 'r/popular'] }),
-    )
-    expect(urls).toHaveLength(1)
-  })
-  test('falls back to www.reddit.com when old.reddit.com returns 403', async () => {
-    const json = loadFixture()
-    const urls: string[] = []
-    const runtime = makeRuntime((d) => {
-      urls.push(d.url)
-      if (d.url.includes('old.reddit.com')) {
-        d.onload({ responseText: '', status: 403, responseHeaders: '' })
-      } else {
-        d.onload({ responseText: JSON.stringify(json), status: 200, responseHeaders: '' })
+      calls++
+      if (calls === 1) {
+        d.onload({ responseText: '', status: 429, responseHeaders: 'x-ratelimit-reset: 42\n' })
+        return
       }
+      d.onload({ responseText: atomFeed([['popular', 'p1']]), status: 200, responseHeaders: '' })
     })
-    const result = await fetchReddit(runtime, defaultRedditOpts())
-    expect(result.posts[0]!.posts.length).toBeGreaterThan(0)
-    expect(result.partialErrors).toEqual([])
-    expect(urls[0]).toContain('old.reddit.com')
-    expect(urls[1]).toContain('www.reddit.com')
+    const pending = fetchReddit(runtime, defaultRedditOpts())
+    await drainRetries(runtime)
+    const result = await pending
+    expect(calls).toBe(2)
+    expect(result.posts[0]!.posts[0]!.id).toBe('p1')
   })
-  test('both hosts 403: throws http 403', async () => {
-    const runtime = makeRuntime((d) => {
-      d.onload({ responseText: '', status: 403, responseHeaders: '' })
-    })
-    await expect(fetchReddit(runtime, defaultRedditOpts())).rejects.toThrow(/http 403/)
+
+  test('429 on both attempts throws http 429', async () => {
+    const runtime = makeRuntime((d) =>
+      d.onload({ responseText: '', status: 429, responseHeaders: 'x-ratelimit-reset: 30\n' }),
+    )
+    const pending = fetchReddit(runtime, defaultRedditOpts())
+    await drainRetries(runtime)
+    await expect(pending).rejects.toThrow(/http 429/)
+  })
+
+  test('network error and timeout are surfaced as fetch errors', async () => {
+    const failing = makeRuntime((d) => d.onerror?.())
+    await expect(fetchReddit(failing, defaultRedditOpts())).rejects.toThrow(/network error/)
+    const timingOut = makeRuntime((d) => d.ontimeout?.())
+    await expect(fetchReddit(timingOut, defaultRedditOpts())).rejects.toThrow(/timeout/)
   })
 })

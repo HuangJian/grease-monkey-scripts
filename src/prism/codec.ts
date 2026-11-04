@@ -82,6 +82,9 @@ function expandV2ex(v: Record<string, unknown>): Record<string, unknown> {
 }
 
 // Reddit
+// `m: 0` marks a post whose score/comment counts were never measured (Atom
+// feed). Absent means "has metrics", which is why the expand side only writes
+// the field when it is explicitly false.
 function compressReddit(v: Record<string, unknown>): Record<string, unknown> {
   if (isShortItem(v)) return v
   return {
@@ -91,6 +94,7 @@ function compressReddit(v: Record<string, unknown>): Record<string, unknown> {
     r: v.numComments ?? v.r,
     a: v.author,
     c: compressTimestamp((v.created ?? v.c) as number | undefined),
+    ...(v.metrics === false || v.m === 0 ? { m: 0 } : {}),
   }
 }
 
@@ -105,6 +109,7 @@ function expandReddit(v: Record<string, unknown>): Record<string, unknown> {
     numComments: v.r ?? 0,
     author: v.a ?? '',
     created: expandTimestamp(v.c as number | undefined) ?? 0,
+    ...(v.m === 0 ? { metrics: false } : {}),
   }
 }
 

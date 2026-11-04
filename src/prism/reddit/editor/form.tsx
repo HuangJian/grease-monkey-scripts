@@ -367,6 +367,11 @@ export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEdit
       <div class="gm-sp-editor-hint">
         用 + 连接多个 sub 即合并为一个分组（如 opencode+opencodecli）；也可勾选多行后点「合并」
       </div>
+      <div class="gm-sp-editor-hint">
+        Reddit 已封禁匿名 JSON 接口，现改用 Atom
+        feed：其中不含分数与评论数，所以下面三项「最低评论」和「衰减半衰期」暂不生效，条目按 Reddit
+        官方 hot 顺序展示
+      </div>
       <div class="gm-sp-editor-form">
         {FORM_FIELDS.map((f, i) => (
           <label class="gm-sp-editor-row" key={f.prop}>

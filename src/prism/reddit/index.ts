@@ -7,7 +7,7 @@ export { computeRedditDecayedScore, mergeSubPosts, selectPostsPerSub } from './s
 export {
   normalizeSubredditName,
   normalizeSubredditSpec,
-  parseRedditListing,
+  parseRedditFeed,
   splitSubredditSpec,
   SUBREDDIT_GROUP_SEP,
   specContainsSub,
