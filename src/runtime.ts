@@ -51,6 +51,8 @@ export type Runtime = {
   registerMenuCommand(name: string, fn: () => void): number
   /** Page-context fetch (bypasses WAF). Returns parsed JSON. Throws on non-2xx. */
   pageFetch(url: string): Promise<unknown>
+  /** Page-context fetch as raw text (bypasses WAF). Throws on non-2xx. */
+  pageFetchText(url: string): Promise<string>
   /** Open a URL in a new tab. */
   openTab(url: string): void
   /** Current time in ms. Tests override this via the runtime's fake clock. */
@@ -142,6 +144,23 @@ export function createBrowserRuntime(): Runtime {
     },
     registerMenuCommand: (name, fn) => GM_registerMenuCommand(name, fn),
     addElement: (parentNode, tagName, attributes) => GM_addElement(parentNode, tagName, attributes),
+    // Same-origin fetch from the page realm: carries the browser's own headers
+    // and cookies (including a Cloudflare clearance), which a sandboxed
+    // anonymous GM_xmlhttpRequest drops. Used by WAF-protected V2EX endpoints.
+    pageFetchText: async (url) => {
+      const res = await unsafeWindow.fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { Accept: 'text/html, application/json;q=0.9, */*;q=0.8' },
+      })
+      const text = await res.text()
+      if (!res.ok) {
+        throw new Error(
+          `pageFetch HTTP ${res.status} for ${url}\n  body[:300]: ${describeBody(text)}`,
+        )
+      }
+      return text
+    },
     pageFetch: async (url) => {
       const res = await unsafeWindow.fetch(url, {
         method: 'GET',

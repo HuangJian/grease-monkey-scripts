@@ -1,3 +1,4 @@
+import { describeBody } from '../../runtime'
 import type { Runtime } from '../../runtime'
 
 export const DEFAULT_REQUEST_TIMEOUT_MS = 15_000
@@ -125,7 +126,17 @@ export function requestTextWithHeaders(
             return
           }
           if (response.status >= 400) {
-            reject(new Error(`http ${response.status}`))
+            // A bare "http 403" cannot distinguish a Cloudflare block page from
+            // a site-level rejection. Keep a short body preview so the card
+            // error says what actually came back (see v2ex 5-second shield).
+            const preview = describeBody(response.responseText ?? '', 160)
+            reject(
+              new Error(
+                preview
+                  ? `http ${response.status} for ${url}\n  body[:160]: ${preview}`
+                  : `http ${response.status} for ${url}`,
+              ),
+            )
             return
           }
           resolve({

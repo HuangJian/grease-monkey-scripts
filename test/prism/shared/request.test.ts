@@ -53,6 +53,23 @@ describe('shared/request', () => {
     await expect(requestText(runtime, 'https://x.test/missing')).rejects.toThrow('http 404')
   })
 
+  test('bugfix: HTTP errors carry a body preview so WAF blocks are diagnosable', async () => {
+    const runtime = createRuntime()
+    runtime.queueResponse(
+      'https://x.test/blocked',
+      '<html>Sorry, you have been blocked</html>',
+      403,
+    )
+    let message = ''
+    try {
+      await requestText(runtime, 'https://x.test/blocked')
+    } catch (e) {
+      message = (e as Error).message
+    }
+    expect(message).toContain('http 403')
+    expect(message).toContain('Sorry, you have been blocked')
+  })
+
   test('requestText rejects on network error', async () => {
     const runtime = createRuntime()
     // No queued response -> runtime.request calls onerror().

@@ -249,6 +249,17 @@ export function createRuntime(dom?: Window): TestRuntime {
       return id
     },
     addElement: (_parentNode, _tagName, _attributes) => document.createElement(_tagName),
+    // Mirrors the browser runtime: a queued non-2xx body keeps its preview.
+    pageFetchText: async (url) => {
+      const r = responses.get(url)
+      if (!r) throw new Error(`pageFetch: no queued response for ${url}`)
+      if (r.status !== 200) {
+        throw new Error(
+          `pageFetch HTTP ${r.status} for ${url}\n  body[:300]: ${describeBody(r.text)}`,
+        )
+      }
+      return r.text
+    },
     // Mirrors the browser runtime: read the body, then parse — so a queued
     // HTML body (WAF challenge page) surfaces the same diagnostic error here.
     pageFetch: async (url) => {

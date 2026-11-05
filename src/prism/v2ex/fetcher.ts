@@ -1,5 +1,6 @@
+import { describeBody } from '../../runtime'
 import type { Runtime } from '../../runtime'
-import { HOT_API_BASE, HOT_PAGE_URL } from './constants'
+import { DEFAULT_V2EX_HOST, hotApiUrl, hotPageUrl, isV2exHost } from './constants'
 import {
   getTodayStart,
   mergeV2exTopics,
@@ -24,6 +25,12 @@ import type { V2exCountOptions, V2exTopic } from './types'
  *   ① API  (hot.json)          → parseV2ex()   解析 JSON，提取 id/title/url/replies/created
  *   ② Page (www.v2ex.com/?tab=hot) → parseV2exHotPage() 解析 HTML，提取 DOM 节点信息
  *      注意：页面源 created 为首次抓取时间（span[title] 显示的是 last_touched 而非创建时间）
+ *
+ *   请求通道（2026-11 V2EX 的 Cloudflare 自动防御升级后，匿名请求统一 403）：
+ *   - 在 v2ex.com 页面：用页面 host 构造同 host URL，走页面上下文 fetch
+ *     （带浏览器 cookie / 指纹，含 cf_clearance），失败再回退一次 GM。
+ *   - 其他站点页面：V2EX 不发 CORS 头，页面 fetch 不可用，直接走
+ *     GM_xmlhttpRequest（anonymous:false 带 cookie + 站内 Referer）。
  *
  *   任一数据源失败不阻塞；仅当 API 和 Page 同时失败时抛出错误。
  *
@@ -69,21 +76,76 @@ import type { V2exCountOptions, V2exTopic } from './types'
 
 type FetchOutcome = { topics: V2exTopic[]; error?: string }
 
+function errorMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e)
+}
+
+/**
+ * GM_xmlhttpRequest fallback. `anonymous: false` is essential: V2EX's
+ * Cloudflare defence rejects requests without the clearance cookie, and an
+ * anonymous GM request strips every cookie (including cf_clearance).
+ */
+function gmFetchText(runtime: Runtime, url: string, host: string): Promise<string> {
+  return requestText(runtime, url, {
+    anonymous: false,
+    headers: {
+      Accept: 'text/html, application/json;q=0.9, */*;q=0.8',
+      Referer: `https://${host}/`,
+    },
+    retry: RETRY_ON_429,
+  })
+}
+
+/**
+ * On a v2ex.com page, fetch from the page realm first: that request inherits
+ * the browser's cookies and client hints, which is what clears the 5-second
+ * shield. A cross-origin dashboard cannot do that (V2EX sends no CORS
+ * headers), so it goes straight to GM_xmlhttpRequest. A failed page fetch still
+ * gets one GM retry before the endpoint is written off.
+ */
+async function fetchEndpointText(
+  runtime: Runtime,
+  url: string,
+  host: string,
+  sameOrigin: boolean,
+): Promise<string> {
+  if (!sameOrigin) return gmFetchText(runtime, url, host)
+  try {
+    return await runtime.pageFetchText(url)
+  } catch (pageError) {
+    console.debug(`[v2ex-fetch] pageFetch 失败，回退 GM: ${url}: ${errorMessage(pageError)}`)
+    try {
+      return await gmFetchText(runtime, url, host)
+    } catch (gmError) {
+      throw new Error(`page: ${errorMessage(pageError)}; gm: ${errorMessage(gmError)}`, {
+        cause: gmError,
+      })
+    }
+  }
+}
+
 async function fetchFromEndpoint(
   runtime: Runtime,
   url: string,
+  host: string,
+  sameOrigin: boolean,
   parse: (body: string) => V2exTopic[],
 ): Promise<FetchOutcome> {
   let body: string
   try {
-    body = await requestText(runtime, url, { anonymous: true, retry: RETRY_ON_429 })
+    body = await fetchEndpointText(runtime, url, host, sameOrigin)
   } catch (e) {
-    return { topics: [], error: e instanceof Error ? e.message : String(e) }
+    return { topics: [], error: errorMessage(e) }
   }
   try {
     return { topics: parse(body) }
   } catch (e) {
-    return { topics: [], error: e instanceof Error ? e.message : String(e) }
+    // A 200 carrying a WAF challenge page fails JSON parsing; report what came
+    // back instead of a bare "Unexpected token '<'".
+    return {
+      topics: [],
+      error: `${errorMessage(e)}; body[:160]: ${describeBody(body, 160)}`,
+    }
   }
 }
 
@@ -97,23 +159,35 @@ export async function fetchV2ex(
   // 早于本次抓取起始时刻的 created 才是上游给的真实时间戳；等于/晚于它的
   // 一律是「抓取时刻近似」（页面源 created=Date.now()，或 API 缺 created 的回落）。
   const fetchStartMs = runtime.now()
+  const hostname = runtime.location?.hostname ?? ''
+  const sameOrigin = isV2exHost(hostname)
+  const host = sameOrigin ? hostname : DEFAULT_V2EX_HOST
   const [apiResult, pageResult] = await Promise.all([
-    fetchFromEndpoint(runtime, `${HOT_API_BASE}?_t=${runtime.now()}`, (body) => {
+    fetchFromEndpoint(runtime, hotApiUrl(host, runtime.now()), host, sameOrigin, (body) => {
       const json: unknown = JSON.parse(body)
       return parseV2ex(json, Number.POSITIVE_INFINITY, runtime.now)
     }),
-    fetchFromEndpoint(runtime, HOT_PAGE_URL, (body) =>
+    fetchFromEndpoint(runtime, hotPageUrl(host), host, sameOrigin, (body) =>
       parseV2exHotPage(body, Number.POSITIVE_INFINITY, domParser, runtime.now),
     ),
   ])
 
   console.debug(
-    `[v2ex-fetch] api${apiResult.error ? `(err:${apiResult.error})` : ''}: ${apiResult.topics.length} topics ` +
+    `[v2ex-fetch] host=${host} sameOrigin=${sameOrigin} ` +
+      `api${apiResult.error ? `(err:${apiResult.error})` : ''}: ${apiResult.topics.length} topics ` +
       `| page${pageResult.error ? `(err:${pageResult.error})` : ''}: ${pageResult.topics.length} topics`,
   )
 
   if (apiResult.error && pageResult.error) {
-    throw new Error(`v2ex api: ${apiResult.error}; v2ex page: ${pageResult.error}`)
+    const combined = `v2ex api: ${apiResult.error}; v2ex page: ${pageResult.error}`
+    // Both endpoints 403 = V2EX's Cloudflare defence, not a parser bug. Say so
+    // and give the user an actionable next step instead of two bare codes.
+    const blocked = /\b403\b/.test(apiResult.error) && /\b403\b/.test(pageResult.error)
+    throw new Error(
+      blocked
+        ? `${combined}\n（V2EX 风控拦截：先在浏览器打开 v2ex.com 通过验证，或换一个网络出口，再刷新）`
+        : combined,
+    )
   }
 
   let full = mergeV2exTopics(apiResult.topics, pageResult.topics, false)

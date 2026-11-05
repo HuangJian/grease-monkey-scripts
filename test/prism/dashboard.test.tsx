@@ -291,7 +291,8 @@ describe('createDashboard', () => {
     await dashboard.refreshSource('v2ex')
     expect(seenUrls.some((u) => u.includes('hot.json'))).toBe(true)
     expect(seenUrls.some((u) => u.includes('tab=hot'))).toBe(true)
-    expect(reqAnonymous).toBe(true)
+    // V2EX's Cloudflare defence 403s anonymous requests (no cf_clearance).
+    expect(reqAnonymous).toBe(false)
     const stored = runtime.stores[CACHE_KEY('v2ex')] as CachedSource<unknown>
     expect(stored.schemaVersion).toBe(CACHE_SCHEMA_VERSION)
     expect(stored.fetchedAt).toBeGreaterThan(0)

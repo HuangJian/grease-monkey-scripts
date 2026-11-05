@@ -51,6 +51,22 @@ function makeRuntime(handler: (d: RequestDetails) => void): Runtime {
   return { ...base, request: (d: RequestDetails) => handler(d) }
 }
 
+/** Stands in for a dashboard opened on a v2ex.com page (same-origin path). */
+function makePageRuntime(
+  pageFetchText: (url: string) => Promise<string>,
+  onRequest?: (d: RequestDetails) => void,
+): Runtime {
+  const base = createRuntime()
+  return {
+    ...base,
+    location: { hostname: 'www.v2ex.com' } as Location,
+    pageFetchText,
+    // If the code unexpectedly falls back to GM here, fail fast instead of
+    // leaving the promise pending forever.
+    request: (d: RequestDetails) => (onRequest ? onRequest(d) : d.onerror?.()),
+  }
+}
+
 function loadPageFixture(): string {
   return readFileSync(join(import.meta.dir, '..', '..', 'fixtures', 'v2ex-hot-page.html'), 'utf8')
 }
@@ -76,7 +92,7 @@ describe('fetchV2ex', () => {
     expect(ids).toContain(1217291)
   })
 
-  test('uses anonymous: true on both calls', async () => {
+  test('sends cookies and site headers on both calls (V2EX 403 regression)', async () => {
     const captured: RequestDetails[] = []
     const runtime = makeRuntime((d) => {
       captured.push(d)
@@ -85,7 +101,78 @@ describe('fetchV2ex', () => {
     const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
     await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
     expect(captured).toHaveLength(2)
-    for (const c of captured) expect(c.anonymous).toBe(true)
+    for (const c of captured) {
+      // An anonymous GM request drops cf_clearance; V2EX's Cloudflare defence
+      // then answers 403 (see /t/1244563).
+      expect(c.anonymous).toBe(false)
+      expect(c.headers?.Referer).toContain('v2ex.com')
+      expect(c.url).toContain('https://www.v2ex.com/')
+    }
+  })
+
+  test('uses same-origin page fetch on a v2ex.com page (no GM request)', async () => {
+    const html = loadPageFixture()
+    const urls: string[] = []
+    const runtime = makePageRuntime(async (url) => {
+      urls.push(url)
+      return url.includes('hot.json') ? JSON.stringify(FIXTURE) : html
+    })
+    const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
+    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
+    expect(urls).toHaveLength(2)
+    expect(urls[0]).toContain('https://www.v2ex.com/api/topics/hot.json')
+    expect(topics.map((t) => t.id)).toContain(1217291)
+  })
+
+  test('uses the page host for same-origin URLs (apex domain)', async () => {
+    const urls: string[] = []
+    const base = makePageRuntime(async (url) => {
+      urls.push(url)
+      return url.includes('hot.json') ? '[]' : '<html><body></body></html>'
+    })
+    const runtime = { ...base, location: { hostname: 'v2ex.com' } as unknown as Location }
+    const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
+    await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
+    expect(urls).toHaveLength(2)
+    expect(urls.every((u) => u.startsWith('https://v2ex.com/'))).toBe(true)
+  })
+
+  test('falls back to GM when the same-origin page fetch is blocked', async () => {
+    const html = loadPageFixture()
+    const gmUrls: string[] = []
+    const runtime = makePageRuntime(
+      async () => {
+        throw new Error('pageFetch HTTP 403')
+      },
+      (d) => {
+        gmUrls.push(d.url)
+        d.onload({
+          responseText: d.url.includes('hot.json') ? JSON.stringify(FIXTURE) : html,
+          status: 200,
+          responseHeaders: '',
+        })
+      },
+    )
+    const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
+    const topics = await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
+    expect(gmUrls).toHaveLength(2)
+    expect(topics.map((t) => t.id)).toContain(1217291)
+  })
+
+  test('reports the WAF body and a hint when both endpoints answer 403', async () => {
+    const blocked = '<html><body>Sorry, you have been blocked</body></html>'
+    const runtime = makeRuntime((d) =>
+      d.onload({ responseText: blocked, status: 403, responseHeaders: '' }),
+    )
+    const state = createV2exState({ retentionMs: 7 * 24 * 60 * 60 * 1000 })
+    let message = ''
+    try {
+      await fetchV2ex(runtime, DEFAULT_COUNT_OPTS, new DOMParser(), state)
+    } catch (e) {
+      message = e instanceof Error ? e.message : String(e)
+    }
+    expect(message).toContain('Sorry, you have been blocked')
+    expect(message).toContain('风控拦截')
   })
 
   test('rejects with combined error when both sources fail', async () => {
