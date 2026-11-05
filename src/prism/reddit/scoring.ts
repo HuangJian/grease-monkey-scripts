@@ -33,14 +33,15 @@ import type { RedditCountOptions, RedditPost } from './types'
  *   - post.score ≤ 0 → score = 0
  *   按衰减分数降序排列，不做截断
  *
- * ── 无指标通道（阶段 3/4 的例外）────────────────────────────────────────
- *   Reddit 匿名 JSON 于 2026 年被封（403），现走 Atom feed。feed 不提供
- *   score / num_comments，解析时标 `metrics: false`。此时：
- *   ① 阶段 3 的门槛全部跳过 —— 用 0 去比阈值会把整段静默清空；
- *   ② 阶段 4 的排序全部跳过 —— feed 的文档顺序本身就是 Reddit 的 hot 排序，
- *      重排反而破坏信号（所有 score 都是 0）。
- *   判定用 `every(p => p.metrics !== false)`：升级瞬间缓存里可能还混着带分数
- *   的旧条目，此时整段统一切到 feed 顺序，避免新帖被 0 分压到末尾。
+ * ── feed 通道（阶段 3/4 的例外）────────────────────────────────────────
+ *   Reddit 匿名 JSON 于 2026 年被封（403），内容改走 Atom feed；`score` /
+ *   `num_comments` 由归档 API 按 id 补回（`metrics.ts`），但那是发布后数小时的
+ *   快照。feed 通道因此**永久跳过阶段 3/4**（`preserveFeedOrder = true`）：
+ *   ① 门槛会拿滞后快照的评论数误杀新帖；
+ *   ② feed 文档顺序本身就是 Reddit 的 hot 排序，比滞后分数更准，重排是倒退。
+ *   补回的数字只用于行内显示，不参与筛选与排序。
+ *   `every(p => p.metrics !== false)` 是第二道保险：某个帖子没被归档收录时
+ *   整段仍留在 feed 顺序，避免零值把它挤到末尾。
  *
  * ══════════════════════════════════════════════════════════════════════════════
  */
@@ -125,13 +126,17 @@ export type SelectOptions = RedditCountOptions & {
 export function selectPostsPerSub(
   merged: ReadonlyArray<{ sub: string; posts: RedditPost[] }>,
   options: SelectOptions,
+  preserveFeedOrder = false,
 ): Map<string, RedditPost[]> {
   const todayStartMs = getTodayStartMs()
   const result = new Map<string, RedditPost[]>()
   merged.forEach(({ sub, posts }) => {
-    // No metrics channel (Reddit's Atom feed): its document order already is the
-    // hot ranking, and every gate would compare against a zero placeholder.
-    if (!posts.every((p) => p.metrics !== false)) {
+    // Feed document order IS Reddit's hot ranking. Even after the archive fills
+    // in real score/comment counts, those numbers are a few hours stale: gating
+    // or re-sorting with them would bury fresh posts and shuffle a more accurate
+    // order. `preserveFeedOrder` keeps the feed channel on this path; the
+    // metrics check covers posts the archive has not enriched.
+    if (preserveFeedOrder || !posts.every((p) => p.metrics !== false)) {
       result.set(sub, posts)
       return
     }

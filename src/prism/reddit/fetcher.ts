@@ -79,6 +79,9 @@ function fetchFeed(runtime: Runtime, members: readonly string[]): Promise<FeedOu
             settle({ ok: false, error: 'feed carried no recognizable posts' })
             return
           }
+          // Metrics are refreshed at view time (see source.tsx / metrics.ts),
+          // not here: a number captured at fetch time would be stale by the
+          // time the user opens the panel.
           settle({ ok: true, entries })
         },
         onerror: () => settle({ ok: false, error: 'network error' }),

@@ -12,6 +12,7 @@ import { createExpandCollapse } from '../expand-collapse'
 import { createRedditEditor } from './editor/form'
 import { fetchReddit } from './fetcher'
 import { loadFreshRedditOptions } from './options'
+import { refreshMetricsForData, METRICS_REFRESH_DELAY_MS } from './metrics'
 import { normalizeSubredditSpec } from './parser'
 import { mergeSubPosts, selectPostsPerSub } from './scoring'
 import { createRedditState } from './state'
@@ -35,6 +36,23 @@ function rotationIntervalMs(options: RedditSourceOptions): number {
   return Math.max(60_000, (options.ttlMinutes * 60_000) / groupCount)
 }
 
+/**
+ * `loadState` runs before the panel renders, so refreshing metrics here is what
+ * makes every row — including posts captured two or three days ago — show
+ * activity as of the moment the user opens the dashboard.
+ */
+async function refreshCachedMetrics(runtime: Runtime): Promise<void> {
+  const cached = await loadCache<RedditRenderData>(runtime, 'reddit')
+  if (!cached?.data) return
+  const changed = await refreshMetricsForData(runtime, cached.data, runtime.now())
+  if (!changed) return
+  // The panel's opportunistic refresh is fire-and-forget; if it finished while
+  // we were waiting on the archive, its cache (with newer posts) wins.
+  const latest = await loadCache<RedditRenderData>(runtime, 'reddit')
+  if (!latest || latest.fetchedAt !== cached.fetchedAt) return
+  await saveCache(runtime, 'reddit', { ...latest, data: cached.data })
+}
+
 export function createRedditSource(
   options: RedditSourceOptions,
 ): Source<RedditRenderData, 'reddit'> {
@@ -47,6 +65,29 @@ export function createRedditSource(
     dateFilter: '今',
     filterUnread: false,
   })
+
+  let metricsTimerId: number | null = null
+  let metricsInFlight = false
+
+  /**
+   * View-time metrics refresh, deferred so it never sits on the render path:
+   * the panel paints from cache immediately, and the numbers catch up tens of
+   * seconds later. The resulting cache write fires the dashboard's
+   * `addValueChangeListener` for this source, which repaints the group.
+   *
+   * Repeated `loadState` calls (the idle bootstrap and opening the panel) share
+   * one pending timer instead of stacking requests.
+   */
+  function scheduleMetricsRefresh(runtime: Runtime): void {
+    if (metricsTimerId !== null || metricsInFlight) return
+    metricsTimerId = runtime.setTimeout(() => {
+      metricsTimerId = null
+      metricsInFlight = true
+      void refreshCachedMetrics(runtime).finally(() => {
+        metricsInFlight = false
+      })
+    }, METRICS_REFRESH_DELAY_MS)
+  }
 
   async function loadAuthorTags(runtime: Runtime): Promise<void> {
     authorTagMap = await syncAuthorTags({
@@ -146,7 +187,7 @@ export function createRedditSource(
         .forEach((spec) => live.push({ sub: spec, posts: [] }))
       const merged = mergeSubPosts(live, prevById)
       const now = runtime.now()
-      const selected = selectPostsPerSub(merged, { ...currentOptions, now })
+      const selected = selectPostsPerSub(merged, { ...currentOptions, now }, true)
       // 见 v2ex/source.tsx：refreshSource 用本结果覆盖 pruneExpiredCache 的裁剪快照，
       // 因此过期帖子必须从返回值里剔除，否则缓存永不裁剪、已读状态却被反复清掉。
       const visible: RedditRenderData = {}
@@ -159,6 +200,9 @@ export function createRedditSource(
       })
       await state.saveToStorage(runtime)
       await pruneExpiredCache(runtime)
+      // Refresh the numbers on the whole visible set (new posts + cached
+      // history), so a panel left open also keeps showing current activity.
+      await refreshMetricsForData(runtime, visible, now)
       return visible
     },
     RenderComponent: (props) => {
@@ -177,6 +221,8 @@ export function createRedditSource(
     async loadState(runtime) {
       await state.loadFromStorage(runtime)
       await loadAuthorTags(runtime)
+      // Deliberately not awaited: metrics must never delay the first paint.
+      scheduleMetricsRefresh(runtime)
     },
     createEditor(settings: SourceSettings) {
       return createRedditEditor(currentOptions, settings)

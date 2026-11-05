@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import { render, within } from '@testing-library/preact'
 import { h } from 'preact'
 import { validateConfig } from '../../../../src/prism/config'
+import { loadCache, saveCache } from '../../../../src/prism/cache'
+import { resetMetricsThrottle } from '../../../../src/prism/reddit/metrics'
 import { createRedditSource } from '../../../../src/prism/reddit/source'
 import { STATE_KEY, type CachedSource } from '../../../../src/prism/types'
 import type { RedditPost, RedditSourceOptions } from '../../../../src/prism/reddit/types'
@@ -49,7 +51,22 @@ function atomForUrl(url: string, publishedMs: number = Date.now()): string {
 
 function makeRuntime(handler: (d: RequestDetails) => void): TestRuntime {
   const base = createRuntime()
-  return { ...base, request: (d: RequestDetails) => handler(d) }
+  return {
+    ...base,
+    request: (d: RequestDetails) => {
+      // Rotation tests assert on the sequence of feed URLs; answer the optional
+      // metrics enrichment separately so it never enters that sequence.
+      if (d.url.includes('arctic-shift.photon-reddit.com')) {
+        d.onload({
+          responseText: JSON.stringify({ data: [] }),
+          status: 200,
+          responseHeaders: '',
+        })
+        return
+      }
+      handler(d)
+    },
+  }
 }
 
 describe('createRedditSource', () => {
@@ -294,6 +311,75 @@ describe('RedditComponent after a failed refresh', () => {
     expect(within(container).getByText('yesterday post')).not.toBeNull()
     expect(within(container).getByText('抓取失败，已显示全部历史')).not.toBeNull()
     document.body.innerHTML = ''
+  })
+})
+
+describe('createRedditSource view-time metrics refresh', () => {
+  test('opening the panel refreshes numbers on days-old cached history', async () => {
+    resetMetricsThrottle()
+    const now = Date.now()
+    const base = createRuntime()
+    const runtime = {
+      ...base,
+      request: (d: RequestDetails) => {
+        if (d.url.includes('arctic-shift.photon-reddit.com')) {
+          d.onload({
+            responseText: JSON.stringify({
+              data: [{ id: 'old1', score: 999, num_comments: 88 }],
+            }),
+            status: 200,
+            responseHeaders: '',
+          })
+          return
+        }
+        d.onload({ responseText: atomForUrl(d.url), status: 200, responseHeaders: '' })
+      },
+    }
+    const oldPost: RedditPost = {
+      id: 'old1',
+      title: 'three days ago',
+      url: 'https://www.reddit.com/r/aww/comments/old1/t',
+      score: 5,
+      numComments: 1,
+      author: 'u',
+      created: now - 3 * 24 * 60 * 60 * 1000,
+      metrics: true,
+    }
+    await saveCache(runtime, 'reddit', {
+      data: { aww: [oldPost] },
+      fetchedAt: now - 60_000,
+      error: '',
+    })
+
+    // `loadState` runs before the panel renders in dashboard.open().
+    await createRedditSource(defaultRedditOpts()).loadState!(runtime)
+
+    // The panel must paint from cache first: no numbers change yet.
+    const immediate = await loadCache<Record<string, RedditPost[]>>(runtime, 'reddit')
+    expect(immediate!.data?.['aww']![0]!.score).toBe(5)
+
+    // Metrics catch up on a timer, and the cache write repaints the group.
+    const timers = runtime.activeTimeouts(1)
+    expect(timers).toHaveLength(1)
+    timers.forEach((timer) => runtime.runTimeout(timer.id))
+
+    let cached = await loadCache<Record<string, RedditPost[]>>(runtime, 'reddit')
+    for (let i = 0; i < 50 && cached?.data?.['aww']?.[0]?.score !== 999; i++) {
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 0))
+      cached = await loadCache<Record<string, RedditPost[]>>(runtime, 'reddit')
+    }
+    expect(cached!.data?.['aww']![0]).toMatchObject({ score: 999, numComments: 88 })
+    // Must not reset fetchedAt, or the rotation schedule would drift.
+    expect(cached!.fetchedAt).toBe(now - 60_000)
+  })
+
+  test('repeated loadState calls share one pending refresh', async () => {
+    resetMetricsThrottle()
+    const runtime = createRuntime()
+    const source = createRedditSource(defaultRedditOpts())
+    await source.loadState!(runtime)
+    await source.loadState!(runtime)
+    expect(runtime.activeTimeouts(1)).toHaveLength(1)
   })
 })
 

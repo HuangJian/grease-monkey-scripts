@@ -97,7 +97,7 @@ describe('fetchReddit', () => {
     expect(captured!.headers?.['Accept']).toContain('application/atom+xml')
   })
 
-  test('posts parsed from the feed are marked as carrying no metrics', async () => {
+  test('parsed posts are left unmeasured for the view-time refresh', async () => {
     const runtime = makeRuntime((d) =>
       d.onload({ responseText: atomFeed([['popular', 'p1']]), status: 200, responseHeaders: '' }),
     )

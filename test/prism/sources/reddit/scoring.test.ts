@@ -271,6 +271,21 @@ describe('selectPostsPerSub', () => {
     expect(result.get('x')!.map((p) => p.id)).toEqual(['legacy', 'fromFeed'])
   })
 
+  test('feed order is preserved even when every post has real metrics', () => {
+    // Archive numbers are hours stale: ranking/gating with them would bury a
+    // fresh post that only has 1 comment in the snapshot.
+    const posts = [
+      post({ id: 'first', score: 10, numComments: 1 }),
+      post({ id: 'second', score: 9999, numComments: 500 }),
+    ]
+    const result = selectPostsPerSub(
+      [{ sub: 'x', posts }],
+      { ...DEFAULT_COUNT_OPTS, olderMinComments: 100, now: NOW },
+      true,
+    )
+    expect(result.get('x')!.map((p) => p.id)).toEqual(['first', 'second'])
+  })
+
   test('returns empty map for empty input', () => {
     const result = selectPostsPerSub([], { ...DEFAULT_COUNT_OPTS, now: NOW })
     expect(result.size).toBe(0)
