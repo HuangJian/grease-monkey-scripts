@@ -15,6 +15,12 @@
  * `import … from 'preact'` / `'preact/hooks'` to the shim, which reads
  * from the global set by the UMD build.
  *
+ * A script whose entry carries `// ==build.compress==` additionally ships its
+ * prod bundle deflated and inflated at startup (see wrapBundlePayload). Debug
+ * bundles are never wrapped. This trades readability for size: a minified
+ * bundle is mostly string literals, which minifiers cannot shrink but deflate
+ * about 2.4x — prism 284 KB → 120 KB.
+ *
  * Hash is SHA-256 of the debug bundle content + build script source code
  * (first 8 hex chars). Including the build script source ensures that build
  * logic changes trigger a rebuild even when script source is unchanged.
@@ -32,10 +38,14 @@ import {
   buildDashboardCssReplacement,
   buildSimpleCssInjection,
   computeHash,
+  encodeBundlePayload,
+  hasCompressDirective,
   parseBuildHash,
   parseCssVariables,
   postSwcOptimize,
   resolveVarReferences,
+  stripCompressDirective,
+  wrapBundlePayload,
 } from './build-utils'
 
 // ---------------------------------------------------------------------------
@@ -256,9 +266,18 @@ async function buildUserScript(entrypoint: string, mode: BuildMode): Promise<str
     throw new Error(`Missing userscript metadata block in ${entrypoint}`)
   }
 
+  // `// ==build.compress==` opts the prod build into the self-extracting
+  // wrapper. The marker itself never ships — strip it before bundling.
+  const compressProd = !mode.debug && hasCompressDirective(entrypointSource)
+  entrypointSource = stripCompressDirective(entrypointSource)
+
   // Check whether the script @requires lz-string — determines if CSS is
   // compressed with LZ-string in prod builds.
-  const hasLzStringRequire = /@require\s+[^\n]*lz-string/.test(metadata)
+  //
+  // A compressed bundle deflates its CSS as part of the payload, so it must
+  // keep the raw text: pre-compressed CSS is high-entropy and defeats the
+  // outer deflate (measured: 140 KB vs 122 KB).
+  const useLzCompression = /@require\s+[^\n]*lz-string/.test(metadata) && !compressProd
 
   await mkdir('dist', { recursive: true })
 
@@ -283,7 +302,7 @@ async function buildUserScript(entrypoint: string, mode: BuildMode): Promise<str
       for (const [srcPath, content] of originals) {
         // Dashboard: replace CSS_TO_BE_INJECTED placeholder with actual CSS
         if (content.includes('CSS_TO_BE_INJECTED')) {
-          const replacement = buildDashboardCssReplacement(css, mode.debug, hasLzStringRequire)
+          const replacement = buildDashboardCssReplacement(css, mode.debug, useLzCompression)
           const modified = content.replace(/export const CSS_TO_BE_INJECTED = .*$/m, replacement)
           await writeFile(srcPath, modified, 'utf8')
         }
@@ -296,7 +315,7 @@ async function buildUserScript(entrypoint: string, mode: BuildMode): Promise<str
           while ((im = importRe.exec(content)) !== null) {
             lastImportEnd = im.index + im[0].length
           }
-          const injection = `\n\n${buildSimpleCssInjection(css, hasLzStringRequire)}\n`
+          const injection = `\n\n${buildSimpleCssInjection(css, useLzCompression)}\n`
           if (lastImportEnd > 0) {
             entrypointSource =
               content.slice(0, lastImportEnd) + injection + content.slice(lastImportEnd)
@@ -340,6 +359,11 @@ async function buildUserScript(entrypoint: string, mode: BuildMode): Promise<str
     if (!mode.debug) {
       const out = await swcMinify(bundle, SWC_OPTIONS)
       bundle = postSwcOptimize(out.code!)
+
+      // Optional: ship the minified bundle deflated and inflate at startup.
+      if (compressProd) {
+        bundle = wrapBundlePayload(encodeBundlePayload(bundle), name)
+      }
     }
 
     return `${metadata}\n\n${bundle}`
@@ -398,8 +422,12 @@ async function main() {
       const prevHash = FORCE_REBUILD ? '' : (readExistingHash(prodFile) ?? '')
 
       try {
+        const entrySource = await readFile(entrypoint, 'utf8')
         const bundle = await buildUserScript(entrypoint, BUILD_MODES[0])
-        const hash = computeHash(bundle + buildScriptSource)
+        // The compress marker is stripped from the emitted code, so hash its
+        // presence explicitly — otherwise toggling it would never rebuild.
+        const compressFlag = hasCompressDirective(entrySource) ? ':compress' : ''
+        const hash = computeHash(bundle + buildScriptSource + compressFlag)
         hashes.set(name, hash)
 
         if (prevHash !== hash) {

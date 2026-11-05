@@ -23,10 +23,13 @@
 // @grant        GM_registerMenuCommand
 // @require      https://cdn.jsdelivr.net/npm/preact@10.29.3/dist/preact.umd.js
 // @require      https://cdn.jsdelivr.net/npm/preact@10.29.3/hooks/dist/hooks.umd.js
-// @require      https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js
 // @connect      *
 // @noframes
 // ==/UserScript==
+
+// Prod bundle ships deflated and is inflated at startup, so the CSS it embeds
+// stays raw text (see scripts/build-utils.ts).
+// ==build.compress==
 
 import { startDashboard } from './app'
 import { createBrowserRuntime } from '../runtime'

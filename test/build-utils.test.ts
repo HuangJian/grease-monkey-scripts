@@ -1,15 +1,20 @@
 import { describe, expect, test } from 'bun:test'
+import { inflateRawSync } from 'node:zlib'
 
 import {
   buildDashboardCssReplacement,
   buildSimpleCssInjection,
   computeHash,
+  encodeBundlePayload,
   escapeForTemplateLiteral,
+  hasCompressDirective,
   parseBuildHash,
   parseCssVariables,
   postSwcOptimize,
   resolveVarReferences,
+  stripCompressDirective,
   stripJsxDevArgs,
+  wrapBundlePayload,
 } from '../scripts/build-utils'
 
 // ---------------------------------------------------------------------------
@@ -243,5 +248,106 @@ describe('parseBuildHash', () => {
     expect(parseBuildHash("// code\nconsole.debug('reddit-time-saver:build aabbccdd')  \n")).toBe(
       'aabbccdd',
     )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Self-extracting prod bundle
+// ---------------------------------------------------------------------------
+
+describe('compress directive', () => {
+  const entry = `// ==UserScript==
+// @name x
+// ==/UserScript==
+
+// ==build.compress==
+
+import './app'
+`
+
+  test('detects the marker', () => {
+    expect(hasCompressDirective(entry)).toBe(true)
+  })
+
+  test('only matches a marker at the start of a line', () => {
+    expect(hasCompressDirective('import x from "y"')).toBe(false)
+    expect(hasCompressDirective('  // ==build.compress==\nimport x from "y"')).toBe(false)
+    expect(hasCompressDirective('// ==build.compress== trailing note\nimport x from "y"')).toBe(
+      true,
+    )
+  })
+
+  test('strips the marker line but keeps the rest of the source', () => {
+    const stripped = stripCompressDirective(entry)
+    expect(stripped).not.toContain('==build.compress==')
+    expect(stripped).toContain("import './app'")
+    expect(stripped).toContain('// @name x')
+  })
+})
+
+describe('encodeBundlePayload', () => {
+  test('round-trips through inflate', async () => {
+    const code = '(function(){console.warn("中文 + quotes \' \\" ` ${}" )})()'
+    const payload = encodeBundlePayload(code)
+    const back = inflateRawSync(Buffer.from(payload, 'base64')).toString('utf8')
+    expect(back).toBe(code)
+  })
+
+  test('emits only base64 chars, safe to inline in a JS string literal', () => {
+    const payload = encodeBundlePayload('const a = "b"'.repeat(200))
+    expect(payload).toMatch(/^[A-Za-z0-9+/=]+$/)
+    expect(payload.length % 4).toBe(0)
+  })
+
+  test('compresses repetitive code substantially', () => {
+    const code = 'function renderItem(item){return item.title+item.url}\n'.repeat(200)
+    expect(encodeBundlePayload(code).length).toBeLessThan(code.length / 2)
+  })
+})
+
+describe('wrapBundlePayload', () => {
+  const code = '(()=>{globalThis.__probe = "ok"})()'
+
+  test('inlines the payload into a self-extracting bootstrap', () => {
+    const wrapper = wrapBundlePayload(encodeBundlePayload(code), 'prism')
+    expect(wrapper).toStartWith('(async()=>{')
+    expect(wrapper).toContain('new DecompressionStream("deflate-raw")')
+    expect(wrapper).toContain('[gm] prism')
+    // Two-arg form: the single-arg `new Function(body)` overload is not
+    // available under the configured lib.
+    expect(() => new Function('', `return ${wrapper}`)).not.toThrow()
+  })
+
+  test('inflates back to the original code through the shipped bootstrap', async () => {
+    const wrapper = wrapBundlePayload(encodeBundlePayload(code), 'prism')
+    // Run the real bootstrap with `eval` shadowed by a probe: this exercises
+    // atob → Blob → DecompressionStream exactly as the userscript does.
+    const run = new Function('eval', `return ${wrapper}`) as (
+      e: (c: string) => void,
+    ) => Promise<void>
+    // Collected in an array: TS control-flow analysis cannot see assignments
+    // made inside the probe callback and would narrow a plain `let` to null.
+    const received: string[] = []
+    await run((c: string) => {
+      received.push(c)
+    })
+    expect(received).toHaveLength(1)
+    expect(received[0]).toBe(code)
+  })
+
+  test('reports decompression failure instead of failing silently', async () => {
+    const wrapper = wrapBundlePayload('not-valid-base64!!', 'prism')
+    const errors: unknown[] = []
+    const original = console.error
+    console.error = (...args: unknown[]) => errors.push(args)
+    try {
+      const run = new Function('eval', `return ${wrapper}`) as (
+        e: (c: string) => void,
+      ) => Promise<void>
+      await run(() => {})
+    } finally {
+      console.error = original
+    }
+    expect(errors.length).toBe(1)
   })
 })

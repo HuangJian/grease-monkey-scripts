@@ -6,6 +6,7 @@
  */
 
 import { createHash } from 'node:crypto'
+import { deflateRawSync } from 'node:zlib'
 import { compressToUTF16 } from 'lz-string'
 
 // ---------------------------------------------------------------------------
@@ -152,6 +153,64 @@ export function postSwcOptimize(code: string): string {
   )
 
   return code
+}
+
+// ---------------------------------------------------------------------------
+// Self-extracting prod bundle
+// ---------------------------------------------------------------------------
+
+/**
+ * Marker line opting a script's prod build into the self-extracting wrapper:
+ *
+ *   // ==build.compress==
+ *
+ * Debug builds ignore it (they stay readable), and the marker is stripped
+ * from the emitted code either way.
+ */
+const COMPRESS_DIRECTIVE = /^\/\/ ==build\.compress==[^\n]*\n?/m
+
+export function hasCompressDirective(source: string): boolean {
+  return COMPRESS_DIRECTIVE.test(source)
+}
+
+export function stripCompressDirective(source: string): string {
+  return source.replace(COMPRESS_DIRECTIVE, '')
+}
+
+/**
+ * Deflate a minified bundle and base64-encode it.
+ *
+ * `deflate-raw` rather than `gzip`: the browser inflates it through the same
+ * `DecompressionStream` API, minus an 18-byte header we never read.
+ */
+export function encodeBundlePayload(code: string): string {
+  return deflateRawSync(Buffer.from(code, 'utf8'), { level: 9 }).toString('base64')
+}
+
+/**
+ * Wrap a base64 payload into a bootstrap that inflates and runs it.
+ *
+ * A minified bundle is 59% string literals (UI copy, CSS class names, CSS
+ * itself), which no minifier can shrink further — but those bytes deflate
+ * ~2.4x. Compression happens here, at build time; the runtime cost is one
+ * inflate before startup.
+ *
+ * Assembly is plain source rather than a template literal, and the payload is
+ * safe to inline unescaped because base64 is `[A-Za-z0-9+/=]` only.
+ *
+ * Direct `eval` is deliberate: the bundle reaches `GM_*` and `unsafeWindow`
+ * through the userscript sandbox scope, and eval keeps it. `new Function`
+ * compiles against another realm and loses those bindings; `(0,eval)` drops
+ * out of the sandbox scope the same way.
+ */
+export function wrapBundlePayload(payload: string, label = 'userscript'): string {
+  return (
+    `(async()=>{try{const s=atob("${payload}"),b=new Uint8Array(s.length);` +
+    `for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i);` +
+    `eval(await new Response(new Blob([b]).stream().pipeThrough(` +
+    `new DecompressionStream("deflate-raw"))).text())` +
+    `}catch(e){console.error("[gm] ${label}: 解压或执行压缩包失败（需要 DecompressionStream 支持）",e)}})()`
+  )
 }
 
 // ---------------------------------------------------------------------------
