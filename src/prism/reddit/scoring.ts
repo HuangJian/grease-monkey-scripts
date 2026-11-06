@@ -22,7 +22,8 @@ import type { RedditCountOptions, RedditPost } from './types'
  * ── 阶段 3：门槛过滤 ────────────────────────────────────────────────────
  *   selectPostsPerSub(merged, options) 对每个 sub 执行：
  *   ① 旧帖子 (created < 今日 0:00)：numComments < olderMinComments → 移除
- *   ② 今日帖子 (created ≥ 今日 0:00)：无评论门槛（全部保留）
+ *   ② 今日帖子 (created ≥ 今日 0:00)：numComments < todayMinComments → 移除
+ *   ③ `metrics === false`（归档没收录、数字未知）→ 一律保留
  *   不做截断，全部返回
  *
  * ── 阶段 4：衰减排序 ────────────────────────────────────────────────────
@@ -33,15 +34,14 @@ import type { RedditCountOptions, RedditPost } from './types'
  *   - post.score ≤ 0 → score = 0
  *   按衰减分数降序排列，不做截断
  *
- * ── feed 通道（阶段 3/4 的例外）────────────────────────────────────────
+ * ── feed 通道（阶段 4 的例外）──────────────────────────────────────────
  *   Reddit 匿名 JSON 于 2026 年被封（403），内容改走 Atom feed；`score` /
- *   `num_comments` 由归档 API 按 id 补回（`metrics.ts`），但那是发布后数小时的
- *   快照。feed 通道因此**永久跳过阶段 3/4**（`preserveFeedOrder = true`）：
- *   ① 门槛会拿滞后快照的评论数误杀新帖；
- *   ② feed 文档顺序本身就是 Reddit 的 hot 排序，比滞后分数更准，重排是倒退。
- *   补回的数字只用于行内显示，不参与筛选与排序。
- *   `every(p => p.metrics !== false)` 是第二道保险：某个帖子没被归档收录时
- *   整段仍留在 feed 顺序，避免零值把它挤到末尾。
+ *   `num_comments` 由归档 API 按 id 补回（`metrics.ts`），是发布后数小时的快照。
+ *   ① 阶段 3（门槛）**照常执行**，但见上面 ③：零值占位不能当成真实数据；
+ *   ② 阶段 4（排序）**跳过**（`preserveFeedOrder`）—— feed 文档顺序本身就是
+ *      Reddit 的 hot 排序，比滞后数小时的分数更准，重排是倒退。
+ *   所以 `ageHalfLifeDays` 在 feed 通道不生效，`olderMinComments` /
+ *   `todayMinComments` 生效。
  *
  * ══════════════════════════════════════════════════════════════════════════════
  */
@@ -121,31 +121,33 @@ export function mergeSubPosts(
 
 export type SelectOptions = RedditCountOptions & {
   now: number
+  /**
+   * Keep the feed's document order — it is Reddit's own hot ranking, which is
+   * more current than the archive's few-hour-old snapshot.
+   */
+  preserveFeedOrder?: boolean
 }
 
 export function selectPostsPerSub(
   merged: ReadonlyArray<{ sub: string; posts: RedditPost[] }>,
   options: SelectOptions,
-  preserveFeedOrder = false,
 ): Map<string, RedditPost[]> {
   const todayStartMs = getTodayStartMs()
   const result = new Map<string, RedditPost[]>()
   merged.forEach(({ sub, posts }) => {
-    // Feed document order IS Reddit's hot ranking. Even after the archive fills
-    // in real score/comment counts, those numbers are a few hours stale: gating
-    // or re-sorting with them would bury fresh posts and shuffle a more accurate
-    // order. `preserveFeedOrder` keeps the feed channel on this path; the
-    // metrics check covers posts the archive has not enriched.
-    if (preserveFeedOrder || !posts.every((p) => p.metrics !== false)) {
-      result.set(sub, posts)
-      return
-    }
     const filtered = posts.filter((p) => {
+      // 归档没收录（或被删）的帖子，score/numComments 只是 0 占位。拿它去比阈值
+      // 会把帖子静默删掉，而真实讨论度其实未知——未知就保留，只拦有数据的。
+      if (p.metrics === false) return true
       if (p.created < todayStartMs) {
         return p.numComments >= options.olderMinComments
       }
       return p.numComments >= options.todayMinComments
     })
+    if (options.preserveFeedOrder) {
+      result.set(sub, filtered)
+      return
+    }
     const sorted = [...filtered].sort((a, b) => {
       const da = computeRedditDecayedScore(a, options.now, options.ageHalfLifeDays)
       const db = computeRedditDecayedScore(b, options.now, options.ageHalfLifeDays)

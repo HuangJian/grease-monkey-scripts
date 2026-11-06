@@ -34,9 +34,9 @@ function archive(rows: unknown[]): string {
 }
 
 describe('REDDIT_METRICS_URL', () => {
-  test('joins ids into one batch request', () => {
+  test('joins ids into one batch request and asks only for the used fields', () => {
     expect(REDDIT_METRICS_URL(['a1', 'b2'])).toBe(
-      'https://arctic-shift.photon-reddit.com/api/posts/ids?ids=a1,b2',
+      'https://arctic-shift.photon-reddit.com/api/posts/ids?ids=a1,b2&fields=id,score,num_comments',
     )
   })
 })
@@ -162,6 +162,27 @@ describe('enrichRedditMetrics', () => {
     expect(await enrichRedditMetrics(runtime, [p], { force: true })).toBe(1)
     expect(url).toContain('ids=a1')
     expect(p).toMatchObject({ score: 777, numComments: 42, metrics: true })
+  })
+
+  test('splits more than 500 ids across sequential requests', async () => {
+    // The archive rejects the whole batch with http 400 above 500 ids:
+    // "'ids' must be a comma-separated list of 0-500 base36-encoded numbers".
+    const calls: string[] = []
+    const runtime = runtimeWith((d) => {
+      calls.push(d.url)
+      const ids = new URL(d.url).searchParams.get('ids')?.split(',') ?? []
+      d.onload({
+        responseText: archive(ids.map((id) => ({ id, score: 7, num_comments: 3 }))),
+        status: 200,
+        responseHeaders: '',
+      })
+    })
+    const posts = Array.from({ length: 620 }, (_, i) => post(`p${i}`))
+    expect(await enrichRedditMetrics(runtime, posts)).toBe(620)
+    expect(calls).toHaveLength(2)
+    expect(new URL(calls[0]!).searchParams.get('ids')!.split(',')).toHaveLength(500)
+    expect(new URL(calls[1]!).searchParams.get('ids')!.split(',')).toHaveLength(120)
+    expect(posts.every((p) => p.metrics === true && p.score === 7)).toBe(true)
   })
 })
 

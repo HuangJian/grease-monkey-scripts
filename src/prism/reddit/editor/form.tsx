@@ -369,8 +369,8 @@ export function RedditEditorForm({ fresh, settings, ctx, handleRef }: RedditEdit
       </div>
       <div class="gm-sp-editor-hint">
         Reddit 已封禁匿名 JSON，内容走官方 Atom
-        feed。热度与评论数在每次打开面板时由公开归档按帖子重新补回（含几天前的历史帖；归档本身仍有数小时快照滞后）。因此条目始终按
-        Reddit 官方 hot 顺序展示，下面三项「最低评论」和「衰减半衰期」不参与筛选
+        feed。热度与评论数在每次打开面板时由公开归档按帖子重新补回（含几天前的历史帖；归档本身仍有数小时快照滞后）。「今日/历史最低评论」已按补回的数据生效，归档还没收录的新帖不会被误删；条目顺序仍用
+        Reddit 官方 hot，「衰减半衰期」不参与
       </div>
       <div class="gm-sp-editor-form">
         {FORM_FIELDS.map((f, i) => (

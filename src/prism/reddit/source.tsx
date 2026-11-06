@@ -187,7 +187,11 @@ export function createRedditSource(
         .forEach((spec) => live.push({ sub: spec, posts: [] }))
       const merged = mergeSubPosts(live, prevById)
       const now = runtime.now()
-      const selected = selectPostsPerSub(merged, { ...currentOptions, now }, true)
+      const selected = selectPostsPerSub(merged, {
+        ...currentOptions,
+        now,
+        preserveFeedOrder: true,
+      })
       // 见 v2ex/source.tsx：refreshSource 用本结果覆盖 pruneExpiredCache 的裁剪快照，
       // 因此过期帖子必须从返回值里剔除，否则缓存永不裁剪、已读状态却被反复清掉。
       const visible: RedditRenderData = {}

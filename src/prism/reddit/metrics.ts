@@ -20,8 +20,13 @@ import type { RedditPost } from './types'
  * they are good for judging magnitude but must not drive ranking or gating —
  * Reddit's own hot order in the feed is more current.
  */
+/**
+ * `fields` is not cosmetic: the full payload is ~5KB *per post* (494KB for 100
+ * ids, 4s), while these three fields are ~44 bytes each (21.8KB for 500 ids,
+ * 2.5s). Without it the request blows past any sane timeout.
+ */
 export const REDDIT_METRICS_URL = (ids: readonly string[]): string =>
-  `https://arctic-shift.photon-reddit.com/api/posts/ids?ids=${ids.join(',')}`
+  `https://arctic-shift.photon-reddit.com/api/posts/ids?ids=${ids.join(',')}&fields=id,score,num_comments`
 
 /** Page-lifetime throttle; reloading the page naturally allows a fresh read. */
 export const METRICS_REFRESH_MIN_INTERVAL_MS = 5 * 60_000
@@ -47,24 +52,19 @@ type ArchiveRow = {
   num_comments?: unknown
 }
 
+/**
+ * Hard server-side cap: `'ids' must be a comma-separated list of 0-500
+ * base36-encoded numbers`. A cache with five sections easily exceeds that, and
+ * the whole batch is rejected with 400 — so requests must be split.
+ */
+export const REDDIT_METRICS_MAX_IDS = 500
+
 function nonNegativeInt(v: unknown): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.floor(v)) : null
 }
 
-/**
- * Mutates the provided post objects in place and returns how many of them now
- * carry real metrics. With `force`, posts that already had numbers are queried
- * again — that is the whole point of a "view-time" refresh. A post the archive
- * omits keeps whatever it had before; a refresh must never erase good numbers.
- */
-export async function enrichRedditMetrics(
-  runtime: Runtime,
-  posts: readonly RedditPost[],
-  options: { force?: boolean } = {},
-): Promise<number> {
-  const pending = options.force ? [...posts] : posts.filter((p) => p.metrics === false)
-  if (pending.length === 0) return 0
-
+/** One request for at most `REDDIT_METRICS_MAX_IDS` posts. Never rejects. */
+function requestMetricsBatch(runtime: Runtime, batch: readonly RedditPost[]): Promise<number> {
   return new Promise<number>((resolve) => {
     let settled = false
     const done = (count: number) => {
@@ -73,16 +73,19 @@ export async function enrichRedditMetrics(
       resolve(count)
     }
     const fail = (reason: string) => {
-      // A third-party outage must never turn into a failed source refresh.
-      console.debug('[gm-dashboard] reddit metrics unavailable:', reason)
+      // A third-party outage must never turn into a failed source refresh, but
+      // it must not be invisible either: `warn` survives the production build
+      // (only `debug` is stripped), so "the columns vanished" is diagnosable.
+      console.warn('[gm-dashboard] reddit metrics unavailable:', reason)
       done(0)
     }
     runtime.request({
-      url: REDDIT_METRICS_URL(pending.map((p) => p.id)),
+      url: REDDIT_METRICS_URL(batch.map((p) => p.id)),
       method: 'GET',
-      // This runs on the render path; a stalled archive must not hold the panel
-      // open for long. Old numbers / hidden columns are an acceptable fallback.
-      timeout: 5000,
+      // Runs off the render path (deferred by the caller), so a slow archive
+      // costs nothing visible. 500 ids measured at ~2.5s; keep headroom for a
+      // slower connection rather than silently dropping the columns.
+      timeout: 15000,
       // Never send browser cookies to a third-party host: only public post ids
       // (already public in the feed) leave the browser.
       anonymous: true,
@@ -106,7 +109,7 @@ export async function enrichRedditMetrics(
             if (typeof r.id === 'string' && r.id) byId.set(r.id, r)
           })
           let count = 0
-          pending.forEach((post) => {
+          batch.forEach((post) => {
             const row = byId.get(post.id)
             if (!row) return
             const score = nonNegativeInt(row.score)
@@ -117,7 +120,7 @@ export async function enrichRedditMetrics(
             post.metrics = true
             count++
           })
-          console.debug('[gm-dashboard] reddit metrics enriched', count, '/', pending.length)
+          console.debug('[gm-dashboard] reddit metrics enriched', count, '/', batch.length)
           done(count)
         } catch (e) {
           fail(e instanceof Error ? e.message : String(e))
@@ -127,6 +130,30 @@ export async function enrichRedditMetrics(
       ontimeout: () => fail('timeout'),
     })
   })
+}
+
+/**
+ * Mutates the provided post objects in place and returns how many of them now
+ * carry real metrics. With `force`, posts that already had numbers are queried
+ * again — that is the whole point of a "view-time" refresh. A post the archive
+ * omits keeps whatever it had before; a refresh must never erase good numbers.
+ *
+ * Batches run sequentially: a full cache is a couple of requests, and firing
+ * them in parallel against a volunteer-run archive invites rate limiting.
+ */
+export async function enrichRedditMetrics(
+  runtime: Runtime,
+  posts: readonly RedditPost[],
+  options: { force?: boolean } = {},
+): Promise<number> {
+  const pending = options.force ? [...posts] : posts.filter((p) => p.metrics === false)
+  if (pending.length === 0) return 0
+
+  let enriched = 0
+  for (let i = 0; i < pending.length; i += REDDIT_METRICS_MAX_IDS) {
+    enriched += await requestMetricsBatch(runtime, pending.slice(i, i + REDDIT_METRICS_MAX_IDS))
+  }
+  return enriched
 }
 
 /**

@@ -271,19 +271,28 @@ describe('selectPostsPerSub', () => {
     expect(result.get('x')!.map((p) => p.id)).toEqual(['legacy', 'fromFeed'])
   })
 
-  test('feed order is preserved even when every post has real metrics', () => {
-    // Archive numbers are hours stale: ranking/gating with them would bury a
-    // fresh post that only has 1 comment in the snapshot.
+  test('keeps feed order while the comment gate still applies', () => {
     const posts = [
-      post({ id: 'first', score: 10, numComments: 1 }),
+      post({ id: 'first', score: 10, numComments: 50 }),
       post({ id: 'second', score: 9999, numComments: 500 }),
     ]
-    const result = selectPostsPerSub(
-      [{ sub: 'x', posts }],
-      { ...DEFAULT_COUNT_OPTS, olderMinComments: 100, now: NOW },
-      true,
-    )
+    const result = selectPostsPerSub([{ sub: 'x', posts }], {
+      ...DEFAULT_COUNT_OPTS,
+      now: NOW,
+      preserveFeedOrder: true,
+    })
+    // Both clear the gate; a decay ranking would swap them (second has 9999).
     expect(result.get('x')!.map((p) => p.id)).toEqual(['first', 'second'])
+  })
+
+  test('a post without metrics survives the gate despite its zero placeholder', () => {
+    const posts = [
+      post({ id: 'unknown', metrics: false, numComments: 0 }),
+      post({ id: 'known', metrics: true, numComments: 0 }),
+    ]
+    const result = selectPostsPerSub([{ sub: 'x', posts }], { ...DEFAULT_COUNT_OPTS, now: NOW })
+    // Unknown discussion volume is kept; a measured 0 is filtered out.
+    expect(result.get('x')!.map((p) => p.id)).toEqual(['unknown'])
   })
 
   test('returns empty map for empty input', () => {
