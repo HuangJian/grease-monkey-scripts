@@ -121,12 +121,19 @@
   flex: 0 0 auto;
 }
 
+/**
+ * Single-source rows inherit 11px from `.gm-sp-novels-chapter-link`, but
+ * multi-source rows have no such link wrapper and used to inherit the overlay's
+ * 16px — the chapter title visibly grew as soon as a second source was added.
+ * Pin the size on the title itself so both layouts agree.
+ */
 .gm-sp-novels-chapter-title {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 11px;
 }
 
 .gm-sp-novels-chapter-new .gm-sp-novels-chapter-title {

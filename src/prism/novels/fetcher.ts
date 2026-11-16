@@ -1,5 +1,5 @@
 import type { Runtime } from '../../runtime'
-import { adapterByUrl } from './adapters/registry'
+import { detectAdapter } from './adapters/detect'
 import type { NovelAdapter } from './adapters/types'
 import type { NovelBook, NovelBookConfig, NovelChapterVariant, NovelSourceState } from './types'
 import { bookId, normalizeBooks } from './migrate'
@@ -34,7 +34,6 @@ export async function fetchNovels(
   books: NovelBookConfig[],
   prevBooks: NovelBook[],
   options: FetchNovelsOptions = { initialNewChapters: 3, maxLatestWindow: DEFAULT_MAX_WINDOW },
-  resolveAdapter: (url: string) => NovelAdapter | undefined = adapterByUrl,
 ): Promise<NovelBook[]> {
   const prevList = normalizeBooks(prevBooks, runtime.now)
   const prevById = new Map(prevList.map((b) => [b.id, b]))
@@ -43,7 +42,7 @@ export async function fetchNovels(
 
   return mapLimit(
     books,
-    (cfg) => fetchOneBook(runtime, cfg, prevById, prevByUrl, options, resolveAdapter),
+    (cfg) => fetchOneBook(runtime, cfg, prevById, prevByUrl, options),
     MAX_BOOK_CONCURRENCY,
   )
 }
@@ -75,7 +74,6 @@ async function fetchOneBook(
   prevById: Map<string, NovelBook>,
   prevByUrl: Map<string, NovelBook>,
   options: FetchNovelsOptions,
-  resolveAdapter: (url: string) => NovelAdapter | undefined,
 ): Promise<NovelBook> {
   const primaryUrl = cfg.urls[0] ?? ''
   const id = bookId(primaryUrl)
@@ -94,29 +92,11 @@ async function fetchOneBook(
   const sourceResults = await mapLimit(
     cfg.urls,
     async (url) => {
-      const adapter = resolveAdapter(url)
       const prevSource = prev?.sources.find((s) => s.url === url)
-      if (!adapter) {
-        return {
-          source: {
-            url,
-            siteId: 'unknown',
-            mirrorHost: prevSource?.mirrorHost,
-            chapterCount: prevSource?.chapterCount ?? 0,
-            error: '未知站点，暂不支持',
-          } as NovelSourceState,
-          fetchedTitle: '',
-          input: undefined,
-          resolved: false,
-          inputOk: false,
-          failed: true,
-        }
-      }
       try {
         const res = await fetchSourceChapters(
           runtime,
           url,
-          adapter,
           prevPostedAt,
           prevSource?.mirrorHost,
           seenKey,
@@ -125,13 +105,13 @@ async function fetchOneBook(
         return {
           source: {
             url,
-            siteId: adapter.id,
+            siteId: res.siteId,
             mirrorHost: res.mirrorHost,
             chapterCount: res.chapterCount,
             error: '',
           } as NovelSourceState,
           fetchedTitle: res.title ?? '',
-          input: res.chapters.map((c) => ({ ...c, siteId: adapter.id, host: res.mirrorHost })),
+          input: res.chapters.map((c) => ({ ...c, siteId: res.siteId, host: res.mirrorHost })),
           resolved: true,
           inputOk: true,
           failed: false,
@@ -141,7 +121,7 @@ async function fetchOneBook(
         return {
           source: {
             url,
-            siteId: adapter.id,
+            siteId: 'sudugu',
             mirrorHost: prevSource?.mirrorHost,
             chapterCount: prevSource?.chapterCount ?? 0,
             error: message,
@@ -199,7 +179,6 @@ async function fetchOneBook(
 async function fetchSourceChapters(
   runtime: Runtime,
   url: string,
-  adapter: NovelAdapter,
   prevPostedAt: Map<string, number>,
   prevMirrorHost: string | undefined,
   seenKey: string,
@@ -209,13 +188,18 @@ async function fetchSourceChapters(
   title?: string | undefined
   mirrorHost?: string | undefined
   chapterCount: number
+  siteId: string
 }> {
   const now = runtime.now()
-  const hosts = orderedMirrorHosts(url, adapter.hostnames, prevMirrorHost)
+  const hosts = orderedMirrorHosts(url, prevMirrorHost)
   const homeResult = await fetchWithFallback(runtime, url, hosts)
   let usedHost = homeResult.host
   const homeHtml = homeResult.html
   const domParser = new runtime.DOMParser()
+  // Structure alone decides. A domain that changed its layout fails loudly;
+  // a brand-new domain that kept the layout parses without any registration.
+  const adapter = detectAdapter(homeHtml, domParser)
+  if (!adapter) throw new Error('页面结构不受支持，暂不支持该站点')
   const home = adapter.parseHome(homeHtml, url, domParser, now)
 
   const title = home.title ?? undefined
@@ -254,7 +238,7 @@ async function fetchSourceChapters(
       const tailResult = await fetchWithFallback(
         runtime,
         tailUrl,
-        orderedMirrorHosts(tailUrl, adapter.hostnames, usedHost),
+        orderedMirrorHosts(tailUrl, usedHost),
       )
       usedHost = tailResult.host
       const tailChapters = adapter.parseChapterList(tailResult.html, tailUrl, domParser)
@@ -264,7 +248,7 @@ async function fetchSourceChapters(
     chapters = home.latestThree.map((c) => ({ url: c.url, title: c.title, postedAt: c.postedAt }))
   }
 
-  return { chapters, title, mirrorHost: usedHost, chapterCount: chapters.length }
+  return { chapters, title, mirrorHost: usedHost, chapterCount: chapters.length, siteId: 'sudugu' }
 }
 
 /**
@@ -292,11 +276,7 @@ async function fetchTailPages(
   let count = 0
   for (let p = lastPage; p >= 2; p--) {
     const tailUrl = adapter.buildTailUrl(homeUrl, p)
-    const result = await fetchWithFallback(
-      runtime,
-      tailUrl,
-      orderedMirrorHosts(tailUrl, adapter.hostnames, usedHost),
-    )
+    const result = await fetchWithFallback(runtime, tailUrl, orderedMirrorHosts(tailUrl, usedHost))
     usedHost = result.host
     const pageChapters = adapter.parseChapterList(result.html, tailUrl, domParser)
     // Pages are oldest-first; reverse so the page's newest chapter leads.
@@ -372,12 +352,12 @@ function stripWww(host: string): string {
   return host.startsWith('www.') ? host.slice(4) : host
 }
 
-/** Ordered candidate hosts: preferred mirror, original host, then other mirrors (one per site). */
-function orderedMirrorHosts(
-  url: string,
-  hostnames: ReadonlyArray<string>,
-  preferredHost?: string,
-): string[] {
+/**
+ * Candidate hosts: the mirror that served this source last (where domain
+ * migrations land), then the configured host. There is no hardcoded mirror
+ * list — a domain becomes a fallback only after a real fetch recorded it.
+ */
+function orderedMirrorHosts(url: string, preferredHost?: string): string[] {
   let originalHost: string
   try {
     originalHost = new URL(url).hostname
@@ -393,35 +373,9 @@ function orderedMirrorHosts(
     seen.add(s)
     order.push(h)
   }
-  if (
-    preferredHost &&
-    stripWww(preferredHost) !== originalSite &&
-    hostnames.includes(preferredHost)
-  ) {
+  if (preferredHost && stripWww(preferredHost) !== originalSite) {
     pushUnique(preferredHost)
   }
   pushUnique(originalHost)
-  for (const h of otherMirrorHosts(url, hostnames)) pushUnique(h)
   return order
-}
-
-function otherMirrorHosts(url: string, hostnames: ReadonlyArray<string>): string[] {
-  let originalHost: string
-  try {
-    originalHost = new URL(url).hostname
-  } catch {
-    return []
-  }
-  const originalSite = stripWww(originalHost)
-  const seenSites = new Set<string>()
-  const result: string[] = []
-  for (const h of hostnames) {
-    if (h === originalHost) continue
-    if (stripWww(h) === originalSite) continue
-    const site = stripWww(h)
-    if (seenSites.has(site)) continue
-    seenSites.add(site)
-    result.push(h)
-  }
-  return result
 }

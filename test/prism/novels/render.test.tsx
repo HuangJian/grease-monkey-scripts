@@ -1,4 +1,6 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { cleanup, within } from '@testing-library/preact'
 import { renderNovels } from '../../../src/prism/novels/render'
 import type {
@@ -35,8 +37,19 @@ function book(overrides: Partial<NovelBook> & { url?: string; siteId?: string })
   }
 }
 
+const NOVELS_CSS = readFileSync(
+  join(import.meta.dir, '../../../src/prism/overlay/novels.css'),
+  'utf8',
+)
+
 let root: HTMLElement
 let markedSeen: string[]
+
+beforeAll(() => {
+  const style = document.createElement('style')
+  style.textContent = NOVELS_CSS
+  document.head.appendChild(style)
+})
 
 beforeEach(() => {
   globalThis.location.href = 'https://example.com/'
@@ -378,5 +391,35 @@ describe('renderNovels', () => {
     expect(summary.textContent).toContain('118')
     expect(within(root).getAllByRole('link', { name: 'sudugu' }).length).toBe(1)
     expect(within(root).getAllByRole('link', { name: 'b' }).length).toBe(1)
+  })
+
+  test('bugfix: multi-source chapter titles stay 11px like single-source', () => {
+    const singleUrl = 'https://www.sudugu.org/166/'
+    const multiUrl = 'https://www.sudugu520.com/1210/'
+    const otherUrl = 'https://www.deqixs.org/97/'
+
+    const single = book({
+      url: singleUrl,
+      title: '单源',
+      latestChapters: [chapter(`${singleUrl}c1.html`, '第1章')],
+    })
+    const variants: NovelChapterVariant[] = [
+      { url: `${multiUrl}c1.html`, title: '第1章', postedAt: 0, siteId: 'sudugu520' },
+      { url: `${otherUrl}c1.html`, title: '第1章', postedAt: 0, siteId: 'deqixs' },
+    ]
+    const multi = book({
+      url: multiUrl,
+      title: '多源',
+      sources: [
+        { url: multiUrl, siteId: 'sudugu520', chapterCount: 10, error: '' },
+        { url: otherUrl, siteId: 'deqixs', chapterCount: 9, error: '' },
+      ],
+      latestChapters: [{ key: chapterKey('第1章'), title: '第1章', postedAt: 0, variants }],
+    })
+
+    renderNovels(root, { books: [single, multi] }, ctx())
+    const titles = [...root.querySelectorAll<HTMLElement>('.gm-sp-novels-chapter-title')]
+    expect(titles).toHaveLength(2)
+    expect(titles.map((el) => window.getComputedStyle(el).fontSize)).toEqual(['11px', '11px'])
   })
 })

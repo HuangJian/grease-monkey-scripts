@@ -3,9 +3,6 @@ import { parseChapterLabel } from '../../shared/date-parse'
 import type { NovelRawChapter } from '../types'
 import type { NovelAdapter, ParsedHome } from './types'
 
-const SUDUGU_HOSTNAMES = ['www.sudugu.org', 'sudugu.org', 'www.shudugu.org', 'shudugu.org'] as const
-const DEQIXS_HOSTNAMES = ['www.deqixs.org', 'deqixs.org'] as const
-
 function extractTitleFromH1(h1: Element): string | null {
   // Real site markup is `<h1><a href>真实书名</a>最新章节</h1>`. Prefer the
   // anchor text so the trailing "最新章节" marker is not captured as part of
@@ -130,14 +127,8 @@ function buildTailUrl(homeUrl: string, pageNumber: number): string {
 }
 
 /**
- * sudugu and deqixs serve the same chapter-list template, so they share one
- * parser. Each adapter keeps its own id/hostnames so the per-source `siteId`
- * and UI label stay correct per site, and mirror fallback stays scoped to each
- * site's own hosts (no cross-site leakage).
+ * One parser for every site serving this template — sudugu.org, shudugu.org,
+ * deqixs.org, sudugu520.com, and whatever domain comes next. `detect.ts`
+ * selects it from the DOM; no hostname list needs updating when a site moves.
  */
-function makeTemplateAdapter(id: string, hostnames: readonly string[]): NovelAdapter {
-  return { id, hostnames: hostnames as string[], parseHome, parseChapterList, buildTailUrl }
-}
-
-export const suduguAdapter = makeTemplateAdapter('sudugu', SUDUGU_HOSTNAMES)
-export const deqixsAdapter = makeTemplateAdapter('deqixs', DEQIXS_HOSTNAMES)
+export const suduguAdapter: NovelAdapter = { parseHome, parseChapterList, buildTailUrl }

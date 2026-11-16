@@ -31,7 +31,7 @@ import type {
 } from '../../types'
 import type { NovelBookConfig, NovelSourceOptions } from '../types'
 import { ADVANCED_FIELDS } from './types'
-import { hostnameFor, isUnknownHost, loadFreshOptions } from './helpers'
+import { hostnameFor, isInvalidUrl, loadFreshOptions } from './helpers'
 import { ArrowDownIcon, ArrowUpIcon, DeleteIcon } from '../../shared/icons'
 
 export type NovelsEditorOptions = NovelSourceOptions & {
@@ -185,7 +185,7 @@ export function NovelsEditorForm({
 
   /** A book's identity in this editor: its first url, which is its key. */
   const keyOf = (book: NovelBookConfig): string => book.urls[0] ?? book.title
-  const visible = filterBooks(books, query, status, (url) => isUnknownHost(url))
+  const visible = filterBooks(books, query, status, (url) => isInvalidUrl(url))
   const pages = pageCount(visible.length, BOOKS_PER_PAGE)
   const currentPage = Math.min(page, pages - 1)
   const rows = pageOf(visible, currentPage, BOOKS_PER_PAGE)
@@ -490,7 +490,7 @@ export function NovelsEditorForm({
                       />
                     </label>
                     {book.urls.map((url, urlIdx) => {
-                      const unknown = isUnknownHost(url)
+                      const invalid = isInvalidUrl(url)
                       return (
                         <div class="gm-sp-editor-item gm-sp-ne-source" key={`${key}:${urlIdx}`}>
                           {/* Empty for the 2nd+ source: the column stays, the
@@ -518,8 +518,8 @@ export function NovelsEditorForm({
                                 }
                               }}
                             />
-                            <span class="gm-sp-ne-item-warn" hidden={!unknown}>
-                              未知站点
+                            <span class="gm-sp-ne-item-warn" hidden={!invalid}>
+                              URL 无效
                             </span>
                           </div>
                           <button

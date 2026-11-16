@@ -3,6 +3,7 @@ import { findSiteConfig, selectorsFromConfig } from '../selectors'
 import { loadChapter } from './chapter-loader'
 import { mergeCurrentChapterIfNeeded } from './merge-current-page'
 import { createPreloadController } from './preload-controller'
+import { wireKeyboardNav } from './keyboard'
 
 export { findChapterLink, findSiteConfig, selectorsFactory } from '../selectors'
 
@@ -22,6 +23,10 @@ export function startArticlePreloader(runtime: Runtime) {
   }
 
   const controller = createPreloadController(runtime, selectors, boundLoadChapter)
+
+  // Wire once at startup. Registering only after a successful preload left the
+  // arrow keys dead whenever the fetch was slow, retried, or failed.
+  wireKeyboardNav(runtime.document, selectors, () => controller.requestNextChapter())
 
   mergeCurrentChapterIfNeeded(runtime, selectors, () => controller.preloadNextChapter())
 

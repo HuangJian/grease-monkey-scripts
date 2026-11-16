@@ -2,7 +2,6 @@
  * Novels editor helper functions.
  */
 import { loadConfigSection } from '../../config'
-import { adapterByHostname } from '../adapters/registry'
 import type { NovelSourceOptions } from '../types'
 import type { Runtime } from '../../../runtime'
 import { coerceNovelsOptions } from './types'
@@ -22,7 +21,10 @@ export function hostnameFor(url: string): string | null {
   }
 }
 
-export function isUnknownHost(url: string): boolean {
-  const host = hostnameFor(url)
-  return !host || !adapterByHostname(host)
+/**
+ * Domains rotate; support is decided from page structure after fetching.
+ * The editor only rejects syntactically invalid URLs, never an unfamiliar host.
+ */
+export function isInvalidUrl(url: string): boolean {
+  return hostnameFor(url) === null
 }

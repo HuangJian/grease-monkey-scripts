@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'bun:test'
 import { suduguAdapter } from '../../../src/prism/novels/adapters/sudugu'
-import { adapterByUrl } from '../../../src/prism/novels/adapters/registry'
 import { fetchNovels } from '../../../src/prism/novels/fetcher'
 import { chapterKey } from '../../../src/prism/novels/chapter-key'
 import type { NovelBookConfig } from '../../../src/prism/novels/types'
@@ -17,6 +16,7 @@ const DEQIXS_FIXTURE = readFileSync(join(__dirname, 'fixtures', 'deqixs-97-home.
 
 const SHUDUGU_URL = 'https://www.shudugu.org/79/'
 const DEQIXS_URL = 'https://www.deqixs.org/97/'
+const SUDUGU520_URL = 'https://www.sudugu520.com/1210/'
 const TITLE = '1984：从破产川菜馆开始'
 
 /**
@@ -29,13 +29,13 @@ const TITLE = '1984：从破产川菜馆开始'
  * subset with identical chapter numbers — exactly the "same book, one mirror
  * lags" scenario the multi-source feature targets.
  */
-function buildShuduguHtml(truncate: number): string {
+function buildMirrorHtml(hostPath: string, truncate: number): string {
   const runtime = createRuntime()
   const domParser = new runtime.DOMParser()
   const deqHome = suduguAdapter.parseHome(DEQIXS_FIXTURE, DEQIXS_URL, domParser, Date.now())
   // homeChapters is newest-first; drop the newest so the mirror lags by one.
   const kept = deqHome.homeChapters.slice(deqHome.homeChapters.length - truncate)
-  const rewrite = (url: string) => url.replace(/www\.deqixs\.org\/97\//, 'www.shudugu.org/79/')
+  const rewrite = (url: string) => url.replace(/www\.deqixs\.org\/97\//, hostPath)
   const listItems = [...kept]
     .reverse()
     .map((c) => `<li><a href="${rewrite(c.url)}">${c.title}</a></li>`)
@@ -46,11 +46,19 @@ function buildShuduguHtml(truncate: number): string {
     .join('')
   return `<!doctype html><html><body>
     <div class="item"><div class="itemtxt">
-      <h1><a href="/79/#dir">${TITLE}</a>最新章节</h1>
+      <h1><a href="#dir">${TITLE}</a>最新章节</h1>
       <ul>${latest}</ul>
     </div></div>
     <div id="list" class="dir clear"><ul>${listItems}</ul></div>
   </body></html>`
+}
+
+function buildShuduguHtml(truncate: number): string {
+  return buildMirrorHtml('www.shudugu.org/79/', truncate)
+}
+
+function buildSudugu520Html(truncate: number): string {
+  return buildMirrorHtml('www.sudugu520.com/1210/', truncate)
 }
 
 function makeServer(): {
@@ -80,11 +88,6 @@ function makeServer(): {
 }
 
 describe('multi-source fetching against the real deqixs template', () => {
-  test('both example urls resolve to a registered adapter', () => {
-    expect(adapterByUrl(SHUDUGU_URL)?.id).toBe('sudugu')
-    expect(adapterByUrl(DEQIXS_URL)?.id).toBe('deqixs')
-  })
-
   test('parseHome on the real deqixs page: clean title + full chapter list, no pagination', () => {
     const runtime = createRuntime()
     const domParser = new runtime.DOMParser()
@@ -119,8 +122,9 @@ describe('multi-source fetching against the real deqixs template', () => {
     expect(books).toHaveLength(1)
     const book = books[0]!
 
-    // Both sources resolved through the adapter registry (no "未知站点").
-    expect(book.sources.map((s) => s.siteId)).toEqual(['sudugu', 'deqixs'])
+    // Both pages resolve by structure; the two domains stay distinct sources
+    // through their configured URLs, not through a site-id registry.
+    expect(book.sources.map((s) => s.siteId)).toEqual(['sudugu', 'sudugu'])
     expect(book.sources.map((s) => s.error)).toEqual(['', ''])
     // deqixs serves 538 real chapter pages; shudugu stand-in lags by one.
     expect(book.sources.map((s) => s.chapterCount)).toEqual([537, 538])
@@ -151,5 +155,34 @@ describe('multi-source fetching against the real deqixs template', () => {
     const uniqueChapters = new Set(deqChapters.homeChapters.map((c) => chapterKey(c.title))).size
     expect(book.latestChapters).toHaveLength(21)
     expect(book.latestChapters[10]!.omittedCount).toBe(uniqueChapters - 20)
+  })
+
+  test('bugfix: an unregistered domain with a parseable page still merges', async () => {
+    // www.sudugu.org/79/ 301s to the sudugu520 home page; the real book now
+    // lives at /1210/. No hostname is registered for sudugu520 — the page
+    // structure alone must be enough, otherwise this source shows "⚠".
+    const server = makeServer()
+    server.setResponse(SHUDUGU_URL, buildShuduguHtml(537))
+    server.setResponse(SUDUGU520_URL, buildSudugu520Html(538))
+
+    const cfg: NovelBookConfig = { title: TITLE, urls: [SHUDUGU_URL, SUDUGU520_URL] }
+    const books = await fetchNovels(server.runtime, [cfg], [])
+    expect(books).toHaveLength(1)
+    const book = books[0]!
+
+    // Both pages use the same template; identity comes from structure, not host.
+    expect(book.sources.map((s) => s.siteId)).toEqual(['sudugu', 'sudugu'])
+    expect(book.sources.map((s) => s.error)).toEqual(['', ''])
+    expect(book.sources.map((s) => s.chapterCount)).toEqual([537, 538])
+    expect(server.hits).toEqual(expect.arrayContaining([SHUDUGU_URL, SUDUGU520_URL]))
+
+    // The chapter only the newer source has survives, and shared chapters
+    // carry variants from both hosts (no cross-site host rewrite).
+    expect(book.latestChapters.some((c) => c.key === 'n:621')).toBe(true)
+    const shared = book.latestChapters.find((c) => c.key === 'n:620')
+    expect(shared?.variants.map((v) => v.host).sort()).toEqual([
+      'www.shudugu.org',
+      'www.sudugu520.com',
+    ])
   })
 })

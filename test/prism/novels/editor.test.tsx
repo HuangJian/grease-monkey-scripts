@@ -89,16 +89,19 @@ describe('createNovelsEditor', () => {
     expect(within(root).getByText('神书')).not.toBeNull()
   })
 
-  test('shows unknown-site warning for unregistered hostnames', async () => {
-    await mountEditor([{ title: '', urls: ['https://other.example/x/'] }])
+  test('shows warning for a malformed URL', async () => {
+    await mountEditor([{ title: '', urls: ['not-a-url'] }])
     await expandAll()
     // The status filter has an option with the same words — query the badge.
     const warn = root.querySelector<HTMLElement>('.gm-sp-ne-item-warn')!
     expect(warn.hidden).toBe(false)
+    expect(warn.textContent).toContain('URL 无效')
   })
 
-  test('hides unknown-site warning for registered hostnames', async () => {
-    await mountEditor([{ title: '', urls: ['https://www.sudugu.org/166/'] }])
+  test('hides warning for an unfamiliar but valid hostname', async () => {
+    // Domains rotate (sudugu.org → sudugu520.com); support is decided from
+    // page structure after fetching, never from the editor's hostname list.
+    await mountEditor([{ title: '', urls: ['https://www.sudugu520.com/1210/'] }])
     await expandAll()
     const warn = root.querySelector<HTMLElement>('.gm-sp-ne-item-warn')!
     expect(warn.hidden).toBe(true)
@@ -170,7 +173,7 @@ describe('createNovelsEditor', () => {
     urlInput.value = 'not-a-url'
     addBtn.click()
     await waitFor(() => {
-      expect(within(root).getByText(/无效/)).not.toBeNull()
+      expect(within(root).getByText('URL 格式无效')).not.toBeNull()
     })
   })
 

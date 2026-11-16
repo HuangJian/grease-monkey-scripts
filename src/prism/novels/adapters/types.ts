@@ -9,9 +9,12 @@ export type ParsedHome = {
   lastPageNumber: number
 }
 
+/**
+ * A parser for one page structure. There is no hostname or site id here on
+ * purpose: sites rotate domains, so recognition belongs to `detect.ts` and
+ * identity to the configured URL, not to a registry entry.
+ */
 export type NovelAdapter = {
-  readonly id: string
-  readonly hostnames: ReadonlyArray<string>
   parseHome(html: string, pageUrl: string, domParser: DOMParser, now?: number): ParsedHome
   parseChapterList(html: string, pageUrl: string, domParser: DOMParser): NovelRawChapter[]
   buildTailUrl(homeUrl: string, pageNumber: number): string

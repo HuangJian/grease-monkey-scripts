@@ -1,12 +1,12 @@
 import type { NovelBookConfig } from '../types'
 
 /** Which books the editor shows. */
-export const BOOK_STATUSES = ['all', 'unknown', 'noSource'] as const
+export const BOOK_STATUSES = ['all', 'invalid', 'noSource'] as const
 export type BookStatus = (typeof BOOK_STATUSES)[number]
 
 export const BOOK_STATUS_LABELS: Record<BookStatus, string> = {
   all: '全部',
-  unknown: '未知站点',
+  invalid: 'URL 无效',
   noSource: '无来源',
 }
 
@@ -23,11 +23,11 @@ export function filterBooks(
   books: ReadonlyArray<NovelBookConfig>,
   query: string,
   status: BookStatus,
-  isUnknown: (url: string) => boolean,
+  isInvalid: (url: string) => boolean,
 ): NovelBookConfig[] {
   const needle = query.trim().toLowerCase()
   return books.filter((book) => {
-    if (status === 'unknown' && !book.urls.some(isUnknown)) return false
+    if (status === 'invalid' && !book.urls.some(isInvalid)) return false
     if (status === 'noSource' && book.urls.length > 0) return false
     if (!needle) return true
     return (

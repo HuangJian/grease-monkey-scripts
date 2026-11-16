@@ -123,13 +123,13 @@ describe('novels editor long list', () => {
     expect(rows(root)[0]!.dataset['bookKey']).toBe('https://www.sudugu.org/7/')
   })
 
-  test('the 未知站点 filter finds books with an unregistered source', async () => {
+  test('the URL 无效 filter finds books with malformed sources, not unfamiliar domains', async () => {
     const { root } = await setup(createRuntime(), [
-      { title: '已知源', urls: ['https://www.sudugu.org/1/'] },
-      { title: '混杂源', urls: ['https://www.sudugu.org/2/', 'https://other.example/2/'] },
+      { title: '新域名', urls: ['https://www.sudugu520.com/1210/'] },
+      { title: '脏配置', urls: ['https://www.sudugu.org/2/', 'not-a-url'] },
     ])
     const select = root.querySelector('[data-action="toolbar-status"]') as HTMLSelectElement
-    select.value = 'unknown'
+    select.value = 'invalid'
     select.dispatchEvent(new Event('change'))
     await waitFor(() => {
       expect(rows(root)).toHaveLength(1)

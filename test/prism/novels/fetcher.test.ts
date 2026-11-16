@@ -1,7 +1,4 @@
 import { describe, expect, test } from 'bun:test'
-import { suduguAdapter } from '../../../src/prism/novels/adapters/sudugu'
-import { adapterByUrl } from '../../../src/prism/novels/adapters/registry'
-import type { NovelAdapter } from '../../../src/prism/novels/adapters/types'
 import { mergeTail, fetchNovels } from '../../../src/prism/novels/fetcher'
 import { bookId, normalizeBook } from '../../../src/prism/novels/migrate'
 import type { NovelBook, NovelBookConfig, NovelRawChapter } from '../../../src/prism/novels/types'
@@ -89,18 +86,6 @@ const URL_166 = 'https://www.sudugu.org/166/'
 const URL_12 = 'https://www.sudugu.org/12/'
 const URL_OTHER = 'https://other.example/book/1/'
 const SITE_B = 'https://b.example/166/'
-
-/** A second site, parsed with the same fixtures so tests stay about merging. */
-function siteAdapter(id: string, hostnames: string[]): NovelAdapter {
-  return { ...suduguAdapter, id, hostnames }
-}
-
-const SITE_B_ADAPTER = siteAdapter('site-b', ['b.example'])
-
-function resolveAdapter(url: string): NovelAdapter | undefined {
-  if (SITE_B_ADAPTER.hostnames.includes(new URL(url).hostname)) return SITE_B_ADAPTER
-  return adapterByUrl(url)
-}
 
 function book(title: string, ...urls: string[]): NovelBookConfig {
   return { title, urls }
@@ -366,13 +351,7 @@ describe('fetchNovels', () => {
       id: bookId(SITE_B),
     }
     // Primary is now sudugu, but sudugu is still listed, so the marker is recovered.
-    const books = await fetchNovels(
-      server.runtime,
-      [book('T', URL_166, SITE_B)],
-      [prev],
-      undefined,
-      resolveAdapter,
-    )
+    const books = await fetchNovels(server.runtime, [book('T', URL_166, SITE_B)], [prev], undefined)
     expect(books[0]!.lastSeenChapterKey).toBe('n:4')
   })
 
@@ -429,15 +408,21 @@ describe('fetchNovels', () => {
       [book('九龙夺嫡', URL_166, SITE_B)],
       [],
       undefined,
-      resolveAdapter,
     )
 
-    expect(books[0]!.sources.map((s) => s.siteId)).toEqual(['sudugu', 'site-b'])
+    // Same template on two domains ⇒ same parser id; the configured URL, not
+    // a site-id registry, keeps the two sources distinct.
+    expect(books[0]!.sources.map((s) => s.siteId)).toEqual(['sudugu', 'sudugu'])
     expect(books[0]!.sources.map((s) => s.chapterCount)).toEqual([3, 3])
     expect(books[0]!.latestChapters.map((c) => c.key)).toEqual(['n:5', 'n:4', 'n:3', 'n:2', 'n:1'])
     // Chapter 5 only exists on the second site, chapter 3 on both.
-    expect(books[0]!.latestChapters[0]!.variants.map((v) => v.siteId)).toEqual(['site-b'])
-    expect(books[0]!.latestChapters[2]!.variants.map((v) => v.siteId)).toEqual(['sudugu', 'site-b'])
+    expect(books[0]!.latestChapters[0]!.variants.map((v) => v.url)).toEqual([
+      'https://b.example/166/b5.html',
+    ])
+    expect(books[0]!.latestChapters[2]!.variants.map((v) => v.url)).toEqual([
+      'https://www.sudugu.org/166/c3.html',
+      'https://b.example/166/b3.html',
+    ])
   })
 
   test('keeps the book usable when one of two sources fails', async () => {
@@ -455,7 +440,6 @@ describe('fetchNovels', () => {
       [book('九龙夺嫡', URL_166, SITE_B)],
       [],
       undefined,
-      resolveAdapter,
     )
 
     expect(books[0]!.latestChapters.map((c) => c.key)).toEqual(['n:3'])
@@ -476,13 +460,20 @@ describe('fetchNovels', () => {
     expect(books[0]!.lastSeenChapterKey).toBe('n:4')
   })
 
-  test('unknown site reports per source and falls back to the configured title', async () => {
+  test('an unparseable page is reported per source; the url is still fetched', async () => {
     const server = makeServer()
+    // Recognition happens on the HTML, so even an unfamiliar domain is
+    // requested first. Only the structure decides whether it is supported.
+    server.setResponse(
+      URL_OTHER,
+      '<!doctype html><html><body><p>nothing novel-like here</p></body></html>',
+    )
     const books = await fetchNovels(server.runtime, [book('神书', URL_OTHER)], [])
-    expect(server.hits).toEqual([])
-    expect(books[0]!.sources).toEqual([
-      { url: URL_OTHER, siteId: 'unknown', chapterCount: 0, error: '未知站点，暂不支持' },
-    ])
+    expect(server.hits).toEqual([URL_OTHER])
+    expect(books[0]!.sources).toHaveLength(1)
+    expect(books[0]!.sources[0]!.url).toBe(URL_OTHER)
+    expect(books[0]!.sources[0]!.error).toContain('页面结构不受支持')
+    expect(books[0]!.sources[0]!.chapterCount).toBe(0)
     expect(books[0]!.title).toBe('神书')
     expect(books[0]!.latestChapters).toEqual([])
   })
@@ -502,11 +493,12 @@ describe('fetchNovels', () => {
     expect(books[0]!.title).toBe('神书')
   })
 
-  test('falls back to shudugu.org mirror when sudugu.org fails', async () => {
+  test('a mirror recovered from cache serves the book when the configured host is down', async () => {
     const server = makeServer()
+    const mirror = 'https://www.sudugu520.com/166/'
     server.setError(URL_166)
     server.setResponse(
-      'https://www.shudugu.org/166/',
+      mirror,
       homeHtml({
         title: '镜中书',
         chapters: [
@@ -516,25 +508,49 @@ describe('fetchNovels', () => {
         ],
       }),
     )
-    const books = await fetchNovels(server.runtime, [book('', URL_166)], [])
-    expect(server.hits).toEqual([URL_166, 'https://www.shudugu.org/166/'])
-    // Book identity stays on the canonical sudugu url; the serving host is per source.
+    // No hostname registry: the mirror exists only because a previous fetch
+    // recorded it. That is how a domain move becomes usable without a release.
+    const prev: NovelBook = {
+      ...legacyPrev({ url: URL_166, lastSeenUrl: '' }),
+      sources: [
+        {
+          url: URL_166,
+          siteId: 'sudugu',
+          mirrorHost: 'www.sudugu520.com',
+          chapterCount: 0,
+          error: '',
+        },
+      ],
+    }
+    const books = await fetchNovels(server.runtime, [book('', URL_166)], [prev])
+    expect(server.hits).toEqual([mirror])
+    // Book identity stays on the configured url; the serving host is per source.
     expect(books[0]!.id).toBe(bookId(URL_166))
     expect(books[0]!.sources[0]!.url).toBe(URL_166)
-    expect(books[0]!.sources[0]!.mirrorHost).toBe('www.shudugu.org')
+    expect(books[0]!.sources[0]!.mirrorHost).toBe('www.sudugu520.com')
     expect(books[0]!.title).toBe('镜中书')
     expect(books[0]!.latestChapters).toHaveLength(3)
-    // Links point at the host that actually served the content.
-    expect(books[0]!.latestChapters[0]!.variants[0]!.host).toBe('www.shudugu.org')
+    expect(books[0]!.latestChapters[0]!.variants[0]!.host).toBe('www.sudugu520.com')
   })
 
-  test('records error only after every mirror fails', async () => {
+  test('records an error only after the configured host and cached mirror both fail', async () => {
     const server = makeServer()
     server.setError(URL_166)
-    server.setError('https://www.shudugu.org/166/')
-    const prev = legacyPrev({ url: URL_166, lastSeenUrl: 'https://www.sudugu.org/166/c4.html' })
+    server.setError('https://www.sudugu520.com/166/')
+    const prev: NovelBook = {
+      ...legacyPrev({ url: URL_166, lastSeenUrl: 'https://www.sudugu.org/166/c4.html' }),
+      sources: [
+        {
+          url: URL_166,
+          siteId: 'sudugu',
+          mirrorHost: 'www.sudugu520.com',
+          chapterCount: 0,
+          error: '',
+        },
+      ],
+    }
     const books = await fetchNovels(server.runtime, [book('', URL_166)], [prev])
-    expect(server.hits).toEqual([URL_166, 'https://www.shudugu.org/166/'])
+    expect(server.hits).toEqual(['https://www.sudugu520.com/166/', URL_166])
     expect(books[0]!.sources[0]!.error).toMatch(/network error/)
     expect(books[0]!.fetchedAt).toBe(1000)
   })
@@ -612,7 +628,7 @@ describe('fetchNovels', () => {
         })
       }, 5)
     }) as TestRuntime['request']
-    await fetchNovels(server.runtime, [book('', URL_166, SITE_B)], [], undefined, resolveAdapter)
+    await fetchNovels(server.runtime, [book('', URL_166, SITE_B)], [])
     expect(maxPending).toBe(2)
   })
 
@@ -646,7 +662,6 @@ describe('fetchNovels', () => {
       ],
       [],
       undefined,
-      resolveAdapter,
     )
     expect(books.map((b) => b.id)).toEqual([
       bookId('https://www.sudugu.org/a/'),

@@ -686,6 +686,129 @@ describe('integration: startArticlePreloader', () => {
   })
 })
 
+describe('keyboard navigation on a multi-page chapter', () => {
+  const chapter = (num: number) => `
+    <html><head></head><body>
+      <div class="con">Chapter ${num} body</div>
+      <div class="prenext">
+        <a href="/229/c${num - 1}.html">上一章</a>
+        <a href="/229/#dir">目录</a>
+        <a href="/229/c${num + 1}.html">下一章</a>
+      </div>
+    </body></html>`
+
+  function setup() {
+    const dom = createHappyDom(chapter(1), 'https://www.sudugu520.com/229/c1.html')
+    const requests: Array<{ url: string; onload: RequestDetails['onload'] }> = []
+    const runtime = {
+      ...createRuntime(dom),
+      request: ({ url, onload }: { url: string; onload: RequestDetails['onload'] }) => {
+        requests.push({ url, onload })
+      },
+    }
+    startArticlePreloader(runtime)
+    return { dom, doc: dom.document as unknown as Document, requests }
+  }
+
+  function press(win: ReturnType<typeof createHappyDom>, key: string) {
+    const evt = new win.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
+    win.document.dispatchEvent(evt)
+    return evt
+  }
+
+  test('a second ArrowRight while the next chapter is loading never blanks the page', () => {
+    const { dom, doc, requests } = setup()
+    // The initial preload of chapter 2 lands, making the first advance ready.
+    expect(requests.length).toBe(1)
+    requests[0]!.onload({ responseText: chapter(2), status: 200, responseHeaders: '' })
+
+    press(dom, 'ArrowRight')
+    expect(doc.querySelector('.con')?.textContent).toContain('Chapter 2 body')
+
+    // Chapter 3 is now in flight. Hammering right must not wipe the document.
+    expect(requests.length).toBe(2)
+    press(dom, 'ArrowRight')
+    const con = doc.querySelector('.con')
+    expect(con).not.toBeNull()
+    expect(con?.textContent).toContain('Chapter 2 body')
+  })
+
+  test('a queued ArrowRight advances as soon as the preload lands', () => {
+    const { dom, doc, requests } = setup()
+    requests[0]!.onload({ responseText: chapter(2), status: 200, responseHeaders: '' })
+    press(dom, 'ArrowRight')
+    press(dom, 'ArrowRight')
+
+    expect(doc.querySelector('.con')?.textContent).toContain('Chapter 2 body')
+    requests[1]!.onload({ responseText: chapter(3), status: 200, responseHeaders: '' })
+    expect(doc.querySelector('.con')?.textContent).toContain('Chapter 3 body')
+  })
+
+  test('arrow keys prevent the browser default scroll', () => {
+    const { dom } = setup()
+    expect(press(dom, 'ArrowRight').defaultPrevented).toBe(true)
+    expect(press(dom, 'ArrowLeft').defaultPrevented).toBe(true)
+  })
+
+  test('right arrow lands on the fully merged multi-page next chapter', () => {
+    const page = (body: string, nav: string) => `
+      <html><head></head><body>
+        <div class="con">${body}</div>
+        <div class="prenext">${nav}</div>
+      </body></html>`
+    const bodies: Record<string, string> = {
+      '/229/c1-2.html': page('Current p2', '<a href="/229/c2.html">下一章</a>'),
+      '/229/c2.html': page('Next p1', '<a href="/229/c2-2.html">下一页</a>'),
+      '/229/c2-2.html': page('Next p2', '<a href="/229/c3.html">下一章</a>'),
+    }
+    const currentHtml = page('Current p1', '<a href="/229/c1-2.html">下一页</a>')
+
+    const dom = createHappyDom(currentHtml, 'https://www.sudugu520.com/229/c1.html')
+    const requests: Array<{ url: string; onload: RequestDetails['onload'] }> = []
+    const runtime = {
+      ...createRuntime(dom),
+      request: ({ url, onload }: { url: string; onload: RequestDetails['onload'] }) => {
+        requests.push({ url, onload })
+      },
+    }
+    startArticlePreloader(runtime)
+
+    // Press before either the merge or the preload has finished.
+    press(dom, 'ArrowRight')
+    while (requests.length > 0) {
+      const req = requests.shift()!
+      const url = Object.keys(bodies).find((key) => req.url.includes(key))
+      req.onload({
+        responseText: url ? bodies[url]! : currentHtml,
+        status: 200,
+        responseHeaders: '',
+      })
+    }
+
+    const con = (dom.document as unknown as Document).querySelector('.con')
+    expect(con?.textContent).toContain('Next p1')
+    expect(con?.textContent).toContain('Next p2')
+    expect(con?.textContent).not.toContain('Current p1')
+  })
+
+  test('arrow keys inside a text field do not flip chapters', () => {
+    const { doc, requests } = setup()
+    requests[0]!.onload({ responseText: chapter(2), status: 200, responseHeaders: '' })
+
+    const input = doc.createElement('input')
+    doc.body.appendChild(input)
+    const evt = new KeyboardEvent('keydown', {
+      key: 'ArrowRight',
+      bubbles: true,
+      cancelable: true,
+    })
+    input.dispatchEvent(evt)
+
+    expect(evt.defaultPrevented).toBe(false)
+    expect(doc.querySelector('.con')?.textContent).toContain('Chapter 1 body')
+  })
+})
+
 describe('userscript metadata', () => {
   test('matches every host, so a site moving to a new domain needs no script change', async () => {
     // Detection is by page structure, but Tampermonkey only injects where the
